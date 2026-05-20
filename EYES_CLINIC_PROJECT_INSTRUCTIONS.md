@@ -1,9 +1,9 @@
 # Eyes Clinic Management System — Project Instructions
 
-> **Tên dự án:** Hệ thống Quản lý Phòng khám Nhãn Khoa Ánh Sao  
-> **Mã dự án:** SWP391_2026_04  
-> **Stack:** ReactJS (Vite) + Java Spring Boot + MySQL  
-> **Tài liệu gốc:** Eyes_Clinic_RDS_v1_1.docx (V2.0 — 18/05/2025)  
+> **Tên dự án:** Hệ thống Quản lý Phòng khám Nhãn Khoa Ánh Sao
+> **Mã dự án:** SWP391_2026_04
+> **Stack:** ReactJS (Vite) + Java Spring Boot + MySQL
+> **Tài liệu gốc:** Eyes_Clinic_RDS_v2_0_final.docx (V2.0 — 18/05/2025)
 > **Mục đích file này:** Cung cấp context đầy đủ để mọi câu hỏi kỹ thuật được trả lời nhất quán, không bị đứt quãng, không miss thông tin từ RDS.
 
 ---
@@ -18,8 +18,8 @@ Hệ thống quản lý phòng khám nhãn khoa (Eyes Clinic Management System) 
 Frontend (ReactJS + Vite)  <-->  Backend (Spring Boot REST API)  <-->  MySQL Database
 ```
 
-**Môi trường triển khai:** Cloud (AWS EC2 / Railway / VPS)  
-**Authentication:** JWT (Access Token 60 phút, Refresh Token 7 ngày)  
+**Môi trường triển khai:** Cloud (AWS EC2 / Railway / VPS)
+**Authentication:** JWT (Access Token 60 phút, Refresh Token 7 ngày)
 **Authorization:** RBAC với 7 roles
 
 ---
@@ -31,7 +31,7 @@ Frontend (ReactJS + Vite)  <-->  Backend (Spring Boot REST API)  <-->  MySQL Dat
 - **State Management:** Redux Toolkit
 - **Routing:** React Router v6 (protected routes theo role)
 - **HTTP Client:** Axios (với interceptor)
-- **UI:** shadcn/ui hoặc Ant Design (tự quyết định phù hợp với dự án clinic)
+- **UI:** shadcn/ui hoặc Ant Design
 
 ### Backend
 - **Framework:** Spring Boot
@@ -63,7 +63,7 @@ com.eyesclinic/
 ├── entity/         # JPA Entity classes mapping DB tables
 ├── dto/            # Request/Response DTOs
 ├── security/       # JWT filter, Spring Security config, RBAC
-├── scheduler/      # Cron jobs (reminder, inventory alert,...)
+├── scheduler/      # Cron jobs (reminder, monthly report,...)
 └── config/         # CORS, Swagger, Email config
 ```
 
@@ -71,19 +71,19 @@ com.eyesclinic/
 
 ## 3. Actors & Roles
 
-| Role | Mô tả tóm tắt |
-|------|----------------|
+| Role | Mô tả |
+|------|--------|
 | **Admin** | Toàn quyền hệ thống: quản lý tài khoản người dùng, phân quyền, cấu hình hệ thống, xem báo cáo tổng quan |
-| **Clinic Manager** | Quản lý vận hành phòng khám: xem báo cáo doanh thu, quản lý lịch làm việc bác sĩ, quản lý nhân sự, phê duyệt đơn hàng nhập thuốc/thiết bị |
+| **Clinic Manager** | Quản lý vận hành phòng khám: xem báo cáo doanh thu, quản lý lịch làm việc bác sĩ, quản lý nhân sự |
 | **Doctor** | Bác sĩ khám bệnh, kê đơn thuốc kính, lập hồ sơ bệnh án, xem lịch khám, ghi kết quả xét nghiệm thị lực và các kết quả chẩn đoán |
 | **Receptionist** | Tiếp nhận bệnh nhân, đăng ký lịch hẹn, thu phí dịch vụ, in hóa đơn, hướng dẫn bệnh nhân tại phòng khám |
-| **Pharmacist** | Quản lý tồn kho thuốc và thiết bị quang học, xuất thuốc theo đơn, nhập hàng, kiểm soát hạn sử dụng, cảnh báo tồn kho thấp |
+| **Pharmacist** | Xuất thuốc theo đơn kê của bác sĩ và lập hóa đơn thuốc điện tử cho bệnh nhân |
 | **Patient** | Đặt lịch hẹn online, xem hồ sơ khám bệnh cá nhân, nhận thông báo nhắc lịch tái khám, xem đơn thuốc/kính |
 | **Lab Technician** | Thực hiện xét nghiệm thị lực, đo khúc xạ, chụp ảnh đáy mắt, OCT; nhập kết quả vào hệ thống để bác sĩ đọc |
 
 ---
 
-## 4. Use Cases Index (30 UCs)
+## 4. Use Cases Index (33 UCs)
 
 | UC ID | Module | Use Case | Actor chính |
 |-------|--------|----------|-------------|
@@ -91,35 +91,35 @@ com.eyesclinic/
 | UC-02 | Quản lý Bệnh nhân | Đăng nhập hệ thống | Tất cả Actor |
 | UC-03 | Quản lý Bệnh nhân | Quản lý hồ sơ cá nhân bệnh nhân | Patient, Receptionist |
 | UC-04 | Quản lý Bệnh nhân | Tìm kiếm & tra cứu bệnh nhân | Receptionist, Doctor, Pharmacist |
-| UC-05a | Quản lý Bệnh nhân | Lễ tân tạo tài khoản cho bệnh nhân đến trực tiếp chưa có tài khoản | Receptionist |
-| UC-05b | Quản lý Lịch hẹn | Đặt lịch hẹn khám trực tuyến | Patient |
-| UC-06 | Quản lý Lịch hẹn | Xác nhận & phân công lịch hẹn | Receptionist |
-| UC-07 | Quản lý Lịch hẹn | Hủy/Đổi lịch hẹn | Patient, Receptionist |
-| UC-08 | Quản lý Lịch hẹn | Nhắc lịch hẹn tự động (Email/SMS) | System |
-| UC-09 | Quản lý Lịch hẹn | Quản lý lịch làm việc bác sĩ | Manager, Admin |
-| UC-10 | Khám bệnh & EMR | Tiếp nhận bệnh nhân vào khám | Receptionist |
-| UC-11 | Khám bệnh & EMR | Lập hồ sơ bệnh án điện tử (EMR) | Doctor |
-| UC-12 | Khám bệnh & EMR | Kê đơn thuốc & kính | Doctor |
-| UC-13 | Khám bệnh & EMR | Chỉ định xét nghiệm / xét nghiệm thị lực | Doctor |
-| UC-14 | Khám bệnh & EMR | Xem lịch sử khám bệnh | Doctor, Patient |
-| UC-15 | Xét nghiệm & Chẩn đoán | Nhập kết quả xét nghiệm / đo khúc xạ | Lab Technician |
-| UC-16 | Xét nghiệm & Chẩn đoán | Xem & đọc kết quả xét nghiệm | Doctor |
-| UC-17 | Xét nghiệm & Chẩn đoán | Bệnh nhân chọn loại gọng kính để cắt | Patient |
-| UC-18 | Xét nghiệm & Chẩn đoán | Kỹ thuật viên cắt kính theo thông số bác sĩ + gọng bệnh nhân đã chọn | Lab Technician |
-| UC-19 | Xét nghiệm & Chẩn đoán | Quản lý danh mục dịch vụ xét nghiệm | Admin, Manager |
-| UC-20 | Thanh toán & Hóa đơn | Tính phí dịch vụ khám & thuốc | Receptionist |
-| UC-21 | Thanh toán & Hóa đơn | Xử lý thanh toán (tiền mặt/chuyển khoản) | Receptionist |
-| UC-22 | Thanh toán & Hóa đơn | In & gửi hóa đơn điện tử | Receptionist |
-| UC-23 | Thanh toán & Hóa đơn | Tra cứu lịch sử thanh toán | Receptionist, Manager, Patient |
-| UC-24 | Báo cáo & Thống kê | Báo cáo doanh thu theo ngày/tháng | Manager, Admin |
-| UC-25 | Báo cáo & Thống kê | Báo cáo số lượt khám & bệnh nhân | Manager, Admin |
-| UC-26 | Báo cáo & Thống kê | Dashboard tổng quan hệ thống | Admin, Manager |
-| UC-27 | Quản trị hệ thống | Quản lý tài khoản & phân quyền | Admin |
-| UC-28 | Quản trị hệ thống | Cấu hình danh mục hệ thống | Admin |
-| UC-29 | Quản trị hệ thống | Quản lý thông tin phòng khám | Admin, Manager |
-| UC-30 | Quản trị hệ thống | Xem log hoạt động hệ thống | Admin |
-
-> **Lưu ý:** RDS đã thêm UC-05a (Lễ tân tạo tài khoản walk-in), UC-17 (Patient chọn gọng kính), UC-18 (KTV cắt kính). Bỏ các UC Pharmacy riêng biệt — Pharmacy được xử lý qua luồng liên thông từ Prescription.
+| UC-05 | Quản lý Bệnh nhân | Tạo tài khoản cho bệnh nhân vãng lai (walk-in) | Receptionist |
+| UC-06 | Quản lý Lịch hẹn | Đặt lịch hẹn khám trực tuyến | Patient |
+| UC-07 | Quản lý Lịch hẹn | Xác nhận & phân công lịch hẹn | Receptionist |
+| UC-08 | Quản lý Lịch hẹn | Hủy/Đổi lịch hẹn | Patient, Receptionist |
+| UC-09 | Quản lý Lịch hẹn | Nhắc lịch hẹn tự động (Email/SMS) | System |
+| UC-10 | Quản lý Lịch hẹn | Quản lý lịch làm việc bác sĩ | Manager, Admin |
+| UC-11 | Khám bệnh & EMR | Tiếp nhận bệnh nhân vào khám | Receptionist |
+| UC-12 | Khám bệnh & EMR | Lập hồ sơ bệnh án (EMR) | Doctor |
+| UC-13 | Khám bệnh & EMR | Kê đơn thuốc & kính | Doctor |
+| UC-14 | Khám bệnh & EMR | Chỉ định xét nghiệm / xét nghiệm thị lực | Doctor |
+| UC-15 | Khám bệnh & EMR | Xem lịch sử khám bệnh | Doctor, Patient |
+| UC-16 | Xét nghiệm & Chẩn đoán | Nhập kết quả xét nghiệm / đo khúc xạ | Lab Technician |
+| UC-17 | Xét nghiệm & Chẩn đoán | Xem & đọc kết quả xét nghiệm | Doctor |
+| UC-18 | Xét nghiệm & Chẩn đoán | Bệnh nhân chọn loại gọng kính để cắt | Patient |
+| UC-19 | Xét nghiệm & Chẩn đoán | Kỹ thuật viên cắt kính theo thông số bác sĩ + gọng bệnh nhân đã chọn | Lab Technician |
+| UC-20 | Xét nghiệm & Chẩn đoán | Quản lý danh mục dịch vụ xét nghiệm | Admin, Manager |
+| UC-21 | Kê đơn & Xuất thuốc | Xuất thuốc theo đơn kê | Pharmacist |
+| UC-22 | Kê đơn & Xuất thuốc | Xuất hóa đơn thuốc điện tử | Pharmacist |
+| UC-23 | Thanh toán & Hóa đơn | Tính phí dịch vụ khám & thuốc | Receptionist |
+| UC-24 | Thanh toán & Hóa đơn | Xử lý thanh toán (tiền mặt/chuyển khoản) | Receptionist |
+| UC-25 | Thanh toán & Hóa đơn | In & gửi hóa đơn điện tử | Receptionist |
+| UC-26 | Thanh toán & Hóa đơn | Tra cứu lịch sử thanh toán | Receptionist, Manager, Patient |
+| UC-27 | Báo cáo & Thống kê | Báo cáo doanh thu theo ngày/tháng | Manager, Admin |
+| UC-28 | Báo cáo & Thống kê | Báo cáo số lượt khám & bệnh nhân | Manager, Admin |
+| UC-29 | Báo cáo & Thống kê | Dashboard tổng quan hệ thống | Admin, Manager |
+| UC-30 | Quản trị hệ thống | Quản lý tài khoản & phân quyền | Admin |
+| UC-31 | Quản trị hệ thống | Cấu hình danh mục hệ thống | Admin |
+| UC-32 | Quản trị hệ thống | Quản lý thông tin phòng khám | Admin, Manager |
+| UC-33 | Quản trị hệ thống | Xem log hoạt động hệ thống | Admin |
 
 ---
 
@@ -144,31 +144,32 @@ com.eyesclinic/
 | 13 | `invoice_items` | Chi tiết dòng hóa đơn | item_id | invoice_id |
 | 14 | `services` | Danh mục dịch vụ & bảng giá | service_id | — |
 
-
 ---
 
 ## 6. Screen Authorization Matrix
 
-> X = full access | (xem) = read-only | (cá nhân) = chỉ data của bản thân
+> X = full access | ✓(xem) = read-only | ✓(cá nhân) = chỉ data của bản thân | — = không có quyền
 
 | Screen | Admin | Manager | Doctor | Receptionist | Pharmacist | Patient | Lab Tech |
 |--------|-------|---------|--------|--------------|------------|---------|----------|
 | Đăng ký / Đăng nhập | X | X | X | X | X | X | X |
 | Dashboard tổng quan | X | X | — | — | — | — | — |
-| Quản lý Bệnh nhân | X | X | X | X | X | X (cá nhân) | — |
-| Đặt & Quản lý Lịch hẹn | X | X | X (xem) | X | — | X | — |
+| Quản lý Bệnh nhân | X | X | X | X | X | ✓(cá nhân) | — |
+| Đặt & Quản lý Lịch hẹn | X | X | ✓(xem) | X | — | X | — |
 | Tiếp nhận Bệnh nhân | X | X | — | X | — | — | — |
-| Hồ sơ Bệnh án (EMR) | X (xem) | X (xem) | X | — | X (xem đơn) | X (xem) | X (xem) |
-| Kê Đơn thuốc & Kính | — | — | X | — | X (xem) | X (xem) | — |
-| Xét nghiệm & Chẩn đoán | — | — | X | — | — | X (xem) | X |
-| Thanh toán & Hóa đơn | X | X | — | X | — | X (xem) | — |
-| Báo cáo & Thống kê | X | X | — | — | X (kho) | — | — |
-| Quản lý Nhân sự & Lịch làm việc | X | X | X (cá nhân) | — | — | — | X (cá nhân) |
-| Cấu hình hệ thống & Phân quyền | X | — | — | — | — | — | — |
+| Hồ sơ Bệnh án (EMR) | ✓(xem) | ✓(xem) | X | — | ✓(đơn) | ✓(xem) | ✓(xem) |
+| Kê Đơn thuốc & Kính | — | — | X | — | ✓(xem) | ✓(xem) | — |
+| Xét nghiệm & Chẩn đoán | — | — | X | — | — | ✓(xem) | X |
+| Xuất thuốc & Hóa đơn thuốc | — | — | — | — | X | — | — |
+| Thanh toán & Hóa đơn | X | X | — | X | — | ✓(xem) | — |
+| Báo cáo & Thống kê | X | X | — | — | — | — | — |
+| Quản lý Nhân sự & Lịch | X | X | ✓(cá nhân) | — | — | — | ✓(cá nhân) |
+| Cấu hình Hệ thống & Phân quyền | X | — | — | — | — | — | — |
+| Log hoạt động hệ thống | X | — | — | — | — | — | — |
 
 ---
 
-## 7. Functional Requirements (25 FRs)
+## 7. Functional Requirements (22 FRs)
 
 ### Must Have
 
@@ -183,18 +184,16 @@ com.eyesclinic/
 | FR-08 | Appointment | Lễ tân xác nhận/sửa/hủy lịch, hệ thống gửi email/SMS tự động |
 | FR-10 | EMR | Bác sĩ lập/cập nhật EMR: triệu chứng, chẩn đoán, phác đồ điều trị |
 | FR-11 | EMR | Ghi nhận dữ liệu nhãn khoa: VA, BCVA, số đo độ kính hiện tại, nhãn áp, đáy mắt |
-| FR-12 | EMR | Kê đơn thuốc & đơn kính (toa kính) điện tử, liên thông kho dược |
+| FR-12 | EMR | Bác sĩ kê đơn thuốc & đơn kính điện tử, chuyển đơn đến dược sĩ xử lý |
 | FR-13 | Lab | Bác sĩ chỉ định xét nghiệm; KTV nhập kết quả đo khúc xạ, OCT, chụp ảnh đáy mắt |
 | FR-14 | Lab | Kết quả xét nghiệm hiển thị trong EMR, bác sĩ có thể gắn chú thích đọc kết quả |
-| FR-15 | Pharmacy | Quản lý danh mục thuốc: số lô, NSX, HSD, đơn vị tính, nhà cung cấp |
-| FR-16 | Pharmacy | Cảnh báo tồn kho dưới mức tối thiểu hoặc thuốc sắp hết hạn (≤ 30 ngày) |
-| FR-17 | Pharmacy | Xuất thuốc theo đơn kê, trừ tồn kho FIFO theo lô |
-| FR-18 | Billing | Tính phí tổng hóa đơn: phí khám + phí xét nghiệm + phí thuốc/kính |
-| FR-19 | Billing | Hỗ trợ tiền mặt & chuyển khoản QR Code |
-| FR-20 | Billing | Phát sinh & lưu hóa đơn điện tử, in/gửi email cho bệnh nhân |
-| FR-21 | Reports | Báo cáo doanh thu ngày/tuần/tháng/năm, xuất Excel |
-| FR-24 | Admin | Quản lý tài khoản, phân role, khóa/mở khóa tài khoản |
-| FR-25 | Admin | Cấu hình danh mục: loại dịch vụ, bảng giá khám, loại thuốc, phòng khám |
+| FR-15 | Pharmacy | Dược sĩ xuất thuốc theo đơn kê và tạo hóa đơn thuốc điện tử tính vào hồ sơ bệnh nhân |
+| FR-16 | Billing | Tính phí tổng hóa đơn: phí khám + phí xét nghiệm + phí thuốc/kính |
+| FR-17 | Billing | Hỗ trợ tiền mặt & chuyển khoản QR Code |
+| FR-18 | Billing | Phát sinh & lưu hóa đơn điện tử, in/gửi email cho bệnh nhân |
+| FR-19 | Reports | Báo cáo doanh thu ngày/tuần/tháng/năm, xuất Excel |
+| FR-21 | Admin | Quản lý tài khoản, phân role, khóa/mở khóa tài khoản |
+| FR-22 | Admin | Cấu hình danh mục: loại dịch vụ, bảng giá khám, loại thuốc, phòng khám |
 
 ### Should Have
 
@@ -202,8 +201,7 @@ com.eyesclinic/
 |----|---------|--------|
 | FR-02 | Auth | Đăng nhập Google OAuth 2.0 cho Patient |
 | FR-09 | Appointment | Auto nhắc lịch qua email trước 24 giờ |
-| FR-22 | Reports | Báo cáo số lượt khám, bệnh nhân mới, tỷ lệ bệnh theo loại |
-| FR-23 | Reports | Báo cáo xuất-nhập-tồn kho thuốc theo kỳ |
+| FR-20 | Reports | Báo cáo số lượt khám, bệnh nhân mới, tỷ lệ bệnh theo loại |
 
 ---
 
@@ -212,11 +210,9 @@ com.eyesclinic/
 | # | Tên | Loại | Mô tả | Trigger |
 |---|-----|------|--------|---------|
 | 1 | Auto Reminder Job | Cron | Gửi email nhắc lịch hẹn trước 24 giờ | Mỗi giờ |
-| 2 | Low Stock Alert Job | Cron | Kiểm tra tồn kho, gửi cảnh báo khi dưới ngưỡng tối thiểu | Hàng ngày |
-| 3 | Expiry Alert Job | Cron | Kiểm tra thuốc hết hạn trong 30 ngày, cảnh báo dược sĩ | Hàng ngày |
-| 4 | Invoice PDF Generator | Service | Sinh file PDF hóa đơn điện tử, gửi email cho bệnh nhân | On-demand |
-| 5 | Token Refresh Service | API | Refresh JWT Access Token dùng Refresh Token | On-demand |
-| 6 | Monthly Report Generator | Cron | Tổng hợp báo cáo tháng trước, lưu DB | Đầu tháng |
+| 2 | Invoice PDF Generator | Service | Sinh file PDF hóa đơn điện tử, gửi email cho bệnh nhân | On-demand |
+| 3 | Token Refresh Service | API | Refresh JWT Access Token dùng Refresh Token | On-demand |
+| 4 | Monthly Report Generator | Cron | Tổng hợp báo cáo tháng trước, lưu DB | Đầu tháng |
 
 ---
 
@@ -235,8 +231,6 @@ com.eyesclinic/
 | BR-07 | Billing | Hóa đơn chỉ được phát hành khi bệnh nhân đã hoàn tất thanh toán đầy đủ |
 | BR-08 | Data | Hồ sơ bệnh án là dữ liệu nhạy cảm — chỉ bác sĩ phụ trách và bệnh nhân mới được xem |
 | BR-09 | Data | **Không hard delete** hồ sơ bệnh nhân — chỉ deactivate (soft delete) |
-
-> **So sánh với version cũ:** BR-07 (Pharmacy FIFO) và BR-09 (no expired medicine) đã được gộp vào logic service FR-17, không còn là BR độc lập.
 
 ---
 
@@ -282,7 +276,7 @@ com.eyesclinic/
 
 ---
 
-## 12. Module Development Priority (Recommended Order)
+## 12. Module Development Priority
 
 ```
 Phase 1 — Foundation
@@ -296,46 +290,46 @@ Phase 2 — Core Clinical Flow
 
 Phase 3 — Support Modules
 ├── Module 5: Laboratory & Diagnostics (xét nghiệm, cắt kính)
-├── Module 6: Pharmacy & Inventory (tủ thuốc, xuất thuốc FIFO)
+├── Module 6: Pharmacy (xuất thuốc theo đơn, hóa đơn thuốc điện tử)
 └── Module 7: Billing & Invoice (tính phí, thanh toán, hóa đơn)
 
 Phase 4 — Analytics & Automation
 ├── Module 8: Reports & Analytics (dashboard, báo cáo)
-└── Non-UI: Cron jobs (nhắc lịch, cảnh báo thuốc, báo cáo tháng)
+└── Non-UI: Cron jobs (nhắc lịch, báo cáo tháng)
 ```
 
 ---
 
-## 13. Key Integration Points (Cần chú ý khi code)
+## 13. Key Integration Points
 
-### Doctor → Prescription → Pharmacy (Luồng kê đơn liên thông)
+### Doctor → Prescription → Pharmacist (Luồng kê đơn)
 ```
-Doctor kê đơn (UC-12)
+Doctor kê đơn (UC-13)
   → Tạo record trong `prescriptions` + `prescription_items`
-  → Pharmacist xuất thuốc
-     → Trừ tồn kho trong `medicines` theo FIFO (BR-06 + FR-17)
-     → Không xuất nếu thuốc đã hết hạn
+  → Pharmacist nhận đơn (UC-21)
+     → Xuất thuốc & tạo hóa đơn thuốc điện tử (UC-22)
 ```
 
 ### Doctor → Lab → EMR (Luồng xét nghiệm & cắt kính)
 ```
-Doctor chỉ định (UC-13)
+Doctor chỉ định (UC-14)
   → Tạo record trong `lab_orders`
-  → Lab Tech nhập kết quả (UC-15)
+  → Lab Tech nhập kết quả (UC-16)
      → Tạo record trong `lab_results`
-  → Doctor đọc kết quả trong EMR (UC-16)
+  → Doctor đọc kết quả trong EMR (UC-17)
 
-Patient chọn gọng kính (UC-17)
-  → Lab Tech cắt kính theo thông số bác sĩ + gọng đã chọn (UC-18)
+Patient chọn gọng kính (UC-18)
+  → Lab Tech cắt kính theo thông số bác sĩ + gọng đã chọn (UC-19)
 ```
 
 ### Appointment → Queue → EMR → Billing (Luồng khám tổng thể)
 ```
-Patient đặt lịch (UC-05b)                 -- hoặc walk-in qua UC-05a
-  → Receptionist xác nhận (UC-06)
-  → Receptionist tiếp nhận vào khám (UC-10)
-  → Doctor lập EMR (UC-11) + Kê đơn (UC-12) + Chỉ định XN (UC-13)
-  → Receptionist tính phí (UC-20) + Thu tiền (UC-21) + In HĐ (UC-22)
+Patient đặt lịch (UC-06)                  -- hoặc walk-in qua UC-05
+  → Receptionist xác nhận (UC-07)
+  → Receptionist tiếp nhận vào khám (UC-11)
+  → Doctor lập EMR (UC-12) + Kê đơn (UC-13) + Chỉ định XN (UC-14)
+  → Pharmacist xuất thuốc + HĐ thuốc (UC-21, UC-22)
+  → Receptionist tính phí (UC-23) + Thu tiền (UC-24) + In HĐ (UC-25)
 ```
 
 ---
@@ -351,19 +345,18 @@ Theo BR-08 và Nghị định 13/2023/NĐ-CP:
 
 ---
 
-## 15. Glossary (Thuật ngữ chuyên ngành)
+## 15. Glossary
 
 | Thuật ngữ | Viết tắt | Mô tả |
 |-----------|----------|--------|
 | Electronic Medical Record | EMR | Hồ sơ bệnh án điện tử |
-| Visual Acuity (không kính) | VA | Thị lực không có kính |
+| Visual Acuity | VA | Thị lực không có kính |
 | Best Corrected Visual Acuity | BCVA | Thị lực có kính tốt nhất |
 | Optical Coherence Tomography | OCT | Chụp cắt lớp mạch lạc quang học |
 | Role-Based Access Control | RBAC | Phân quyền theo vai trò |
-| First In First Out | FIFO | Xuất hàng nhập trước xuất trước (quản lý kho thuốc) |
-| Refraction | — | Đo khúc xạ mắt |
 | Intraocular Pressure | IOP / Nhãn áp | Áp lực trong nhãn cầu |
+| Refraction | — | Đo khúc xạ mắt |
 
 ---
 
-*File này phản ánh RDS V2.0 (18/05/2025). Cập nhật file khi RDS thay đổi.*
+*File này phản ánh RDS V2.0 (20/05/2025). Cập nhật file khi RDS thay đổi.*
