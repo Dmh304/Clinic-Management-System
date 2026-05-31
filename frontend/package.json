@@ -13,9 +13,11 @@
     "@hookform/resolvers": "^5.2.2",
     "@tailwindcss/vite": "^4.3.0",
     "antd": "^6.3.7",
+    "@reduxjs/toolkit": "^2.3.0",
     "axios": "^1.16.1",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
+    "react-redux": "^9.1.2",
     "react-hook-form": "^7.75.0",
     "react-router-dom": "^7.15.0",
     "zod": "^4.4.3"

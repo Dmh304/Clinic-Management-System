@@ -80,8 +80,7 @@ Hệ thống phục vụ **9 nhóm người dùng** (Guest, Patient, Receptionis
 
 ### Module 6 — Pharmacy
 - Dược sĩ nhận đơn thuốc từ bác sĩ
-- Xuất thuốc theo nguyên tắc **FIFO** (First In First Out)
-- Cảnh báo tồn kho thấp (< 10 đơn vị) và thuốc sắp hết hạn (≤ 30 ngày)
+- Xác nhận cấp phát thuốc theo đúng đơn thuốc đã kê của bác sĩ
 - Phát hành hóa đơn dược điện tử
 
 ### Module 7 — Billing & Invoice
@@ -94,7 +93,7 @@ Hệ thống phục vụ **9 nhóm người dùng** (Guest, Patient, Receptionis
 - Báo cáo doanh thu theo ngày / tuần / tháng / năm, xuất Excel
 - Thống kê lượt khám, bệnh nhân mới, tỷ lệ bệnh theo loại
 - Dashboard real-time cho Clinic Manager
-- Báo cáo tồn kho và tiêu thụ dược phẩm
+- Báo cáo thống kê tần suất kê đơn và tiêu thụ dược phẩm
 - Theo dõi hiệu suất nhân sự
 
 ### Module 9 — System Administration
@@ -427,7 +426,7 @@ ecms/
 
 | UC ID | Use Case | Actors | Priority |
 |-------|----------|--------|----------|
-| UC-26 | Receive & Dispense Drug Prescription (FIFO) | Pharmacist | Must Have |
+| UC-26 | Receive & Dispense Drug Prescription | Pharmacist | Must Have |
 | UC-27 | Issue Electronic Invoice (Pharmacy) | Pharmacist | Must Have |
 
 #### 🖥 Patient Portal
@@ -437,27 +436,25 @@ ecms/
 | UC-28 | View Electronic Prescriptions and Eyeglass | Patient | Must Have |
 | UC-29 | View Diagnostic Results | Patient | Must Have |
 | UC-30 | Register for Eye Care Services | Patient | Should Have |
+| UC-31 | Generate feedback | Patient | Should Have |
 
 #### 📊 Administration & Analytics
 
 | UC ID | Use Case | Actors | Priority |
 |-------|----------|--------|----------|
-| UC-31 | Generate Revenue Report | Clinic Manager | Must Have |
-| UC-32 | View Patient Volume Statistics and Trends | Clinic Manager | Should Have |
-| UC-33 | Monitor Staff Performance Dashboard | Clinic Manager | Should Have |
-| UC-34 | View Real-time Operational Analytics Dashboard | Clinic Manager | Must Have |
-| UC-35 | Generate Feedback Report | Clinic Manager | Should Have |
+| UC-32 | Generate Revenue Report | Clinic Manager | Must Have |
+| UC-33 | View Patient Volume Statistics and Trends | Clinic Manager | Should Have |
+| UC-34 | Monitor Staff Performance Dashboard | Clinic Manager | Should Have |
+| UC-35 | View Real-time Operational Analytics Dashboard | Clinic Manager | Must Have |
+| UC-36 | Generate Feedback Report | Clinic Manager | Should Have |
 
 #### ⚙️ System Admin & Security
 
 | UC ID | Use Case | Actors | Priority |
 |-------|----------|--------|----------|
-| UC-36 | Manage User Account | Admin | Must Have |
-| UC-37 | Configure System and Data | Admin | Must Have |
-| UC-38 | Manage System Audit Log | Admin | Must Have |
-| UC-39 | Perform Manual Data Backup | Admin | Must Have |
-| UC-40 | Configure Automated Backup Schedule | Admin | Must Have |
-| UC-41 | Restore System Data from Backup | Admin | Must Have |
+| UC-37 | Manage User Account | Admin | Must Have |
+| UC-38 | Configure System and Data | Admin | Must Have |
+| UC-39 | Manage System Audit Log | Admin | Must Have |
 
 ---
 
@@ -469,7 +466,7 @@ ecms/
 |---|------|-------|----|----|
 | 1 | `users` | Tài khoản người dùng | user_id | role_id |
 | 2 | `roles` | Danh mục vai trò (Admin, Doctor...) | role_id | — |
-| 3 | `patients` | Hồ sơ bệnh nhân | patient_id | user_id |
+| 3 | `patients` | Hồ sơ bệnh nhân (mã bệnh nhân, thông tin liên hệ...) | patient_id | user_id |
 | 4 | `doctors` | Thông tin bác sĩ, chuyên khoa | doctor_id | user_id |
 | 5 | `appointments` | Lịch hẹn khám | appointment_id | patient_id, doctor_id |
 | 6 | `medical_records` | Hồ sơ bệnh án điện tử (EMR) | record_id | appointment_id, doctor_id, patient_id |
@@ -477,17 +474,23 @@ ecms/
 | 8 | `prescription_items` | Chi tiết từng thuốc trong đơn | item_id | prescription_id, medicine_id |
 | 9 | `lab_orders` | Phiếu chỉ định xét nghiệm | order_id | record_id, doctor_id |
 | 10 | `lab_results` | Kết quả xét nghiệm | result_id | order_id, lab_tech_id |
-| 11 | `medicines` | Danh mục thuốc | medicine_id | — |
+| 11 | `medicines` | Danh mục thuốc (tên thuốc, đơn vị tính, đơn giá...) | medicine_id | — |
 | 12 | `invoices` | Hóa đơn thanh toán | invoice_id | appointment_id, patient_id |
 | 13 | `invoice_items` | Chi tiết dòng hóa đơn | item_id | invoice_id |
 | 14 | `services` | Danh mục dịch vụ & bảng giá | service_id | — |
+| 15 | `eyeglass_prescriptions` | Đơn kính điện tử (các thông số độ cận, viễn, loạn, trục, PD...) | eyeglass_prescription_id | record_id |
+| 16 | `doctor_schedules` | Lịch trực ca của bác sĩ (ngày, ca trực, giới hạn lịch hẹn trong ca) | schedule_id | doctor_id |
+| 17 | `feedbacks` | Phản hồi đánh giá của bệnh nhân sau ca khám | feedback_id | patient_id, appointment_id |
+| 18 | `notifications` | Hộp thư thông báo hệ thống của người dùng (in-app notifications) | notification_id | user_id |
+| 19 | `blogs` | Bài viết chia sẻ kiến thức chăm sóc mắt | post_id | author_id |
+| 20 | `audit_logs` | Nhật ký ghi nhận lịch sử truy cập và thay đổi dữ liệu nhạy cảm (append-only) | log_id | user_id |
 
 ### Trạng thái dữ liệu chính
 
 ```
 Appointment:  PENDING → CONFIRMED → IN_PROGRESS → COMPLETED → CANCELLED
 EMR:          DRAFT → IN_PROGRESS → COMPLETED (locked)
-Lab Order:    PENDING → IN_PROGRESS → COMPLETED
+Lab Order:    PENDING → IN_PROGRESS → COMPLETED | CANCELLED
 Prescription: PENDING → IN_PREPARATION → DISPENSED | SKIPPED
 Invoice:      UNPAID → PAID | PAYMENT_FAILED | PENDING_PAYMENT
 ```
@@ -559,12 +562,15 @@ Authorization: Bearer <access_token>
 | BR-04 | Appointment | Advance Booking | Đặt lịch trước ≥ 2 giờ so với giờ khám |
 | BR-05 | Appointment | Cancellation Deadline | Hủy lịch trước ≥ 1 giờ so với giờ khám |
 | BR-06 | Prescription | Prescription Authority | Chỉ bác sĩ có license_number mới được kê đơn |
-| BR-07 | Pharmacy | FIFO Dispensing | Xuất thuốc theo FIFO, không xuất thuốc hết hạn |
+| BR-07 | Prescription | Prescription Dispensing | Dược sĩ cấp phát thuốc chính xác theo đúng các loại thuốc và số lượng được kê trong đơn thuốc của bác sĩ |
 | BR-08 | Data Access | EMR Confidentiality | EMR chỉ bác sĩ phụ trách & bệnh nhân được xem |
 | BR-09 | Data | No Hard Delete | Không xóa vật lý — chỉ deactivate bằng cờ status |
 | BR-10 | Billing | Invoice Issuance | Hóa đơn chỉ phát hành sau khi thanh toán đủ |
-| BR-11 | Pharmacy | Low Stock Alert | Cảnh báo khi tồn kho < 10 đơn vị hoặc HSD ≤ 30 ngày |
+| BR-11 | Prescription | Active Medicine Verification | Thuốc được kê đơn và cấp phát phải tồn tại trong danh mục thuốc hoạt động và có đơn giá được niêm yết trong hệ thống |
 | BR-12 | Billing | Invoice Calculation | Tổng = phí khám + phí XN + phí thuốc/kính |
+| BR-13 | Queue | Queue Numbering | Mỗi bệnh nhân tiếp nhận thành công vào hàng chờ khám được cấp số thứ tự tăng dần trong ngày theo phòng khám/bác sĩ |
+| BR-14 | Privacy | Personal Data Protection | Mọi hành động truy xuất thông tin EMR, xem dữ liệu nhạy cảm phải được ghi nhận lịch sử vào `audit_logs` (Nghị định 13/2023/NĐ-CP) |
+| BR-15 | Appointment | Booking Slot Validation | Chỉ cho phép đặt lịch hẹn trực tuyến khớp với ca trực khả dụng và còn trống của bác sĩ trong `doctor_schedules` |
 
 ---
 
@@ -597,29 +603,12 @@ Authorization: Bearer <access_token>
 | # | Tên | Mô tả | Trigger |
 |---|-----|-------|---------|
 | 1 | Auto Reminder Job | Gửi email nhắc lịch hẹn trước 24 giờ | Mỗi giờ |
-| 2 | Expiry Alert Job | Cảnh báo thuốc hết hạn trong 30 ngày | Hàng ngày |
-| 3 | Invoice PDF Generator | Sinh file PDF hóa đơn & gửi email | On-demand |
-| 4 | Token Refresh Service | Refresh JWT Access Token | On-demand |
-| 5 | Monthly Report Generator | Tổng hợp báo cáo tháng trước | Đầu tháng |
+| 2 | Invoice PDF Generator | Sinh file PDF hóa đơn & gửi email | On-demand |
+| 3 | Token Refresh Service | Refresh JWT Access Token | On-demand |
+| 4 | Monthly Report Generator | Tổng hợp báo cáo tháng trước | Đầu tháng |
 
 ---
 
-## 👥 Nhóm phát triển
-
-| Tên | Role | Phụ trách |
-|-----|------|-----------|
-| [Thành viên 1] | Team Lead / Backend | Auth, Security, RBAC |
-| [Thành viên 2] | Backend | EMR, Prescription, Lab |
-| [Thành viên 3] | Backend | Appointment, Billing |
-| [Thành viên 4] | Frontend | Patient Portal, Booking |
-| [Thành viên 5] | Frontend | Doctor EMR, Admin Panel |
-| [Thành viên 6] | Database / Docs | DB Design, Reports |
-
-**Project Code:** SWP391_2026_04  
-**Course:** SWP391 — Software Development Project  
-**Institution:** FPT University
-
----
 
 ## 📚 Tài liệu liên quan
 
