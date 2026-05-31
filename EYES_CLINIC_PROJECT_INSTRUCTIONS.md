@@ -305,7 +305,7 @@ ecms/
 │   │   │   ├── receptionist/          # Appointment Management, Invoice
 │   │   │   ├── doctor/                # EMR, Prescription, Lab Order
 │   │   │   ├── lab/                   # Lab Queue, Result Entry
-│   │   │   ├── pharmacy/              # Dispensing, Inventory
+│   │   │   ├── pharmacy/              # Dispensing
 │   │   │   ├── manager/               # Reports, Dashboard, Analytics
 │   │   │   └── admin/                 # User Management, System Config
 │   │   ├── services/                  # Axios API calls + interceptors
@@ -336,7 +336,7 @@ ecms/
 │       ├── entity/                    # JPA Entity classes
 │       ├── dto/                       # Request / Response DTOs
 │       ├── security/                  # JWT filter, Spring Security, RBAC
-│       ├── scheduler/                 # Cron jobs (reminder, inventory alert)
+│       ├── scheduler/                 # Cron jobs (reminder, report)
 │       ├── config/                    # CORS, Swagger, Email config
 │       └── exception/                 # Global exception handler
 │   ├── src/main/resources/
@@ -557,7 +557,6 @@ Blog Post:      DRAFT → PUBLISHED → ARCHIVED
 |------|-------|
 | `invoice_details.ref_id` | Polymorphic FK — trỏ đến `service_id`, `medicine_id` hoặc `glasses_orders.id` tùy `item_type`. SQL Server không enforce FK constraint cho cột polymorphic → **bắt buộc validate ở tầng Service/Application** |
 | `service_assignments` | Gán lab result với service. Cần làm rõ use case — nếu không có nghiệp vụ độc lập thì xem xét loại bỏ vì đã có `lab_order_items.service_id` |
-| `medicines` tồn kho | Bảng hiện chỉ lưu danh mục + đơn giá, **không theo dõi số lượng tồn**. Nếu cần cảnh báo "sắp hết thuốc" thì bổ sung cột `stock_quantity` vào `medicines` |
 
 ---
 
