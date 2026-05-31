@@ -460,40 +460,104 @@ ecms/
 
 ## 🗄 Cơ sở dữ liệu
 
-### Danh sách bảng chính
+> **Database:** SQL Server — kết nối qua SSMS. Toàn bộ schema chi tiết (fields, types, constraints, indexes) xem tại `ECMS_Database_Table_SQLServer.pdf`.
 
-| # | Bảng | Mô tả | PK | FK |
+### Danh sách bảng (28 bảng)
+
+#### Nhóm Xác thực & Người dùng
+
+| # | Bảng | Mô tả | PK | FK chính |
 |---|------|-------|----|----|
-| 1 | `users` | Tài khoản người dùng | user_id | role_id |
-| 2 | `roles` | Danh mục vai trò (Admin, Doctor...) | role_id | — |
-| 3 | `patients` | Hồ sơ bệnh nhân (mã bệnh nhân, thông tin liên hệ...) | patient_id | user_id |
-| 4 | `doctors` | Thông tin bác sĩ, chuyên khoa | doctor_id | user_id |
-| 5 | `appointments` | Lịch hẹn khám | appointment_id | patient_id, doctor_id |
-| 6 | `medical_records` | Hồ sơ bệnh án điện tử (EMR) | record_id | appointment_id, doctor_id, patient_id |
-| 7 | `prescriptions` | Đơn thuốc | prescription_id | record_id |
-| 8 | `prescription_items` | Chi tiết từng thuốc trong đơn | item_id | prescription_id, medicine_id |
-| 9 | `lab_orders` | Phiếu chỉ định xét nghiệm | order_id | record_id, doctor_id |
-| 10 | `lab_results` | Kết quả xét nghiệm | result_id | order_id, lab_tech_id |
-| 11 | `medicines` | Danh mục thuốc (tên thuốc, đơn vị tính, đơn giá...) | medicine_id | — |
-| 12 | `invoices` | Hóa đơn thanh toán | invoice_id | appointment_id, patient_id |
-| 13 | `invoice_items` | Chi tiết dòng hóa đơn | item_id | invoice_id |
-| 14 | `services` | Danh mục dịch vụ & bảng giá | service_id | — |
-| 15 | `eyeglass_prescriptions` | Đơn kính điện tử (các thông số độ cận, viễn, loạn, trục, PD...) | eyeglass_prescription_id | record_id |
-| 16 | `doctor_schedules` | Lịch trực ca của bác sĩ (ngày, ca trực, giới hạn lịch hẹn trong ca) | schedule_id | doctor_id |
-| 17 | `feedbacks` | Phản hồi đánh giá của bệnh nhân sau ca khám | feedback_id | patient_id, appointment_id |
-| 18 | `notifications` | Hộp thư thông báo hệ thống của người dùng (in-app notifications) | notification_id | user_id |
-| 19 | `blogs` | Bài viết chia sẻ kiến thức chăm sóc mắt | post_id | author_id |
-| 20 | `audit_logs` | Nhật ký ghi nhận lịch sử truy cập và thay đổi dữ liệu nhạy cảm (append-only) | log_id | user_id |
+| 1 | `roles` | Danh mục vai trò (ADMIN, DOCTOR, PATIENT...) | id | — |
+| 2 | `users` | Tài khoản người dùng. Có `failed_login_count` + `locked_until` để xử lý BR-02 | id | — |
+| 3 | `user_roles` | Junction table user ↔ role (nhiều-nhiều) | (user_id, role_id) | users, roles |
+| 4 | `refresh_tokens` | Lưu hash Refresh Token (7 ngày). Dùng để thu hồi token khi logout | id | users |
+| 5 | `password_reset_tokens` | Token đặt lại mật khẩu & xác thực email có thời hạn. Dùng cho UC-06 | id | users |
+
+#### Nhóm Hồ sơ Nhân sự & Lịch làm việc
+
+| # | Bảng | Mô tả | PK | FK chính |
+|---|------|-------|----|----|
+| 6 | `patients` | Hồ sơ bệnh nhân (mã BN, CCCD, nhóm máu, dị ứng, liên hệ khẩn cấp) | id | users |
+| 7 | `doctors` | Thông tin bác sĩ, chuyên khoa, `license_number` (bắt buộc cho BR-06) | id | users |
+| 8 | `staffs` | Hồ sơ nhân viên không phải bác sĩ (Receptionist, Pharmacist, Lab Tech, Manager) | id | users |
+| 9 | `doctor_schedules` | Ca trực của bác sĩ theo ngày, giờ, số slot tối đa. Dùng cho BR-03, BR-15 | id | doctors |
+
+#### Nhóm Danh mục & Lịch hẹn
+
+| # | Bảng | Mô tả | PK | FK chính |
+|---|------|-------|----|----|
+| 10 | `services` | Danh mục dịch vụ & bảng giá. Flag `is_lab_service` phân biệt dịch vụ xét nghiệm | id | — |
+| 11 | `appointments` | Lịch hẹn khám. Có `queue_number` (BR-13), `service_id`, `check_in_by` | id | patients, doctors, services, users |
+
+#### Nhóm Khám bệnh & Kê đơn
+
+| # | Bảng | Mô tả | PK | FK chính |
+|---|------|-------|----|----|
+| 12 | `medical_records` | Hồ sơ bệnh án điện tử (EMR). Lưu thị lực, nhãn áp, chẩn đoán. Bị khoá sau khi hoàn tất | id | appointments, patients, doctors |
+| 13 | `prescriptions` | Đơn thuốc/kính điện tử. `type`: MEDICINE / GLASSES / BOTH. BR-06: chỉ bác sĩ có license | id | medical_records, users |
+| 14 | `medicines` | Danh mục thuốc, đơn giá niêm yết (BR-11) | id | — |
+| 15 | `prescription_items` | Chi tiết từng thuốc trong đơn. Snapshot `unit_price` tại thời điểm kê | id | prescriptions, medicines |
+| 16 | `glasses_orders` | Đơn kính điện tử (SPH/CYL/AXIS, PD, loại tròng, phủ). Trạng thái đến IN_PRODUCTION | id | prescriptions, users |
+
+#### Nhóm Xét nghiệm
+
+| # | Bảng | Mô tả | PK | FK chính |
+|---|------|-------|----|----|
+| 17 | `lab_orders` | Phiếu chỉ định xét nghiệm. Có `priority`: NORMAL / URGENT | id | medical_records, users |
+| 18 | `lab_order_items` | Chi tiết từng loại xét nghiệm trong phiếu → liên kết với `services` | id | lab_orders, services |
+| 19 | `lab_results` | Kết quả xét nghiệm, ảnh đính kèm (OCT, ảnh đáy mắt). Có bước doctor review | id | lab_orders, users |
+| 20 | `service_assignments` | Gán kết quả xét nghiệm với dịch vụ tương ứng | id | lab_results, services |
+
+#### Nhóm Thanh toán & Hóa đơn
+
+| # | Bảng | Mô tả | PK | FK chính |
+|---|------|-------|----|----|
+| 21 | `invoices` | Hóa đơn thanh toán. Có `payment_method` (CASH/VIET_QR), `payment_reference` cho QR | id | appointments, patients, users |
+| 22 | `invoice_details` | Chi tiết dòng hóa đơn theo `item_type`: SERVICE / MEDICINE / GLASSES / OTHER | id | invoices |
+
+#### Nhóm Tương tác & Nội dung
+
+| # | Bảng | Mô tả | PK | FK chính |
+|---|------|-------|----|----|
+| 23 | `notifications` | Thông báo hệ thống. Hỗ trợ kênh EMAIL / IN_APP / SMS. Có `is_read`, `read_at` | id | users |
+| 24 | `feedbacks` | Đánh giá của bệnh nhân (1–5 sao). Duyệt trước khi hiển thị | id | patients, appointments, doctors |
+| 25 | `blog_posts` | Bài viết kiến thức chăm sóc mắt. Có SEO slug, trạng thái DRAFT/PUBLISHED | id | users |
+
+#### Nhóm Hệ thống & Quản trị
+
+| # | Bảng | Mô tả | PK | FK chính |
+|---|------|-------|----|----|
+| 26 | `audit_logs` | Nhật ký truy cập và thay đổi dữ liệu nhạy cảm (append-only). BR-14, Nghị định 13/2023 | id | users |
+| 27 | `system_configs` | Cấu hình hệ thống dạng key-value (vd: MAX_APPOINTMENTS_PER_DAY). Module 9 | id | users |
+| 28 | `backup_logs` | Lịch sử backup thủ công và tự động, có trạng thái và thông tin restore | id | users |
+
+---
 
 ### Trạng thái dữ liệu chính
 
 ```
-Appointment:  PENDING → CONFIRMED → IN_PROGRESS → COMPLETED → CANCELLED
-EMR:          DRAFT → IN_PROGRESS → COMPLETED (locked)
-Lab Order:    PENDING → IN_PROGRESS → COMPLETED | CANCELLED
-Prescription: PENDING → IN_PREPARATION → DISPENSED | SKIPPED
-Invoice:      UNPAID → PAID | PAYMENT_FAILED | PENDING_PAYMENT
+Appointment:    PENDING → CONFIRMED → IN_PROGRESS → COMPLETED → CANCELLED
+EMR:            DRAFT → IN_PROGRESS → COMPLETED (locked)
+Lab Order:      PENDING → IN_PROGRESS → COMPLETED | CANCELLED
+Lab Result:     PENDING → COMPLETED → REVIEWED
+Prescription:   PENDING → IN_PREPARATION → DISPENSED | SKIPPED
+Glasses Order:  PENDING → IN_PRODUCTION → READY → DISPENSED | CANCELLED
+Invoice:        DRAFT → ISSUED → CANCELLED  |  payment_status: UNPAID → PAID | PAYMENT_FAILED
+Notification:   sent_status: PENDING → SENT | FAILED
+Feedback:       PENDING → APPROVED | HIDDEN
+Blog Post:      DRAFT → PUBLISHED → ARCHIVED
 ```
+
+---
+
+### Lưu ý kỹ thuật
+
+| Điểm | Mô tả |
+|------|-------|
+| `invoice_details.ref_id` | Polymorphic FK — trỏ đến `service_id`, `medicine_id` hoặc `glasses_orders.id` tùy `item_type`. SQL Server không enforce FK constraint cho cột polymorphic → **bắt buộc validate ở tầng Service/Application** |
+| `service_assignments` | Gán lab result với service. Cần làm rõ use case — nếu không có nghiệp vụ độc lập thì xem xét loại bỏ vì đã có `lab_order_items.service_id` |
+| `medicines` tồn kho | Bảng hiện chỉ lưu danh mục + đơn giá, **không theo dõi số lượng tồn**. Nếu cần cảnh báo "sắp hết thuốc" thì bổ sung cột `stock_quantity` vào `medicines` |
 
 ---
 
