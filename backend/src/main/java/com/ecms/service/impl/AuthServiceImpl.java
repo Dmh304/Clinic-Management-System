@@ -38,10 +38,10 @@ public class AuthServiceImpl implements AuthService {
             throw new UnauthorizedException("Email hoặc mật khẩu không đúng");
         }
 
-        String roleName = user.getRoles().stream()
-                .findFirst()
-                .map(Role::getName)
-                .orElseThrow(() -> new UnauthorizedException("Tài khoản chưa được gán vai trò"));
+        if (user.getRole() == null) {
+            throw new UnauthorizedException("Tài khoản chưa được gán vai trò");
+        }
+        String roleName = user.getRole().getName();
 
         String token = jwtUtil.generateToken(user.getEmail(), roleName);
 
@@ -70,8 +70,8 @@ public class AuthServiceImpl implements AuthService {
                 .email(request.getEmail())
                 .phone(request.getPhone())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
+                .role(patientRole)
                 .build();
-        user.getRoles().add(patientRole);
 
         userRepository.save(user);
 
