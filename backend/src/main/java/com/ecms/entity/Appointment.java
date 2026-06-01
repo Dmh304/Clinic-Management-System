@@ -2,7 +2,8 @@ package com.ecms.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import java.time.LocalDate;
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 import java.time.LocalDateTime;
 
 @Entity
@@ -15,14 +16,17 @@ public class Appointment {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @NotFound(action = NotFoundAction.IGNORE)
     @JoinColumn(name = "patient_id", nullable = false)
     private Patient patient;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @NotFound(action = NotFoundAction.IGNORE)
     @JoinColumn(name = "doctor_id")
     private Doctor doctor;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @NotFound(action = NotFoundAction.IGNORE)
     @JoinColumn(name = "service_id")
     private ClinicService clinicService;
 

@@ -14,6 +14,7 @@ import com.ecms.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -29,7 +30,7 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new UnauthorizedException("Email hoặc mật khẩu không đúng"));
 
-        if (!user.isEnabled()) {
+        if (!"ACTIVE".equals(user.getStatus())) {
             throw new UnauthorizedException("Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên");
         }
 
@@ -37,7 +38,11 @@ public class AuthServiceImpl implements AuthService {
             throw new UnauthorizedException("Email hoặc mật khẩu không đúng");
         }
 
+        if (user.getRole() == null) {
+            throw new UnauthorizedException("Tài khoản chưa được gán vai trò");
+        }
         String roleName = user.getRole().getName();
+
         String token = jwtUtil.generateToken(user.getEmail(), roleName);
 
         return AuthResponse.builder()
@@ -51,6 +56,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("Email đã được sử dụng");

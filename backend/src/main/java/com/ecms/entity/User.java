@@ -19,28 +19,26 @@ public class User {
     private Long id;
 
     @Column(unique = true, nullable = false)
-    private String username;
-
-    @Column(unique = true, nullable = false)
     private String email;
 
-    @Column(nullable = false)
-    private String passwordHash;   // rõ ràng hơn "password"
+    @Column(name = "password", nullable = false)
+    private String passwordHash;
 
-    @Column(nullable = false)
+    @Column(name = "full_name", nullable = false)
     private String fullName;
 
+    @Column(name = "phone_number")
     private String phone;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "role_id", nullable = false)
-    private Role role;             // dùng entity, không dùng String
+    private Role role;
 
     @Column(nullable = false)
     @Builder.Default
-    private boolean enabled = true;
+    private String status = "ACTIVE";
 
     @CreationTimestamp
-    @Column(updatable = false)
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 }

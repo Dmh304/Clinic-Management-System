@@ -5,7 +5,7 @@ import lombok.*;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "clinic_services")
+@Table(name = "services")
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class ClinicService {
 
@@ -13,7 +13,7 @@ public class ClinicService {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "service_name", nullable = false)
+    @Column(name = "name", nullable = false)
     private String serviceName;
 
     @Column(name = "description")

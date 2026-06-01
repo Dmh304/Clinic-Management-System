@@ -15,6 +15,6 @@ public class Role {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true, nullable = false, length = 50)
+    @Column(name = "role_name", unique = true, nullable = false, length = 50)
     private String name; // PATIENT | DOCTOR | RECEPTIONIST | LAB_TECHNICIAN | PHARMACIST | MANAGER | ADMIN
 }

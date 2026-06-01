@@ -31,6 +31,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     private final ClinicServiceRepository clinicServiceRepository;
 
     @Override
+    @Transactional(readOnly = true)
     public List<AppointmentResponse> getTodayAppointments() {
         LocalDate today = LocalDate.now();
         LocalDateTime start = today.atStartOfDay();
@@ -73,7 +74,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .findByAppointmentDateAndStatusOrderByCreatedAtAsc(
                         start,
                         end,
-                        AppointmentStatus.CHECKED_IN
+                        AppointmentStatus.CONFIRMED
                 )
                 .stream()
                 .map(this::toResponse)
@@ -236,7 +237,6 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .doctorId(a.getDoctor() != null ? a.getDoctor().getId() : null)
                 .doctorName(a.getDoctor() != null ? a.getDoctor().getFullName() : null)
                 .serviceName(a.getClinicService() != null ? a.getClinicService().getServiceName() : null)
-                .appointmentDate(a.getAppointmentDate())
                 .appointmentTime(a.getAppointmentTime())
                 .timeSlot(a.getTimeSlot())
                 .status(a.getStatus())

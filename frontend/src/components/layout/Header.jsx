@@ -118,6 +118,27 @@ export default function Header() {
                   {user?.fullName ?? user?.email}
                 </span>
               </div>
+              {user?.role === 'RECEPTIONIST' && (
+                <button
+                  onClick={() => navigate('/receptionist/appointments')}
+                  style={{
+                    backgroundColor: '#0f766e', color: '#fff',
+                    border: 'none', cursor: 'pointer',
+                    padding: '6px 14px', borderRadius: 8, fontSize: 13, fontWeight: 500,
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    transition: 'background-color 0.15s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#0d6460' }}
+                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#0f766e' }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                    <line x1="8" y1="21" x2="16" y2="21" />
+                    <line x1="12" y1="17" x2="12" y2="21" />
+                  </svg>
+                  Quầy lễ tân
+                </button>
+              )}
               <button
                 onClick={handleLogout}
                 style={{
