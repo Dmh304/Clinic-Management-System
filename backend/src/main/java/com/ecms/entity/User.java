@@ -19,10 +19,13 @@ public class User {
     private Long id;
 
     @Column(unique = true, nullable = false)
+    private String username;
+
+    @Column(unique = true, nullable = false)
     private String email;
 
     @Column(nullable = false)
-    private String password;
+    private String passwordHash;   // rõ ràng hơn "password"
 
     @Column(nullable = false)
     private String fullName;
@@ -31,7 +34,7 @@ public class User {
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "role_id", nullable = false)
-    private Role role;
+    private Role role;             // dùng entity, không dùng String
 
     @Column(nullable = false)
     @Builder.Default
