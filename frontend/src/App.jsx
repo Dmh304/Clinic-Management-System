@@ -1,16 +1,16 @@
-import { useEffect, useState } from 'react'
-import axiosClient from './api/axiosClient.js'
+import { BrowserRouter } from 'react-router-dom'
+import { Provider } from 'react-redux'
+import store from './store/store'
+import AppRouter from './routes/AppRouter'
 
 function App() {
-  const [msg, setMsg] = useState('')
-
-  useEffect(() => {
-    axiosClient.get('/hello')
-      .then(data => setMsg(data))
-      .catch(err => console.error(err))
-  }, [])
-
-  return <h1>{msg || 'Đang kết nối...'}</h1>
+  return (
+    <Provider store={store}>
+      <BrowserRouter>
+        <AppRouter />
+      </BrowserRouter>
+    </Provider>
+  )
 }
 
 export default App
