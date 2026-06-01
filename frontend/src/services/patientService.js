@@ -1,3 +1,6 @@
 import axiosClient from '../api/axiosClient'
 
-// TODO: implement patient API calls
+export const patientService = {
+  createWalkInPatient: (data) =>
+    axiosClient.post('/v1/patients/walk-in', data),
+}

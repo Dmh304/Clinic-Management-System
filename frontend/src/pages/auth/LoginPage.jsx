@@ -10,7 +10,6 @@ import Header from '../../components/layout/Header'
 const ROLE_REDIRECT = {
   PATIENT: '/patient/dashboard',
   DOCTOR: '/doctor/dashboard',
-  RECEPTIONIST: '/receptionist/appointments',
   LAB_TECHNICIAN: '/lab/queue',
   PHARMACIST: '/pharmacy/dispensing',
   MANAGER: '/manager/dashboard',
