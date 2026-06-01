@@ -27,6 +27,7 @@ import LabOrderPage from '../pages/doctor/LabOrderPage'
 import AppointmentManagementPage from '../pages/receptionist/AppointmentManagementPage'
 import WalkInRegistrationPage from '../pages/receptionist/WalkInRegistrationPage'
 import InvoicePage from '../pages/receptionist/InvoicePage'
+import ReceptionistLayout from '../components/layout/ReceptionistLayout'
 
 import LabQueuePage from '../pages/lab/LabQueuePage'
 import LabResultEntryPage from '../pages/lab/LabResultEntryPage'
@@ -96,9 +97,11 @@ export default function AppRouter() {
 
       {/* ── Receptionist ── */}
       <Route element={<ProtectedRoute allowedRoles={['RECEPTIONIST']} />}>
-        <Route path="/receptionist/appointments" element={<AppointmentManagementPage />} />
-        <Route path="/receptionist/walk-in" element={<WalkInRegistrationPage />} />
-        <Route path="/receptionist/invoice" element={<InvoicePage />} />
+        <Route element={<ReceptionistLayout />}>
+          <Route path="/receptionist/appointments" element={<AppointmentManagementPage />} />
+          <Route path="/receptionist/walk-in" element={<WalkInRegistrationPage />} />
+          <Route path="/receptionist/invoice" element={<InvoicePage />} />
+        </Route>
       </Route>
 
       {/* ── Lab ── */}

@@ -14,6 +14,7 @@ import com.ecms.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -29,15 +30,19 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new UnauthorizedException("Email hoặc mật khẩu không đúng"));
 
-        if (!user.isEnabled()) {
+        if (!"ACTIVE".equals(user.getStatus())) {
             throw new UnauthorizedException("Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên");
         }
 
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             throw new UnauthorizedException("Email hoặc mật khẩu không đúng");
         }
 
-        String roleName = user.getRole().getName();
+        String roleName = user.getRoles().stream()
+                .findFirst()
+                .map(Role::getName)
+                .orElseThrow(() -> new UnauthorizedException("Tài khoản chưa được gán vai trò"));
+
         String token = jwtUtil.generateToken(user.getEmail(), roleName);
 
         return AuthResponse.builder()
@@ -51,6 +56,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("Email đã được sử dụng");
@@ -63,9 +69,9 @@ public class AuthServiceImpl implements AuthService {
                 .fullName(request.getFullName())
                 .email(request.getEmail())
                 .phone(request.getPhone())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .role(patientRole)
+                .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .build();
+        user.getRoles().add(patientRole);
 
         userRepository.save(user);
 

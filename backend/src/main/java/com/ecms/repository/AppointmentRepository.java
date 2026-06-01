@@ -5,13 +5,13 @@ import com.ecms.entity.AppointmentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
 public interface AppointmentRepository extends JpaRepository<Appointment, Long> {
 
-    List<Appointment> findByAppointmentDateOrderByTimeSlotAsc(LocalDate date);
+    List<Appointment> findByAppointmentTimeBetweenOrderByAppointmentTimeAsc(LocalDateTime start, LocalDateTime end);
 
-    List<Appointment> findByAppointmentDateAndStatusOrderByTimeSlotAsc(LocalDate date, AppointmentStatus status);
+    List<Appointment> findByAppointmentTimeBetweenAndStatusOrderByAppointmentTimeAsc(LocalDateTime start, LocalDateTime end, AppointmentStatus status);
 }

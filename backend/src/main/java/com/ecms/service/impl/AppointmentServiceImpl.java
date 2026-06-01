@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -21,9 +22,12 @@ public class AppointmentServiceImpl implements AppointmentService {
     private final AppointmentRepository appointmentRepository;
 
     @Override
+    @Transactional(readOnly = true)
     public List<AppointmentResponse> getTodayAppointments() {
+        LocalDateTime start = LocalDate.now().atStartOfDay();
+        LocalDateTime end = start.plusDays(1);
         return appointmentRepository
-                .findByAppointmentDateOrderByTimeSlotAsc(LocalDate.now())
+                .findByAppointmentTimeBetweenOrderByAppointmentTimeAsc(start, end)
                 .stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
@@ -47,7 +51,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .doctorId(a.getDoctor() != null ? a.getDoctor().getId() : null)
                 .doctorName(a.getDoctor() != null ? a.getDoctor().getFullName() : null)
                 .serviceName(a.getClinicService() != null ? a.getClinicService().getServiceName() : null)
-                .appointmentDate(a.getAppointmentDate())
+                .appointmentTime(a.getAppointmentTime())
                 .timeSlot(a.getTimeSlot())
                 .status(a.getStatus())
                 .notes(a.getNotes())
