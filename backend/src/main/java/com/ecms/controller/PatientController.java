@@ -10,6 +10,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/patients")
 @RequiredArgsConstructor
@@ -22,5 +24,11 @@ public class PatientController {
             @Valid @RequestBody PatientRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(patientService.createWalkInPatient(request)));
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<List<PatientResponse>>> searchPatients(
+            @RequestParam(required = false) String keyword) {
+        return ResponseEntity.ok(ApiResponse.success(patientService.searchPatients(keyword)));
     }
 }

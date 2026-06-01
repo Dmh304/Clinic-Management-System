@@ -1,4 +1,4 @@
-package com.ecms.backend.dto.request;
+package com.ecms.dto.request;
 
 import lombok.Data;
 

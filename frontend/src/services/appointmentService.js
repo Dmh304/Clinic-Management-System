@@ -6,4 +6,16 @@ export const appointmentService = {
 
   updateStatus: (id, status) =>
     axiosClient.patch(`/v1/appointments/${id}/status`, null, { params: { status } }),
+
+  confirmAppointment: (id, doctorId) =>
+    axiosClient.patch(`/v1/appointments/${id}/confirm`, doctorId ? { doctorId } : null),
+
+  checkInAppointment: (id) =>
+    axiosClient.patch(`/v1/appointments/${id}/check-in`),
+
+  createWalkInAppointment: (data) =>
+    axiosClient.post('/v1/appointments/walk-in', data),
+
+  getDashboard: () =>
+    axiosClient.get('/v1/appointments/dashboard'),
 }

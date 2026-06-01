@@ -1,45 +1,98 @@
 import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { Table, Tag, Select, Button, Space, Typography, Card, message } from 'antd'
-import { ReloadOutlined } from '@ant-design/icons'
-import { fetchTodayAppointments, changeAppointmentStatus } from '../../store/slices/appointmentSlice'
+import {
+  Table, Tag, Select, Button, Space, Typography, Card,
+  message, Modal, Form, Statistic, Row, Col,
+} from 'antd'
+import {
+  ReloadOutlined, CheckCircleOutlined, LoginOutlined,
+  CloseCircleOutlined,
+} from '@ant-design/icons'
+import {
+  fetchTodayAppointments,
+  fetchDashboard,
+  confirmAppointment,
+  checkInAppointment,
+  changeAppointmentStatus,
+} from '../../store/slices/appointmentSlice'
+import { doctorService } from '../../services/doctorService'
 
 const STATUS_CONFIG = {
-  PENDING:     { color: 'gold',      label: 'Chờ xác nhận' },
-  CONFIRMED:   { color: 'blue',      label: 'Đã xác nhận' },
+  PENDING:     { color: 'gold',       label: 'Chờ xác nhận' },
+  CONFIRMED:   { color: 'blue',       label: 'Đã xác nhận' },
   IN_PROGRESS: { color: 'processing', label: 'Đang khám' },
-  COMPLETED:   { color: 'green',     label: 'Hoàn thành' },
-  CANCELLED:   { color: 'red',       label: 'Đã hủy' },
-}
-
-const NEXT_STATUS = {
-  PENDING:     ['CONFIRMED', 'CANCELLED'],
-  CONFIRMED:   ['IN_PROGRESS', 'CANCELLED'],
-  IN_PROGRESS: ['COMPLETED'],
-  COMPLETED:   [],
-  CANCELLED:   [],
+  COMPLETED:   { color: 'green',      label: 'Hoàn thành' },
+  CANCELLED:   { color: 'red',        label: 'Đã hủy' },
 }
 
 export default function AppointmentManagementPage() {
   const dispatch = useDispatch()
-  const { list, loading, error } = useSelector((state) => state.appointment)
+  const { list, loading, error, dashboard } = useSelector((s) => s.appointment)
   const [filterStatus, setFilterStatus] = useState('ALL')
+  const [doctors, setDoctors] = useState([])
+
+  // confirm modal state
+  const [confirmModal, setConfirmModal] = useState({ open: false, appointment: null })
+  const [confirmLoading, setConfirmLoading] = useState(false)
+  const [selectedDoctorId, setSelectedDoctorId] = useState(null)
 
   useEffect(() => {
     dispatch(fetchTodayAppointments())
+    dispatch(fetchDashboard())
+    doctorService.getAllDoctors().then((res) => setDoctors(res.data)).catch(() => {})
   }, [dispatch])
 
   useEffect(() => {
     if (error) message.error(error)
   }, [error])
 
+  const reload = () => {
+    dispatch(fetchTodayAppointments())
+    dispatch(fetchDashboard())
+  }
+
   const filtered =
     filterStatus === 'ALL' ? list : list.filter((a) => a.status === filterStatus)
 
-  const handleStatusChange = (id, status) => {
-    dispatch(changeAppointmentStatus({ id, status }))
+  const handleOpenConfirm = (appointment) => {
+    setSelectedDoctorId(appointment.doctorId ?? null)
+    setConfirmModal({ open: true, appointment })
+  }
+
+  const handleConfirm = async () => {
+    setConfirmLoading(true)
+    try {
+      await dispatch(confirmAppointment({
+        id: confirmModal.appointment.id,
+        doctorId: selectedDoctorId || null,
+      })).unwrap()
+      message.success('Xác nhận lịch hẹn thành công')
+      setConfirmModal({ open: false, appointment: null })
+      dispatch(fetchDashboard())
+    } catch (err) {
+      message.error(err)
+    } finally {
+      setConfirmLoading(false)
+    }
+  }
+
+  const handleCheckIn = (id) => {
+    dispatch(checkInAppointment(id))
       .unwrap()
-      .then(() => message.success('Cập nhật trạng thái thành công'))
+      .then(() => {
+        message.success('Check-in thành công')
+        dispatch(fetchDashboard())
+      })
+      .catch((err) => message.error(err))
+  }
+
+  const handleCancel = (id) => {
+    dispatch(changeAppointmentStatus({ id, status: 'CANCELLED' }))
+      .unwrap()
+      .then(() => {
+        message.success('Đã hủy lịch hẹn')
+        dispatch(fetchDashboard())
+      })
       .catch((err) => message.error(err))
   }
 
@@ -47,7 +100,7 @@ export default function AppointmentManagementPage() {
     {
       title: 'STT',
       key: 'index',
-      width: 60,
+      width: 55,
       render: (_, __, i) => i + 1,
     },
     {
@@ -59,29 +112,38 @@ export default function AppointmentManagementPage() {
       title: 'SĐT',
       dataIndex: 'patientPhone',
       key: 'patientPhone',
-      width: 130,
+      width: 125,
     },
     {
       title: 'Giờ khám',
       dataIndex: 'timeSlot',
       key: 'timeSlot',
+      width: 100,
+    },
+    {
+      title: 'STT hàng đợi',
+      dataIndex: 'queueNumber',
+      key: 'queueNumber',
       width: 110,
+      render: (q) => q ? <Tag color="blue">#{q}</Tag> : '—',
     },
     {
       title: 'Bác sĩ',
       dataIndex: 'doctorName',
       key: 'doctorName',
+      render: (name) => name || <span style={{ color: '#94a3b8' }}>Chưa phân công</span>,
     },
     {
       title: 'Dịch vụ',
       dataIndex: 'serviceName',
       key: 'serviceName',
+      render: (name) => name || '—',
     },
     {
       title: 'Trạng thái',
       dataIndex: 'status',
       key: 'status',
-      width: 140,
+      width: 135,
       render: (status) => {
         const cfg = STATUS_CONFIG[status] || {}
         return <Tag color={cfg.color}>{cfg.label}</Tag>
@@ -90,19 +152,49 @@ export default function AppointmentManagementPage() {
     {
       title: 'Hành động',
       key: 'action',
+      width: 220,
       render: (_, record) => (
         <Space>
-          {(NEXT_STATUS[record.status] || []).map((s) => (
-            <Button
-              key={s}
-              size="small"
-              type={s === 'CANCELLED' ? 'default' : 'primary'}
-              danger={s === 'CANCELLED'}
-              onClick={() => handleStatusChange(record.id, s)}
-            >
-              {STATUS_CONFIG[s]?.label}
-            </Button>
-          ))}
+          {record.status === 'PENDING' && (
+            <>
+              <Button
+                size="small"
+                type="primary"
+                icon={<CheckCircleOutlined />}
+                onClick={() => handleOpenConfirm(record)}
+              >
+                Xác nhận
+              </Button>
+              <Button
+                size="small"
+                danger
+                icon={<CloseCircleOutlined />}
+                onClick={() => handleCancel(record.id)}
+              >
+                Hủy
+              </Button>
+            </>
+          )}
+          {record.status === 'CONFIRMED' && (
+            <>
+              <Button
+                size="small"
+                type="primary"
+                icon={<LoginOutlined />}
+                onClick={() => handleCheckIn(record.id)}
+              >
+                Check-in
+              </Button>
+              <Button
+                size="small"
+                danger
+                icon={<CloseCircleOutlined />}
+                onClick={() => handleCancel(record.id)}
+              >
+                Hủy
+              </Button>
+            </>
+          )}
         </Space>
       ),
     },
@@ -121,8 +213,32 @@ export default function AppointmentManagementPage() {
         Lịch khám hôm nay
       </Typography.Title>
       <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-        {today} — {filtered.length} lịch hẹn
+        {today}
       </Typography.Text>
+
+      {/* Dashboard stats */}
+      {dashboard && (
+        <Row gutter={12} style={{ marginBottom: 16 }}>
+          {[
+            { label: 'Tổng', value: dashboard.total, color: '#6366f1' },
+            { label: 'Chờ xác nhận', value: dashboard.pending, color: '#f59e0b' },
+            { label: 'Đã xác nhận', value: dashboard.confirmed, color: '#3b82f6' },
+            { label: 'Đang khám', value: dashboard.inProgress, color: '#8b5cf6' },
+            { label: 'Hoàn thành', value: dashboard.completed, color: '#10b981' },
+            { label: 'Đã hủy', value: dashboard.cancelled, color: '#ef4444' },
+          ].map(({ label, value, color }) => (
+            <Col key={label} flex="1">
+              <Card size="small" style={{ textAlign: 'center', borderTop: `3px solid ${color}` }}>
+                <Statistic
+                  title={<span style={{ fontSize: 11 }}>{label}</span>}
+                  value={value}
+                  styles={{ value: { fontSize: 20, color } }}
+                />
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      )}
 
       <Card>
         <Space style={{ marginBottom: 16 }}>
@@ -138,11 +254,7 @@ export default function AppointmentManagementPage() {
               })),
             ]}
           />
-          <Button
-            icon={<ReloadOutlined />}
-            onClick={() => dispatch(fetchTodayAppointments())}
-            loading={loading}
-          >
+          <Button icon={<ReloadOutlined />} onClick={reload} loading={loading}>
             Làm mới
           </Button>
         </Space>
@@ -156,6 +268,42 @@ export default function AppointmentManagementPage() {
           locale={{ emptyText: 'Không có lịch hẹn nào hôm nay' }}
         />
       </Card>
+
+      {/* Confirm & assign doctor modal */}
+      <Modal
+        title="Xác nhận lịch hẹn"
+        open={confirmModal.open}
+        onOk={handleConfirm}
+        onCancel={() => setConfirmModal({ open: false, appointment: null })}
+        confirmLoading={confirmLoading}
+        okText="Xác nhận"
+        cancelText="Hủy"
+      >
+        {confirmModal.appointment && (
+          <div style={{ marginBottom: 16 }}>
+            <p style={{ margin: '0 0 4px' }}>
+              <strong>Bệnh nhân:</strong> {confirmModal.appointment.patientName}
+            </p>
+            <p style={{ margin: '0 0 4px' }}>
+              <strong>Giờ khám:</strong> {confirmModal.appointment.timeSlot}
+            </p>
+          </div>
+        )}
+        <Form layout="vertical">
+          <Form.Item label="Phân công bác sĩ (không bắt buộc)">
+            <Select
+              allowClear
+              placeholder="Chọn bác sĩ"
+              value={selectedDoctorId}
+              onChange={setSelectedDoctorId}
+              options={doctors.map((d) => ({
+                label: `${d.fullName}${d.specialization ? ` — ${d.specialization}` : ''}`,
+                value: d.id,
+              }))}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   )
 }
