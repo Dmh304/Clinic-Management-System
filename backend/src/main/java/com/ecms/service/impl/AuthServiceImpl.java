@@ -33,7 +33,7 @@ public class AuthServiceImpl implements AuthService {
             throw new UnauthorizedException("Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên");
         }
 
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             throw new UnauthorizedException("Email hoặc mật khẩu không đúng");
         }
 
@@ -63,7 +63,7 @@ public class AuthServiceImpl implements AuthService {
                 .fullName(request.getFullName())
                 .email(request.getEmail())
                 .phone(request.getPhone())
-                .password(passwordEncoder.encode(request.getPassword()))
+                .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .role(patientRole)
                 .build();
 

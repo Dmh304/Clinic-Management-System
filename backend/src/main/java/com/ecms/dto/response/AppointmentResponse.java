@@ -6,7 +6,11 @@ import lombok.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class AppointmentResponse {
 
     private Long id;
@@ -17,8 +21,12 @@ public class AppointmentResponse {
     private String doctorName;
     private String serviceName;
     private LocalDate appointmentDate;
+    private LocalDateTime appointmentTime;
     private String timeSlot;
     private AppointmentStatus status;
+    private String type;
+    private Integer queueNumber;
+    private LocalDateTime checkInTime;
     private String notes;
     private LocalDateTime createdAt;
 }
