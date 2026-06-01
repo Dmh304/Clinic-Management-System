@@ -25,10 +25,47 @@ export const changeAppointmentStatus = createAsyncThunk(
   }
 )
 
+export const confirmAppointment = createAsyncThunk(
+  'appointment/confirm',
+  async ({ id, doctorId }, { rejectWithValue }) => {
+    try {
+      const res = await appointmentService.confirmAppointment(id, doctorId)
+      return res.data
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || 'Không thể xác nhận lịch hẹn')
+    }
+  }
+)
+
+export const checkInAppointment = createAsyncThunk(
+  'appointment/checkIn',
+  async (id, { rejectWithValue }) => {
+    try {
+      const res = await appointmentService.checkInAppointment(id)
+      return res.data
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || 'Không thể check-in lịch hẹn')
+    }
+  }
+)
+
+export const fetchDashboard = createAsyncThunk(
+  'appointment/fetchDashboard',
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await appointmentService.getDashboard()
+      return res.data
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || 'Không thể tải thống kê')
+    }
+  }
+)
+
 const appointmentSlice = createSlice({
   name: 'appointment',
   initialState: {
     list: [],
+    dashboard: null,
     loading: false,
     error: null,
   },
@@ -47,7 +84,20 @@ const appointmentSlice = createSlice({
         state.loading = false
         state.error = action.payload
       })
+      .addCase(fetchDashboard.fulfilled, (state, action) => {
+        state.dashboard = action.payload
+      })
       .addCase(changeAppointmentStatus.fulfilled, (state, action) => {
+        const updated = action.payload
+        const index = state.list.findIndex((a) => a.id === updated.id)
+        if (index !== -1) state.list[index] = updated
+      })
+      .addCase(confirmAppointment.fulfilled, (state, action) => {
+        const updated = action.payload
+        const index = state.list.findIndex((a) => a.id === updated.id)
+        if (index !== -1) state.list[index] = updated
+      })
+      .addCase(checkInAppointment.fulfilled, (state, action) => {
         const updated = action.payload
         const index = state.list.findIndex((a) => a.id === updated.id)
         if (index !== -1) state.list[index] = updated

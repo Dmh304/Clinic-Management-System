@@ -4,11 +4,17 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.NotFound;
 import org.hibernate.annotations.NotFoundAction;
+
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "appointments")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Appointment {
 
     @Id
@@ -78,19 +84,19 @@ public class Appointment {
     }
 
     @PrePersist
-private void prePersist() {
-    if (status == null) {
-        status = AppointmentStatus.PENDING;
-    }
+    private void prePersist() {
+        if (status == null) {
+            status = AppointmentStatus.PENDING;
+        }
 
-    if (reminderSent == null) {
-        reminderSent = false;
-    }
+        if (reminderSent == null) {
+            reminderSent = false;
+        }
 
-    if (createdAt == null) {
-        createdAt = LocalDateTime.now();
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
     }
-}
 
     @PreUpdate
     private void preUpdate() {

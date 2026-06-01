@@ -91,7 +91,6 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .total(appointmentRepository.countByDate(start, end))
                 .pending(appointmentRepository.countByDateAndStatus(start, end, AppointmentStatus.PENDING))
                 .confirmed(appointmentRepository.countByDateAndStatus(start, end, AppointmentStatus.CONFIRMED))
-                .checkedIn(appointmentRepository.countByDateAndStatus(start, end, AppointmentStatus.CHECKED_IN))
                 .inProgress(appointmentRepository.countByDateAndStatus(start, end, AppointmentStatus.IN_PROGRESS))
                 .completed(appointmentRepository.countByDateAndStatus(start, end, AppointmentStatus.COMPLETED))
                 .cancelled(appointmentRepository.countByDateAndStatus(start, end, AppointmentStatus.CANCELLED))
@@ -143,7 +142,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         }
 
         LocalDate appointmentDate = appointment.getAppointmentDate();
-        appointment.setStatus(AppointmentStatus.CHECKED_IN);
+        appointment.setStatus(AppointmentStatus.IN_PROGRESS);
         appointment.setCheckInTime(LocalDateTime.now());
 
         if (appointment.getQueueNumber() == null) {
@@ -180,7 +179,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         .clinicService(clinicService)
         .appointmentTime(request.getAppointmentTime())
         .timeSlot(request.getAppointmentTime().toLocalTime().toString())
-        .status(AppointmentStatus.CHECKED_IN)
+        .status(AppointmentStatus.IN_PROGRESS)
         .type("WALK_IN")
         .queueNumber(nextQueueNumber(appointmentDate))
         .checkInTime(LocalDateTime.now())
@@ -201,7 +200,6 @@ public class AppointmentServiceImpl implements AppointmentService {
                 end,
                 List.of(
                         AppointmentStatus.CONFIRMED,
-                        AppointmentStatus.CHECKED_IN,
                         AppointmentStatus.IN_PROGRESS
                 )
         );
@@ -219,7 +217,6 @@ public class AppointmentServiceImpl implements AppointmentService {
                 start,
                 end,
                 List.of(
-                        AppointmentStatus.CHECKED_IN,
                         AppointmentStatus.IN_PROGRESS,
                         AppointmentStatus.COMPLETED
                 )
