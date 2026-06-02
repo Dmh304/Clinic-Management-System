@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Form, Select, DatePicker, Button, Card, Typography, Space,
-  Result, Descriptions, Input, Tag, message,
+  Result, Descriptions, Input, Tag, message, Modal,
 } from 'antd'
-import { ThunderboltOutlined, CheckCircleOutlined } from '@ant-design/icons'
+import { ThunderboltOutlined, CheckCircleOutlined, UserAddOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { patientService } from '../../services/patientService'
 import { doctorService } from '../../services/doctorService'
@@ -23,6 +23,10 @@ export default function WalkInAppointmentPage() {
   const [patients, setPatients] = useState([])
   const [patientSearch, setPatientSearch] = useState('')
   const [patientLoading, setPatientLoading] = useState(false)
+
+  const [newPatientModal, setNewPatientModal] = useState(false)
+  const [newPatientForm] = Form.useForm()
+  const [newPatientLoading, setNewPatientLoading] = useState(false)
 
   const [doctors, setDoctors] = useState([])
   const [services, setServices] = useState([])
@@ -65,6 +69,34 @@ export default function WalkInAppointmentPage() {
       message.error(err.response?.data?.message || 'Tạo lịch vãng lai thất bại')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleOpenNewPatientModal = () => {
+    const isPhone = /^[0-9]{6,11}$/.test(patientSearch)
+    newPatientForm.setFieldsValue(
+      isPhone ? { phone: patientSearch, fullName: undefined } : { fullName: patientSearch, phone: undefined }
+    )
+    setNewPatientModal(true)
+  }
+
+  const handleCreateNewPatient = async (values) => {
+    setNewPatientLoading(true)
+    try {
+      const res = await patientService.createWalkInPatient(values)
+      const created = res.data
+      setPatients([created])
+      form.setFieldValue('patientId', created.id)
+      setNewPatientModal(false)
+      newPatientForm.resetFields()
+      message.success(
+        `Đã tạo hồ sơ bệnh nhân: ${created.fullName}. Tài khoản đăng nhập: ${created.email} / Password@123`,
+        6
+      )
+    } catch (err) {
+      message.error(err.response?.data?.message || 'Tạo bệnh nhân thất bại')
+    } finally {
+      setNewPatientLoading(false)
     }
   }
 
@@ -149,7 +181,21 @@ export default function WalkInAppointmentPage() {
                   ? 'Nhập ít nhất 2 ký tự để tìm kiếm'
                   : patientLoading
                   ? 'Đang tìm...'
-                  : 'Không tìm thấy bệnh nhân'
+                  : (
+                    <div style={{ textAlign: 'center', padding: '8px 0' }}>
+                      <div style={{ color: '#94a3b8', marginBottom: 8, fontSize: 13 }}>
+                        Không tìm thấy bệnh nhân
+                      </div>
+                      <Button
+                        size="small"
+                        type="primary"
+                        icon={<UserAddOutlined />}
+                        onClick={handleOpenNewPatientModal}
+                      >
+                        Tạo hồ sơ mới
+                      </Button>
+                    </div>
+                  )
               }
               options={patients.map((p) => ({
                 label: (
@@ -214,6 +260,51 @@ export default function WalkInAppointmentPage() {
           </Form.Item>
         </Form>
       </Card>
+
+      <Modal
+        title="Tạo hồ sơ bệnh nhân mới"
+        open={newPatientModal}
+        onCancel={() => { setNewPatientModal(false); newPatientForm.resetFields() }}
+        onOk={() => newPatientForm.submit()}
+        okText="Tạo hồ sơ"
+        cancelText="Hủy"
+        confirmLoading={newPatientLoading}
+      >
+        <Form
+          form={newPatientForm}
+          layout="vertical"
+          onFinish={handleCreateNewPatient}
+          style={{ marginTop: 16 }}
+        >
+          <Form.Item
+            label="Họ và tên"
+            name="fullName"
+            rules={[{ required: true, message: 'Vui lòng nhập họ tên' }]}
+          >
+            <Input placeholder="Nguyễn Văn A" />
+          </Form.Item>
+          <Form.Item
+            label="Số điện thoại"
+            name="phone"
+            rules={[
+              { required: true, message: 'Vui lòng nhập số điện thoại' },
+              { pattern: /^[0-9]{10,11}$/, message: 'Số điện thoại phải có 10-11 chữ số' },
+            ]}
+          >
+            <Input placeholder="0901234567" maxLength={11} />
+          </Form.Item>
+          <Form.Item
+            label="Email"
+            name="email"
+            rules={[
+              { required: true, message: 'Vui lòng nhập email' },
+              { type: 'email', message: 'Email không hợp lệ' },
+            ]}
+          >
+            <Input placeholder="example@email.com" />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   )
 }

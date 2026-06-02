@@ -55,7 +55,7 @@ export default function WalkInRegistrationPage() {
           status="success"
           icon={<CheckCircleOutlined style={{ color: '#52c41a' }} />}
           title="Đăng ký bệnh nhân thành công!"
-          subTitle={`Mã bệnh nhân: #${createdPatient.id}`}
+          subTitle={`Mã bệnh nhân: #${createdPatient.id} — Tài khoản đã được tạo`}
           extra={[
             <Button type="primary" key="another" onClick={handleRegisterAnother}>
               Đăng ký bệnh nhân khác
@@ -68,9 +68,7 @@ export default function WalkInRegistrationPage() {
           <Descriptions bordered size="small" column={1}>
             <Descriptions.Item label="Họ tên">{createdPatient.fullName}</Descriptions.Item>
             <Descriptions.Item label="Số điện thoại">{createdPatient.phone}</Descriptions.Item>
-            {createdPatient.email && (
-              <Descriptions.Item label="Email">{createdPatient.email}</Descriptions.Item>
-            )}
+            <Descriptions.Item label="Email">{createdPatient.email}</Descriptions.Item>
             {createdPatient.dateOfBirth && (
               <Descriptions.Item label="Ngày sinh">
                 {dayjs(createdPatient.dateOfBirth).format('DD/MM/YYYY')}
@@ -83,6 +81,22 @@ export default function WalkInRegistrationPage() {
               <Descriptions.Item label="Địa chỉ">{createdPatient.address}</Descriptions.Item>
             )}
           </Descriptions>
+          <div
+            style={{
+              marginTop: 16,
+              padding: '12px 16px',
+              background: '#f0f9ff',
+              border: '1px solid #bae6fd',
+              borderRadius: 6,
+            }}
+          >
+            <Text strong style={{ display: 'block', marginBottom: 4 }}>
+              Thông tin đăng nhập hệ thống
+            </Text>
+            <Text>Email: <Text code>{createdPatient.email}</Text></Text>
+            <br />
+            <Text>Mật khẩu: <Text code>Password@123</Text></Text>
+          </div>
         </Result>
       </div>
     )
@@ -132,7 +146,10 @@ export default function WalkInRegistrationPage() {
           <Form.Item
             label="Email"
             name="email"
-            rules={[{ type: 'email', message: 'Email không hợp lệ' }]}
+            rules={[
+              { required: true, message: 'Vui lòng nhập email' },
+              { type: 'email', message: 'Email không hợp lệ' },
+            ]}
           >
             <Input placeholder="example@email.com" />
           </Form.Item>

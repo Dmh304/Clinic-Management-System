@@ -74,7 +74,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .findByAppointmentDateAndStatusOrderByCreatedAtAsc(
                         start,
                         end,
-                        AppointmentStatus.CONFIRMED
+                        AppointmentStatus.WAITING
                 )
                 .stream()
                 .map(this::toResponse)
@@ -91,6 +91,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .total(appointmentRepository.countByDate(start, end))
                 .pending(appointmentRepository.countByDateAndStatus(start, end, AppointmentStatus.PENDING))
                 .confirmed(appointmentRepository.countByDateAndStatus(start, end, AppointmentStatus.CONFIRMED))
+                .waiting(appointmentRepository.countByDateAndStatus(start, end, AppointmentStatus.WAITING))
                 .inProgress(appointmentRepository.countByDateAndStatus(start, end, AppointmentStatus.IN_PROGRESS))
                 .completed(appointmentRepository.countByDateAndStatus(start, end, AppointmentStatus.COMPLETED))
                 .cancelled(appointmentRepository.countByDateAndStatus(start, end, AppointmentStatus.CANCELLED))
@@ -142,7 +143,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         }
 
         LocalDate appointmentDate = appointment.getAppointmentDate();
-        appointment.setStatus(AppointmentStatus.IN_PROGRESS);
+        appointment.setStatus(AppointmentStatus.WAITING);
         appointment.setCheckInTime(LocalDateTime.now());
 
         if (appointment.getQueueNumber() == null) {
@@ -179,7 +180,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         .clinicService(clinicService)
         .appointmentTime(request.getAppointmentTime())
         .timeSlot(request.getAppointmentTime().toLocalTime().toString())
-        .status(AppointmentStatus.IN_PROGRESS)
+        .status(AppointmentStatus.WAITING)
         .type("WALK_IN")
         .queueNumber(nextQueueNumber(appointmentDate))
         .checkInTime(LocalDateTime.now())
@@ -200,6 +201,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                 end,
                 List.of(
                         AppointmentStatus.CONFIRMED,
+                        AppointmentStatus.WAITING,
                         AppointmentStatus.IN_PROGRESS
                 )
         );
@@ -217,6 +219,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                 start,
                 end,
                 List.of(
+                        AppointmentStatus.WAITING,
                         AppointmentStatus.IN_PROGRESS,
                         AppointmentStatus.COMPLETED
                 )

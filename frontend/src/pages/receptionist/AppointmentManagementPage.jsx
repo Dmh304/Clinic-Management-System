@@ -20,6 +20,7 @@ import { doctorService } from '../../services/doctorService'
 const STATUS_CONFIG = {
   PENDING:     { color: 'gold',       label: 'Chờ xác nhận' },
   CONFIRMED:   { color: 'blue',       label: 'Đã xác nhận' },
+  WAITING:     { color: 'cyan',       label: 'Chờ khám' },
   IN_PROGRESS: { color: 'processing', label: 'Đang khám' },
   COMPLETED:   { color: 'green',      label: 'Hoàn thành' },
   CANCELLED:   { color: 'red',        label: 'Đã hủy' },
@@ -195,6 +196,20 @@ export default function AppointmentManagementPage() {
               </Button>
             </>
           )}
+          {record.status === 'WAITING' && (
+            <Button
+              size="small"
+              type="primary"
+              style={{ backgroundColor: '#8b5cf6', borderColor: '#8b5cf6' }}
+              onClick={() => dispatch(changeAppointmentStatus({ id: record.id, status: 'IN_PROGRESS' }))
+                .unwrap()
+                .then(() => { message.success('Bắt đầu khám'); dispatch(fetchDashboard()) })
+                .catch((err) => message.error(err))
+              }
+            >
+              Bắt đầu khám
+            </Button>
+          )}
         </Space>
       ),
     },
@@ -223,6 +238,7 @@ export default function AppointmentManagementPage() {
             { label: 'Tổng', value: dashboard.total, color: '#6366f1' },
             { label: 'Chờ xác nhận', value: dashboard.pending, color: '#f59e0b' },
             { label: 'Đã xác nhận', value: dashboard.confirmed, color: '#3b82f6' },
+            { label: 'Chờ khám', value: dashboard.waiting, color: '#06b6d4' },
             { label: 'Đang khám', value: dashboard.inProgress, color: '#8b5cf6' },
             { label: 'Hoàn thành', value: dashboard.completed, color: '#10b981' },
             { label: 'Đã hủy', value: dashboard.cancelled, color: '#ef4444' },
