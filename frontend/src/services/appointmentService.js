@@ -21,4 +21,7 @@ export const appointmentService = {
 
   getDoctorQueue: (date) =>
     axiosClient.get('/v1/appointments/doctor-queue', { params: date ? { date } : {} }),
+
+  bookAppointment: (data) =>
+    axiosClient.post('/v1/appointments/book', data),
 }

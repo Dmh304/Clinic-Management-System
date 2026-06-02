@@ -1,5 +1,6 @@
 package com.ecms.service.impl;
 
+import com.ecms.dto.request.BookAppointmentRequest;
 import com.ecms.dto.request.WalkInAppointmentRequest;
 import com.ecms.dto.response.AppointmentDashboardResponse;
 import com.ecms.dto.response.AppointmentResponse;
@@ -149,6 +150,31 @@ public class AppointmentServiceImpl implements AppointmentService {
         if (appointment.getQueueNumber() == null) {
             appointment.setQueueNumber(nextQueueNumber(appointmentDate));
         }
+
+        return toResponse(appointmentRepository.save(appointment));
+    }
+
+    @Override
+    @Transactional
+    public AppointmentResponse bookOnlineAppointment(BookAppointmentRequest request, String patientEmail) {
+        Patient patient = patientRepository.findByUser_Email(patientEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin bệnh nhân"));
+
+        Doctor doctor = doctorRepository.findById(request.getDoctorId())
+                .orElseThrow(() -> new ResourceNotFoundException("Bác sĩ không tồn tại: " + request.getDoctorId()));
+
+        validateDoctorCapacity(doctor.getId(), request.getAppointmentTime().toLocalDate());
+
+        Appointment appointment = Appointment.builder()
+                .patient(patient)
+                .doctor(doctor)
+                .appointmentTime(request.getAppointmentTime())
+                .timeSlot(request.getAppointmentTime().toLocalTime().toString())
+                .status(AppointmentStatus.PENDING)
+                .type("ONLINE")
+                .reminderSent(false)
+                .notes(request.getNotes())
+                .build();
 
         return toResponse(appointmentRepository.save(appointment));
     }

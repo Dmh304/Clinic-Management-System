@@ -1,6 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Header from '../../components/layout/Header'
 import { useSelector } from 'react-redux'
+import { doctorService } from '../../services/doctorService';
+import { appointmentService } from '../../services/appointmentService';
 // ─── Design tokens ───────────────────────────────────────────────
 const C = {
   bg: "#f0f4ff",
@@ -114,20 +117,6 @@ const StepBar = ({ current }) => (
 );
 
 
-const doctors = [
-    { id: 1, name: "BS. Trần Minh Khoa", title: "Bác sĩ Chuyên khoa II", exp: "15 năm", rating: 4.9, avatar: "👨‍⚕️", slots: 8 },
-    { id: 2, name: "BS. Lê Thị Hương", title: "Bác sĩ Chuyên khoa I", exp: "10 năm", rating: 4.8, avatar: "👩‍⚕️", slots: 5 },
-    { id: 3, name: "BS. Phạm Đức Nam", title: "Thạc sĩ Y khoa", exp: "8 năm", rating: 4.7, avatar: "👨‍⚕️", slots: 12 },
-    { id: 4, name: "BS. Nguyễn Thu Vân", title: "Bác sĩ Chuyên khoa II", exp: "12 năm", rating: 4.9, avatar: "👩‍⚕️", slots: 6 },
-    { id: 5, name: "BS. Hoàng Văn Tuấn", title: "Bác sĩ Chuyên khoa I", exp: "9 năm", rating: 4.7, avatar: "👨‍⚕️", slots: 9 },
-    { id: 6, name: "BS. Đinh Thị Lan", title: "Tiến sĩ Y khoa", exp: "18 năm", rating: 5.0, avatar: "👩‍⚕️", slots: 4 },
-    { id: 7, name: "BS. Vũ Quang Minh", title: "Bác sĩ Chuyên khoa II", exp: "20 năm", rating: 4.9, avatar: "👨‍⚕️", slots: 3 },
-    { id: 8, name: "BS. Bùi Thị Ngọc", title: "Bác sĩ Chuyên khoa I", exp: "11 năm", rating: 4.8, avatar: "👩‍⚕️", slots: 7 },
-    { id: 9, name: "BS. Đặng Hùng Cường", title: "Tiến sĩ Y khoa", exp: "16 năm", rating: 4.9, avatar: "👨‍⚕️", slots: 5 },
-    { id: 10, name: "BS. Cao Thị Mai", title: "Bác sĩ Chuyên khoa I", exp: "7 năm", rating: 4.6, avatar: "👩‍⚕️", slots: 10 },
-    { id: 11, name: "BS. Lý Văn Phong", title: "Thạc sĩ Y khoa", exp: "6 năm", rating: 4.5, avatar: "👨‍⚕️", slots: 14 },
-];
-
 const generateSlots = (date) => {
   const dayOfWeek = date.getDay();
   if (dayOfWeek === 0) return []; // Sunday
@@ -149,6 +138,23 @@ function Page1({ onNext }) {
   const [forOther, setForOther] = useState(false);
   const [otherName, setOtherName] = useState("");
   const [otherPhone, setOtherPhone] = useState("");
+  const [doctors, setDoctors] = useState([]);
+  const [loadingDoctors, setLoadingDoctors] = useState(true);
+
+  useEffect(() => {
+    doctorService.getAllDoctors()
+      .then(res => {
+        const list = res.data || [];
+        setDoctors(list.map(d => ({
+          id: d.id,
+          name: d.fullName,
+          title: d.specialization || 'Bác sĩ',
+          avatar: '👨‍⚕️',
+        })));
+      })
+      .catch(() => setDoctors([]))
+      .finally(() => setLoadingDoctors(false));
+  }, []);
 
   const canContinue = selectedDoc && (!forOther || (otherName.trim() && otherPhone.trim()));
 
@@ -237,7 +243,15 @@ function Page1({ onNext }) {
             Chọn Bác Sĩ
           </h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {doctors.map(doc => {
+            {loadingDoctors ? (
+              <div style={{ textAlign: "center", padding: 32, color: C.textMuted, fontSize: 14 }}>
+                Đang tải danh sách bác sĩ...
+              </div>
+            ) : doctors.length === 0 ? (
+              <div style={{ textAlign: "center", padding: 32, color: C.textMuted, fontSize: 14 }}>
+                Không có bác sĩ nào
+              </div>
+            ) : doctors.map(doc => {
               const active = selectedDoc?.id === doc.id;
               return (
                 <button key={doc.id}
@@ -257,7 +271,7 @@ function Page1({ onNext }) {
                     flexShrink: 0,
                   }}>{doc.avatar}</div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <span style={{ fontSize: 14, fontWeight: 600, color: active ? C.primary : C.text, fontFamily: font }}>
                         {doc.name}
                       </span>
@@ -265,13 +279,6 @@ function Page1({ onNext }) {
                         fontSize: 11, padding: "2px 8px", borderRadius: 20,
                         background: active ? "#fff" : C.bg, color: C.textSub,
                       }}>{doc.title}</span>
-                    </div>
-                    <div style={{ display: "flex", gap: 16, fontSize: 12, color: C.textSub }}>
-                      <span>⏱ {doc.exp} kinh nghiệm</span>
-                      <span>⭐ {doc.rating}/5</span>
-                      <span style={{ color: doc.slots < 5 ? C.warning : C.accent }}>
-                        {doc.slots < 5 ? `⚡ Chỉ còn ${doc.slots} slot ngày mai` : `✓ ${doc.slots} slot ngày mai trống`}
-                      </span>
                     </div>
                   </div>
                   {active && (
@@ -309,7 +316,7 @@ function Page1({ onNext }) {
 }
 
 // ─── PAGE 2: Select Date, Time & Confirm ─────────────────────────
-function Page2({ data, onNext, onBack }) {
+function Page2({ data, onNext, onBack, submitting, submitError }) {
   const today = new Date();
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedSlot, setSelectedSlot] = useState(null);
@@ -560,23 +567,32 @@ function Page2({ data, onNext, onBack }) {
         </div>
 
         {/* Navigation */}
-        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 24 }}>
-          <button onClick={onBack} style={{
+        {submitError && (
+          <div style={{
+            background: C.errorLight, border: `1px solid ${C.error}`, borderRadius: 8,
+            padding: "10px 14px", marginTop: 16, fontSize: 13, color: C.error,
+          }}>
+            ⚠️ {submitError}
+          </div>
+        )}
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 16 }}>
+          <button onClick={onBack} disabled={submitting} style={{
             padding: "11px 24px", borderRadius: 10, border: `1.5px solid ${C.border}`,
-            background: C.surface, cursor: "pointer", fontSize: 14, fontFamily: font, color: C.text,
+            background: C.surface, cursor: submitting ? "not-allowed" : "pointer",
+            fontSize: 14, fontFamily: font, color: C.text,
           }}>← Quay Lại</button>
           <button
-            onClick={() => canConfirm && onNext({ ...data, date: selectedDate, slot: selectedSlot })}
-            disabled={!canConfirm}
+            onClick={() => canConfirm && !submitting && onNext({ ...data, date: selectedDate, slot: selectedSlot })}
+            disabled={!canConfirm || submitting}
             style={{
               padding: "12px 32px", borderRadius: 10, border: "none",
-              cursor: canConfirm ? "pointer" : "not-allowed",
-              background: canConfirm ? C.primary : C.border,
-              color: canConfirm ? "#fff" : C.textMuted,
+              cursor: canConfirm && !submitting ? "pointer" : "not-allowed",
+              background: canConfirm && !submitting ? C.primary : C.border,
+              color: canConfirm && !submitting ? "#fff" : C.textMuted,
               fontSize: 14, fontWeight: 600, fontFamily: font,
             }}
           >
-            Xác Nhận Đặt Lịch →
+            {submitting ? "Đang đặt lịch..." : "Xác Nhận Đặt Lịch →"}
           </button>
         </div>
       </div>
@@ -585,11 +601,12 @@ function Page2({ data, onNext, onBack }) {
 }
 
 // ─── PAGE 3: Success ──────────────────────────────────────────────
-function Page3({ data, onReset }) {
+function Page3({ data, onReset, bookingResult }) {
+  const navigate = useNavigate();
   const fmtDate = (d) =>
   d.toLocaleDateString("vi-VN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
-  const bookingCode = `NKA-${Date.now().toString(36).slice(-6).toUpperCase()}`;
-  const { isAuthenticated, user } = useSelector((s) => s.auth);
+  const bookingCode = bookingResult?.id ? `#${bookingResult.id}` : `NKA-${Date.now().toString(36).slice(-6).toUpperCase()}`;
+  const { user } = useSelector((s) => s.auth);
   return (
     <div style={{ fontFamily: font, flex: 1, background: C.bg, padding: "32px 40px" }}>
       <div style={{ maxWidth: 640, margin: "0 auto" }}>
@@ -697,11 +714,14 @@ function Page3({ data, onReset }) {
 
         {/* Actions */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 8 }}>
-          <button style={{
-            padding: "12px", borderRadius: 10, border: `1.5px solid ${C.primary}`,
-            background: C.surface, cursor: "pointer", fontSize: 13, fontFamily: font,
-            fontWeight: 600, color: C.primary,
-          }}>
+          <button
+            onClick={() => navigate('/patient/dashboard')}
+            style={{
+              padding: "12px", borderRadius: 10, border: `1.5px solid ${C.primary}`,
+              background: C.surface, cursor: "pointer", fontSize: 13, fontFamily: font,
+              fontWeight: 600, color: C.primary,
+            }}
+          >
             📋 Xem Lịch Hẹn Của Tôi
           </button>
           <button
@@ -724,6 +744,33 @@ function Page3({ data, onReset }) {
 export default function BookingPage() {
   const [page, setPage] = useState(1);
   const [bookingData, setBookingData] = useState({});
+  const [bookingResult, setBookingResult] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
+
+  const handleConfirm = async (d) => {
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const [hours, minutes] = d.slot.time.split(':');
+      const dt = new Date(d.date);
+      dt.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      const appointmentTime = dt.toISOString().slice(0, 19);
+
+      const res = await appointmentService.bookAppointment({
+        doctorId: d.doctor.id,
+        appointmentTime,
+        notes: d.forOther ? `Đặt cho người thân: ${d.otherName} - ${d.otherPhone}` : null,
+      });
+      setBookingResult(res.data);
+      setBookingData(d);
+      setPage(3);
+    } catch (err) {
+      setSubmitError(err?.response?.data?.message || 'Đặt lịch thất bại. Vui lòng thử lại.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: C.bg }}>
@@ -735,14 +782,21 @@ export default function BookingPage() {
       {page === 2 && (
         <Page2
           data={bookingData}
-          onNext={(d) => { setBookingData(d); setPage(3); }}
+          onNext={handleConfirm}
           onBack={() => setPage(1)}
+          submitting={submitting}
+          submitError={submitError}
         />
       )}
       {page === 3 && (
-        <Page3 data={bookingData} onReset={() => { setBookingData({}); setPage(1); }} />
+        <Page3
+          data={bookingData}
+          onReset={() => { setBookingData({}); setBookingResult(null); setPage(1); }}
+          bookingResult={bookingResult}
+        />
       )}
       <div style={{ flex: 1 }} />
       <Footer />
     </div>
   );
+}

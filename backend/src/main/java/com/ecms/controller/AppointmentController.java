@@ -1,5 +1,6 @@
 package com.ecms.controller;
 
+import com.ecms.dto.request.BookAppointmentRequest;
 import com.ecms.dto.request.WalkInAppointmentRequest;
 import com.ecms.dto.response.ApiResponse;
 import com.ecms.dto.response.AppointmentDashboardResponse;
@@ -11,6 +12,8 @@ import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -96,6 +99,16 @@ public class AppointmentController {
     ) {
         return ResponseEntity.ok(
                 ApiResponse.success(appointmentService.checkInAppointment(id))
+        );
+    }
+
+    @PostMapping("/book")
+    public ResponseEntity<ApiResponse<AppointmentResponse>> bookOnlineAppointment(
+            @Valid @RequestBody BookAppointmentRequest request,
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        return ResponseEntity.ok(
+                ApiResponse.success(appointmentService.bookOnlineAppointment(request, userDetails.getUsername()))
         );
     }
 

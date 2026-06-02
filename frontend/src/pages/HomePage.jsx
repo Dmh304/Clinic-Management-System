@@ -243,7 +243,7 @@ export default function HomePage() {
                   <div style={s.slotCount}>12 Slots</div>
                 </div>
               </div>
-              <Link to="/booking" style={s.bookBtn}>📅 Đặt lịch ngay</Link>
+              <Link to="/patient/booking" style={s.bookBtn}>📅 Đặt lịch ngay</Link>
             </div>
 
             <div style={s.doctorGrid}>

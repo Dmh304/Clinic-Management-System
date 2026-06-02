@@ -1,5 +1,6 @@
 package com.ecms.service;
 
+import com.ecms.dto.request.BookAppointmentRequest;
 import com.ecms.dto.request.WalkInAppointmentRequest;
 import com.ecms.dto.response.AppointmentDashboardResponse;
 import com.ecms.dto.response.AppointmentResponse;
@@ -25,6 +26,8 @@ public interface AppointmentService {
     List<AppointmentResponse> getDoctorQueue(LocalDate date);
 
     AppointmentResponse createWalkInAppointment(WalkInAppointmentRequest request);
+
+    AppointmentResponse bookOnlineAppointment(BookAppointmentRequest request, String patientEmail);
 
     AppointmentDashboardResponse getDashboard(LocalDate date);
 }
