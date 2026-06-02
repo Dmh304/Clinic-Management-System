@@ -746,3 +746,4 @@ export default function BookingPage() {
       <Footer />
     </div>
   );
+}
