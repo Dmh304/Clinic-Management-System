@@ -1,4 +1,23 @@
 package com.ecms.repository;
 
-public interface MedicalRecordRepository {
+import com.ecms.entity.MedicalRecord;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface MedicalRecordRepository extends JpaRepository<MedicalRecord, Long> {
+
+    Optional<MedicalRecord> findByAppointmentId(Long appointmentId);
+
+    @Query("""
+        SELECT m FROM MedicalRecord m
+        LEFT JOIN FETCH m.appointment a
+        LEFT JOIN FETCH m.doctor d
+        WHERE m.patient.id = :patientId
+        ORDER BY m.createdAt DESC
+    """)
+    List<MedicalRecord> findByPatientIdOrderByCreatedAtDesc(@Param("patientId") Long patientId);
 }

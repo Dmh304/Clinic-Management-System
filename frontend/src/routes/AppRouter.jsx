@@ -13,6 +13,10 @@ import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage'
 // Layout
 import Header from '../components/layout/Header'
 
+// Shared pages
+import ProfilePage from '../pages/shared/ProfilePage'
+import ChangePasswordPage from '../pages/shared/ChangePasswordPage'
+
 // Role-specific pages
 import PatientDashboard from '../pages/patient/PatientDashboard'
 import BookingPage from '../pages/patient/BookingPage'
@@ -29,6 +33,7 @@ import WalkInRegistrationPage from '../pages/receptionist/WalkInRegistrationPage
 import WalkInAppointmentPage from '../pages/receptionist/WalkInAppointmentPage'
 import InvoicePage from '../pages/receptionist/InvoicePage'
 import ReceptionistLayout from '../components/layout/ReceptionistLayout'
+import DoctorLayout from '../components/layout/DoctorLayout'
 
 import LabQueuePage from '../pages/lab/LabQueuePage'
 import LabResultEntryPage from '../pages/lab/LabResultEntryPage'
@@ -80,6 +85,12 @@ export default function AppRouter() {
       {/* ── Utility ── */}
       <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
+      {/* ── Shared (all authenticated users) ── */}
+      <Route element={<ProtectedRoute allowedRoles={['PATIENT', 'DOCTOR', 'RECEPTIONIST', 'LAB_TECHNICIAN', 'PHARMACIST', 'MANAGER', 'ADMIN']} />}>
+        <Route path="/profile" element={<WithHeader><ProfilePage /></WithHeader>} />
+        <Route path="/change-password" element={<WithHeader><ChangePasswordPage /></WithHeader>} />
+      </Route>
+
       {/* ── Patient ── */}
       <Route element={<ProtectedRoute allowedRoles={['PATIENT']} />}>
         <Route path="/patient/dashboard" element={<PatientDashboard />} />
@@ -90,10 +101,12 @@ export default function AppRouter() {
 
       {/* ── Doctor ── */}
       <Route element={<ProtectedRoute allowedRoles={['DOCTOR']} />}>
-        <Route path="/doctor/dashboard" element={<DoctorDashboard />} />
-        <Route path="/doctor/emr" element={<EMRPage />} />
-        <Route path="/doctor/prescription" element={<PrescriptionPage />} />
-        <Route path="/doctor/lab-order" element={<LabOrderPage />} />
+        <Route element={<DoctorLayout />}>
+          <Route path="/doctor/dashboard" element={<DoctorDashboard />} />
+          <Route path="/doctor/emr" element={<EMRPage />} />
+          <Route path="/doctor/prescription" element={<PrescriptionPage />} />
+          <Route path="/doctor/lab-order" element={<LabOrderPage />} />
+        </Route>
       </Route>
 
       {/* ── Receptionist ── */}

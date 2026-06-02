@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import { logout } from '../../store/slices/authSlice'
@@ -19,6 +20,18 @@ export default function Header() {
   const navigate = useNavigate()
   const dispatch = useDispatch()
   const { isAuthenticated, user } = useSelector((s) => s.auth)
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const dropdownRef = useRef(null)
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   const handleProtectedLink = (targetPath) => {
     if (!isAuthenticated) {
@@ -105,19 +118,6 @@ export default function Header() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {isAuthenticated ? (
             <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{
-                  width: 34, height: 34, borderRadius: '50%',
-                  backgroundColor: '#1d4ed8', color: '#fff',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 13, fontWeight: 700, flexShrink: 0,
-                }}>
-                  {user?.fullName?.[0]?.toUpperCase() ?? 'U'}
-                </div>
-                <span style={{ fontSize: 13, color: '#374151', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {user?.fullName ?? user?.email}
-                </span>
-              </div>
               {user?.role === 'RECEPTIONIST' && (
                 <button
                   onClick={() => navigate('/receptionist/appointments')}
@@ -139,18 +139,106 @@ export default function Header() {
                   Quầy lễ tân
                 </button>
               )}
-              <button
-                onClick={handleLogout}
-                style={{
-                  background: 'none', border: '1px solid #e2e8f0', cursor: 'pointer',
-                  color: '#64748b', padding: '6px 14px', borderRadius: 8, fontSize: 13,
-                  transition: 'all 0.15s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.color = '#374151' }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b' }}
-              >
-                Đăng xuất
-              </button>
+
+              {user?.role === 'DOCTOR' && (
+                <button
+                  onClick={() => navigate('/doctor/dashboard')}
+                  style={{
+                    backgroundColor: '#0d9488', color: '#fff',
+                    border: 'none', cursor: 'pointer',
+                    padding: '6px 14px', borderRadius: 8, fontSize: 13, fontWeight: 500,
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    transition: 'background-color 0.15s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#0f766e' }}
+                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#0d9488' }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6 6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3" />
+                    <path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4" />
+                    <circle cx="20" cy="10" r="2" />
+                  </svg>
+                  Phòng khám
+                </button>
+              )}
+
+              {/* User avatar dropdown */}
+              <div ref={dropdownRef} style={{ position: 'relative' }}>
+                <button
+                  onClick={() => setDropdownOpen(o => !o)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    background: 'none', border: '1px solid #e2e8f0', cursor: 'pointer',
+                    padding: '5px 10px 5px 5px', borderRadius: 10,
+                    transition: 'border-color 0.15s',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = '#cbd5e1'}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = '#e2e8f0'}
+                >
+                  <div style={{
+                    width: 30, height: 30, borderRadius: '50%',
+                    backgroundColor: '#1d4ed8', color: '#fff',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 12, fontWeight: 700, flexShrink: 0,
+                  }}>
+                    {user?.fullName?.[0]?.toUpperCase() ?? 'U'}
+                  </div>
+                  <span style={{ fontSize: 13, color: '#374151', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {user?.fullName ?? user?.email}
+                  </span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                    style={{ transform: dropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}>
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
+
+                {dropdownOpen && (
+                  <div style={{
+                    position: 'absolute', top: 'calc(100% + 8px)', right: 0,
+                    backgroundColor: '#fff', border: '1px solid #e2e8f0',
+                    borderRadius: 12, boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
+                    minWidth: 200, zIndex: 100, overflow: 'hidden',
+                  }}>
+                    <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9' }}>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: '#111827', margin: 0 }}>{user?.fullName}</p>
+                      <p style={{ fontSize: 12, color: '#64748b', margin: '2px 0 0' }}>{user?.email}</p>
+                    </div>
+                    {[
+                      { label: 'Hồ sơ cá nhân', to: '/profile', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
+                      { label: 'Đổi mật khẩu', to: '/change-password', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> },
+                    ].map(item => (
+                      <Link key={item.to} to={item.to}
+                        onClick={() => setDropdownOpen(false)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          padding: '10px 16px', fontSize: 13, color: '#374151',
+                          textDecoration: 'none', transition: 'background-color 0.1s',
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                        <span style={{ color: '#64748b' }}>{item.icon}</span>
+                        {item.label}
+                      </Link>
+                    ))}
+                    <div style={{ borderTop: '1px solid #f1f5f9' }}>
+                      <button onClick={() => { setDropdownOpen(false); handleLogout() }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          width: '100%', padding: '10px 16px', fontSize: 13, color: '#dc2626',
+                          background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left',
+                          transition: 'background-color 0.1s',
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fef2f2'}
+                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+                        </svg>
+                        Đăng xuất
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </>
           ) : (
             <>

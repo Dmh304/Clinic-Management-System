@@ -18,4 +18,7 @@ export const appointmentService = {
 
   getDashboard: () =>
     axiosClient.get('/v1/appointments/dashboard'),
+
+  getDoctorQueue: (date) =>
+    axiosClient.get('/v1/appointments/doctor-queue', { params: date ? { date } : {} }),
 }
