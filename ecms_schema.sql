@@ -43,11 +43,14 @@ CREATE TABLE users (
     locked_until        DATETIME2       NULL,
     last_login_at       DATETIME2       NULL,
     status              NVARCHAR(20)    NOT NULL DEFAULT 'ACTIVE',
+    enabled             BIT             NOT NULL DEFAULT 1,
+    role_id             BIGINT          NOT NULL,
     created_at          DATETIME2       NOT NULL DEFAULT GETDATE(),
     updated_at          DATETIME2       NULL,
     CONSTRAINT PK_users PRIMARY KEY (id),
     CONSTRAINT UQ_users_email UNIQUE (email),
     CONSTRAINT UQ_users_google_id UNIQUE (google_id),
+    CONSTRAINT FK_users_role FOREIGN KEY (role_id) REFERENCES roles(id),
     CONSTRAINT CK_users_gender CHECK (gender IN ('MALE', 'FEMALE', 'OTHER')),
     CONSTRAINT CK_users_status CHECK (status IN ('ACTIVE', 'INACTIVE', 'LOCKED'))
 );
@@ -114,7 +117,8 @@ CREATE TABLE patients (
     date_of_birth           DATE            NULL,
     gender                  NVARCHAR(20)    NULL,
     address                 NVARCHAR(MAX)   NULL,
-    phone_number            NVARCHAR(15)    NULL,
+    phone                   NVARCHAR(15)    NULL,
+    email                   NVARCHAR(255)   NULL,
     cccd                    NVARCHAR(12)    NULL,
     blood_type              NVARCHAR(20)    NOT NULL DEFAULT 'UNKNOWN',
     allergy_notes           NVARCHAR(MAX)   NULL,
@@ -233,7 +237,9 @@ CREATE TABLE appointments (
     patient_id       BIGINT          NOT NULL,
     doctor_id        BIGINT          NOT NULL,
     service_id       BIGINT          NULL,
+    appointment_date DATE            NULL,
     appointment_time DATETIME2       NOT NULL,
+    time_slot        NVARCHAR(100)   NULL,
     type             NVARCHAR(20)    NOT NULL,
     notes            NVARCHAR(MAX)   NULL,
     queue_number     INT             NULL,
@@ -687,16 +693,7 @@ GO
 
 
 -- ============================================================
--- Cập nhật db
+-- Sửa lỗi: Cho phép walk-in patient không có user account
 -- ============================================================
-ALTER TABLE appointments ADD appointment_date DATE NULL;
-UPDATE appointments SET appointment_date = CAST(created_at AS DATE);
-ALTER TABLE appointments ALTER COLUMN appointment_date DATE NOT NULL;
-
---Sửa lỗi
--- Cho phép walk-in patient không có user account
 ALTER TABLE patients ALTER COLUMN user_id BIGINT NULL;
 ALTER TABLE patients ALTER COLUMN patient_code NVARCHAR(20) NULL;
-
--- Copy số điện thoại từ phone_number sang phone để seed data hiển thị đúng
-UPDATE patients SET phone = phone_number WHERE phone IS NULL AND phone_number IS NOT NULL;
