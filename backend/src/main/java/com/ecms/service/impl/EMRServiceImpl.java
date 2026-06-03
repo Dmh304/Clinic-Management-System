@@ -26,11 +26,17 @@ public class EMRServiceImpl implements EMRService {
     @Override
     @Transactional
     public EMRResponse saveEMR(EMRRequest request) {
+        System.out.println(">>> saveEMR called, appointmentId=" + request.getAppointmentId() + ", doctorId="
+                + request.getDoctorId());
+
         Appointment appointment = appointmentRepository.findById(request.getAppointmentId())
-                .orElseThrow(() -> new ResourceNotFoundException("Lịch hẹn không tồn tại: " + request.getAppointmentId()));
+                .orElseThrow(
+                        () -> new ResourceNotFoundException("Lịch hẹn không tồn tại: " + request.getAppointmentId()));
+        System.out.println(">>> appointment found: " + appointment.getId());
 
         Doctor doctor = doctorRepository.findById(request.getDoctorId())
                 .orElseThrow(() -> new ResourceNotFoundException("Bác sĩ không tồn tại: " + request.getDoctorId()));
+        System.out.println(">>> doctor found: " + doctor.getId());
 
         MedicalRecord record = medicalRecordRepository
                 .findByAppointmentId(request.getAppointmentId())

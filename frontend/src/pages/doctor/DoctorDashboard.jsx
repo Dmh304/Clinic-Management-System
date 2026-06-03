@@ -42,8 +42,8 @@ export default function DoctorDashboard() {
         appointmentService.getDoctorQueue(),
         appointmentService.getDashboard(),
       ])
-      setQueue(queueRes.data?.data ?? [])
-      setStats(dashRes.data?.data ?? null)
+      setQueue(queueRes.data ?? [])
+      setStats(dashRes.data ?? null)
     } catch {
       message.error('Không thể tải dữ liệu hàng chờ')
     } finally {
@@ -180,7 +180,7 @@ export default function DoctorDashboard() {
 
       {/* Stats */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-        <StatCard label="Tổng hôm nay"  value={stats?.total}      color="#6366f1" />
+        <StatCard label="Tổng hôm nay"  value={stats?.total - stats?.pending - stats?.cancelled}      color="#6366f1" />
         <StatCard label="Đang chờ"      value={stats?.waiting}    color="#f59e0b" />
         <StatCard label="Đang khám"     value={stats?.inProgress} color="#3b82f6" />
         <StatCard label="Hoàn thành"    value={stats?.completed}  color="#10b981" />
