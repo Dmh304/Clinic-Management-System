@@ -29,63 +29,63 @@ SET IDENTITY_INSERT users ON;
 
 INSERT INTO users
     (id, email, password, full_name, phone_number, date_of_birth,
-     gender, address, email_verified_at, status, created_at)
+     gender, address, email_verified_at, status, enabled, role_id, created_at)
 VALUES
 (1,  N'admin@ecms.vn',          N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Nguyễn Quản Trị',      N'0901000001', '1985-03-15', 'MALE',
-     N'1 Lê Lợi, Q1, TP.HCM',              GETDATE(), 'ACTIVE', GETDATE()),
+     N'1 Lê Lợi, Q1, TP.HCM',              GETDATE(), 'ACTIVE', 1, 1, GETDATE()),
 
 (2,  N'manager@ecms.vn',        N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Trần Thị Quản Lý',     N'0901000002', '1988-07-20', 'FEMALE',
-     N'2 Nguyễn Huệ, Q1, TP.HCM',          GETDATE(), 'ACTIVE', GETDATE()),
+     N'2 Nguyễn Huệ, Q1, TP.HCM',          GETDATE(), 'ACTIVE', 1, 2, GETDATE()),
 
 (3,  N'doctor.nguyen@ecms.vn',  N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'BS. Nguyễn Văn An',    N'0901000003', '1980-01-10', 'MALE',
-     N'3 Pasteur, Q3, TP.HCM',              GETDATE(), 'ACTIVE', GETDATE()),
+     N'3 Pasteur, Q3, TP.HCM',              GETDATE(), 'ACTIVE', 1, 3, GETDATE()),
 
 (4,  N'doctor.tran@ecms.vn',    N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'BS. Trần Thị Bình',    N'0901000004', '1983-05-25', 'FEMALE',
-     N'4 Đinh Tiên Hoàng, Q1, TP.HCM',     GETDATE(), 'ACTIVE', GETDATE()),
+     N'4 Đinh Tiên Hoàng, Q1, TP.HCM',     GETDATE(), 'ACTIVE', 1, 3, GETDATE()),
 
 (5,  N'doctor.le@ecms.vn',      N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'BS. Lê Minh Châu',     N'0901000005', '1979-11-08', 'MALE',
-     N'5 Võ Văn Tần, Q3, TP.HCM',          GETDATE(), 'ACTIVE', GETDATE()),
+     N'5 Võ Văn Tần, Q3, TP.HCM',          GETDATE(), 'ACTIVE', 1, 3, GETDATE()),
 
 (6,  N'reception1@ecms.vn',     N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Phạm Lễ Tân Một',      N'0901000006', '1995-04-12', 'FEMALE',
-     N'6 Bạch Đằng, Q.BT, TP.HCM',         GETDATE(), 'ACTIVE', GETDATE()),
+     N'6 Bạch Đằng, Q.BT, TP.HCM',         GETDATE(), 'ACTIVE', 1, 4, GETDATE()),
 
 (7,  N'reception2@ecms.vn',     N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Hoàng Lễ Tân Hai',     N'0901000007', '1997-09-30', 'MALE',
-     N'7 Cộng Hòa, Q.TB, TP.HCM',          GETDATE(), 'ACTIVE', GETDATE()),
+     N'7 Cộng Hòa, Q.TB, TP.HCM',          GETDATE(), 'ACTIVE', 1, 4, GETDATE()),
 
 (8,  N'pharmacist@ecms.vn',     N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Vũ Dược Sĩ',           N'0901000008', '1990-06-18', 'FEMALE',
-     N'8 Tô Hiến Thành, Q10, TP.HCM',      GETDATE(), 'ACTIVE', GETDATE()),
+     N'8 Tô Hiến Thành, Q10, TP.HCM',      GETDATE(), 'ACTIVE', 1, 5, GETDATE()),
 
 (9,  N'labtech@ecms.vn',        N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Đặng Kỹ Thuật Viên',   N'0901000009', '1993-02-22', 'MALE',
-     N'9 Nguyễn Thị Minh Khai, Q3',        GETDATE(), 'ACTIVE', GETDATE()),
+     N'9 Nguyễn Thị Minh Khai, Q3',        GETDATE(), 'ACTIVE', 1, 6, GETDATE()),
 
 (10, N'patient1@gmail.com',     N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Bùi Văn Bệnh Nhân',    N'0912000001', '1990-03-10', 'MALE',
-     N'10 Lý Thường Kiệt, Q10, TP.HCM',    GETDATE(), 'ACTIVE', GETDATE()),
+     N'10 Lý Thường Kiệt, Q10, TP.HCM',    GETDATE(), 'ACTIVE', 1, 7, GETDATE()),
 
 (11, N'patient2@gmail.com',     N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Đinh Thị Hoa',         N'0912000002', '1995-08-15', 'FEMALE',
-     N'11 Trần Hưng Đạo, Q5, TP.HCM',      GETDATE(), 'ACTIVE', GETDATE()),
+     N'11 Trần Hưng Đạo, Q5, TP.HCM',      GETDATE(), 'ACTIVE', 1, 7, GETDATE()),
 
 (12, N'patient3@gmail.com',     N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Lý Văn Minh',          N'0912000003', '1982-12-05', 'MALE',
-     N'12 An Dương Vương, Q5, TP.HCM',      GETDATE(), 'ACTIVE', GETDATE()),
+     N'12 An Dương Vương, Q5, TP.HCM',      GETDATE(), 'ACTIVE', 1, 7, GETDATE()),
 
 (13, N'patient4@gmail.com',     N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Ngô Thị Lan',          N'0912000004', '2000-05-20', 'FEMALE',
-     N'13 Nguyễn Văn Cừ, Q5, TP.HCM',      GETDATE(), 'ACTIVE', GETDATE()),
+     N'13 Nguyễn Văn Cừ, Q5, TP.HCM',      GETDATE(), 'ACTIVE', 1, 7, GETDATE()),
 
 (14, N'patient5@gmail.com',     N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Tô Văn Dũng',          N'0912000005', '1975-07-07', 'MALE',
-     N'14 Hùng Vương, Q6, TP.HCM',          GETDATE(), 'ACTIVE', GETDATE());
+     N'14 Hùng Vương, Q6, TP.HCM',          GETDATE(), 'ACTIVE', 1, 7, GETDATE());
 
 SET IDENTITY_INSERT users OFF;
 GO
@@ -163,27 +163,27 @@ SET IDENTITY_INSERT patients ON;
 
 INSERT INTO patients
     (id, user_id, patient_code, full_name, date_of_birth, gender, address,
-     phone_number, cccd, blood_type, allergy_notes,
+     phone, email, cccd, blood_type, allergy_notes,
      emergency_contact_name, emergency_contact_phone, status, created_at)
 VALUES
 (1, 10, N'PAT001', N'Bùi Văn Bệnh Nhân', '1990-03-10', 'MALE',
-    N'10 Lý Thường Kiệt, Q10', N'0912000001', N'079090001234',
+    N'10 Lý Thường Kiệt, Q10', N'0912000001', N'patient1@gmail.com', N'079090001234',
     'O',       N'Dị ứng Penicillin',  N'Bùi Thị Mẹ',  N'0912100001', 'ACTIVE', GETDATE()),
 
 (2, 11, N'PAT002', N'Đinh Thị Hoa',       '1995-08-15', 'FEMALE',
-    N'11 Trần Hưng Đạo, Q5',  N'0912000002', N'079095002345',
+    N'11 Trần Hưng Đạo, Q5',  N'0912000002', N'patient2@gmail.com', N'079095002345',
     'A',       NULL,                   N'Đinh Văn Ba',  N'0912100002', 'ACTIVE', GETDATE()),
 
 (3, 12, N'PAT003', N'Lý Văn Minh',        '1982-12-05', 'MALE',
-    N'12 An Dương Vương, Q5', N'0912000003', N'079082003456',
+    N'12 An Dương Vương, Q5', N'0912000003', N'patient3@gmail.com', N'079082003456',
     'B',       N'Dị ứng Sulfonamide', N'Lý Thị Vợ',   N'0912100003', 'ACTIVE', GETDATE()),
 
 (4, 13, N'PAT004', N'Ngô Thị Lan',        '2000-05-20', 'FEMALE',
-    N'13 Nguyễn Văn Cừ, Q5', N'0912000004', N'079000004567',
+    N'13 Nguyễn Văn Cừ, Q5', N'0912000004', N'patient4@gmail.com', N'079000004567',
     'AB',      NULL,                   N'Ngô Văn Cha',  N'0912100004', 'ACTIVE', GETDATE()),
 
 (5, 14, N'PAT005', N'Tô Văn Dũng',        '1975-07-07', 'MALE',
-    N'14 Hùng Vương, Q6',     N'0912000005', N'079075005678',
+    N'14 Hùng Vương, Q6',     N'0912000005', N'patient5@gmail.com', N'079075005678',
     'UNKNOWN', N'Cao huyết áp',       N'Tô Thị Vợ',   N'0912100005', 'ACTIVE', GETDATE());
 
 SET IDENTITY_INSERT patients OFF;
