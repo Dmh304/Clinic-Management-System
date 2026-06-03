@@ -1,5 +1,5 @@
 import { useDispatch, useSelector } from 'react-redux'
-import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom'
+import { NavLink, Outlet, Link } from 'react-router-dom'
 import { logout } from '../../store/slices/authSlice'
 
 const NAV_ITEMS = [
@@ -31,12 +31,11 @@ const NAV_ITEMS = [
 
 export default function DoctorLayout() {
   const dispatch = useDispatch()
-  const navigate = useNavigate()
   const { user } = useSelector((s) => s.auth)
 
   const handleLogout = () => {
     dispatch(logout())
-    navigate('/', { replace: true })
+    window.location.href = '/'
   }
 
   return (
