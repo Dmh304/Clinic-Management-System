@@ -130,12 +130,14 @@ CREATE TABLE patients (
     CONSTRAINT PK_patients PRIMARY KEY (id),
     CONSTRAINT UQ_patients_user_id UNIQUE (user_id),
     CONSTRAINT UQ_patients_patient_code UNIQUE (patient_code),
-    CONSTRAINT UQ_patients_cccd UNIQUE (cccd),
     CONSTRAINT FK_patients_user FOREIGN KEY (user_id) REFERENCES users(id),
     CONSTRAINT CK_patients_gender CHECK (gender IN ('MALE', 'FEMALE', 'OTHER')),
     CONSTRAINT CK_patients_blood_type CHECK (blood_type IN ('A', 'B', 'AB', 'O', 'UNKNOWN')),
     CONSTRAINT CK_patients_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
 );
+GO
+-- Filtered index: cho phep nhieu NULL (khong ap dung unique cho cccd trong truong hop chua co CCCD)
+CREATE UNIQUE INDEX UQ_patients_cccd ON patients(cccd) WHERE cccd IS NOT NULL;
 GO
 
 -- ============================================================
