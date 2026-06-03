@@ -698,12 +698,5 @@ ALTER TABLE appointments ALTER COLUMN appointment_date DATE NOT NULL;
 ALTER TABLE patients ALTER COLUMN user_id BIGINT NULL;
 ALTER TABLE patients ALTER COLUMN patient_code NVARCHAR(20) NULL;
 
--- Thêm cột phone và email nếu chưa có (entity dùng tên này)
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('patients') AND name = 'phone')
-    ALTER TABLE patients ADD phone NVARCHAR(15) NULL;
-
-IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('patients') AND name = 'email')
-    ALTER TABLE patients ADD email NVARCHAR(255) NULL;
-
 -- Copy số điện thoại từ phone_number sang phone để seed data hiển thị đúng
 UPDATE patients SET phone = phone_number WHERE phone IS NULL AND phone_number IS NOT NULL;

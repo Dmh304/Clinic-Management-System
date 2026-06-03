@@ -48,12 +48,15 @@ CREATE TABLE users (
     locked_until        DATETIME2       NULL,
     last_login_at       DATETIME2       NULL,
     status              NVARCHAR(20)    NOT NULL DEFAULT 'ACTIVE',
+    enabled             BIT             NOT NULL DEFAULT 1,
+    role_id             BIGINT          NOT NULL,
     created_at          DATETIME2       NOT NULL DEFAULT GETDATE(),
     updated_at          DATETIME2       NULL,
-    CONSTRAINT PK_users PRIMARY KEY (id),
-    CONSTRAINT UQ_users_email UNIQUE (email),
-    CONSTRAINT CK_users_gender CHECK (gender IN ('MALE', 'FEMALE', 'OTHER')),
-    CONSTRAINT CK_users_status CHECK (status IN ('ACTIVE', 'INACTIVE', 'LOCKED'))
+    CONSTRAINT PK_users             PRIMARY KEY (id),
+    CONSTRAINT UQ_users_email       UNIQUE (email),
+    CONSTRAINT FK_users_role        FOREIGN KEY (role_id) REFERENCES roles(id),
+    CONSTRAINT CK_users_gender      CHECK (gender IN ('MALE', 'FEMALE', 'OTHER')),
+    CONSTRAINT CK_users_status      CHECK (status IN ('ACTIVE', 'INACTIVE', 'LOCKED'))
 );
 GO
 
@@ -650,6 +653,36 @@ CREATE TABLE system_configs (
 GO
 
 -- ============================================================
+-- 29. blogs
+-- ============================================================
+CREATE TABLE blogs (
+    id           BIGINT          NOT NULL IDENTITY(1,1),
+    title        NVARCHAR(255)   NOT NULL,
+    summary      NVARCHAR(500)   NULL,
+    content      NVARCHAR(MAX)   NULL,
+    author       NVARCHAR(255)   NULL,
+    category     NVARCHAR(100)   NULL,
+    image_url    NVARCHAR(500)   NULL,
+    published_at DATETIME2       NULL,
+    status       NVARCHAR(20)    NULL,
+    CONSTRAINT PK_blogs PRIMARY KEY (id)
+);
+GO
+
+-- ============================================================
+-- 30. clinic_services
+-- ============================================================
+CREATE TABLE clinic_services (
+    id               BIGINT          NOT NULL IDENTITY(1,1),
+    service_name     NVARCHAR(255)   NOT NULL,
+    description      NVARCHAR(MAX)   NULL,
+    price            DECIMAL(10,2)   NULL,
+    duration_minutes INT             NULL,
+    CONSTRAINT PK_clinic_services PRIMARY KEY (id)
+);
+GO
+
+-- ============================================================
 -- 28. backup_logs
 -- ============================================================
 CREATE TABLE backup_logs (
@@ -697,7 +730,7 @@ INSERT INTO system_configs (config_key, config_value, data_type, description) VA
     (N'JWT_REFRESH_EXPIRY_MS',     N'604800000', N'INTEGER', N'JWT Refresh Token hết hạn sau (ms)');
 GO
 
-PRINT N'=== PHẦN 1 HOÀN TẤT: 28 bảng + roles + system_configs ===';
+PRINT N'=== PHẦN 1 HOÀN TẤT: 30 bảng + roles + system_configs ===';
 GO
 
 
@@ -714,63 +747,63 @@ SET IDENTITY_INSERT users ON;
 
 INSERT INTO users
     (id, email, password, full_name, phone_number, date_of_birth,
-     gender, address, email_verified_at, status, created_at)
+     gender, address, email_verified_at, status, enabled, role_id, created_at)
 VALUES
 (1,  N'admin@ecms.vn',         N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Nguyễn Quản Trị',     N'0901000001', '1985-03-15', N'MALE',
-     N'1 Lê Lợi, Q1, TP.HCM',             GETDATE(), N'ACTIVE', GETDATE()),
+     N'1 Lê Lợi, Q1, TP.HCM',             GETDATE(), N'ACTIVE', 1, 1, GETDATE()),
 
 (2,  N'manager@ecms.vn',       N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Trần Thị Quản Lý',    N'0901000002', '1988-07-20', N'FEMALE',
-     N'2 Nguyễn Huệ, Q1, TP.HCM',         GETDATE(), N'ACTIVE', GETDATE()),
+     N'2 Nguyễn Huệ, Q1, TP.HCM',         GETDATE(), N'ACTIVE', 1, 2, GETDATE()),
 
 (3,  N'doctor.nguyen@ecms.vn', N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'BS. Nguyễn Văn An',   N'0901000003', '1980-01-10', N'MALE',
-     N'3 Pasteur, Q3, TP.HCM',             GETDATE(), N'ACTIVE', GETDATE()),
+     N'3 Pasteur, Q3, TP.HCM',             GETDATE(), N'ACTIVE', 1, 3, GETDATE()),
 
 (4,  N'doctor.tran@ecms.vn',   N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'BS. Trần Thị Bình',   N'0901000004', '1983-05-25', N'FEMALE',
-     N'4 Đinh Tiên Hoàng, Q1, TP.HCM',    GETDATE(), N'ACTIVE', GETDATE()),
+     N'4 Đinh Tiên Hoàng, Q1, TP.HCM',    GETDATE(), N'ACTIVE', 1, 3, GETDATE()),
 
 (5,  N'doctor.le@ecms.vn',     N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'BS. Lê Minh Châu',    N'0901000005', '1979-11-08', N'MALE',
-     N'5 Võ Văn Tần, Q3, TP.HCM',         GETDATE(), N'ACTIVE', GETDATE()),
+     N'5 Võ Văn Tần, Q3, TP.HCM',         GETDATE(), N'ACTIVE', 1, 3, GETDATE()),
 
 (6,  N'reception1@ecms.vn',    N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Phạm Lễ Tân Một',     N'0901000006', '1995-04-12', N'FEMALE',
-     N'6 Bạch Đằng, Q.BT, TP.HCM',        GETDATE(), N'ACTIVE', GETDATE()),
+     N'6 Bạch Đằng, Q.BT, TP.HCM',        GETDATE(), N'ACTIVE', 1, 4, GETDATE()),
 
 (7,  N'reception2@ecms.vn',    N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Hoàng Lễ Tân Hai',    N'0901000007', '1997-09-30', N'MALE',
-     N'7 Cộng Hòa, Q.TB, TP.HCM',         GETDATE(), N'ACTIVE', GETDATE()),
+     N'7 Cộng Hòa, Q.TB, TP.HCM',         GETDATE(), N'ACTIVE', 1, 4, GETDATE()),
 
 (8,  N'pharmacist@ecms.vn',    N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Vũ Dược Sĩ',          N'0901000008', '1990-06-18', N'FEMALE',
-     N'8 Tô Hiến Thành, Q10, TP.HCM',     GETDATE(), N'ACTIVE', GETDATE()),
+     N'8 Tô Hiến Thành, Q10, TP.HCM',     GETDATE(), N'ACTIVE', 1, 5, GETDATE()),
 
 (9,  N'labtech@ecms.vn',       N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Đặng Kỹ Thuật Viên',  N'0901000009', '1993-02-22', N'MALE',
-     N'9 Nguyễn Thị Minh Khai, Q3',       GETDATE(), N'ACTIVE', GETDATE()),
+     N'9 Nguyễn Thị Minh Khai, Q3',       GETDATE(), N'ACTIVE', 1, 6, GETDATE()),
 
 (10, N'patient1@gmail.com',    N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Bùi Văn Bệnh Nhân',   N'0912000001', '1990-03-10', N'MALE',
-     N'10 Lý Thường Kiệt, Q10, TP.HCM',   GETDATE(), N'ACTIVE', GETDATE()),
+     N'10 Lý Thường Kiệt, Q10, TP.HCM',   GETDATE(), N'ACTIVE', 1, 7, GETDATE()),
 
 (11, N'patient2@gmail.com',    N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Đinh Thị Hoa',        N'0912000002', '1995-08-15', N'FEMALE',
-     N'11 Trần Hưng Đạo, Q5, TP.HCM',     GETDATE(), N'ACTIVE', GETDATE()),
+     N'11 Trần Hưng Đạo, Q5, TP.HCM',     GETDATE(), N'ACTIVE', 1, 7, GETDATE()),
 
 (12, N'patient3@gmail.com',    N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Lý Văn Minh',         N'0912000003', '1982-12-05', N'MALE',
-     N'12 An Dương Vương, Q5, TP.HCM',     GETDATE(), N'ACTIVE', GETDATE()),
+     N'12 An Dương Vương, Q5, TP.HCM',     GETDATE(), N'ACTIVE', 1, 7, GETDATE()),
 
 (13, N'patient4@gmail.com',    N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Ngô Thị Lan',         N'0912000004', '2000-05-20', N'FEMALE',
-     N'13 Nguyễn Văn Cừ, Q5, TP.HCM',     GETDATE(), N'ACTIVE', GETDATE()),
+     N'13 Nguyễn Văn Cừ, Q5, TP.HCM',     GETDATE(), N'ACTIVE', 1, 7, GETDATE()),
 
 (14, N'patient5@gmail.com',    N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Tô Văn Dũng',         N'0912000005', '1975-07-07', N'MALE',
-     N'14 Hùng Vương, Q6, TP.HCM',         GETDATE(), N'ACTIVE', GETDATE());
+     N'14 Hùng Vương, Q6, TP.HCM',         GETDATE(), N'ACTIVE', 1, 7, GETDATE());
 
 SET IDENTITY_INSERT users OFF;
 GO
@@ -1485,16 +1518,62 @@ VALUES
 SET IDENTITY_INSERT backup_logs OFF;
 GO
 
+-- ============================================================
+-- 27. blogs  (bài viết trang chủ)
+-- ============================================================
+SET IDENTITY_INSERT blogs ON;
+
+INSERT INTO blogs
+    (id, title, summary, content, author, category, image_url, published_at, status)
+VALUES
+(1, N'5 Dấu hiệu cảnh báo bệnh tăng nhãn áp bạn không nên bỏ qua',
+    N'Tăng nhãn áp thường được gọi là kẻ trộm thị giác vì tiến triển âm thầm.',
+    N'Tăng nhãn áp thường được gọi là "kẻ trộm thị giác" vì tiến triển âm thầm. Chú ý 5 dấu hiệu: (1) Mờ mắt thoáng qua, (2) Đau đầu phía trán, (3) Nhìn thấy quầng sáng quanh đèn, (4) Thu hẹp thị trường ngoại vi, (5) Buồn nôn kèm đau mắt. Khám nhãn áp định kỳ là cách phát hiện sớm hiệu quả nhất.',
+    N'BS. Nguyễn Văn An', N'Nhãn khoa', NULL, DATEADD(DAY,-10,GETDATE()), N'PUBLISHED'),
+
+(2, N'Kính áp tròng: Những điều cần biết để bảo vệ mắt',
+    N'Kính áp tròng tiện lợi nhưng sử dụng sai cách rất nguy hiểm.',
+    N'Kính áp tròng tiện lợi nhưng sử dụng sai cách rất nguy hiểm. Nguyên tắc vàng: (1) Rửa tay trước khi đeo/tháo, (2) Không đeo khi ngủ, (3) Không dùng nước máy thay nước muối rửa kính, (4) Thay kính đúng chu kỳ, (5) Tháo ngay khi mắt đỏ hoặc đau.',
+    N'BS. Trần Thị Bình', N'Kính áp tròng', NULL, DATEADD(DAY,-5,GETDATE()), N'PUBLISHED'),
+
+(3, N'Phẫu thuật Phaco điều trị đục thể thủy tinh — Quy trình và kết quả',
+    N'Đục thể thủy tinh là nguyên nhân hàng đầu gây mù lòa có thể phòng ngừa.',
+    N'Đục thể thủy tinh là nguyên nhân hàng đầu gây mù lòa có thể phòng ngừa. Phẫu thuật Phaco chỉ mất 15-20 phút, không cần nằm viện, bệnh nhân phục hồi thị lực trong 24-48 giờ. Bài viết này giải thích chi tiết quy trình và những điều cần chuẩn bị.',
+    N'BS. Lê Minh Châu', N'Phẫu thuật', NULL, NULL, N'DRAFT');
+
+SET IDENTITY_INSERT blogs OFF;
+GO
+
+-- ============================================================
+-- 28. clinic_services  (danh mục dịch vụ cho trang chủ)
+-- ============================================================
+SET IDENTITY_INSERT clinic_services ON;
+
+INSERT INTO clinic_services
+    (id, service_name, description, price, duration_minutes)
+VALUES
+(1, N'Khám mắt tổng quát',             N'Khám sức khỏe mắt toàn diện, kiểm tra thị lực và áp suất nhãn cầu.',   150000,  30),
+(2, N'Đo khúc xạ máy',                 N'Đo độ cận viễn loạn bằng máy tự động.',                                  80000,  15),
+(3, N'Soi đáy mắt',                    N'Kiểm tra võng mạc và dây thần kinh thị giác.',                           200000,  20),
+(4, N'Chụp OCT võng mạc',              N'Chụp cắt lớp kết hợp quang học để đánh giá võng mạc.',                  350000,  25),
+(5, N'Đo nhãn áp',                     N'Đo áp suất trong mắt để sàng lọc tăng nhãn áp.',                         60000,  10),
+(6, N'Chụp bản đồ giác mạc (Topo)',    N'Phân tích hình thái giác mạc bằng máy Topographer.',                    250000,  20),
+(7, N'Xét nghiệm sinh hóa máu cơ bản',N'Xét nghiệm đường huyết, mỡ máu phục vụ tiền phẫu.',                    180000,  60),
+(8, N'Phẫu thuật đục thủy tinh thể',   N'Phẫu thuật Phaco thay thể thủy tinh nhân tạo.',                      15000000,  90);
+
+SET IDENTITY_INSERT clinic_services OFF;
+GO
+
 PRINT N'';
 PRINT N'=== ECMS FULL SCRIPT HOÀN TẤT ===';
 PRINT N'';
-PRINT N'PHẦN 1 — Cấu trúc CSDL (28 bảng):';
+PRINT N'PHẦN 1 — Cấu trúc CSDL (30 bảng):';
 PRINT N'  roles, users, user_roles, refresh_tokens, password_reset_tokens';
 PRINT N'  patients, doctors, staffs, doctor_schedules, services';
 PRINT N'  appointments, medical_records, prescriptions, medicines, prescription_items';
 PRINT N'  glasses_orders, lab_orders, lab_order_items, lab_results, service_assignments';
 PRINT N'  invoices, invoice_details, notifications, feedbacks, blog_posts';
-PRINT N'  audit_logs, system_configs, backup_logs';
+PRINT N'  audit_logs, system_configs, backup_logs, blogs, clinic_services';
 PRINT N'';
 PRINT N'PHẦN 2 — Dữ liệu mẫu:';
 PRINT N'  users              : 14 (1 admin, 1 manager, 3 bác sĩ, 2 lễ tân, 1 dược sĩ, 1 lab tech, 5 bệnh nhân)';
@@ -1509,6 +1588,7 @@ PRINT N'  invoice_details    : 8  | notifications      : 5  | feedbacks         
 PRINT N'  blog_posts         : 3 (2 PUBLISHED, 1 DRAFT)';
 PRINT N'  refresh_tokens     : 3  | password_reset_tokens: 2';
 PRINT N'  audit_logs         : 5  | backup_logs        : 2';
+PRINT N'  blogs              : 3 (2 PUBLISHED, 1 DRAFT) | clinic_services : 8';
 PRINT N'';
 PRINT N'  Mật khẩu tất cả tài khoản: Password@123';
 GO
