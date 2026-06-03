@@ -42,8 +42,8 @@ export default function DoctorDashboard() {
         appointmentService.getDoctorQueue(),
         appointmentService.getDashboard(),
       ])
-      setQueue(queueRes.data?.data ?? [])
-      setStats(dashRes.data?.data ?? null)
+      setQueue(queueRes.data ?? [])
+      setStats(dashRes.data ?? null)
     } catch {
       message.error('Không thể tải dữ liệu hàng chờ')
     } finally {

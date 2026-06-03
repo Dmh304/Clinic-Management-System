@@ -159,12 +159,14 @@ public class AppointmentServiceImpl implements AppointmentService {
         Patient patient = patientRepository.findById(request.getPatientId())
                 .orElseThrow(() -> new ResourceNotFoundException("Bệnh nhân không tồn tại: " + request.getPatientId()));
 
-        Doctor doctor = null;
-        if (request.getDoctorId() != null) {
-            doctor = doctorRepository.findById(request.getDoctorId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Bác sĩ không tồn tại: " + request.getDoctorId()));
-            validateDoctorCapacity(request.getDoctorId(), request.getAppointmentTime().toLocalDate());
+        if (request.getAppointmentTime().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Không thể tạo lịch khám trong quá khứ");
         }
+
+        Doctor doctor = doctorRepository.findById(request.getDoctorId())
+                .orElseThrow(() -> new ResourceNotFoundException("Bác sĩ không tồn tại: " + request.getDoctorId()));
+
+        validateDoctorCapacity(request.getDoctorId(), request.getAppointmentTime().toLocalDate());
 
         ClinicService clinicService = null;
         if (request.getServiceId() != null) {

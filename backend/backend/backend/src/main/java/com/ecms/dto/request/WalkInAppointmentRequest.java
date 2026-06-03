@@ -11,6 +11,7 @@ public class WalkInAppointmentRequest {
     @NotNull(message = "patientId không được để trống")
     private Long patientId;
 
+    @NotNull(message = "doctorId không được để trống")
     private Long doctorId;
 
     private Long serviceId;
