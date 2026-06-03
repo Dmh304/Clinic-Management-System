@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import blogService from '../services/blogService'
+import logoImg from '../assets/ECMS_Logo.png'
 
 const CATEGORIES = ['Tất cả', 'Sức khỏe Mắt', 'Tin tức Phòng khám', 'Công nghệ Điều trị']
 const PAGE_SIZE = 4 // 1 featured + 3 grid
@@ -48,8 +49,10 @@ const s = {
   cardCategory: { display: 'inline-block', backgroundColor: '#dbeafe', color: '#1d4ed8', fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 999 },
   cardDate: { fontSize: 12, color: '#94a3b8' },
   cardTitle: { fontSize: 15, fontWeight: 700, color: '#111827', margin: '0 0 8px', lineHeight: 1.4 },
-  cardSummary: { color: '#64748b', fontSize: 13, lineHeight: 1.65, flex: 1, marginBottom: 14,
-    display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' },
+  cardSummary: {
+    color: '#64748b', fontSize: 13, lineHeight: 1.65, flex: 1, marginBottom: 14,
+    display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+  },
 
   /* pagination */
   paginationWrap: { display: 'flex', justifyContent: 'center', gap: 6 },
@@ -63,10 +66,11 @@ const s = {
   error: { textAlign: 'center', padding: '60px 24px', color: '#ef4444', fontSize: 14 },
 
   /* footer */
-  footer: { backgroundColor: '#0f172a', color: '#94a3b8', padding: '36px 0' },
-  footerInner: { maxWidth: 1100, margin: '0 auto', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 },
-  footerCopy: { fontSize: 13 },
-  footerLinks: { display: 'flex', gap: 24 },
+  footer: { backgroundColor: '#0f172a', color: '#94a3b8', padding: '40px 0' },
+  footerInner: { maxWidth: 1280, margin: '0 auto', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 },
+  footerLogo: { display: 'flex', alignItems: 'center', gap: 8, color: '#fff', fontWeight: 700, fontSize: 16, marginBottom: 6 },
+  footerCopy: { fontSize: 12, color: '#475569' },
+  footerLinks: { display: 'flex', alignItems: 'center', gap: 24 },
   footerLink: { fontSize: 13, color: '#94a3b8', textDecoration: 'none' },
 }
 
@@ -232,9 +236,16 @@ export default function BlogListPage() {
       {/* Footer */}
       <footer style={s.footer}>
         <div style={s.footerInner}>
-          <div style={s.footerCopy}>© 2024 Eyes Clinic Management System. All rights reserved.</div>
+          <div>
+            <div style={s.footerLogo}>
+              <img src={logoImg} alt="NHÃN KHOA ÁNH SAO" style={{ height: 44, width: 'auto' }} />
+              NHÃN KHOA ÁNH SAO
+            </div>
+            <div style={s.footerCopy}>© 2024 Eyes Clinic Management System. All rights reserved.</div>
+            <div style={{ ...s.footerCopy, marginTop: 2 }}>Chuyên nghiệp – Tin cậy – Tận tâm.</div>
+          </div>
           <div style={s.footerLinks}>
-            {['Privacy Policy', 'Terms of Service', 'Contact Us', 'Accessibility'].map(l => (
+            {['Privacy Policy', 'Terms of Service', 'Contact Support', 'Clinic Locations'].map(l => (
               <Link key={l} to="/" style={s.footerLink}>{l}</Link>
             ))}
           </div>
