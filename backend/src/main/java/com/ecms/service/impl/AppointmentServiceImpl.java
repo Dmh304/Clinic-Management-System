@@ -75,8 +75,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .findByAppointmentDateAndStatusOrderByCreatedAtAsc(
                         start,
                         end,
-                        AppointmentStatus.WAITING
-                )
+                        AppointmentStatus.WAITING)
                 .stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
@@ -90,12 +89,56 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         return AppointmentDashboardResponse.builder()
                 .total(appointmentRepository.countByDate(start, end))
-                .pending(appointmentRepository.countByDateAndStatus(start, end, AppointmentStatus.PENDING))
-                .confirmed(appointmentRepository.countByDateAndStatus(start, end, AppointmentStatus.CONFIRMED))
-                .waiting(appointmentRepository.countByDateAndStatus(start, end, AppointmentStatus.WAITING))
-                .inProgress(appointmentRepository.countByDateAndStatus(start, end, AppointmentStatus.IN_PROGRESS))
-                .completed(appointmentRepository.countByDateAndStatus(start, end, AppointmentStatus.COMPLETED))
-                .cancelled(appointmentRepository.countByDateAndStatus(start, end, AppointmentStatus.CANCELLED))
+                .pending(appointmentRepository.countByDateAndStatus(start, end,
+                        AppointmentStatus.PENDING))
+                .confirmed(appointmentRepository.countByDateAndStatus(start, end,
+                        AppointmentStatus.CONFIRMED))
+                .waiting(appointmentRepository.countByDateAndStatus(start, end,
+                        AppointmentStatus.WAITING))
+                .inProgress(appointmentRepository.countByDateAndStatus(start, end,
+                        AppointmentStatus.IN_PROGRESS))
+                .completed(appointmentRepository.countByDateAndStatus(start, end,
+                        AppointmentStatus.COMPLETED))
+                .cancelled(appointmentRepository.countByDateAndStatus(start, end,
+                        AppointmentStatus.CANCELLED))
+                .build();
+    }
+
+    @Override
+    public List<AppointmentResponse> getDoctorQueue(LocalDate date, Long doctorId) {
+        LocalDate targetDate = date != null ? date : LocalDate.now();
+        LocalDateTime start = targetDate.atStartOfDay();
+        LocalDateTime end = targetDate.plusDays(1).atStartOfDay();
+
+        return appointmentRepository.findByAppointmentDateAndDoctorIdOrderByAppointmentTimeAsc(start, end,
+                doctorId)
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public AppointmentDashboardResponse getDashboard(LocalDate date, Long doctorId) {
+        LocalDate targetDate = date != null ? date : LocalDate.now();
+        LocalDateTime start = targetDate.atStartOfDay();
+        LocalDateTime end = targetDate.plusDays(1).atStartOfDay();
+
+        return AppointmentDashboardResponse.builder()
+                .total(appointmentRepository.countByDateAndDoctorId(start, end, doctorId))
+                .pending(appointmentRepository.countByDateAndStatusAndDoctorId(start, end,
+                        AppointmentStatus.PENDING,
+                        doctorId))
+                .confirmed(appointmentRepository.countByDateAndStatusAndDoctorId(start, end,
+                        AppointmentStatus.CONFIRMED, doctorId))
+                .waiting(appointmentRepository.countByDateAndStatusAndDoctorId(start, end,
+                        AppointmentStatus.WAITING,
+                        doctorId))
+                .inProgress(appointmentRepository.countByDateAndStatusAndDoctorId(start, end,
+                        AppointmentStatus.IN_PROGRESS, doctorId))
+                .completed(appointmentRepository.countByDateAndStatusAndDoctorId(start, end,
+                        AppointmentStatus.COMPLETED, doctorId))
+                .cancelled(appointmentRepository.countByDateAndStatusAndDoctorId(start, end,
+                        AppointmentStatus.CANCELLED, doctorId))
                 .build();
     }
 
@@ -122,7 +165,8 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         if (doctorId != null) {
             Doctor doctor = doctorRepository.findById(doctorId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Bác sĩ không tồn tại: " + doctorId));
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Bác sĩ không tồn tại: " + doctorId));
 
             validateDoctorCapacity(doctorId, appointment.getAppointmentDate());
             appointment.setDoctor(doctor);
@@ -161,7 +205,8 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin bệnh nhân"));
 
         Doctor doctor = doctorRepository.findById(request.getDoctorId())
-                .orElseThrow(() -> new ResourceNotFoundException("Bác sĩ không tồn tại: " + request.getDoctorId()));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Bác sĩ không tồn tại: " + request.getDoctorId()));
 
         validateDoctorCapacity(doctor.getId(), request.getAppointmentTime().toLocalDate());
 
@@ -183,36 +228,41 @@ public class AppointmentServiceImpl implements AppointmentService {
     @Transactional
     public AppointmentResponse createWalkInAppointment(WalkInAppointmentRequest request) {
         Patient patient = patientRepository.findById(request.getPatientId())
-                .orElseThrow(() -> new ResourceNotFoundException("Bệnh nhân không tồn tại: " + request.getPatientId()));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Bệnh nhân không tồn tại: " + request.getPatientId()));
 
-        Doctor doctor = null;
-        if (request.getDoctorId() != null) {
-            doctor = doctorRepository.findById(request.getDoctorId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Bác sĩ không tồn tại: " + request.getDoctorId()));
-            validateDoctorCapacity(request.getDoctorId(), request.getAppointmentTime().toLocalDate());
+        if (request.getAppointmentTime().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Không thể tạo lịch khám trong quá khứ");
         }
+
+        Doctor doctor = doctorRepository.findById(request.getDoctorId())
+                .orElseThrow(() -> new ResourceNotFoundException("Bác sĩ không tồn tại: " + request.getDoctorId()));
+
+        validateDoctorCapacity(request.getDoctorId(), request.getAppointmentTime().toLocalDate());
 
         ClinicService clinicService = null;
         if (request.getServiceId() != null) {
             clinicService = clinicServiceRepository.findById(request.getServiceId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Dịch vụ không tồn tại: " + request.getServiceId()));
+                    .orElseThrow(
+                            () -> new ResourceNotFoundException("Dịch vụ không tồn tại: "
+                                    + request.getServiceId()));
         }
 
         LocalDate appointmentDate = request.getAppointmentTime().toLocalDate();
 
         Appointment appointment = Appointment.builder()
-        .patient(patient)
-        .doctor(doctor)
-        .clinicService(clinicService)
-        .appointmentTime(request.getAppointmentTime())
-        .timeSlot(request.getAppointmentTime().toLocalTime().toString())
-        .status(AppointmentStatus.WAITING)
-        .type("WALK_IN")
-        .queueNumber(nextQueueNumber(appointmentDate))
-        .checkInTime(LocalDateTime.now())
-        .reminderSent(false)
-        .notes(request.getNotes())
-        .build();
+                .patient(patient)
+                .doctor(doctor)
+                .clinicService(clinicService)
+                .appointmentTime(request.getAppointmentTime())
+                .timeSlot(request.getAppointmentTime().toLocalTime().toString())
+                .status(AppointmentStatus.WAITING)
+                .type("WALK_IN")
+                .queueNumber(nextQueueNumber(appointmentDate))
+                .checkInTime(LocalDateTime.now())
+                .reminderSent(false)
+                .notes(request.getNotes())
+                .build();
 
         return toResponse(appointmentRepository.save(appointment));
     }
@@ -228,9 +278,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                 List.of(
                         AppointmentStatus.CONFIRMED,
                         AppointmentStatus.WAITING,
-                        AppointmentStatus.IN_PROGRESS
-                )
-        );
+                        AppointmentStatus.IN_PROGRESS));
 
         if (count >= MAX_APPOINTMENTS_PER_DOCTOR_PER_DAY) {
             throw new IllegalStateException("Bác sĩ đã đủ 30 lịch hẹn trong ngày");
@@ -247,9 +295,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                 List.of(
                         AppointmentStatus.WAITING,
                         AppointmentStatus.IN_PROGRESS,
-                        AppointmentStatus.COMPLETED
-                )
-        );
+                        AppointmentStatus.COMPLETED));
 
         return (max == null ? 0 : max) + 1;
     }
@@ -262,7 +308,8 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .patientPhone(a.getPatient() != null ? a.getPatient().getPhone() : null)
                 .doctorId(a.getDoctor() != null ? a.getDoctor().getId() : null)
                 .doctorName(a.getDoctor() != null ? a.getDoctor().getFullName() : null)
-                .serviceName(a.getClinicService() != null ? a.getClinicService().getServiceName() : null)
+                .serviceName(a.getClinicService() != null ? a.getClinicService().getServiceName()
+                        : null)
                 .appointmentTime(a.getAppointmentTime())
                 .timeSlot(a.getTimeSlot())
                 .status(a.getStatus())

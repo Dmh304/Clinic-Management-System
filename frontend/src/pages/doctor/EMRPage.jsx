@@ -42,17 +42,22 @@ function EyeFields({ prefix, label }) {
   )
 }
 
-function HistoryCard({ record }) {
+function HistoryCard({ record, onClick }) {
   const date = record.createdAt
     ? new Date(record.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
     : '—'
   const cfg = STATUS_MAP[record.status] ?? { color: 'default', label: record.status }
 
   return (
-    <div style={{
+    <div 
+    onClick={onClick}
+    style={{
       border: '1px solid #e2e8f0', borderRadius: 10, padding: '14px 16px', marginBottom: 10,
       backgroundColor: '#fafafa',
-    }}>
+    }}
+    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f0fdf9'}
+    onMouseLeave={e => e.currentTarget.style.backgroundColor = '#fafafa'}
+    >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <span style={{ fontWeight: 600, fontSize: 13, color: '#1e293b' }}>{date}</span>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -115,13 +120,15 @@ export default function EMRPage() {
     setLoading(true)
     try {
       const res = await emrService.getByAppointment(appointmentId)
-      const data = res.data?.data
+      const data = res.data
+      console.log('>>> EMR data: ', data)
       if (data) {
         setEmr(data)
         form.setFieldsValue(emrToFormValues(data))
       }
-    } catch {
+    } catch (e) {
       // no existing EMR yet — that's fine
+      console.log('>>> EMR fetch error: ', e)
     } finally {
       setLoading(false)
     }
@@ -131,13 +138,20 @@ export default function EMRPage() {
     if (!patientId) return
     try {
       const res = await emrService.getPatientHistory(patientId)
-      const all = res.data?.data ?? []
+      const all = res.data ?? []
       // Exclude the current appointment's EMR from history list
       setHistory(all.filter((r) => String(r.appointmentId) !== String(appointmentId)))
     } catch {
       // ignore
     }
   }, [patientId, appointmentId])
+
+  useEffect(() => {
+    setEmr(null)
+    setHistory([])
+    form.resetFields()
+    setLoading(!!appointmentId)
+  }, [appointmentId])
 
   useEffect(() => {
     fetchEMR()
@@ -163,13 +177,23 @@ export default function EMRPage() {
 
   const handleSave = async (status) => {
     try {
-      const values = await form.validateFields()
+      //const values = await form.validateFields()
+      let values
+      if(status === 'COMPLETED'){
+        values = await form.validateFields()
+      }
+      else{
+        values = form.getFieldsValue()
+      }
       setSaving(true)
+      console.log('>>> Payload status: ', buildPayload(values, status).status)
       const res = await emrService.saveEMR(buildPayload(values, status))
-      setEmr(res.data?.data)
+      setEmr(res.data)
       message.success(status === 'COMPLETED' ? 'Đã hoàn thành hồ sơ bệnh án' : 'Đã lưu nháp')
-      if (status === 'COMPLETED') navigate('/doctor/dashboard')
+      // if (status === 'COMPLETED') 
+        navigate('/doctor/dashboard')
     } catch (err) {
+      console.log('>>> Save error: ', err)
       if (err?.errorFields) return // validation error, antd handles it
       message.error('Lưu thất bại, vui lòng thử lại')
     } finally {
@@ -229,6 +253,7 @@ export default function EMRPage() {
       </div>
 
       <Spin spinning={loading}>
+        {!loading && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 16, alignItems: 'start' }}>
           {/* ── Left: EMR form ── */}
           <div style={{ backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
@@ -282,7 +307,7 @@ export default function EMRPage() {
             </Form>
 
             {/* Actions */}
-            {!isCompleted && (
+            {!isCompleted && !loading && (
               <div style={{
                 borderTop: '1px solid #f1f5f9', padding: '14px 24px',
                 display: 'flex', gap: 10, justifyContent: 'flex-end',
@@ -312,10 +337,11 @@ export default function EMRPage() {
                 Chưa có lịch sử khám
               </div>
             ) : (
-              history.map((r) => <HistoryCard key={r.id} record={r} />)
+              history.map((r) => <HistoryCard key={r.id} record={r} onClick={() => navigate(`/doctor/emr?appointmentId=${r.appointmentId}&patientId=${r.patientId}`)}/>)
             )}
           </div>
         </div>
+        )}
       </Spin>
     </div>
   )

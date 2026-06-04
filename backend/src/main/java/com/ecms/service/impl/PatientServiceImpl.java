@@ -32,10 +32,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PatientServiceImpl implements PatientService {
 
-    private final PatientRepository patientRepository;
-    private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
-    private final PasswordEncoder passwordEncoder;
+        private final PatientRepository patientRepository;
+        private final UserRepository userRepository;
+        private final RoleRepository roleRepository;
+        private final PasswordEncoder passwordEncoder;
 
     // Mật khẩu mặc định cấp cho bệnh nhân vãng lai khi tạo tài khoản lần đầu
     private static final String DEFAULT_PASSWORD = "Password@123";
@@ -58,8 +58,8 @@ public class PatientServiceImpl implements PatientService {
             throw new FieldValidationException(errors);
         }
 
-        Role patientRole = roleRepository.findByName("PATIENT")
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy vai trò PATIENT"));
+                Role patientRole = roleRepository.findByName("PATIENT")
+                                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy vai trò PATIENT"));
 
         // Tạo tài khoản đăng nhập cho bệnh nhân với mật khẩu mặc định đã mã hóa
         User user = User.builder()
@@ -87,8 +87,8 @@ public class PatientServiceImpl implements PatientService {
                 .address(request.getAddress())
                 .build();
 
-        return toResponse(patientRepository.save(patient));
-    }
+                return toResponse(patientRepository.save(patient));
+        }
 
     // Tìm kiếm bệnh nhân theo từ khóa (tên hoặc số điện thoại).
     // Nếu không có từ khóa thì trả về toàn bộ danh sách bệnh nhân.

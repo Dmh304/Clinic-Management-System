@@ -23,13 +23,13 @@ const authSlice = createSlice({
   initialState: loadFromStorage(),
   reducers: {
     loginSuccess(state, action) {
-      const { token, userId, email, fullName, role } = action.payload
+      const { token, userId, email, fullName, role, doctorId } = action.payload
       state.token = token
-      state.user = { userId, email, fullName, role }
+      state.user = { userId, email, fullName, role, doctorId }
       state.role = role
       state.isAuthenticated = true
       localStorage.setItem(TOKEN_KEY, token)
-      localStorage.setItem(USER_KEY, JSON.stringify({ userId, email, fullName, role }))
+      localStorage.setItem(USER_KEY, JSON.stringify({ userId, email, fullName, role, doctorId }))
     },
     logout(state) {
       state.token = null

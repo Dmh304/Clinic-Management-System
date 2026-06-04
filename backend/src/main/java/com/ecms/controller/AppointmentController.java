@@ -6,6 +6,8 @@ import com.ecms.dto.response.ApiResponse;
 import com.ecms.dto.response.AppointmentDashboardResponse;
 import com.ecms.dto.response.AppointmentResponse;
 import com.ecms.entity.AppointmentStatus;
+import com.ecms.entity.Doctor;
+import com.ecms.repository.DoctorRepository;
 import com.ecms.service.AppointmentService;
 import jakarta.validation.Valid;
 import lombok.Data;
@@ -24,105 +26,103 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AppointmentController {
 
-    private final AppointmentService appointmentService;
+        private final AppointmentService appointmentService;
+        private final DoctorRepository doctorRepository;
 
-    @GetMapping
-    public ResponseEntity<ApiResponse<List<AppointmentResponse>>> getAllAppointments() {
-        return ResponseEntity.ok(
-                ApiResponse.success(appointmentService.getAllAppointments())
-        );
-    }
+        @GetMapping
+        public ResponseEntity<ApiResponse<List<AppointmentResponse>>> getAllAppointments() {
+                return ResponseEntity.ok(
+                                ApiResponse.success(appointmentService.getAllAppointments()));
+        }
 
-    @GetMapping("/today")
-    public ResponseEntity<ApiResponse<List<AppointmentResponse>>> getTodayAppointments() {
-        return ResponseEntity.ok(
-                ApiResponse.success(appointmentService.getTodayAppointments())
-        );
-    }
+        @GetMapping("/today")
+        public ResponseEntity<ApiResponse<List<AppointmentResponse>>> getTodayAppointments() {
+                return ResponseEntity.ok(
+                                ApiResponse.success(appointmentService.getTodayAppointments()));
+        }
 
-    @GetMapping("/search")
-    public ResponseEntity<ApiResponse<List<AppointmentResponse>>> searchAppointments(
-            @RequestParam(required = false) String keyword
-    ) {
-        return ResponseEntity.ok(
-                ApiResponse.success(appointmentService.searchAppointments(keyword))
-        );
-    }
+        @GetMapping("/search")
+        public ResponseEntity<ApiResponse<List<AppointmentResponse>>> searchAppointments(
+                        @RequestParam(required = false) String keyword) {
+                return ResponseEntity.ok(
+                                ApiResponse.success(appointmentService.searchAppointments(keyword)));
+        }
 
-    @GetMapping("/doctor-queue")
-    public ResponseEntity<ApiResponse<List<AppointmentResponse>>> getDoctorQueue(
-            @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-            LocalDate date
-    ) {
-        return ResponseEntity.ok(
-                ApiResponse.success(appointmentService.getDoctorQueue(date))
-        );
-    }
+        @GetMapping("/doctor-queue")
+        public ResponseEntity<ApiResponse<List<AppointmentResponse>>> getDoctorQueue(
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+                        @AuthenticationPrincipal UserDetails userDetails) {
+                Long doctorId = resolveDoctorId(userDetails);
+                if (doctorId != null) {
+                        return ResponseEntity
+                                        .ok(ApiResponse.success(appointmentService.getDoctorQueue(date, doctorId)));
+                }
+                return ResponseEntity.ok(
+                                ApiResponse.success(appointmentService.getDoctorQueue(date)));
+        }
 
-    @GetMapping("/dashboard")
-    public ResponseEntity<ApiResponse<AppointmentDashboardResponse>> getDashboard(
-            @RequestParam(required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
-            LocalDate date
-    ) {
-        return ResponseEntity.ok(
-                ApiResponse.success(appointmentService.getDashboard(date))
-        );
-    }
+        @GetMapping("/dashboard")
+        public ResponseEntity<ApiResponse<AppointmentDashboardResponse>> getDashboard(
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+                        @AuthenticationPrincipal UserDetails userDetails) {
+                Long doctorId = resolveDoctorId(userDetails);
+                if (doctorId != null) {
+                        return ResponseEntity.ok(ApiResponse.success(appointmentService.getDashboard(date, doctorId)));
+                }
+                return ResponseEntity.ok(
+                                ApiResponse.success(appointmentService.getDashboard(date)));
+        }
 
-    @PatchMapping("/{id}/status")
-    public ResponseEntity<ApiResponse<AppointmentResponse>> updateStatus(
-            @PathVariable Long id,
-            @RequestParam AppointmentStatus status
-    ) {
-        return ResponseEntity.ok(
-                ApiResponse.success(appointmentService.updateAppointmentStatus(id, status))
-        );
-    }
+        @PatchMapping("/{id}/status")
+        public ResponseEntity<ApiResponse<AppointmentResponse>> updateStatus(
+                        @PathVariable Long id,
+                        @RequestParam AppointmentStatus status) {
+                return ResponseEntity.ok(
+                                ApiResponse.success(appointmentService.updateAppointmentStatus(id, status)));
+        }
 
-    @PatchMapping("/{id}/confirm")
-    public ResponseEntity<ApiResponse<AppointmentResponse>> confirmAppointment(
-            @PathVariable Long id,
-            @RequestBody(required = false) ConfirmAppointmentRequest request
-    ) {
-        Long doctorId = request != null ? request.getDoctorId() : null;
+        @PatchMapping("/{id}/confirm")
+        public ResponseEntity<ApiResponse<AppointmentResponse>> confirmAppointment(
+                        @PathVariable Long id,
+                        @RequestBody(required = false) ConfirmAppointmentRequest request) {
+                Long doctorId = request != null ? request.getDoctorId() : null;
 
-        return ResponseEntity.ok(
-                ApiResponse.success(appointmentService.confirmAppointment(id, doctorId))
-        );
-    }
+                return ResponseEntity.ok(
+                                ApiResponse.success(appointmentService.confirmAppointment(id, doctorId)));
+        }
 
-    @PatchMapping("/{id}/check-in")
-    public ResponseEntity<ApiResponse<AppointmentResponse>> checkInAppointment(
-            @PathVariable Long id
-    ) {
-        return ResponseEntity.ok(
-                ApiResponse.success(appointmentService.checkInAppointment(id))
-        );
-    }
+        @PatchMapping("/{id}/check-in")
+        public ResponseEntity<ApiResponse<AppointmentResponse>> checkInAppointment(
+                        @PathVariable Long id) {
+                return ResponseEntity.ok(
+                                ApiResponse.success(appointmentService.checkInAppointment(id)));
+        }
 
-    @PostMapping("/book")
-    public ResponseEntity<ApiResponse<AppointmentResponse>> bookOnlineAppointment(
-            @Valid @RequestBody BookAppointmentRequest request,
-            @AuthenticationPrincipal UserDetails userDetails
-    ) {
-        return ResponseEntity.ok(
-                ApiResponse.success(appointmentService.bookOnlineAppointment(request, userDetails.getUsername()))
-        );
-    }
+        @PostMapping("/book")
+        public ResponseEntity<ApiResponse<AppointmentResponse>> bookOnlineAppointment(
+                        @Valid @RequestBody BookAppointmentRequest request,
+                        @AuthenticationPrincipal UserDetails userDetails) {
+                return ResponseEntity.ok(
+                                ApiResponse.success(appointmentService.bookOnlineAppointment(request,
+                                                userDetails.getUsername())));
+        }
 
-    @PostMapping("/walk-in")
-    public ResponseEntity<ApiResponse<AppointmentResponse>> createWalkInAppointment(
-            @Valid @RequestBody WalkInAppointmentRequest request
-    ) {
-        return ResponseEntity.ok(
-                ApiResponse.success(appointmentService.createWalkInAppointment(request))
-        );
-    }
+        @PostMapping("/walk-in")
+        public ResponseEntity<ApiResponse<AppointmentResponse>> createWalkInAppointment(
+                        @Valid @RequestBody WalkInAppointmentRequest request) {
+                return ResponseEntity.ok(
+                                ApiResponse.success(appointmentService.createWalkInAppointment(request)));
+        }
 
-    @Data
-    public static class ConfirmAppointmentRequest {
-        private Long doctorId;
-    }
+        @Data
+        public static class ConfirmAppointmentRequest {
+                private Long doctorId;
+        }
+
+        private Long resolveDoctorId(UserDetails userDetails) {
+                if (userDetails == null) {
+                        return null;
+                }
+                return doctorRepository.findByEmail(userDetails.getUsername()).map(Doctor::getId).orElse(null);
+        }
 }

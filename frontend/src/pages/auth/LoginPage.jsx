@@ -214,8 +214,8 @@ export default function LoginPage() {
     setErrorMsg('')
     try {
       const res = await authService.login({ email: values.email, password: values.password })
-      const { token, userId, email, fullName, role } = res.data
-      dispatch(loginSuccess({ token, userId, email, fullName, role }))
+      const { token, userId, email, fullName, role, doctorId } = res.data
+      dispatch(loginSuccess({ token, userId, email, fullName, role, doctorId }))
       message.success('Đăng nhập thành công!')
       navigate(location.state?.from ?? '/', { replace: true })
     } catch (err) {

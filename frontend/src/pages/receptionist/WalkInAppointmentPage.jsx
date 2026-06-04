@@ -32,8 +32,8 @@ export default function WalkInAppointmentPage() {
   const [services, setServices] = useState([])
 
   useEffect(() => {
-    doctorService.getAllDoctors().then((r) => setDoctors(r.data)).catch(() => {})
-    clinicServiceService.getAllServices().then((r) => setServices(r.data)).catch(() => {})
+    doctorService.getAllDoctors().then((r) => setDoctors(r.data)).catch(() => { })
+    clinicServiceService.getAllServices().then((r) => setServices(r.data)).catch(() => { })
   }, [])
 
   const handlePatientSearch = async (value) => {
@@ -54,11 +54,26 @@ export default function WalkInAppointmentPage() {
   }
 
   const onFinish = async (values) => {
+    if (!values.appointmentTime) {
+      message.error('Vui lòng chọn thời gian khám')
+      return
+    }
+
+    if (values.appointmentTime.isBefore(dayjs())) {
+      message.error('Không thể tạo lịch khám trong quá khứ')
+      return
+    }
+
+    if (!values.doctorId) {
+      message.error('Vui lòng chọn bác sĩ')
+      return
+    }
+
     setLoading(true)
     try {
       const payload = {
         patientId: values.patientId,
-        doctorId: values.doctorId ?? null,
+        doctorId: values.doctorId,
         serviceId: values.serviceId ?? null,
         appointmentTime: values.appointmentTime.format('YYYY-MM-DDTHH:mm:ss'),
         notes: values.notes ?? null,
@@ -180,22 +195,22 @@ export default function WalkInAppointmentPage() {
                 patientSearch.length < 2
                   ? 'Nhập ít nhất 2 ký tự để tìm kiếm'
                   : patientLoading
-                  ? 'Đang tìm...'
-                  : (
-                    <div style={{ textAlign: 'center', padding: '8px 0' }}>
-                      <div style={{ color: '#94a3b8', marginBottom: 8, fontSize: 13 }}>
-                        Không tìm thấy bệnh nhân
+                    ? 'Đang tìm...'
+                    : (
+                      <div style={{ textAlign: 'center', padding: '8px 0' }}>
+                        <div style={{ color: '#94a3b8', marginBottom: 8, fontSize: 13 }}>
+                          Không tìm thấy bệnh nhân
+                        </div>
+                        <Button
+                          size="small"
+                          type="primary"
+                          icon={<UserAddOutlined />}
+                          onClick={handleOpenNewPatientModal}
+                        >
+                          Tạo hồ sơ mới
+                        </Button>
                       </div>
-                      <Button
-                        size="small"
-                        type="primary"
-                        icon={<UserAddOutlined />}
-                        onClick={handleOpenNewPatientModal}
-                      >
-                        Tạo hồ sơ mới
-                      </Button>
-                    </div>
-                  )
+                    )
               }
               options={patients.map((p) => ({
                 label: (
@@ -221,12 +236,37 @@ export default function WalkInAppointmentPage() {
               format="DD/MM/YYYY HH:mm"
               style={{ width: '100%' }}
               placeholder="Chọn ngày và giờ"
+              disabledDate={(current) => {
+                return current && current < dayjs().startOf('day')
+              }}
+              disabledTime={(current) => {
+                if (!current || !current.isSame(dayjs(), 'day')) {
+                  return {}
+                }
+
+                const now = dayjs()
+
+                return {
+                  disabledHours: () =>
+                    Array.from({ length: now.hour() }, (_, i) => i),
+
+                  disabledMinutes: (selectedHour) => {
+                    if (selectedHour === now.hour()) {
+                      return Array.from({ length: now.minute() + 1 }, (_, i) => i)
+                    }
+                    return []
+                  },
+                }
+              }}
             />
           </Form.Item>
 
-          <Form.Item label="Bác sĩ (không bắt buộc)" name="doctorId">
+          <Form.Item
+            label="Bác sĩ"
+            name="doctorId"
+            rules={[{ required: true, message: 'Vui lòng chọn bác sĩ' }]}
+          >
             <Select
-              allowClear
               placeholder="Chọn bác sĩ"
               options={doctors.map((d) => ({
                 label: `${d.fullName}${d.specialization ? ` — ${d.specialization}` : ''}`,
@@ -237,7 +277,7 @@ export default function WalkInAppointmentPage() {
 
           <Form.Item label="Dịch vụ (không bắt buộc)" name="serviceId">
             <Select
-              allowClear
+              rules={[{ required: true, message: 'Vui lòng chọn bác sĩ' }]}
               placeholder="Chọn dịch vụ"
               options={services.map((s) => ({
                 label: s.serviceName,

@@ -30,4 +30,8 @@ public interface AppointmentService {
     AppointmentResponse bookOnlineAppointment(BookAppointmentRequest request, String patientEmail);
 
     AppointmentDashboardResponse getDashboard(LocalDate date);
+
+    List<AppointmentResponse> getDoctorQueue(LocalDate date, Long doctorId);
+
+    AppointmentDashboardResponse getDashboard(LocalDate date, Long doctorId);
 }

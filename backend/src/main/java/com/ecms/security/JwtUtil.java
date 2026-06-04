@@ -22,14 +22,18 @@ public class JwtUtil {
         return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String generateToken(String email, String role) {
-        return Jwts.builder()
+    public String generateToken(String email, String role, Long doctorId) {
+        JwtBuilder builder = Jwts.builder()
                 .subject(email)
                 .claim("role", role)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + expiration))
-                .signWith(signingKey())
-                .compact();
+                .signWith(signingKey());
+
+        if (doctorId != null) {
+            builder.claim("doctorId", doctorId);
+        }
+        return builder.compact();
     }
 
     public String extractEmail(String token) {
@@ -55,5 +59,13 @@ public class JwtUtil {
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+    }
+
+    public Long extractDoctorId(String token) {
+        Object doctorId = parseClaims(token).get("doctorId");
+        if (doctorId == null) {
+            return null;
+        }
+        return ((Number) doctorId).longValue();
     }
 }
