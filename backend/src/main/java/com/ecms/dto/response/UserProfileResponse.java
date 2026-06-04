@@ -1,3 +1,6 @@
+// Mạnh Hùng - HE200743
+// DTO trả về thông tin hồ sơ cá nhân của người dùng đang đăng nhập.
+// Kết hợp dữ liệu từ bảng User (email, họ tên, SĐT, vai trò) và Patient (ngày sinh, giới tính, địa chỉ).
 package com.ecms.dto.response;
 
 import lombok.*;

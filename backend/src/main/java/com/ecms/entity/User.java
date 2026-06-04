@@ -1,3 +1,7 @@
+// Mạnh Hùng - HE200743
+// Entity ánh xạ bảng "users" trong database.
+// Lưu trữ thông tin tài khoản người dùng: email, mật khẩu đã mã hóa, họ tên, số điện thoại,
+// vai trò (Role), trạng thái (ACTIVE/INACTIVE) và thời điểm tạo tài khoản.
 package com.ecms.entity;
 
 import jakarta.persistence.*;

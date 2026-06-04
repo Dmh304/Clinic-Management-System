@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import Header from '../../components/layout/Header'
 import { useSelector } from 'react-redux'
+import logoImg from '../../assets/ECMS_Logo.png'
 import { doctorService } from '../../services/doctorService';
 import { appointmentService } from '../../services/appointmentService';
 // ─── Design tokens ───────────────────────────────────────────────
@@ -42,40 +43,35 @@ const S = {
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  footer: {
-    background: '#dde8ff',
-    padding: '20px 40px',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 12,
+  footer: { backgroundColor: '#0f172a', color: '#94a3b8', padding: '40px 0' },
+  footerInner: {
+    maxWidth: 1280, margin: '0 auto', padding: '0 24px',
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16,
   },
-  footerLinks: {
-    display: 'flex',
-    gap: 24,
-  },
-  footerLink: {
-    fontSize: 12,
-    color: '#4b5563',
-    textDecoration: 'none',
-  },
+  footerLogo: { display: 'flex', alignItems: 'center', gap: 8, color: '#fff', fontWeight: 700, fontSize: 16, marginBottom: 6 },
+  footerCopy: { fontSize: 12, color: '#475569' },
+  footerLinks: { display: 'flex', alignItems: 'center', gap: 24 },
+  footerLink: { fontSize: 13, color: '#94a3b8', textDecoration: 'none' },
 }
 const font = "'IBM Plex Sans', 'Segoe UI', sans-serif";
 const Footer = () => (
   <footer style={S.footer}>
-        <div>
-          <p style={{ fontWeight: 700, fontSize: 13, color: '#1f2937', margin: 0 }}>Nhãn Khoa Ánh Sao</p>
-          <p style={{ fontSize: 12, color: '#9ca3af', margin: 0 }}>
-            © 2024 Phòng Khám Nhãn Khoa Ánh Sao. Bảo lưu mọi quyền.
-          </p>
+    <div style={S.footerInner}>
+      <div>
+        <div style={S.footerLogo}>
+          <img src={logoImg} alt="Anh Sao Eye Clinic" style={{ height: 44, width: 'auto' }} />
+          NHÃN KHOA ÁNH SAO
         </div>
-        <nav style={S.footerLinks}>
-          {['Chính Sách Bảo Mật', 'Điều Khoản Dịch Vụ', 'Liên Hệ Hỗ Trợ', 'Địa Điểm Phòng Khám'].map(t => (
-            <a key={t} href="#" style={S.footerLink}>{t}</a>
-          ))}
-        </nav>
-      </footer>
+        <div style={S.footerCopy}>© 2024 Eyes Clinic Management System. All rights reserved.</div>
+        <div style={{ ...S.footerCopy, marginTop: 2 }}>Chuyên nghiệp – Tin cậy – Tận tâm.</div>
+      </div>
+      <nav style={S.footerLinks}>
+        {['Privacy Policy', 'Terms of Service', 'Contact Support', 'Clinic Locations'].map(t => (
+          <Link key={t} to="/" style={S.footerLink}>{t}</Link>
+        ))}
+      </nav>
+    </div>
+  </footer>
 );
 
 // ─── Progress bar ─────────────────────────────────────────────────
@@ -293,7 +289,7 @@ function Page1({ onNext }) {
             })}
           </div>
         </section>
-        
+
 
         {/* CTA */}
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
@@ -351,8 +347,8 @@ function Page2({ data, onNext, onBack, submitting, submitError }) {
   const isTooSoon = (slot) => {
     const slotTime = new Date(today);
     if (!selectedDate || !isToday(selectedDate)) {
-        return false;
-      
+      return false;
+
     }
     const [h, m] = slot.time.split(":").map(Number);
     slotTime.setHours(h, m, 0, 0);
@@ -604,7 +600,7 @@ function Page2({ data, onNext, onBack, submitting, submitError }) {
 function Page3({ data, onReset, bookingResult }) {
   const navigate = useNavigate();
   const fmtDate = (d) =>
-  d.toLocaleDateString("vi-VN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    d.toLocaleDateString("vi-VN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
   const bookingCode = bookingResult?.id ? `#${bookingResult.id}` : `NKA-${Date.now().toString(36).slice(-6).toUpperCase()}`;
   const { user } = useSelector((s) => s.auth);
   return (

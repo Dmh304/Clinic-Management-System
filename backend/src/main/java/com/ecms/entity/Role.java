@@ -1,3 +1,6 @@
+// Mạnh Hùng - HE200743
+// Entity ánh xạ bảng "roles" trong database.
+// Lưu trữ các vai trò trong hệ thống: PATIENT, DOCTOR, RECEPTIONIST, LAB_TECHNICIAN, PHARMACIST, MANAGER, ADMIN.
 package com.ecms.entity;
 
 import jakarta.persistence.*;

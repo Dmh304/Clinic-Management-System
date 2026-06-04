@@ -1,3 +1,9 @@
+// Mạnh Hùng - HE200743
+// Thanh điều hướng (Header) dùng chung cho toàn bộ ứng dụng.
+// Hiển thị logo, các liên kết điều hướng công khai (Trang chủ, Blog, Hỗ trợ),
+// liên kết yêu cầu đăng nhập (Đặt lịch, Hồ sơ bệnh án), và khu vực tài khoản:
+// nếu đã đăng nhập thì hiện dropdown (Hồ sơ cá nhân, Đổi mật khẩu, Đăng xuất),
+// nếu chưa thì hiện nút Đăng nhập / Đăng ký.
 import { useState, useRef, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
@@ -23,6 +29,7 @@ export default function Header() {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef(null)
 
+  // Đóng dropdown tài khoản khi người dùng click ra ngoài vùng dropdown
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -33,6 +40,7 @@ export default function Header() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  // Điều hướng đến trang yêu cầu đăng nhập; nếu chưa đăng nhập thì chuyển sang trang login và lưu lại đường dẫn gốc
   const handleProtectedLink = (targetPath) => {
     if (!isAuthenticated) {
       navigate('/login', { state: { from: targetPath } })
@@ -41,6 +49,7 @@ export default function Header() {
     }
   }
 
+  // Đăng xuất người dùng: xóa trạng thái xác thực trong Redux và điều hướng về trang chủ
   const handleLogout = () => {
     dispatch(logout())
     navigate('/', { replace: true })

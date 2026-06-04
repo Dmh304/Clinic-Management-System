@@ -1,3 +1,6 @@
+// Mạnh Hùng - HE200743
+// Controller cung cấp API lấy danh sách dịch vụ khám chữa bệnh của phòng khám.
+// Dùng để hiển thị thông tin dịch vụ trên trang chủ và các trang liên quan.
 package com.ecms.controller;
 
 import com.ecms.dto.response.ApiResponse;
@@ -19,6 +22,7 @@ public class ClinicServiceController {
 
     private final ClinicServiceRepository clinicServiceRepository;
 
+    // Lấy toàn bộ danh sách dịch vụ từ database và chuyển đổi sang DTO để trả về client
     @GetMapping
     public ResponseEntity<ApiResponse<List<ClinicServiceResponse>>> getAllServices() {
         List<ClinicServiceResponse> services = clinicServiceRepository.findAll()

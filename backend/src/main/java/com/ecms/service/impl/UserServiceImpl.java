@@ -1,3 +1,7 @@
+// Mạnh Hùng - HE200743
+// Triển khai nghiệp vụ quản lý hồ sơ người dùng.
+// Hỗ trợ lấy thông tin hồ sơ kết hợp từ bảng User và Patient,
+// cập nhật thông tin cá nhân, và tự động tạo bản ghi Patient nếu bệnh nhân tự đăng ký chưa có.
 package com.ecms.service.impl;
 
 import com.ecms.dto.request.UpdateProfileRequest;
@@ -21,6 +25,7 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final PatientRepository patientRepository;
 
+    // Lấy thông tin hồ sơ người dùng: tìm User theo email, kết hợp dữ liệu Patient nếu có
     @Override
     public UserProfileResponse getProfile(String email) {
         User user = userRepository.findByEmail(email)
@@ -29,6 +34,7 @@ public class UserServiceImpl implements UserService {
         return buildResponse(user, patient.orElse(null));
     }
 
+    // Cập nhật hồ sơ: lưu thay đổi vào User và Patient; nếu bệnh nhân chưa có bản ghi Patient thì tạo mới
     @Override
     @Transactional
     public UserProfileResponse updateProfile(String email, UpdateProfileRequest request) {
@@ -83,6 +89,7 @@ public class UserServiceImpl implements UserService {
         return buildResponse(user, null);
     }
 
+    // Tạo đối tượng UserProfileResponse từ dữ liệu User và Patient (Patient có thể null với các role khác PATIENT)
     private UserProfileResponse buildResponse(User user, Patient patient) {
         return UserProfileResponse.builder()
                 .userId(user.getId())
