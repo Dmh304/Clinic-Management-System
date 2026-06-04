@@ -42,17 +42,22 @@ function EyeFields({ prefix, label }) {
   )
 }
 
-function HistoryCard({ record }) {
+function HistoryCard({ record, onClick }) {
   const date = record.createdAt
     ? new Date(record.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
     : '—'
   const cfg = STATUS_MAP[record.status] ?? { color: 'default', label: record.status }
 
   return (
-    <div style={{
+    <div 
+    onClick={onClick}
+    style={{
       border: '1px solid #e2e8f0', borderRadius: 10, padding: '14px 16px', marginBottom: 10,
       backgroundColor: '#fafafa',
-    }}>
+    }}
+    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f0fdf9'}
+    onMouseLeave={e => e.currentTarget.style.backgroundColor = '#fafafa'}
+    >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <span style={{ fontWeight: 600, fontSize: 13, color: '#1e293b' }}>{date}</span>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -140,6 +145,13 @@ export default function EMRPage() {
       // ignore
     }
   }, [patientId, appointmentId])
+
+  useEffect(() => {
+    setEmr(null)
+    setHistory([])
+    form.resetFields()
+    setLoading(!!appointmentId)
+  }, [appointmentId])
 
   useEffect(() => {
     fetchEMR()
@@ -325,7 +337,7 @@ export default function EMRPage() {
                 Chưa có lịch sử khám
               </div>
             ) : (
-              history.map((r) => <HistoryCard key={r.id} record={r} />)
+              history.map((r) => <HistoryCard key={r.id} record={r} onClick={() => navigate(`/doctor/emr?appointmentId=${r.appointmentId}&patientId=${r.patientId}`)}/>)
             )}
           </div>
         </div>
