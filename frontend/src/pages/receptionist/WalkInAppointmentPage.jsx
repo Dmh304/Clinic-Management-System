@@ -1,3 +1,11 @@
+/**
+ * Page: WalkInAppointmentPage
+ * Chức năng: Cho phép Lễ tân tạo lịch khám vãng lai (Walk-in) cho bệnh nhân tại quầy.
+ * Hỗ trợ tìm kiếm nhanh hồ sơ bệnh nhân, đăng ký nhanh hồ sơ bệnh nhân mới bằng modal,
+ * chỉ định bác sĩ, dịch vụ và đẩy bệnh nhân vào hàng đợi (trạng thái WAITING) ngay lập tức.
+ * DucTKH
+ */
+
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -36,8 +44,14 @@ export default function WalkInAppointmentPage() {
     clinicServiceService.getAllServices().then((r) => setServices(r.data)).catch(() => { })
   }, [])
 
+  /**
+   * Tìm kiếm nhanh thông tin bệnh nhân qua tên hoặc số điện thoại khi nhập form.
+   * Yêu cầu nhập tối thiểu 2 ký tự.
+   * DucTKH
+   */
   const handlePatientSearch = async (value) => {
     setPatientSearch(value)
+    // Chỉ gửi yêu cầu tìm kiếm khi người dùng nhập từ 2 ký tự trở lên
     if (!value || value.length < 2) {
       setPatients([])
       return
@@ -53,17 +67,25 @@ export default function WalkInAppointmentPage() {
     }
   }
 
+  /**
+   * Gửi thông tin form tạo lịch khám vãng lai lên máy chủ để xếp vào hàng chờ.
+   * 
+   * DucTKH
+   */
   const onFinish = async (values) => {
+    // Yêu cầu bắt buộc nhập thời gian khám
     if (!values.appointmentTime) {
       message.error('Vui lòng chọn thời gian khám')
       return
     }
 
+    // Không cho phép tạo lịch khám ở thời gian đã qua
     if (values.appointmentTime.isBefore(dayjs())) {
       message.error('Không thể tạo lịch khám trong quá khứ')
       return
     }
 
+    // Yêu cầu bắt buộc phân công bác sĩ
     if (!values.doctorId) {
       message.error('Vui lòng chọn bác sĩ')
       return
@@ -95,6 +117,10 @@ export default function WalkInAppointmentPage() {
     setNewPatientModal(true)
   }
 
+  /**
+   * Tạo nhanh hồ sơ bệnh nhân vãng lai mới ngay.
+   * DucTKH
+   */
   const handleCreateNewPatient = async (values) => {
     setNewPatientLoading(true)
     try {
@@ -212,6 +238,7 @@ export default function WalkInAppointmentPage() {
                       </div>
                     )
               }
+              // Duyệt qua danh sách bệnh nhân tìm thấy để hiển thị lên dropdown của ô tìm kiếm Select
               options={patients.map((p) => ({
                 label: (
                   <Space>
@@ -268,6 +295,7 @@ export default function WalkInAppointmentPage() {
           >
             <Select
               placeholder="Chọn bác sĩ"
+              // Duyệt danh sách bác sĩ lấy từ hệ thống để làm các lựa chọn (options) trong Select
               options={doctors.map((d) => ({
                 label: `${d.fullName}${d.specialization ? ` — ${d.specialization}` : ''}`,
                 value: d.id,
@@ -279,6 +307,7 @@ export default function WalkInAppointmentPage() {
             <Select
               rules={[{ required: true, message: 'Vui lòng chọn bác sĩ' }]}
               placeholder="Chọn dịch vụ"
+              // Duyệt danh sách dịch vụ y tế của phòng khám làm các lựa chọn (options) trong Select
               options={services.map((s) => ({
                 label: s.serviceName,
                 value: s.id,

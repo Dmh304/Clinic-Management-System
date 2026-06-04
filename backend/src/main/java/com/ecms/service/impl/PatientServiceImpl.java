@@ -21,6 +21,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * Lớp triển khai các dịch vụ nghiệp vụ liên quan đến quản lý Bệnh nhân.
+ * Xử lý nghiệp vụ tạo mới tài khoản bệnh nhân vãng lai và tìm kiếm hồ sơ bệnh nhân.
+ * DucTKH
+ */
 @Service
 @RequiredArgsConstructor
 public class PatientServiceImpl implements PatientService {
@@ -36,12 +41,15 @@ public class PatientServiceImpl implements PatientService {
         @Transactional
         public PatientResponse createWalkInPatient(PatientRequest request) {
                 Map<String, String> errors = new LinkedHashMap<>();
+
                 if (patientRepository.existsByPhone(request.getPhone())) {
                         errors.put("phone", "Số điện thoại " + request.getPhone() + " đã được đăng ký trong hệ thống");
                 }
+
                 if (userRepository.existsByEmail(request.getEmail())) {
                         errors.put("email", "Email " + request.getEmail() + " đã được sử dụng trong hệ thống");
                 }
+
                 if (!errors.isEmpty()) {
                         throw new FieldValidationException(errors);
                 }
@@ -75,6 +83,10 @@ public class PatientServiceImpl implements PatientService {
                 return toResponse(patientRepository.save(patient));
         }
 
+        /**
+         * Triển khai nghiệp vụ tìm kiếm bệnh nhân dựa vào từ khóa (Tên hoặc SĐT).
+         * DucTKH
+         */
         @Override
         public List<PatientResponse> searchPatients(String keyword) {
                 List<Patient> patients = (keyword == null || keyword.trim().isEmpty())

@@ -20,6 +20,11 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Lớp triển khai các dịch vụ nghiệp vụ liên quan đến Lịch hẹn (Appointments).
+ * Xử lý kiểm tra giới hạn lịch hẹn của bác sĩ, quản lý hàng đợi và gán số thứ tự tiếp nhận bệnh nhân.
+ * DucTKH
+ */
 @Service
 @RequiredArgsConstructor
 public class AppointmentServiceImpl implements AppointmentService {
@@ -30,6 +35,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     private final DoctorRepository doctorRepository;
     private final PatientRepository patientRepository;
     private final ClinicServiceRepository clinicServiceRepository;
+
 
     @Override
     @Transactional(readOnly = true)
@@ -53,8 +59,14 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Tìm kiếm lịch hẹn để hỗ trợ check-in bệnh nhân. 
+     * Receptionist có thể nhập tên, số điện thoại hoặc mã bệnh nhân/lịch hẹn để tìm nhanh đúng lịch cần check-in.
+     * DucTKH
+     */
     @Override
     public List<AppointmentResponse> searchAppointments(String keyword) {
+        // Kiểm tra điều kiện: Nếu từ khóa trống, trả về toàn bộ lịch hẹn trong hệ thống
         if (keyword == null || keyword.trim().isEmpty()) {
             return getAllAppointments();
         }
@@ -153,21 +165,29 @@ public class AppointmentServiceImpl implements AppointmentService {
         return toResponse(appointmentRepository.save(appointment));
     }
 
+    /**
+     * Xác nhận lịch hẹn trực tuyến và phân công bác sĩ điều trị.
+     * Kiểm tra sức chứa/giới hạn bệnh nhân tối đa trong ngày của bác sĩ (tối đa 30 ca).
+     * DucTKH
+     */
     @Override
     @Transactional
     public AppointmentResponse confirmAppointment(Long id, Long doctorId) {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Lịch hẹn không tồn tại: " + id));
 
+        // Kiểm tra chỉ lịch hẹn ở trạng thái PENDING mới được phép xác nhận
         if (appointment.getStatus() != AppointmentStatus.PENDING) {
             throw new IllegalStateException("Chỉ lịch hẹn PENDING mới được xác nhận");
         }
 
+        // Kiểm tra xem lễ tân có chọn/gán bác sĩ khám hay không
         if (doctorId != null) {
             Doctor doctor = doctorRepository.findById(doctorId)
                     .orElseThrow(() -> new ResourceNotFoundException(
                             "Bác sĩ không tồn tại: " + doctorId));
 
+            // Kiểm tra giới hạn tối đa 30 lịch hẹn của bác sĩ trong ngày (BR-03)
             validateDoctorCapacity(doctorId, appointment.getAppointmentDate());
             appointment.setDoctor(doctor);
         }
@@ -177,12 +197,18 @@ public class AppointmentServiceImpl implements AppointmentService {
         return toResponse(appointmentRepository.save(appointment));
     }
 
+    /**
+     * Thực hiện check-in tiếp nhận bệnh nhân đã có lịch hẹn đã xác nhận vào phòng chờ khám.
+     * Hệ thống sẽ gán tự động số thứ tự hàng đợi (queue number) tăng dần trong ngày.
+     * DucTKH
+     */
     @Override
     @Transactional
     public AppointmentResponse checkInAppointment(Long id) {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Lịch hẹn không tồn tại: " + id));
 
+        // Bệnh nhân chỉ được check-in tiếp nhận nếu lịch hẹn đã CONFIRM
         if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
             throw new IllegalStateException("Chỉ lịch hẹn CONFIRMED mới được check-in");
         }
@@ -191,6 +217,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         appointment.setStatus(AppointmentStatus.WAITING);
         appointment.setCheckInTime(LocalDateTime.now());
 
+        // Kiểm tra xem lịch hẹn đã có số thứ tự chưa, nếu chưa có thì tiến hành cấp mới
         if (appointment.getQueueNumber() == null) {
             appointment.setQueueNumber(nextQueueNumber(appointmentDate));
         }
@@ -224,6 +251,11 @@ public class AppointmentServiceImpl implements AppointmentService {
         return toResponse(appointmentRepository.save(appointment));
     }
 
+    /**
+     * Tạo lịch khám tiếp nhận trực tiếp (Walk-in) tại quầy.
+     * Tự động đặt trạng thái là WAITING, gán số thứ tự hàng đợi và đánh dấu check-in ngay lập tức.
+     * DucTKH
+     */
     @Override
     @Transactional
     public AppointmentResponse createWalkInAppointment(WalkInAppointmentRequest request) {
@@ -231,6 +263,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Bệnh nhân không tồn tại: " + request.getPatientId()));
 
+        // Không được phép tạo lịch khám trực tiếp ở thời gian quá khứ
         if (request.getAppointmentTime().isBefore(LocalDateTime.now())) {
             throw new IllegalArgumentException("Không thể tạo lịch khám trong quá khứ");
         }
@@ -238,9 +271,11 @@ public class AppointmentServiceImpl implements AppointmentService {
         Doctor doctor = doctorRepository.findById(request.getDoctorId())
                 .orElseThrow(() -> new ResourceNotFoundException("Bác sĩ không tồn tại: " + request.getDoctorId()));
 
+        // Kiểm tra giới hạn lịch khám trong ngày của bác sĩ được chọn
         validateDoctorCapacity(request.getDoctorId(), request.getAppointmentTime().toLocalDate());
 
         ClinicService clinicService = null;
+        // Kiểm tra nếu lễ tân có lựa chọn dịch vụ khám đi kèm cho bệnh nhân vãng lai
         if (request.getServiceId() != null) {
             clinicService = clinicServiceRepository.findById(request.getServiceId())
                     .orElseThrow(
@@ -262,15 +297,21 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .checkInTime(LocalDateTime.now())
                 .reminderSent(false)
                 .notes(request.getNotes())
-                .build();
+                .build();               
 
         return toResponse(appointmentRepository.save(appointment));
     }
 
+    /**
+     * Kiểm tra số lượng lịch hẹn trong ngày của bác sĩ xem đã vượt quá giới hạn cho phép hay chưa.
+     * Tối đa 30 lịch hẹn/bác sĩ/ngày.
+     * DucTKH
+     */
     private void validateDoctorCapacity(Long doctorId, LocalDate date) {
         LocalDateTime start = date.atStartOfDay();
         LocalDateTime end = date.plusDays(1).atStartOfDay();
 
+        // Đếm tổng số lịch hẹn của bác sĩ trong ngày có trạng thái CONFIRMED, WAITING hoặc IN_PROGRESS
         long count = appointmentRepository.countByDoctorIdAndAppointmentDateAndStatusIn(
                 doctorId,
                 start,
@@ -280,15 +321,22 @@ public class AppointmentServiceImpl implements AppointmentService {
                         AppointmentStatus.WAITING,
                         AppointmentStatus.IN_PROGRESS));
 
+        // Nếu vượt quá giới hạn tối đa, ném ra ngoại lệ hông cho tạo thêm lịch hẹn
         if (count >= MAX_APPOINTMENTS_PER_DOCTOR_PER_DAY) {
             throw new IllegalStateException("Bác sĩ đã đủ 30 lịch hẹn trong ngày");
         }
     }
 
+    /**
+     * Tính toán số thứ tự (queue number) tiếp theo cho bệnh nhân trong ngày.
+     * Mỗi bệnh nhân tiếp nhận thành công được cấp số thứ tự tăng dần.
+     * DucTKH
+     */
     private Integer nextQueueNumber(LocalDate date) {
         LocalDateTime start = date.atStartOfDay();
         LocalDateTime end = date.plusDays(1).atStartOfDay();
 
+        // Tìm số thứ tự lớn nhất hiện tại của ngày đó trong các trạng thái đang khám, chờ khám hoặc hoàn thành
         Integer max = appointmentRepository.findMaxQueueNumberByDate(
                 start,
                 end,
@@ -297,6 +345,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                         AppointmentStatus.IN_PROGRESS,
                         AppointmentStatus.COMPLETED));
 
+        // Nếu chưa có số thứ tự nào, bắt đầu từ số 1 (max = null). Ngược lại tăng thêm 1 đơn vị.
         return (max == null ? 0 : max) + 1;
     }
 

@@ -1,3 +1,8 @@
+/**
+ * Page: WalkInRegistrationPage
+ * Chức năng: Cho phép Lễ tân tạo hồ sơ bệnh nhân vãng lai độc lập tại quầy tiếp đón.
+ */
+
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -25,6 +30,10 @@ export default function WalkInRegistrationPage() {
   const [loading, setLoading] = useState(false)
   const [createdPatient, setCreatedPatient] = useState(null)
 
+  /**
+   * Xử lý đăng ký bệnh nhân mới khi submit form.
+   * Gửi dữ liệu đăng ký bệnh nhân vãng lai lên backend.
+   */
   const onFinish = async (values) => {
     setLoading(true)
     try {

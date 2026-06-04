@@ -1,3 +1,9 @@
+/**
+ * Redux Slice: appointment
+ * Quản lý trạng thái danh sách lịch khám của phòng khám và các thao tác thay đổi trạng thái (xác nhận, check-in, hủy).
+ * DucTKHHE204463
+ */
+
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 import { appointmentService } from '../../services/appointmentService'
 
@@ -25,6 +31,10 @@ export const changeAppointmentStatus = createAsyncThunk(
   }
 )
 
+/**
+ * Xác nhận lịch hẹn của bệnh nhân và phân công bác sĩ.
+ * DucTKH
+ */
 export const confirmAppointment = createAsyncThunk(
   'appointment/confirm',
   async ({ id, doctorId }, { rejectWithValue }) => {
@@ -37,6 +47,10 @@ export const confirmAppointment = createAsyncThunk(
   }
 )
 
+/**
+ * Check-in tiếp nhận bệnh nhân.
+ * DucTKH
+ */
 export const checkInAppointment = createAsyncThunk(
   'appointment/checkIn',
   async (id, { rejectWithValue }) => {

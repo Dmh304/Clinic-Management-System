@@ -1,3 +1,10 @@
+/**
+ * Page: AppointmentManagementPage
+ * Chức năng: Quản lý danh sách lịch khám trong ngày của phòng khám dành cho Lễ tân.
+ * Cho phép thực hiện các thao tác xác nhận lịch hẹn, chỉ định bác sĩ, check-in tiếp nhận bệnh nhân và hủy lịch khám.
+ * DucTKHHE204463
+ */
+
 import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import {
@@ -55,11 +62,19 @@ export default function AppointmentManagementPage() {
   const filtered =
     filterStatus === 'ALL' ? list : list.filter((a) => a.status === filterStatus)
 
+  /**
+   * Mở modal xác nhận lịch hẹn và chuẩn bị thông tin bác sĩ được phân công.
+   * DucTKH
+   */
   const handleOpenConfirm = (appointment) => {
     setSelectedDoctorId(appointment.doctorId ?? null)
     setConfirmModal({ open: true, appointment })
   }
 
+  /**
+   * Gửi yêu cầu xác nhận lịch hẹn lên hệ thống và chọn bác sĩ phụ trách.
+   * DucTKH
+   */
   const handleConfirm = async () => {
     setConfirmLoading(true)
     try {
@@ -77,6 +92,11 @@ export default function AppointmentManagementPage() {
     }
   }
 
+  /**
+   * Thực hiện Check-in khi bệnh nhân đến phòng khám.
+   * Chuyển trạng thái lịch khám sang WAITING.
+   * DucTKH
+   */
   const handleCheckIn = (id) => {
     dispatch(checkInAppointment(id))
       .unwrap()
