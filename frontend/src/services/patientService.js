@@ -3,6 +3,9 @@
  * Chứa danh sách các hàm gọi API liên quan đến nghiệp vụ Bệnh nhân.
  * DucTKHHE204463
  */
+// Le Thi Bich Ngan - HE204710
+// Service gọi API bệnh nhân từ frontend.
+// Cung cấp 2 hàm: tạo bệnh nhân vãng lai mới và tìm kiếm bệnh nhân theo tên/SĐT.
 
 import axiosClient from '../api/axiosClient'
 

@@ -1,7 +1,8 @@
-/**
- * Page: WalkInRegistrationPage
- * Chức năng: Cho phép Lễ tân tạo hồ sơ bệnh nhân vãng lai độc lập tại quầy tiếp đón.
- */
+// Le Thi Bich Ngan - HE204710
+// Trang đăng ký bệnh nhân vãng lai dành cho lễ tân.
+// Cho phép lễ tân tạo hồ sơ mới cho bệnh nhân chưa có tài khoản trong hệ thống.
+// Lễ tân nhập họ tên, số điện thoại, email (bắt buộc) và ngày sinh, giới tính, địa chỉ (tùy chọn).
+// Sau khi đăng ký thành công, hiển thị thông tin bệnh nhân vừa tạo cùng thông tin đăng nhập mặc định.
 
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -30,10 +31,10 @@ export default function WalkInRegistrationPage() {
   const [loading, setLoading] = useState(false)
   const [createdPatient, setCreatedPatient] = useState(null)
 
-  /**
-   * Xử lý đăng ký bệnh nhân mới khi submit form.
-   * Gửi dữ liệu đăng ký bệnh nhân vãng lai lên backend.
-   */
+  // Xử lý khi lễ tân submit form đăng ký.
+  // Gửi dữ liệu lên API; nếu thành công lưu thông tin bệnh nhân vừa tạo để hiển thị trang kết quả.
+  // Nếu thất bại: lỗi theo từng field (phone/email trùng) hiện ngay dưới field đó,
+  // lỗi hệ thống hiện dạng toast notification.
   const onFinish = async (values) => {
     setLoading(true)
     try {
@@ -48,10 +49,12 @@ export default function WalkInRegistrationPage() {
     } catch (err) {
       const data = err.response?.data
       if (data?.fieldErrors) {
+        // Backend trả về map lỗi theo từng field → hiển thị đúng vị trí
         form.setFields(
           Object.entries(data.fieldErrors).map(([name, msg]) => ({ name, errors: [msg] }))
         )
       } else {
+        // Lỗi hệ thống không gắn với field cụ thể → hiện toast
         message.error(data?.message || 'Đăng ký thất bại, vui lòng thử lại')
       }
     } finally {
@@ -59,11 +62,13 @@ export default function WalkInRegistrationPage() {
     }
   }
 
+  // Xóa trạng thái bệnh nhân vừa tạo và reset form để lễ tân có thể đăng ký bệnh nhân tiếp theo.
   const handleRegisterAnother = () => {
     form.resetFields()
     setCreatedPatient(null)
   }
 
+  // Hiển thị trang kết quả khi đăng ký thành công với thông tin bệnh nhân và tài khoản mặc định.
   if (createdPatient) {
     return (
       <div style={{ padding: 24, maxWidth: 600, margin: '0 auto' }}>
@@ -120,6 +125,7 @@ export default function WalkInRegistrationPage() {
     )
   }
 
+  // Hiển thị form đăng ký với các field bắt buộc (có dấu *) và tùy chọn.
   return (
     <div style={{ padding: 24, maxWidth: 600, margin: '0 auto' }}>
       <Space align="center" style={{ marginBottom: 24 }}>

@@ -7,6 +7,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 import { appointmentService } from '../../services/appointmentService'
 
+// Tải danh sách lịch hẹn trong ngày hôm nay từ API để hiển thị lên bảng dashboard
 export const fetchTodayAppointments = createAsyncThunk(
   'appointment/fetchToday',
   async (_, { rejectWithValue }) => {
@@ -19,6 +20,7 @@ export const fetchTodayAppointments = createAsyncThunk(
   }
 )
 
+// Cập nhật trạng thái lịch hẹn (dùng cho: WAITING→IN_PROGRESS khi bắt đầu khám, hoặc hủy lịch)
 export const changeAppointmentStatus = createAsyncThunk(
   'appointment/changeStatus',
   async ({ id, status }, { rejectWithValue }) => {
@@ -63,6 +65,7 @@ export const checkInAppointment = createAsyncThunk(
   }
 )
 
+// Tải thống kê lịch hẹn theo từng trạng thái để hiển thị các card số liệu trên dashboard
 export const fetchDashboard = createAsyncThunk(
   'appointment/fetchDashboard',
   async (_, { rejectWithValue }) => {
@@ -75,6 +78,8 @@ export const fetchDashboard = createAsyncThunk(
   }
 )
 
+// Slice quản lý state: list (danh sách lịch hẹn), dashboard (thống kê), loading, error.
+// extraReducers cập nhật state tương ứng khi mỗi async thunk fulfilled/rejected.
 const appointmentSlice = createSlice({
   name: 'appointment',
   initialState: {
