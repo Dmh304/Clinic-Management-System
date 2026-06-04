@@ -1,7 +1,19 @@
+/** Tuấn - HE204215
+* 
+* Định nghĩa bố cục chung cho các trang dành riêng cho Bác sĩ.
+*
+* Giao diện bao gồm một thanh menu bên trái để chuyển đổi giữa các trang "Hàng chờ khám" và "Hồ sơ bệnh án",
+* cùng với một khu vực chính để hiển thị nội dung của từng trang tương ứng.
+*/
+
 import { useDispatch, useSelector } from 'react-redux'
 import { NavLink, Outlet, Link } from 'react-router-dom'
 import { logout } from '../../store/slices/authSlice'
 
+/* 
+ * Cấu hình các mục trên thanh Menu điều hướng bên trái (Sidebar).
+ * Mỗi mục có 'key' tương ứng với route URL để Ant Design Menu biết item nào đang được active.
+*/
 const NAV_ITEMS = [
   {
     label: 'Hàng chờ khám',
@@ -29,10 +41,15 @@ const NAV_ITEMS = [
   },
 ]
 
+// Component chính chứa toàn bộ bố cục của phân hệ Bác sĩ
 export default function DoctorLayout() {
   const dispatch = useDispatch()
   const { user } = useSelector((s) => s.auth)
 
+  /* 
+  * Hàm xử lý sự kiện khi Bác sĩ nhấn nút "Đăng xuất"
+  * Sẽ gọi action logout để xóa session và chuyển hướng người dùng về trang chủ
+  */
   const handleLogout = () => {
     dispatch(logout())
     window.location.href = '/'
@@ -40,7 +57,7 @@ export default function DoctorLayout() {
 
   return (
     <div style={{ display: 'flex', height: '100vh', backgroundColor: '#f0fdf9' }}>
-      {/* ── Sidebar ── */}
+      {/* ── Sidebar (Thanh menu bên trái) ── */}
       <aside style={{
         width: 220,
         flexShrink: 0,
@@ -73,7 +90,7 @@ export default function DoctorLayout() {
           <div style={{ fontSize: 11, color: '#94a3b8' }}>Main Clinic Branch</div>
         </div>
 
-        {/* Nav */}
+        {/*  Khu vực Menu điều hướng. Bắt sự kiện onClick để chuyển route qua navigate() */}
         <nav style={{ flex: 1, padding: '12px 10px' }}>
           {NAV_ITEMS.map(({ label, to, icon }) => (
             <NavLink
@@ -95,7 +112,7 @@ export default function DoctorLayout() {
           ))}
         </nav>
 
-        {/* Bottom */}
+        {/* Khu vực thông tin User (Bác sĩ) và nút đăng xuất nằm ở cuối Sidebar */}
         <div style={{ padding: '12px 16px', borderTop: '1px solid #f1f5f9' }}>
           <Link
             to="/"
@@ -151,7 +168,7 @@ export default function DoctorLayout() {
         </div>
       </aside>
 
-      {/* ── Main content ── */}
+      {/* Phần Main Content (Bên phải Sidebar) */}
       <main style={{ flex: 1, overflow: 'auto' }}>
         <Outlet />
       </main>

@@ -1,3 +1,10 @@
+/**
+ * Author: Tuấn - HE204215
+ * 
+ * Controller quản lí các hoạt động liên quan đến lịch hẹn
+ * Cung cấp các API cho phép tìm kiếm, cập nhật trạng thái, đặt lịch hẹn
+ */
+
 package com.ecms.controller;
 
 import com.ecms.dto.request.BookAppointmentRequest;
@@ -26,21 +33,27 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AppointmentController {
 
+        /* Dịch vụ xử lí logic nghiệp vụ của lịch hẹn */
         private final AppointmentService appointmentService;
+
+        /* Kho lưu trữ dữ liệu thông tin bác sĩ */
         private final DoctorRepository doctorRepository;
 
+        /* Lấy danh sách tất cả các lịch hẹn có trong hệ thống */
         @GetMapping
         public ResponseEntity<ApiResponse<List<AppointmentResponse>>> getAllAppointments() {
                 return ResponseEntity.ok(
                                 ApiResponse.success(appointmentService.getAllAppointments()));
         }
 
+        /* Lấy danh sách các lịch hẹn trong ngày hôm nay */
         @GetMapping("/today")
         public ResponseEntity<ApiResponse<List<AppointmentResponse>>> getTodayAppointments() {
                 return ResponseEntity.ok(
                                 ApiResponse.success(appointmentService.getTodayAppointments()));
         }
 
+        /* Tìm kiếm lịch hẹn dựa trên từ khóa */
         @GetMapping("/search")
         public ResponseEntity<ApiResponse<List<AppointmentResponse>>> searchAppointments(
                         @RequestParam(required = false) String keyword) {
@@ -48,6 +61,7 @@ public class AppointmentController {
                                 ApiResponse.success(appointmentService.searchAppointments(keyword)));
         }
 
+        /* Lấy danh sách hàng đợi lịch hẹn của bác sĩ theo ngày */
         @GetMapping("/doctor-queue")
         public ResponseEntity<ApiResponse<List<AppointmentResponse>>> getDoctorQueue(
                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
@@ -61,6 +75,7 @@ public class AppointmentController {
                                 ApiResponse.success(appointmentService.getDoctorQueue(date)));
         }
 
+        /* Lấy thông tin thống kê của các lịch hẹn theo ngày */
         @GetMapping("/dashboard")
         public ResponseEntity<ApiResponse<AppointmentDashboardResponse>> getDashboard(
                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
@@ -73,6 +88,7 @@ public class AppointmentController {
                                 ApiResponse.success(appointmentService.getDashboard(date)));
         }
 
+        /* Cập nhật trạng thái của một lịch hẹn cụ thể */
         @PatchMapping("/{id}/status")
         public ResponseEntity<ApiResponse<AppointmentResponse>> updateStatus(
                         @PathVariable Long id,
@@ -81,6 +97,7 @@ public class AppointmentController {
                                 ApiResponse.success(appointmentService.updateAppointmentStatus(id, status)));
         }
 
+        /* Xác nhận một lịch hẹn và có thể chỉ định bác sĩ đến khám */
         @PatchMapping("/{id}/confirm")
         public ResponseEntity<ApiResponse<AppointmentResponse>> confirmAppointment(
                         @PathVariable Long id,
@@ -91,6 +108,7 @@ public class AppointmentController {
                                 ApiResponse.success(appointmentService.confirmAppointment(id, doctorId)));
         }
 
+        /* Thực hiện thủ tục check-in cho bệnh nhân khi họ đến phòng khám */
         @PatchMapping("/{id}/check-in")
         public ResponseEntity<ApiResponse<AppointmentResponse>> checkInAppointment(
                         @PathVariable Long id) {
@@ -98,6 +116,7 @@ public class AppointmentController {
                                 ApiResponse.success(appointmentService.checkInAppointment(id)));
         }
 
+        /* Đặt lịch hẹn trực tuyến bởi bệnh nhân */
         @PostMapping("/book")
         public ResponseEntity<ApiResponse<AppointmentResponse>> bookOnlineAppointment(
                         @Valid @RequestBody BookAppointmentRequest request,
@@ -107,6 +126,7 @@ public class AppointmentController {
                                                 userDetails.getUsername())));
         }
 
+        /* Tạo lịch hẹn trực tiếp tại quầy tiếp đón */
         @PostMapping("/walk-in")
         public ResponseEntity<ApiResponse<AppointmentResponse>> createWalkInAppointment(
                         @Valid @RequestBody WalkInAppointmentRequest request) {
@@ -114,11 +134,14 @@ public class AppointmentController {
                                 ApiResponse.success(appointmentService.createWalkInAppointment(request)));
         }
 
+        /* Lớp DTO nội bộ chứa thông tin bổ sung xác nhận lịch hẹn */
         @Data
         public static class ConfirmAppointmentRequest {
+                /** Mã định danh của bác sĩ được phân công cho lịch hẹn này */
                 private Long doctorId;
         }
 
+        /* Tìm kiếm và trả về id của bác sĩ dựa trên thông tin tài khoản đăng nhập */
         private Long resolveDoctorId(UserDetails userDetails) {
                 if (userDetails == null) {
                         return null;

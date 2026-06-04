@@ -1,3 +1,9 @@
+/** 
+ * Author: Tuấn - HE204215
+ * 
+ * Triển khai chi tiết các nghiệp vụ liên quan đến Lịch hẹn và Hàng đợi bệnh nhân,
+ * bao gồm các quy tắc như giới hạn số ca khám mỗi ngày, xử lý chuyển trạng thái lịch hẹn, check-in.
+*/
 package com.ecms.service.impl;
 
 import com.ecms.dto.request.BookAppointmentRequest;
@@ -31,6 +37,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         private final PatientRepository patientRepository;
         private final ClinicServiceRepository clinicServiceRepository;
 
+        // Hàm lấy danh sách tất cả các lịch hẹn diễn ra trong ngày hôm nay
         @Override
         @Transactional(readOnly = true)
         public List<AppointmentResponse> getTodayAppointments() {
@@ -65,6 +72,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                                 .collect(Collectors.toList());
         }
 
+        // Hàm lấy danh sách hàng đợi (bệnh nhân đang chờ khám) trong một ngày cụ thể
         @Override
         public List<AppointmentResponse> getDoctorQueue(LocalDate date) {
                 LocalDate targetDate = date != null ? date : LocalDate.now();
@@ -81,6 +89,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                                 .collect(Collectors.toList());
         }
 
+        // Hàm lấy số liệu thống kê Dashboard trong một ngày cụ thể
         @Override
         public AppointmentDashboardResponse getDashboard(LocalDate date) {
                 LocalDate targetDate = date != null ? date : LocalDate.now();
@@ -104,6 +113,8 @@ public class AppointmentServiceImpl implements AppointmentService {
                                 .build();
         }
 
+        // Hàm lấy danh sách hàng đợi bệnh nhân dành riêng cho một bác sĩ trong một ngày
+        // cụ thể
         @Override
         public List<AppointmentResponse> getDoctorQueue(LocalDate date, Long doctorId) {
                 LocalDate targetDate = date != null ? date : LocalDate.now();
@@ -117,6 +128,8 @@ public class AppointmentServiceImpl implements AppointmentService {
                                 .collect(Collectors.toList());
         }
 
+        // Hàm lấy số liệu thống kê Dashboard dành riêng cho một bác sĩ trong một ngày
+        // cụ thể
         @Override
         public AppointmentDashboardResponse getDashboard(LocalDate date, Long doctorId) {
                 LocalDate targetDate = date != null ? date : LocalDate.now();
