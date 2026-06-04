@@ -8,7 +8,7 @@ const STATUS_CONFIG = {
   IN_PROGRESS: { color: 'processing', label: 'Đang khám' },
   COMPLETED:   { color: 'success',    label: 'Hoàn thành' },
   CANCELLED:   { color: 'error',      label: 'Đã hủy' },
-  CONFIRMED:   { color: 'blue',       label: 'Đã xác nhận' },
+  CONFIRMED:   { color: 'purple',       label: 'Đã xác nhận' },
   PENDING:     { color: 'default',    label: 'Chờ xác nhận' },
 }
 
@@ -78,14 +78,14 @@ export default function DoctorDashboard() {
       dataIndex: 'queueNumber',
       width: 64,
       align: 'center',
-      render: (v) => (
+      render: (text, record, index) => (
         <div style={{
           width: 34, height: 34, borderRadius: '50%',
           backgroundColor: '#ccfbf1', color: '#0d9488',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontWeight: 700, fontSize: 14, margin: '0 auto',
         }}>
-          {v ?? '—'}
+          {index + 1}
         </div>
       ),
     },
@@ -181,6 +181,7 @@ export default function DoctorDashboard() {
       {/* Stats */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <StatCard label="Tổng hôm nay"  value={stats?.total - stats?.pending - stats?.cancelled}      color="#6366f1" />
+        <StatCard label="Đã xác nhận"   value={stats?.confirmed}  color="#ec44ef" />
         <StatCard label="Đang chờ"      value={stats?.waiting}    color="#f59e0b" />
         <StatCard label="Đang khám"     value={stats?.inProgress} color="#3b82f6" />
         <StatCard label="Hoàn thành"    value={stats?.completed}  color="#10b981" />
