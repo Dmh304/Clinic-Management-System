@@ -18,10 +18,12 @@ public class Patient {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // Liên kết 1-1 với tài khoản người dùng (bảng users)
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", unique = true)
     private User user;
 
+    // Mã bệnh nhân dạng PT0001, PT0002,... - tự sinh trong PatientServiceImpl
     @Column(name = "patient_code", unique = true, length = 20)
     private String patientCode;
 
@@ -31,6 +33,7 @@ public class Patient {
     @Column(name = "date_of_birth")
     private LocalDate dateOfBirth;
 
+    // Giá trị lưu trong DB theo chuẩn: MALE, FEMALE, OTHER
     @Column(name = "gender")
     private String gender;
 

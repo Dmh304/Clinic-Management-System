@@ -1,6 +1,13 @@
+/**
+ * Redux Slice: appointment
+ * Quản lý trạng thái danh sách lịch khám của phòng khám và các thao tác thay đổi trạng thái (xác nhận, check-in, hủy).
+ * DucTKHHE204463
+ */
+
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 import { appointmentService } from '../../services/appointmentService'
 
+// Tải danh sách lịch hẹn trong ngày hôm nay từ API để hiển thị lên bảng dashboard
 export const fetchTodayAppointments = createAsyncThunk(
   'appointment/fetchToday',
   async (_, { rejectWithValue }) => {
@@ -13,6 +20,7 @@ export const fetchTodayAppointments = createAsyncThunk(
   }
 )
 
+// Cập nhật trạng thái lịch hẹn (dùng cho: WAITING→IN_PROGRESS khi bắt đầu khám, hoặc hủy lịch)
 export const changeAppointmentStatus = createAsyncThunk(
   'appointment/changeStatus',
   async ({ id, status }, { rejectWithValue }) => {
@@ -25,6 +33,10 @@ export const changeAppointmentStatus = createAsyncThunk(
   }
 )
 
+/**
+ * Xác nhận lịch hẹn của bệnh nhân và phân công bác sĩ.
+ * DucTKH
+ */
 export const confirmAppointment = createAsyncThunk(
   'appointment/confirm',
   async ({ id, doctorId }, { rejectWithValue }) => {
@@ -37,6 +49,10 @@ export const confirmAppointment = createAsyncThunk(
   }
 )
 
+/**
+ * Check-in tiếp nhận bệnh nhân.
+ * DucTKH
+ */
 export const checkInAppointment = createAsyncThunk(
   'appointment/checkIn',
   async (id, { rejectWithValue }) => {
@@ -49,6 +65,7 @@ export const checkInAppointment = createAsyncThunk(
   }
 )
 
+// Tải thống kê lịch hẹn theo từng trạng thái để hiển thị các card số liệu trên dashboard
 export const fetchDashboard = createAsyncThunk(
   'appointment/fetchDashboard',
   async (_, { rejectWithValue }) => {
@@ -61,6 +78,8 @@ export const fetchDashboard = createAsyncThunk(
   }
 )
 
+// Slice quản lý state: list (danh sách lịch hẹn), dashboard (thống kê), loading, error.
+// extraReducers cập nhật state tương ứng khi mỗi async thunk fulfilled/rejected.
 const appointmentSlice = createSlice({
   name: 'appointment',
   initialState: {

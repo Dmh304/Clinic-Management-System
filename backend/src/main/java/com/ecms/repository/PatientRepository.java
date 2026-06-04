@@ -1,6 +1,8 @@
-// Mạnh Hùng - HE200743
-// Repository cung cấp các truy vấn tìm kiếm và kiểm tra dữ liệu bệnh nhân.
-// Hỗ trợ tìm theo số điện thoại, email của tài khoản liên kết, và tìm kiếm theo tên/SĐT.
+// Le Thi Bich Ngan - HE204710
+// Repository truy cập dữ liệu bảng patients.
+// Cung cấp các query: kiểm tra trùng số điện thoại, tìm theo email liên kết tài khoản,
+// và tìm kiếm bệnh nhân theo tên hoặc số điện thoại.
+
 package com.ecms.repository;
 
 import com.ecms.entity.Patient;
