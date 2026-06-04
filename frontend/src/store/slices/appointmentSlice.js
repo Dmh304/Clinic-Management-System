@@ -1,6 +1,12 @@
+// Le Thi Bich Ngan - HE204710
+// Redux slice quản lý state lịch hẹn cho trang Reception Dashboard.
+// Chứa các async thunk: tải danh sách lịch hôm nay, lấy thống kê dashboard,
+// xác nhận lịch hẹn, check-in bệnh nhân, và cập nhật trạng thái lịch hẹn.
+
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 import { appointmentService } from '../../services/appointmentService'
 
+// Tải danh sách lịch hẹn trong ngày hôm nay từ API để hiển thị lên bảng dashboard
 export const fetchTodayAppointments = createAsyncThunk(
   'appointment/fetchToday',
   async (_, { rejectWithValue }) => {
@@ -13,6 +19,7 @@ export const fetchTodayAppointments = createAsyncThunk(
   }
 )
 
+// Cập nhật trạng thái lịch hẹn (dùng cho: WAITING→IN_PROGRESS khi bắt đầu khám, hoặc hủy lịch)
 export const changeAppointmentStatus = createAsyncThunk(
   'appointment/changeStatus',
   async ({ id, status }, { rejectWithValue }) => {
@@ -25,6 +32,7 @@ export const changeAppointmentStatus = createAsyncThunk(
   }
 )
 
+// Xác nhận lịch hẹn PENDING, có thể kèm gán bác sĩ phụ trách (doctorId tùy chọn)
 export const confirmAppointment = createAsyncThunk(
   'appointment/confirm',
   async ({ id, doctorId }, { rejectWithValue }) => {
@@ -37,6 +45,7 @@ export const confirmAppointment = createAsyncThunk(
   }
 )
 
+// Check-in bệnh nhân đã xác nhận: chuyển trạng thái sang WAITING và tạo số thứ tự hàng đợi
 export const checkInAppointment = createAsyncThunk(
   'appointment/checkIn',
   async (id, { rejectWithValue }) => {
@@ -49,6 +58,7 @@ export const checkInAppointment = createAsyncThunk(
   }
 )
 
+// Tải thống kê lịch hẹn theo từng trạng thái để hiển thị các card số liệu trên dashboard
 export const fetchDashboard = createAsyncThunk(
   'appointment/fetchDashboard',
   async (_, { rejectWithValue }) => {
@@ -61,6 +71,8 @@ export const fetchDashboard = createAsyncThunk(
   }
 )
 
+// Slice quản lý state: list (danh sách lịch hẹn), dashboard (thống kê), loading, error.
+// extraReducers cập nhật state tương ứng khi mỗi async thunk fulfilled/rejected.
 const appointmentSlice = createSlice({
   name: 'appointment',
   initialState: {

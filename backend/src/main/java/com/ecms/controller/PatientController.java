@@ -1,3 +1,8 @@
+// Le Thi Bich Ngan - HE204710
+// REST Controller xử lý các request HTTP liên quan đến bệnh nhân.
+// Cung cấp 2 endpoint: đăng ký bệnh nhân vãng lai (POST /api/v1/patients/walk-in)
+// và tìm kiếm bệnh nhân theo tên hoặc số điện thoại (GET /api/v1/patients/search).
+
 package com.ecms.controller;
 
 import com.ecms.dto.request.PatientRequest;
@@ -19,6 +24,7 @@ public class PatientController {
 
     private final PatientService patientService;
 
+    // Đăng ký bệnh nhân vãng lai: nhận dữ liệu từ lễ tân, gọi service tạo hồ sơ và trả về HTTP 201
     @PostMapping("/walk-in")
     public ResponseEntity<ApiResponse<PatientResponse>> createWalkInPatient(
             @Valid @RequestBody PatientRequest request) {
@@ -26,6 +32,7 @@ public class PatientController {
                 .body(ApiResponse.success(patientService.createWalkInPatient(request)));
     }
 
+    // Tìm kiếm bệnh nhân theo từ khóa (tên hoặc SĐT); không truyền keyword thì trả về toàn bộ danh sách
     @GetMapping("/search")
     public ResponseEntity<ApiResponse<List<PatientResponse>>> searchPatients(
             @RequestParam(required = false) String keyword) {
