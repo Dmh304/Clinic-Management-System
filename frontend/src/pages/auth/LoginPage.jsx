@@ -208,8 +208,6 @@ export default function LoginPage() {
   const [errorMsg, setErrorMsg] = useState('')
   const [form] = Form.useForm()
 
-  // Nếu được redirect từ trang khác (ví dụ: click Đặt lịch khi chưa login)
-  const redirectTo = location.state?.from ?? null
 
   const onFinish = async (values) => {
     setLoading(true)
@@ -219,8 +217,7 @@ export default function LoginPage() {
       const { token, userId, email, fullName, role, doctorId } = res.data
       dispatch(loginSuccess({ token, userId, email, fullName, role, doctorId }))
       message.success('Đăng nhập thành công!')
-      // Ưu tiên trang đang cố vào (từ ProtectedRoute), nếu không thì về home
-      navigate(redirectTo ?? '/', { replace: true })
+      navigate(location.state?.from ?? '/', { replace: true })
     } catch (err) {
       if (!err.response) {
         // Không có phản hồi — backend chưa khởi động hoặc mạng lỗi

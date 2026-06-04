@@ -18,10 +18,11 @@ axiosClient.interceptors.response.use(
   (res) => res.data,   // trả về { success, message, data } trực tiếp
   (err) => {
     if (err.response?.status === 401) {
-      // Token hết hạn hoặc không hợp lệ — xoá session và về login
-      // (Không redirect nếu chính endpoint /auth/login đang gọi)
       const url = err.config?.url ?? ''
-      if (!url.includes('/auth/login')) {
+      const hadToken = !!localStorage.getItem('ecms_token')
+      // Chỉ redirect khi đang có token mà bị invalid (hết hạn, sai...)
+      // Nếu không có token thì là request công khai, không redirect
+      if (!url.includes('/auth/login') && hadToken) {
         localStorage.removeItem('ecms_token')
         localStorage.removeItem('ecms_user')
         window.location.href = '/login'

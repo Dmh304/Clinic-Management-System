@@ -11,6 +11,7 @@ import {
   Space,
   Result,
   Descriptions,
+  message,
 } from 'antd'
 import { UserAddOutlined, CheckCircleOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
@@ -36,8 +37,14 @@ export default function WalkInRegistrationPage() {
       const res = await patientService.createWalkInPatient(payload)
       setCreatedPatient(res.data)
     } catch (err) {
-      const msg = err.response?.data?.message || 'Đăng ký thất bại, vui lòng thử lại'
-      form.setFields([{ name: 'phone', errors: [msg] }])
+      const data = err.response?.data
+      if (data?.fieldErrors) {
+        form.setFields(
+          Object.entries(data.fieldErrors).map(([name, msg]) => ({ name, errors: [msg] }))
+        )
+      } else {
+        message.error(data?.message || 'Đăng ký thất bại, vui lòng thử lại')
+      }
     } finally {
       setLoading(false)
     }
@@ -75,7 +82,9 @@ export default function WalkInRegistrationPage() {
               </Descriptions.Item>
             )}
             {createdPatient.gender && (
-              <Descriptions.Item label="Giới tính">{createdPatient.gender}</Descriptions.Item>
+              <Descriptions.Item label="Giới tính">
+                {createdPatient.gender === 'MALE' ? 'Nam' : createdPatient.gender === 'FEMALE' ? 'Nữ' : 'Khác'}
+              </Descriptions.Item>
             )}
             {createdPatient.address && (
               <Descriptions.Item label="Địa chỉ">{createdPatient.address}</Descriptions.Item>
@@ -119,7 +128,7 @@ export default function WalkInRegistrationPage() {
           form={form}
           layout="vertical"
           onFinish={onFinish}
-          requiredMark="optional"
+          requiredMark
         >
           <Form.Item
             label="Họ và tên"
@@ -165,9 +174,9 @@ export default function WalkInRegistrationPage() {
 
           <Form.Item label="Giới tính" name="gender">
             <Select placeholder="Chọn giới tính" allowClear>
-              <Select.Option value="Nam">Nam</Select.Option>
-              <Select.Option value="Nữ">Nữ</Select.Option>
-              <Select.Option value="Khác">Khác</Select.Option>
+              <Select.Option value="MALE">Nam</Select.Option>
+              <Select.Option value="FEMALE">Nữ</Select.Option>
+              <Select.Option value="OTHER">Khác</Select.Option>
             </Select>
           </Form.Item>
 
