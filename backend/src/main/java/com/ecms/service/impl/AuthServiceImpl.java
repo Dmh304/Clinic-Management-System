@@ -4,10 +4,12 @@ import com.ecms.dto.request.ChangePasswordRequest;
 import com.ecms.dto.request.LoginRequest;
 import com.ecms.dto.request.RegisterRequest;
 import com.ecms.dto.response.AuthResponse;
+import com.ecms.entity.Doctor;
 import com.ecms.entity.Role;
 import com.ecms.entity.User;
 import com.ecms.exception.ResourceNotFoundException;
 import com.ecms.exception.UnauthorizedException;
+import com.ecms.repository.DoctorRepository;
 import com.ecms.repository.RoleRepository;
 import com.ecms.repository.UserRepository;
 import com.ecms.security.JwtUtil;
@@ -23,6 +25,7 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final DoctorRepository doctorRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
@@ -44,7 +47,12 @@ public class AuthServiceImpl implements AuthService {
         }
         String roleName = user.getRole().getName();
 
-        String token = jwtUtil.generateToken(user.getEmail(), roleName);
+        Long doctorId = null;
+        if ("DOCTOR".equals(roleName)) {
+            doctorId = doctorRepository.findByUserId(user.getId()).map(Doctor::getId).orElse(null);
+        }
+
+        String token = jwtUtil.generateToken(user.getEmail(), roleName, doctorId);
 
         return AuthResponse.builder()
                 .token(token)
@@ -53,6 +61,7 @@ public class AuthServiceImpl implements AuthService {
                 .email(user.getEmail())
                 .fullName(user.getFullName())
                 .role(roleName)
+                .doctorId(doctorId)
                 .build();
     }
 
@@ -94,7 +103,7 @@ public class AuthServiceImpl implements AuthService {
 
         userRepository.save(user);
 
-        String token = jwtUtil.generateToken(user.getEmail(), patientRole.getName());
+        String token = jwtUtil.generateToken(user.getEmail(), patientRole.getName(), null);
 
         return AuthResponse.builder()
                 .token(token)

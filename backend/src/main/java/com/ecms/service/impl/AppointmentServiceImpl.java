@@ -24,253 +24,299 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AppointmentServiceImpl implements AppointmentService {
 
-    private static final int MAX_APPOINTMENTS_PER_DOCTOR_PER_DAY = 30;
+        private static final int MAX_APPOINTMENTS_PER_DOCTOR_PER_DAY = 30;
 
-    private final AppointmentRepository appointmentRepository;
-    private final DoctorRepository doctorRepository;
-    private final PatientRepository patientRepository;
-    private final ClinicServiceRepository clinicServiceRepository;
+        private final AppointmentRepository appointmentRepository;
+        private final DoctorRepository doctorRepository;
+        private final PatientRepository patientRepository;
+        private final ClinicServiceRepository clinicServiceRepository;
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<AppointmentResponse> getTodayAppointments() {
-        LocalDate today = LocalDate.now();
-        LocalDateTime start = today.atStartOfDay();
-        LocalDateTime end = today.plusDays(1).atStartOfDay();
+        @Override
+        @Transactional(readOnly = true)
+        public List<AppointmentResponse> getTodayAppointments() {
+                LocalDate today = LocalDate.now();
+                LocalDateTime start = today.atStartOfDay();
+                LocalDateTime end = today.plusDays(1).atStartOfDay();
 
-        return appointmentRepository
-                .findByAppointmentDateOrderByTimeSlotAsc(start, end)
-                .stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<AppointmentResponse> getAllAppointments() {
-        return appointmentRepository.findAllWithDetails()
-                .stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<AppointmentResponse> searchAppointments(String keyword) {
-        if (keyword == null || keyword.trim().isEmpty()) {
-            return getAllAppointments();
+                return appointmentRepository
+                                .findByAppointmentDateOrderByTimeSlotAsc(start, end)
+                                .stream()
+                                .map(this::toResponse)
+                                .collect(Collectors.toList());
         }
 
-        return appointmentRepository.searchAppointments(keyword.trim())
-                .stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<AppointmentResponse> getDoctorQueue(LocalDate date) {
-        LocalDate targetDate = date != null ? date : LocalDate.now();
-        LocalDateTime start = targetDate.atStartOfDay();
-        LocalDateTime end = targetDate.plusDays(1).atStartOfDay();
-
-        return appointmentRepository
-                .findByAppointmentDateAndStatusOrderByCreatedAtAsc(
-                        start,
-                        end,
-                        AppointmentStatus.WAITING
-                )
-                .stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public AppointmentDashboardResponse getDashboard(LocalDate date) {
-        LocalDate targetDate = date != null ? date : LocalDate.now();
-        LocalDateTime start = targetDate.atStartOfDay();
-        LocalDateTime end = targetDate.plusDays(1).atStartOfDay();
-
-        return AppointmentDashboardResponse.builder()
-                .total(appointmentRepository.countByDate(start, end))
-                .pending(appointmentRepository.countByDateAndStatus(start, end, AppointmentStatus.PENDING))
-                .confirmed(appointmentRepository.countByDateAndStatus(start, end, AppointmentStatus.CONFIRMED))
-                .waiting(appointmentRepository.countByDateAndStatus(start, end, AppointmentStatus.WAITING))
-                .inProgress(appointmentRepository.countByDateAndStatus(start, end, AppointmentStatus.IN_PROGRESS))
-                .completed(appointmentRepository.countByDateAndStatus(start, end, AppointmentStatus.COMPLETED))
-                .cancelled(appointmentRepository.countByDateAndStatus(start, end, AppointmentStatus.CANCELLED))
-                .build();
-    }
-
-    @Override
-    @Transactional
-    public AppointmentResponse updateAppointmentStatus(Long id, AppointmentStatus status) {
-        Appointment appointment = appointmentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Lịch hẹn không tồn tại: " + id));
-
-        appointment.setStatus(status);
-
-        return toResponse(appointmentRepository.save(appointment));
-    }
-
-    @Override
-    @Transactional
-    public AppointmentResponse confirmAppointment(Long id, Long doctorId) {
-        Appointment appointment = appointmentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Lịch hẹn không tồn tại: " + id));
-
-        if (appointment.getStatus() != AppointmentStatus.PENDING) {
-            throw new IllegalStateException("Chỉ lịch hẹn PENDING mới được xác nhận");
+        @Override
+        public List<AppointmentResponse> getAllAppointments() {
+                return appointmentRepository.findAllWithDetails()
+                                .stream()
+                                .map(this::toResponse)
+                                .collect(Collectors.toList());
         }
 
-        if (doctorId != null) {
-            Doctor doctor = doctorRepository.findById(doctorId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Bác sĩ không tồn tại: " + doctorId));
+        @Override
+        public List<AppointmentResponse> searchAppointments(String keyword) {
+                if (keyword == null || keyword.trim().isEmpty()) {
+                        return getAllAppointments();
+                }
 
-            validateDoctorCapacity(doctorId, appointment.getAppointmentDate());
-            appointment.setDoctor(doctor);
+                return appointmentRepository.searchAppointments(keyword.trim())
+                                .stream()
+                                .map(this::toResponse)
+                                .collect(Collectors.toList());
         }
 
-        appointment.setStatus(AppointmentStatus.CONFIRMED);
+        @Override
+        public List<AppointmentResponse> getDoctorQueue(LocalDate date) {
+                LocalDate targetDate = date != null ? date : LocalDate.now();
+                LocalDateTime start = targetDate.atStartOfDay();
+                LocalDateTime end = targetDate.plusDays(1).atStartOfDay();
 
-        return toResponse(appointmentRepository.save(appointment));
-    }
-
-    @Override
-    @Transactional
-    public AppointmentResponse checkInAppointment(Long id) {
-        Appointment appointment = appointmentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Lịch hẹn không tồn tại: " + id));
-
-        if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
-            throw new IllegalStateException("Chỉ lịch hẹn CONFIRMED mới được check-in");
+                return appointmentRepository
+                                .findByAppointmentDateAndStatusOrderByCreatedAtAsc(
+                                                start,
+                                                end,
+                                                AppointmentStatus.WAITING)
+                                .stream()
+                                .map(this::toResponse)
+                                .collect(Collectors.toList());
         }
 
-        LocalDate appointmentDate = appointment.getAppointmentDate();
-        appointment.setStatus(AppointmentStatus.WAITING);
-        appointment.setCheckInTime(LocalDateTime.now());
+        @Override
+        public AppointmentDashboardResponse getDashboard(LocalDate date) {
+                LocalDate targetDate = date != null ? date : LocalDate.now();
+                LocalDateTime start = targetDate.atStartOfDay();
+                LocalDateTime end = targetDate.plusDays(1).atStartOfDay();
 
-        if (appointment.getQueueNumber() == null) {
-            appointment.setQueueNumber(nextQueueNumber(appointmentDate));
+                return AppointmentDashboardResponse.builder()
+                                .total(appointmentRepository.countByDate(start, end))
+                                .pending(appointmentRepository.countByDateAndStatus(start, end,
+                                                AppointmentStatus.PENDING))
+                                .confirmed(appointmentRepository.countByDateAndStatus(start, end,
+                                                AppointmentStatus.CONFIRMED))
+                                .waiting(appointmentRepository.countByDateAndStatus(start, end,
+                                                AppointmentStatus.WAITING))
+                                .inProgress(appointmentRepository.countByDateAndStatus(start, end,
+                                                AppointmentStatus.IN_PROGRESS))
+                                .completed(appointmentRepository.countByDateAndStatus(start, end,
+                                                AppointmentStatus.COMPLETED))
+                                .cancelled(appointmentRepository.countByDateAndStatus(start, end,
+                                                AppointmentStatus.CANCELLED))
+                                .build();
         }
 
-        return toResponse(appointmentRepository.save(appointment));
-    }
+        @Override
+        public List<AppointmentResponse> getDoctorQueue(LocalDate date, Long doctorId) {
+                LocalDate targetDate = date != null ? date : LocalDate.now();
+                LocalDateTime start = targetDate.atStartOfDay();
+                LocalDateTime end = targetDate.plusDays(1).atStartOfDay();
 
-    @Override
-    @Transactional
-    public AppointmentResponse bookOnlineAppointment(BookAppointmentRequest request, String patientEmail) {
-        Patient patient = patientRepository.findByUser_Email(patientEmail)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin bệnh nhân"));
-
-        Doctor doctor = doctorRepository.findById(request.getDoctorId())
-                .orElseThrow(() -> new ResourceNotFoundException("Bác sĩ không tồn tại: " + request.getDoctorId()));
-
-        validateDoctorCapacity(doctor.getId(), request.getAppointmentTime().toLocalDate());
-
-        Appointment appointment = Appointment.builder()
-                .patient(patient)
-                .doctor(doctor)
-                .appointmentTime(request.getAppointmentTime())
-                .timeSlot(request.getAppointmentTime().toLocalTime().toString())
-                .status(AppointmentStatus.PENDING)
-                .type("ONLINE")
-                .reminderSent(false)
-                .notes(request.getNotes())
-                .build();
-
-        return toResponse(appointmentRepository.save(appointment));
-    }
-
-    @Override
-    @Transactional
-    public AppointmentResponse createWalkInAppointment(WalkInAppointmentRequest request) {
-        Patient patient = patientRepository.findById(request.getPatientId())
-                .orElseThrow(() -> new ResourceNotFoundException("Bệnh nhân không tồn tại: " + request.getPatientId()));
-
-        Doctor doctor = null;
-        if (request.getDoctorId() != null) {
-            doctor = doctorRepository.findById(request.getDoctorId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Bác sĩ không tồn tại: " + request.getDoctorId()));
-            validateDoctorCapacity(request.getDoctorId(), request.getAppointmentTime().toLocalDate());
+                return appointmentRepository.findByAppointmentDateAndDoctorIdOrderByAppointmentTimeAsc(start, end,
+                                doctorId)
+                                .stream()
+                                .map(this::toResponse)
+                                .collect(Collectors.toList());
         }
 
-        ClinicService clinicService = null;
-        if (request.getServiceId() != null) {
-            clinicService = clinicServiceRepository.findById(request.getServiceId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Dịch vụ không tồn tại: " + request.getServiceId()));
+        @Override
+        public AppointmentDashboardResponse getDashboard(LocalDate date, Long doctorId) {
+                LocalDate targetDate = date != null ? date : LocalDate.now();
+                LocalDateTime start = targetDate.atStartOfDay();
+                LocalDateTime end = targetDate.plusDays(1).atStartOfDay();
+
+                return AppointmentDashboardResponse.builder()
+                                .total(appointmentRepository.countByDateAndDoctorId(start, end, doctorId))
+                                .pending(appointmentRepository.countByDateAndStatusAndDoctorId(start, end,
+                                                AppointmentStatus.PENDING,
+                                                doctorId))
+                                .confirmed(appointmentRepository.countByDateAndStatusAndDoctorId(start, end,
+                                                AppointmentStatus.CONFIRMED, doctorId))
+                                .waiting(appointmentRepository.countByDateAndStatusAndDoctorId(start, end,
+                                                AppointmentStatus.WAITING,
+                                                doctorId))
+                                .inProgress(appointmentRepository.countByDateAndStatusAndDoctorId(start, end,
+                                                AppointmentStatus.IN_PROGRESS, doctorId))
+                                .completed(appointmentRepository.countByDateAndStatusAndDoctorId(start, end,
+                                                AppointmentStatus.COMPLETED, doctorId))
+                                .cancelled(appointmentRepository.countByDateAndStatusAndDoctorId(start, end,
+                                                AppointmentStatus.CANCELLED, doctorId))
+                                .build();
         }
 
-        LocalDate appointmentDate = request.getAppointmentTime().toLocalDate();
+        @Override
+        @Transactional
+        public AppointmentResponse updateAppointmentStatus(Long id, AppointmentStatus status) {
+                Appointment appointment = appointmentRepository.findById(id)
+                                .orElseThrow(() -> new ResourceNotFoundException("Lịch hẹn không tồn tại: " + id));
 
-        Appointment appointment = Appointment.builder()
-        .patient(patient)
-        .doctor(doctor)
-        .clinicService(clinicService)
-        .appointmentTime(request.getAppointmentTime())
-        .timeSlot(request.getAppointmentTime().toLocalTime().toString())
-        .status(AppointmentStatus.WAITING)
-        .type("WALK_IN")
-        .queueNumber(nextQueueNumber(appointmentDate))
-        .checkInTime(LocalDateTime.now())
-        .reminderSent(false)
-        .notes(request.getNotes())
-        .build();
+                appointment.setStatus(status);
 
-        return toResponse(appointmentRepository.save(appointment));
-    }
-
-    private void validateDoctorCapacity(Long doctorId, LocalDate date) {
-        LocalDateTime start = date.atStartOfDay();
-        LocalDateTime end = date.plusDays(1).atStartOfDay();
-
-        long count = appointmentRepository.countByDoctorIdAndAppointmentDateAndStatusIn(
-                doctorId,
-                start,
-                end,
-                List.of(
-                        AppointmentStatus.CONFIRMED,
-                        AppointmentStatus.WAITING,
-                        AppointmentStatus.IN_PROGRESS
-                )
-        );
-
-        if (count >= MAX_APPOINTMENTS_PER_DOCTOR_PER_DAY) {
-            throw new IllegalStateException("Bác sĩ đã đủ 30 lịch hẹn trong ngày");
+                return toResponse(appointmentRepository.save(appointment));
         }
-    }
 
-    private Integer nextQueueNumber(LocalDate date) {
-        LocalDateTime start = date.atStartOfDay();
-        LocalDateTime end = date.plusDays(1).atStartOfDay();
+        @Override
+        @Transactional
+        public AppointmentResponse confirmAppointment(Long id, Long doctorId) {
+                Appointment appointment = appointmentRepository.findById(id)
+                                .orElseThrow(() -> new ResourceNotFoundException("Lịch hẹn không tồn tại: " + id));
 
-        Integer max = appointmentRepository.findMaxQueueNumberByDate(
-                start,
-                end,
-                List.of(
-                        AppointmentStatus.WAITING,
-                        AppointmentStatus.IN_PROGRESS,
-                        AppointmentStatus.COMPLETED
-                )
-        );
+                if (appointment.getStatus() != AppointmentStatus.PENDING) {
+                        throw new IllegalStateException("Chỉ lịch hẹn PENDING mới được xác nhận");
+                }
 
-        return (max == null ? 0 : max) + 1;
-    }
+                if (doctorId != null) {
+                        Doctor doctor = doctorRepository.findById(doctorId)
+                                        .orElseThrow(() -> new ResourceNotFoundException(
+                                                        "Bác sĩ không tồn tại: " + doctorId));
 
-    private AppointmentResponse toResponse(Appointment a) {
-        return AppointmentResponse.builder()
-                .id(a.getId())
-                .patientId(a.getPatient() != null ? a.getPatient().getId() : null)
-                .patientName(a.getPatient() != null ? a.getPatient().getFullName() : null)
-                .patientPhone(a.getPatient() != null ? a.getPatient().getPhone() : null)
-                .doctorId(a.getDoctor() != null ? a.getDoctor().getId() : null)
-                .doctorName(a.getDoctor() != null ? a.getDoctor().getFullName() : null)
-                .serviceName(a.getClinicService() != null ? a.getClinicService().getServiceName() : null)
-                .appointmentTime(a.getAppointmentTime())
-                .timeSlot(a.getTimeSlot())
-                .status(a.getStatus())
-                .type(a.getType())
-                .queueNumber(a.getQueueNumber())
-                .checkInTime(a.getCheckInTime())
-                .notes(a.getNotes())
-                .createdAt(a.getCreatedAt())
-                .build();
-    }
+                        validateDoctorCapacity(doctorId, appointment.getAppointmentDate());
+                        appointment.setDoctor(doctor);
+                }
+
+                appointment.setStatus(AppointmentStatus.CONFIRMED);
+
+                return toResponse(appointmentRepository.save(appointment));
+        }
+
+        @Override
+        @Transactional
+        public AppointmentResponse checkInAppointment(Long id) {
+                Appointment appointment = appointmentRepository.findById(id)
+                                .orElseThrow(() -> new ResourceNotFoundException("Lịch hẹn không tồn tại: " + id));
+
+                if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
+                        throw new IllegalStateException("Chỉ lịch hẹn CONFIRMED mới được check-in");
+                }
+
+                LocalDate appointmentDate = appointment.getAppointmentDate();
+                appointment.setStatus(AppointmentStatus.WAITING);
+                appointment.setCheckInTime(LocalDateTime.now());
+
+                if (appointment.getQueueNumber() == null) {
+                        appointment.setQueueNumber(nextQueueNumber(appointmentDate));
+                }
+
+                return toResponse(appointmentRepository.save(appointment));
+        }
+
+        @Override
+        @Transactional
+        public AppointmentResponse bookOnlineAppointment(BookAppointmentRequest request, String patientEmail) {
+                Patient patient = patientRepository.findByUser_Email(patientEmail)
+                                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin bệnh nhân"));
+
+                Doctor doctor = doctorRepository.findById(request.getDoctorId())
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "Bác sĩ không tồn tại: " + request.getDoctorId()));
+
+                validateDoctorCapacity(doctor.getId(), request.getAppointmentTime().toLocalDate());
+
+                Appointment appointment = Appointment.builder()
+                                .patient(patient)
+                                .doctor(doctor)
+                                .appointmentTime(request.getAppointmentTime())
+                                .timeSlot(request.getAppointmentTime().toLocalTime().toString())
+                                .status(AppointmentStatus.PENDING)
+                                .type("ONLINE")
+                                .reminderSent(false)
+                                .notes(request.getNotes())
+                                .build();
+
+                return toResponse(appointmentRepository.save(appointment));
+        }
+
+        @Override
+        @Transactional
+        public AppointmentResponse createWalkInAppointment(WalkInAppointmentRequest request) {
+                Patient patient = patientRepository.findById(request.getPatientId())
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "Bệnh nhân không tồn tại: " + request.getPatientId()));
+
+                Doctor doctor = null;
+                if (request.getDoctorId() != null) {
+                        doctor = doctorRepository.findById(request.getDoctorId())
+                                        .orElseThrow(() -> new ResourceNotFoundException(
+                                                        "Bác sĩ không tồn tại: " + request.getDoctorId()));
+                        validateDoctorCapacity(request.getDoctorId(), request.getAppointmentTime().toLocalDate());
+                }
+
+                ClinicService clinicService = null;
+                if (request.getServiceId() != null) {
+                        clinicService = clinicServiceRepository.findById(request.getServiceId())
+                                        .orElseThrow(
+                                                        () -> new ResourceNotFoundException("Dịch vụ không tồn tại: "
+                                                                        + request.getServiceId()));
+                }
+
+                LocalDate appointmentDate = request.getAppointmentTime().toLocalDate();
+
+                Appointment appointment = Appointment.builder()
+                                .patient(patient)
+                                .doctor(doctor)
+                                .clinicService(clinicService)
+                                .appointmentTime(request.getAppointmentTime())
+                                .timeSlot(request.getAppointmentTime().toLocalTime().toString())
+                                .status(AppointmentStatus.WAITING)
+                                .type("WALK_IN")
+                                .queueNumber(nextQueueNumber(appointmentDate))
+                                .checkInTime(LocalDateTime.now())
+                                .reminderSent(false)
+                                .notes(request.getNotes())
+                                .build();
+
+                return toResponse(appointmentRepository.save(appointment));
+        }
+
+        private void validateDoctorCapacity(Long doctorId, LocalDate date) {
+                LocalDateTime start = date.atStartOfDay();
+                LocalDateTime end = date.plusDays(1).atStartOfDay();
+
+                long count = appointmentRepository.countByDoctorIdAndAppointmentDateAndStatusIn(
+                                doctorId,
+                                start,
+                                end,
+                                List.of(
+                                                AppointmentStatus.CONFIRMED,
+                                                AppointmentStatus.WAITING,
+                                                AppointmentStatus.IN_PROGRESS));
+
+                if (count >= MAX_APPOINTMENTS_PER_DOCTOR_PER_DAY) {
+                        throw new IllegalStateException("Bác sĩ đã đủ 30 lịch hẹn trong ngày");
+                }
+        }
+
+        private Integer nextQueueNumber(LocalDate date) {
+                LocalDateTime start = date.atStartOfDay();
+                LocalDateTime end = date.plusDays(1).atStartOfDay();
+
+                Integer max = appointmentRepository.findMaxQueueNumberByDate(
+                                start,
+                                end,
+                                List.of(
+                                                AppointmentStatus.WAITING,
+                                                AppointmentStatus.IN_PROGRESS,
+                                                AppointmentStatus.COMPLETED));
+
+                return (max == null ? 0 : max) + 1;
+        }
+
+        private AppointmentResponse toResponse(Appointment a) {
+                return AppointmentResponse.builder()
+                                .id(a.getId())
+                                .patientId(a.getPatient() != null ? a.getPatient().getId() : null)
+                                .patientName(a.getPatient() != null ? a.getPatient().getFullName() : null)
+                                .patientPhone(a.getPatient() != null ? a.getPatient().getPhone() : null)
+                                .doctorId(a.getDoctor() != null ? a.getDoctor().getId() : null)
+                                .doctorName(a.getDoctor() != null ? a.getDoctor().getFullName() : null)
+                                .serviceName(a.getClinicService() != null ? a.getClinicService().getServiceName()
+                                                : null)
+                                .appointmentTime(a.getAppointmentTime())
+                                .timeSlot(a.getTimeSlot())
+                                .status(a.getStatus())
+                                .type(a.getType())
+                                .queueNumber(a.getQueueNumber())
+                                .checkInTime(a.getCheckInTime())
+                                .notes(a.getNotes())
+                                .createdAt(a.getCreatedAt())
+                                .build();
+        }
 }

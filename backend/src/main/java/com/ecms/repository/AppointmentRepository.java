@@ -34,8 +34,7 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
             """)
     List<Appointment> findByAppointmentDateOrderByTimeSlotAsc(
             @Param("start") LocalDateTime start,
-            @Param("end") LocalDateTime end
-    );
+            @Param("end") LocalDateTime end);
 
     @Query("""
             SELECT DISTINCT a
@@ -51,8 +50,7 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     List<Appointment> findByAppointmentDateAndStatusOrderByTimeSlotAsc(
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end,
-            @Param("status") AppointmentStatus status
-    );
+            @Param("status") AppointmentStatus status);
 
     @Query("""
             SELECT COUNT(a)
@@ -66,8 +64,7 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
             @Param("doctorId") Long doctorId,
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end,
-            @Param("statuses") Collection<AppointmentStatus> statuses
-    );
+            @Param("statuses") Collection<AppointmentStatus> statuses);
 
     @Query("""
             SELECT DISTINCT a
@@ -96,8 +93,7 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     List<Appointment> findByAppointmentDateAndStatusOrderByCreatedAtAsc(
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end,
-            @Param("status") AppointmentStatus status
-    );
+            @Param("status") AppointmentStatus status);
 
     @Query("""
             SELECT COUNT(a)
@@ -107,8 +103,7 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
             """)
     long countByDate(
             @Param("start") LocalDateTime start,
-            @Param("end") LocalDateTime end
-    );
+            @Param("end") LocalDateTime end);
 
     @Query("""
             SELECT COUNT(a)
@@ -120,8 +115,7 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     long countByDateAndStatus(
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end,
-            @Param("status") AppointmentStatus status
-    );
+            @Param("status") AppointmentStatus status);
 
     @Query("""
             SELECT COALESCE(MAX(a.queueNumber), 0)
@@ -133,6 +127,32 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     Integer findMaxQueueNumberByDate(
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end,
-            @Param("statuses") Collection<AppointmentStatus> statuses
-    );
+            @Param("statuses") Collection<AppointmentStatus> statuses);
+
+    @Query("SELECT a FROM Appointment a " +
+            "WHERE a.appointmentTime >= :start AND a.appointmentTime < :end " +
+            "AND a.doctor.id = :doctorId " +
+            "AND a.status IN ('WAITING', 'IN_PROGRESS', 'COMPLETED', 'CONFIRMED') " +
+            "ORDER BY a.appointmentTime ASC")
+    List<Appointment> findByAppointmentDateAndDoctorIdOrderByAppointmentTimeAsc(
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end,
+            @Param("doctorId") Long doctorId);
+
+    @Query("SELECT COUNT(a) FROM Appointment a " +
+            "WHERE a.appointmentTime >= :start AND a.appointmentTime < :end " +
+            "AND a.doctor.id = :doctorId")
+    long countByDateAndDoctorId(
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end,
+            @Param("doctorId") Long doctorId);
+
+    @Query("SELECT COUNT(a) FROM Appointment a " +
+            "WHERE a.appointmentTime >= :start AND a.appointmentTime < :end " +
+            "AND a.status = :status AND a.doctor.id = :doctorId")
+    long countByDateAndStatusAndDoctorId(
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end,
+            @Param("status") AppointmentStatus status,
+            @Param("doctorId") Long doctorId);
 }
