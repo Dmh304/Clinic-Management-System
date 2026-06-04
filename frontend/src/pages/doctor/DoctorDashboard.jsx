@@ -1,3 +1,9 @@
+/** Tuấn - HE204215
+*
+* Giao diện chính của Dashboard dành cho Bác sĩ.
+* Bác sĩ có thể xem tổng quan số liệu trong ngày và danh sách bệnh nhân đang chờ khám (hàng đợi),
+* đồng thời có thể nhận bệnh nhân để bắt đầu khám hoặc xem lại hồ sơ bệnh án.
+*/
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Table, Tag, Button, message, Tooltip } from 'antd'
@@ -12,6 +18,7 @@ const STATUS_CONFIG = {
   PENDING:     { color: 'default',    label: 'Chờ xác nhận' },
 }
 
+/* Hàm hiển thị một thẻ thống kê nhỏ trên Dashboard (ví dụ: số ca đang chờ, số ca hoàn thành,...) */
 function StatCard({ label, value, color }) {
   return (
     <div style={{
@@ -29,6 +36,13 @@ function StatCard({ label, value, color }) {
   )
 }
 
+/* Component chính của trang Dashboard Bác sĩ
+ * Sử dụng các state nội bộ để quản lý:
+ * - queue: mảng lưu danh sách bệnh nhân đang chờ khám.
+ * - stats: đối tượng chứa các con số thống kê tổng hợp.
+ * - loading: trạng thái tải dữ liệu ban đầu.
+ * - actionLoading: ID của bệnh nhân đang được xử lý (để hiển thị loading spinner trên nút).
+ */
 export default function DoctorDashboard() {
   const navigate = useNavigate()
   const [queue, setQueue] = useState([])
@@ -36,6 +50,7 @@ export default function DoctorDashboard() {
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(null)
 
+  /* Hàm lấy dữ liệu danh sách bệnh nhân chờ khám và các con số thống kê từ server */
   const fetchData = useCallback(async () => {
     try {
       const [queueRes, dashRes] = await Promise.all([
@@ -57,6 +72,9 @@ export default function DoctorDashboard() {
     return () => clearInterval(timer)
   }, [fetchData])
 
+/** Hàm xử lý sự kiện khi Bác sĩ click nút "Bắt đầu khám"
+*   Gọi API đổi trạng thái lịch hẹn sang IN_PROGRESS và chuyển hướng sang trang bệnh án (EMR) 
+*/
   const handleStartExam = async (record) => {
     setActionLoading(record.id)
     try {
@@ -68,10 +86,12 @@ export default function DoctorDashboard() {
     }
   }
 
+  /* Hàm chuyển hướng sang trang bệnh án để xem hoặc cập nhật thông tin khám bệnh */
   const handleViewEMR = (record) => {
     navigate(`/doctor/emr?appointmentId=${record.id}&patientId=${record.patientId}`)
   }
 
+  /* Hàng tiêu đề của bảng hiển thị các appointment */
   const columns = [
     {
       title: 'STT',
@@ -188,7 +208,7 @@ export default function DoctorDashboard() {
         <StatCard label="Đã hủy"        value={stats?.cancelled}  color="#ef4444" />
       </div>
 
-      {/* Queue table */}
+      {/* Bảng danh sách hàng đợi */}
       <div style={{ backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
         <div style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ fontWeight: 600, fontSize: 14, color: '#1e293b' }}>Danh sách bệnh nhân</span>

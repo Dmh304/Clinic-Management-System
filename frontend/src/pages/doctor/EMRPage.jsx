@@ -1,3 +1,10 @@
+/**
+ * Author: Tuấn - HE204215
+ * 
+ * Giao diện quản lý Bệnh án điện tử (EMR) cho Bác sĩ. 
+ * Cho phép bác sĩ xem bệnh sử trước đó, khai thác triệu chứng hiện tại, khám lâm sàng và lưu hồ sơ bệnh án.
+*/
+
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
@@ -13,6 +20,7 @@ const STATUS_MAP = {
   COMPLETED:   { color: 'success',    label: 'Hoàn thành' },
 }
 
+// Component hiển thị các trường nhập liệu dành cho khám lâm sàng Mắt (thị lực, nhãn áp, khúc xạ...)
 function EyeFields({ prefix, label }) {
   return (
     <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
@@ -42,6 +50,7 @@ function EyeFields({ prefix, label }) {
   )
 }
 
+// Component hiển thị một thẻ tóm tắt về lịch sử khám bệnh trước đó của bệnh nhân
 function HistoryCard({ record, onClick }) {
   const date = record.createdAt
     ? new Date(record.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -87,6 +96,7 @@ function HistoryCard({ record, onClick }) {
   )
 }
 
+// Component chính của trang quản lý Bệnh án điện tử
 export default function EMRPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
@@ -101,6 +111,8 @@ export default function EMRPage() {
   const [loading, setLoading] = useState(!!appointmentId)
   const [saving, setSaving] = useState(false)
 
+  // Hàm tiện ích: chuyển đổi object dữ liệu thô từ server (API trả về)
+  // sang định dạng object có cấu trúc tương thích với tên các trường (name) khai báo trong Form của Ant Design.
   const emrToFormValues = (data) => ({
     chiefComplaint: data.chiefComplaint,
     symptoms:       data.symptoms,
@@ -115,6 +127,7 @@ export default function EMRPage() {
     lAxis: data.axisL, rAxis: data.axisR,
   })
 
+  // Hàm tải dữ liệu bệnh án hiện tại của lịch hẹn (nếu đã từng lưu nháp)
   const fetchEMR = useCallback(async () => {
     if (!appointmentId) return
     setLoading(true)
@@ -134,6 +147,7 @@ export default function EMRPage() {
     }
   }, [appointmentId, form])
 
+  // Hàm tải danh sách các lần khám trước đây của bệnh nhân (bỏ qua lịch hẹn hiện tại)
   const fetchHistory = useCallback(async () => {
     if (!patientId) return
     try {
@@ -158,6 +172,7 @@ export default function EMRPage() {
     fetchHistory()
   }, [fetchEMR, fetchHistory])
 
+  // Hàm chuẩn bị và đóng gói dữ liệu form để gửi lên API (lưu nháp hoặc hoàn thành)
   const buildPayload = (values, status) => ({
     appointmentId: Number(appointmentId),
     doctorId: user?.doctorId ?? user?.id,
@@ -175,9 +190,9 @@ export default function EMRPage() {
     status,
   })
 
+  // Hàm xử lý việc gọi API lưu trữ bệnh án điện tử
   const handleSave = async (status) => {
     try {
-      //const values = await form.validateFields()
       let values
       if(status === 'COMPLETED'){
         values = await form.validateFields()
@@ -190,11 +205,10 @@ export default function EMRPage() {
       const res = await emrService.saveEMR(buildPayload(values, status))
       setEmr(res.data)
       message.success(status === 'COMPLETED' ? 'Đã hoàn thành hồ sơ bệnh án' : 'Đã lưu nháp')
-      // if (status === 'COMPLETED') 
         navigate('/doctor/dashboard')
     } catch (err) {
       console.log('>>> Save error: ', err)
-      if (err?.errorFields) return // validation error, antd handles it
+      if (err?.errorFields) return
       message.error('Lưu thất bại, vui lòng thử lại')
     } finally {
       setSaving(false)
@@ -203,7 +217,8 @@ export default function EMRPage() {
 
   const isCompleted = emr?.status === 'COMPLETED'
 
-  // ── No appointment selected ──
+  // Render khi Bác sĩ CHƯA CHỌN bệnh nhân nào
+  // Hiển thị một giao diện hướng dẫn người dùng quay lại Dashboard để chọn lịch hẹn.
   if (!appointmentId) {
     return (
       <div style={{ padding: 24 }}>
@@ -229,6 +244,7 @@ export default function EMRPage() {
     )
   }
 
+  // Render giao diện CHÍNH của trang Hồ sơ bệnh án điện tử
   return (
     <div style={{ padding: 24 }}>
       {/* Header */}
@@ -306,7 +322,7 @@ export default function EMRPage() {
               />
             </Form>
 
-            {/* Actions */}
+            {/* Khu vực Actions (Thao tác lưu): Chỉ hiện khi hồ sơ chưa HOÀN THÀNH */}
             {!isCompleted && !loading && (
               <div style={{
                 borderTop: '1px solid #f1f5f9', padding: '14px 24px',
@@ -327,7 +343,7 @@ export default function EMRPage() {
             )}
           </div>
 
-          {/* ── Right: Patient history ── */}
+          {/* Cột phải: Danh sách lịch sử các lần khám bệnh trước đây */}
           <div style={{ backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', padding: '16px' }}>
             <div style={{ fontWeight: 600, fontSize: 14, color: '#1e293b', marginBottom: 12 }}>
               Lịch sử khám trước

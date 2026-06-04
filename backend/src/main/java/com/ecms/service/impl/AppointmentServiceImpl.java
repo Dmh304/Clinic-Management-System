@@ -1,3 +1,9 @@
+/** 
+ * Author: Tuấn - HE204215
+ * 
+ * Triển khai chi tiết các nghiệp vụ liên quan đến Lịch hẹn và Hàng đợi bệnh nhân,
+ * bao gồm các quy tắc như giới hạn số ca khám mỗi ngày, xử lý chuyển trạng thái lịch hẹn, check-in.
+*/
 package com.ecms.service.impl;
 
 import com.ecms.dto.request.BookAppointmentRequest;
@@ -192,12 +198,125 @@ public class AppointmentServiceImpl implements AppointmentService {
             appointment.setDoctor(doctor);
         }
 
-        appointment.setStatus(AppointmentStatus.CONFIRMED);
+        // Hàm lấy danh sách hàng đợi (bệnh nhân đang chờ khám) trong một ngày cụ thể
+        @Override
+        public List<AppointmentResponse> getDoctorQueue(LocalDate date) {
+                LocalDate targetDate = date != null ? date : LocalDate.now();
+                LocalDateTime start = targetDate.atStartOfDay();
+                LocalDateTime end = targetDate.plusDays(1).atStartOfDay();
 
-        return toResponse(appointmentRepository.save(appointment));
-    }
+                return appointmentRepository
+                                .findByAppointmentDateAndStatusOrderByCreatedAtAsc(
+                                                start,
+                                                end,
+                                                AppointmentStatus.WAITING)
+                                .stream()
+                                .map(this::toResponse)
+                                .collect(Collectors.toList());
+        }
 
-    /**
+        // Hàm lấy số liệu thống kê Dashboard trong một ngày cụ thể
+        @Override
+        public AppointmentDashboardResponse getDashboard(LocalDate date) {
+                LocalDate targetDate = date != null ? date : LocalDate.now();
+                LocalDateTime start = targetDate.atStartOfDay();
+                LocalDateTime end = targetDate.plusDays(1).atStartOfDay();
+
+                return AppointmentDashboardResponse.builder()
+                                .total(appointmentRepository.countByDate(start, end))
+                                .pending(appointmentRepository.countByDateAndStatus(start, end,
+                                                AppointmentStatus.PENDING))
+                                .confirmed(appointmentRepository.countByDateAndStatus(start, end,
+                                                AppointmentStatus.CONFIRMED))
+                                .waiting(appointmentRepository.countByDateAndStatus(start, end,
+                                                AppointmentStatus.WAITING))
+                                .inProgress(appointmentRepository.countByDateAndStatus(start, end,
+                                                AppointmentStatus.IN_PROGRESS))
+                                .completed(appointmentRepository.countByDateAndStatus(start, end,
+                                                AppointmentStatus.COMPLETED))
+                                .cancelled(appointmentRepository.countByDateAndStatus(start, end,
+                                                AppointmentStatus.CANCELLED))
+                                .build();
+        }
+
+        // Hàm lấy danh sách hàng đợi bệnh nhân dành riêng cho một bác sĩ trong một ngày
+        // cụ thể
+        @Override
+        public List<AppointmentResponse> getDoctorQueue(LocalDate date, Long doctorId) {
+                LocalDate targetDate = date != null ? date : LocalDate.now();
+                LocalDateTime start = targetDate.atStartOfDay();
+                LocalDateTime end = targetDate.plusDays(1).atStartOfDay();
+
+                return appointmentRepository.findByAppointmentDateAndDoctorIdOrderByAppointmentTimeAsc(start, end,
+                                doctorId)
+                                .stream()
+                                .map(this::toResponse)
+                                .collect(Collectors.toList());
+        }
+
+        // Hàm lấy số liệu thống kê Dashboard dành riêng cho một bác sĩ trong một ngày
+        // cụ thể
+        @Override
+        public AppointmentDashboardResponse getDashboard(LocalDate date, Long doctorId) {
+                LocalDate targetDate = date != null ? date : LocalDate.now();
+                LocalDateTime start = targetDate.atStartOfDay();
+                LocalDateTime end = targetDate.plusDays(1).atStartOfDay();
+
+                return AppointmentDashboardResponse.builder()
+                                .total(appointmentRepository.countByDateAndDoctorId(start, end, doctorId))
+                                .pending(appointmentRepository.countByDateAndStatusAndDoctorId(start, end,
+                                                AppointmentStatus.PENDING,
+                                                doctorId))
+                                .confirmed(appointmentRepository.countByDateAndStatusAndDoctorId(start, end,
+                                                AppointmentStatus.CONFIRMED, doctorId))
+                                .waiting(appointmentRepository.countByDateAndStatusAndDoctorId(start, end,
+                                                AppointmentStatus.WAITING,
+                                                doctorId))
+                                .inProgress(appointmentRepository.countByDateAndStatusAndDoctorId(start, end,
+                                                AppointmentStatus.IN_PROGRESS, doctorId))
+                                .completed(appointmentRepository.countByDateAndStatusAndDoctorId(start, end,
+                                                AppointmentStatus.COMPLETED, doctorId))
+                                .cancelled(appointmentRepository.countByDateAndStatusAndDoctorId(start, end,
+                                                AppointmentStatus.CANCELLED, doctorId))
+                                .build();
+        }
+
+        @Override
+        @Transactional
+        public AppointmentResponse updateAppointmentStatus(Long id, AppointmentStatus status) {
+                Appointment appointment = appointmentRepository.findById(id)
+                                .orElseThrow(() -> new ResourceNotFoundException("Lịch hẹn không tồn tại: " + id));
+
+                appointment.setStatus(status);
+
+                return toResponse(appointmentRepository.save(appointment));
+        }
+
+        @Override
+        @Transactional
+        public AppointmentResponse confirmAppointment(Long id, Long doctorId) {
+                Appointment appointment = appointmentRepository.findById(id)
+                                .orElseThrow(() -> new ResourceNotFoundException("Lịch hẹn không tồn tại: " + id));
+
+                if (appointment.getStatus() != AppointmentStatus.PENDING) {
+                        throw new IllegalStateException("Chỉ lịch hẹn PENDING mới được xác nhận");
+                }
+
+                if (doctorId != null) {
+                        Doctor doctor = doctorRepository.findById(doctorId)
+                                        .orElseThrow(() -> new ResourceNotFoundException(
+                                                        "Bác sĩ không tồn tại: " + doctorId));
+
+                        validateDoctorCapacity(doctorId, appointment.getAppointmentDate());
+                        appointment.setDoctor(doctor);
+                }
+
+                appointment.setStatus(AppointmentStatus.CONFIRMED);
+
+                return toResponse(appointmentRepository.save(appointment));
+        }
+
+        /**
      * Thực hiện check-in tiếp nhận bệnh nhân đã có lịch hẹn đã xác nhận vào phòng chờ khám.
      * Hệ thống sẽ gán tự động số thứ tự hàng đợi (queue number) tăng dần trong ngày.
      * DucTKH
@@ -216,14 +335,41 @@ public class AppointmentServiceImpl implements AppointmentService {
         LocalDate appointmentDate = appointment.getAppointmentDate();
         appointment.setStatus(AppointmentStatus.WAITING);
         appointment.setCheckInTime(LocalDateTime.now());
-
-        // Kiểm tra xem lịch hẹn đã có số thứ tự chưa, nếu chưa có thì tiến hành cấp mới
+      // Kiểm tra xem lịch hẹn đã có số thứ tự chưa, nếu chưa có thì tiến hành cấp mới
         if (appointment.getQueueNumber() == null) {
             appointment.setQueueNumber(nextQueueNumber(appointmentDate));
         }
 
         return toResponse(appointmentRepository.save(appointment));
     }
+
+        @Override
+        @Transactional
+        public AppointmentResponse bookOnlineAppointment(BookAppointmentRequest request, String patientEmail) {
+                Patient patient = patientRepository.findByUser_Email(patientEmail)
+                                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin bệnh nhân"));
+
+                Doctor doctor = doctorRepository.findById(request.getDoctorId())
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "Bác sĩ không tồn tại: " + request.getDoctorId()));
+
+                validateDoctorCapacity(doctor.getId(), request.getAppointmentTime().toLocalDate());
+
+                Appointment appointment = Appointment.builder()
+                                .patient(patient)
+                                .doctor(doctor)
+                                .appointmentTime(request.getAppointmentTime())
+                                .timeSlot(request.getAppointmentTime().toLocalTime().toString())
+                                .status(AppointmentStatus.PENDING)
+                                .type("ONLINE")
+                                .reminderSent(false)
+                                .notes(request.getNotes())
+                                .build();
+
+                return toResponse(appointmentRepository.save(appointment));
+        }
+
+        
 
     @Override
     @Transactional
