@@ -1,3 +1,7 @@
+// Mạnh Hùng - HE200743
+// DTO nhận dữ liệu đăng ký tài khoản bệnh nhân từ client.
+// Gồm: họ tên, email, số điện thoại và mật khẩu (tối thiểu 6 ký tự).
+// Có validation tự động cho từng trường.
 package com.ecms.dto.request;
 
 import jakarta.validation.constraints.Email;

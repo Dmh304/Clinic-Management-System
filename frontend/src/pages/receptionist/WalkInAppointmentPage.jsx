@@ -1,3 +1,11 @@
+/**
+ * Page: WalkInAppointmentPage
+ * Chức năng: Cho phép Lễ tân tạo lịch khám vãng lai (Walk-in) cho bệnh nhân tại quầy.
+ * Hỗ trợ tìm kiếm nhanh hồ sơ bệnh nhân, đăng ký nhanh hồ sơ bệnh nhân mới bằng modal,
+ * chỉ định bác sĩ, dịch vụ và đẩy bệnh nhân vào hàng đợi (trạng thái WAITING) ngay lập tức.
+ * DucTKH
+ */
+
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -32,12 +40,18 @@ export default function WalkInAppointmentPage() {
   const [services, setServices] = useState([])
 
   useEffect(() => {
-    doctorService.getAllDoctors().then((r) => setDoctors(r.data)).catch(() => {})
-    clinicServiceService.getAllServices().then((r) => setServices(r.data)).catch(() => {})
+    doctorService.getAllDoctors().then((r) => setDoctors(r.data)).catch(() => { })
+    clinicServiceService.getAllServices().then((r) => setServices(r.data)).catch(() => { })
   }, [])
 
+  /**
+   * Tìm kiếm nhanh thông tin bệnh nhân qua tên hoặc số điện thoại khi nhập form.
+   * Yêu cầu nhập tối thiểu 2 ký tự.
+   * DucTKH
+   */
   const handlePatientSearch = async (value) => {
     setPatientSearch(value)
+    // Chỉ gửi yêu cầu tìm kiếm khi người dùng nhập từ 2 ký tự trở lên
     if (!value || value.length < 2) {
       setPatients([])
       return
@@ -53,12 +67,35 @@ export default function WalkInAppointmentPage() {
     }
   }
 
+  /**
+   * Gửi thông tin form tạo lịch khám vãng lai lên máy chủ để xếp vào hàng chờ.
+   * 
+   * DucTKH
+   */
   const onFinish = async (values) => {
+    // Yêu cầu bắt buộc nhập thời gian khám
+    if (!values.appointmentTime) {
+      message.error('Vui lòng chọn thời gian khám')
+      return
+    }
+
+    // Không cho phép tạo lịch khám ở thời gian đã qua
+    if (values.appointmentTime.isBefore(dayjs())) {
+      message.error('Không thể tạo lịch khám trong quá khứ')
+      return
+    }
+
+    // Yêu cầu bắt buộc phân công bác sĩ
+    if (!values.doctorId) {
+      message.error('Vui lòng chọn bác sĩ')
+      return
+    }
+
     setLoading(true)
     try {
       const payload = {
         patientId: values.patientId,
-        doctorId: values.doctorId ?? null,
+        doctorId: values.doctorId,
         serviceId: values.serviceId ?? null,
         appointmentTime: values.appointmentTime.format('YYYY-MM-DDTHH:mm:ss'),
         notes: values.notes ?? null,
@@ -80,6 +117,10 @@ export default function WalkInAppointmentPage() {
     setNewPatientModal(true)
   }
 
+  /**
+   * Tạo nhanh hồ sơ bệnh nhân vãng lai mới ngay.
+   * DucTKH
+   */
   const handleCreateNewPatient = async (values) => {
     setNewPatientLoading(true)
     try {
@@ -180,23 +221,24 @@ export default function WalkInAppointmentPage() {
                 patientSearch.length < 2
                   ? 'Nhập ít nhất 2 ký tự để tìm kiếm'
                   : patientLoading
-                  ? 'Đang tìm...'
-                  : (
-                    <div style={{ textAlign: 'center', padding: '8px 0' }}>
-                      <div style={{ color: '#94a3b8', marginBottom: 8, fontSize: 13 }}>
-                        Không tìm thấy bệnh nhân
+                    ? 'Đang tìm...'
+                    : (
+                      <div style={{ textAlign: 'center', padding: '8px 0' }}>
+                        <div style={{ color: '#94a3b8', marginBottom: 8, fontSize: 13 }}>
+                          Không tìm thấy bệnh nhân
+                        </div>
+                        <Button
+                          size="small"
+                          type="primary"
+                          icon={<UserAddOutlined />}
+                          onClick={handleOpenNewPatientModal}
+                        >
+                          Tạo hồ sơ mới
+                        </Button>
                       </div>
-                      <Button
-                        size="small"
-                        type="primary"
-                        icon={<UserAddOutlined />}
-                        onClick={handleOpenNewPatientModal}
-                      >
-                        Tạo hồ sơ mới
-                      </Button>
-                    </div>
-                  )
+                    )
               }
+              // Duyệt qua danh sách bệnh nhân tìm thấy để hiển thị lên dropdown của ô tìm kiếm Select
               options={patients.map((p) => ({
                 label: (
                   <Space>
@@ -221,13 +263,39 @@ export default function WalkInAppointmentPage() {
               format="DD/MM/YYYY HH:mm"
               style={{ width: '100%' }}
               placeholder="Chọn ngày và giờ"
+              disabledDate={(current) => {
+                return current && current < dayjs().startOf('day')
+              }}
+              disabledTime={(current) => {
+                if (!current || !current.isSame(dayjs(), 'day')) {
+                  return {}
+                }
+
+                const now = dayjs()
+
+                return {
+                  disabledHours: () =>
+                    Array.from({ length: now.hour() }, (_, i) => i),
+
+                  disabledMinutes: (selectedHour) => {
+                    if (selectedHour === now.hour()) {
+                      return Array.from({ length: now.minute() + 1 }, (_, i) => i)
+                    }
+                    return []
+                  },
+                }
+              }}
             />
           </Form.Item>
 
-          <Form.Item label="Bác sĩ (không bắt buộc)" name="doctorId">
+          <Form.Item
+            label="Bác sĩ"
+            name="doctorId"
+            rules={[{ required: true, message: 'Vui lòng chọn bác sĩ' }]}
+          >
             <Select
-              allowClear
               placeholder="Chọn bác sĩ"
+              // Duyệt danh sách bác sĩ lấy từ hệ thống để làm các lựa chọn (options) trong Select
               options={doctors.map((d) => ({
                 label: `${d.fullName}${d.specialization ? ` — ${d.specialization}` : ''}`,
                 value: d.id,
@@ -237,8 +305,9 @@ export default function WalkInAppointmentPage() {
 
           <Form.Item label="Dịch vụ (không bắt buộc)" name="serviceId">
             <Select
-              allowClear
+              rules={[{ required: true, message: 'Vui lòng chọn bác sĩ' }]}
               placeholder="Chọn dịch vụ"
+              // Duyệt danh sách dịch vụ y tế của phòng khám làm các lựa chọn (options) trong Select
               options={services.map((s) => ({
                 label: s.serviceName,
                 value: s.id,

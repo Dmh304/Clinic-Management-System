@@ -1,3 +1,6 @@
+// Mạnh Hùng - HE200743
+// Entity ánh xạ bảng "services" trong database.
+// Lưu trữ thông tin các dịch vụ khám chữa bệnh của phòng khám: tên dịch vụ, mô tả, giá và thời lượng (phút).
 package com.ecms.entity;
 
 import jakarta.persistence.*;

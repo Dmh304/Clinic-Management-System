@@ -1,3 +1,7 @@
+// Mạnh Hùng - HE200743
+// Entity ánh xạ bảng "blogs" trong database.
+// Lưu trữ nội dung bài viết blog: tiêu đề, tóm tắt, nội dung đầy đủ, tác giả, danh mục,
+// ảnh bìa, ngày đăng và trạng thái (PUBLISHED/DRAFT).
 package com.ecms.entity;
 
 import jakarta.persistence.*;
