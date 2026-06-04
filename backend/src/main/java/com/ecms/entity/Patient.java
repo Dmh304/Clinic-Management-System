@@ -1,3 +1,7 @@
+// Mạnh Hùng - HE200743
+// Entity ánh xạ bảng "patients" trong database.
+// Lưu trữ thông tin chi tiết của bệnh nhân: họ tên, ngày sinh, giới tính, địa chỉ,
+// liên kết 1-1 với bảng User và mã bệnh nhân duy nhất.
 package com.ecms.entity;
 
 import jakarta.persistence.*;
@@ -42,6 +46,7 @@ public class Patient {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
+    // Tự động gán thời điểm tạo bản ghi trước khi lưu vào database lần đầu tiên
     @PrePersist
     private void prePersist() {
         createdAt = LocalDateTime.now();

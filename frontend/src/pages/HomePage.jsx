@@ -1,3 +1,7 @@
+// Mạnh Hùng - HE200743
+// Trang chủ của hệ thống quản lý phòng khám nhãn khoa Ánh Sao.
+// Người dùng có thể xem giới thiệu phòng khám, các dịch vụ chẩn đoán (Retina, Glaucoma, Cornea),
+// danh sách bác sĩ có lịch trống, đặt lịch khám, xem đối tác và thông tin footer.
 import { Link } from 'react-router-dom'
 import heroImg from '../assets/ECMS_background.png'
 import machineImg from '../assets/ECMS_Machine.png'

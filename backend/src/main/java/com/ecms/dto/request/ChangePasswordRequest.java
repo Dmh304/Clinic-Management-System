@@ -1,3 +1,6 @@
+// Mạnh Hùng - HE200743
+// DTO nhận dữ liệu đổi mật khẩu từ client.
+// Gồm mật khẩu hiện tại, mật khẩu mới (tối thiểu 8 ký tự) và xác nhận mật khẩu mới.
 package com.ecms.dto.request;
 
 import jakarta.validation.constraints.NotBlank;

@@ -1,3 +1,7 @@
+// Mạnh Hùng - HE200743
+// Trang hồ sơ cá nhân dành cho người dùng đã đăng nhập.
+// Hiển thị avatar, họ tên, email, vai trò và thông tin chi tiết (SĐT, ngày sinh, giới tính, địa chỉ).
+// Người dùng có thể chỉnh sửa thông tin và lưu lại, hoặc truy cập nhanh trang đổi mật khẩu.
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useSelector } from 'react-redux'
@@ -10,6 +14,7 @@ const GENDER_OPTIONS = [
   { value: 'OTHER', label: 'Khác' },
 ]
 
+// Component hiển thị một trường thông tin có nhãn, dùng trong form hồ sơ
 function Field({ label, children }) {
   return (
     <div style={{ marginBottom: 22 }}>
@@ -21,6 +26,7 @@ function Field({ label, children }) {
   )
 }
 
+// Trả về style cho ô input tùy theo chế độ chỉ đọc hay chỉnh sửa
 const inputStyle = (readOnly) => ({
   width: '100%', padding: '10px 14px', borderRadius: 8, boxSizing: 'border-box',
   border: `1px solid ${readOnly ? '#f1f5f9' : '#e2e8f0'}`,
@@ -42,6 +48,7 @@ export default function ProfilePage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
+  // Tải thông tin hồ sơ từ server khi component được mount lần đầu
   useEffect(() => {
     userService.getProfile()
       .then(data => {
@@ -58,12 +65,14 @@ export default function ProfilePage() {
       .finally(() => setLoading(false))
   }, [])
 
+  // Cập nhật giá trị form khi người dùng thay đổi nội dung ô nhập liệu
   const handleChange = (e) => {
     setForm(f => ({ ...f, [e.target.name]: e.target.value }))
     setError('')
     setSuccess('')
   }
 
+  // Lưu thay đổi hồ sơ: gọi API cập nhật, cập nhật state local và thoát chế độ chỉnh sửa
   const handleSave = async (e) => {
     e.preventDefault()
     setSaving(true)
@@ -86,6 +95,7 @@ export default function ProfilePage() {
     }
   }
 
+  // Hủy chỉnh sửa: khôi phục form về giá trị hồ sơ hiện tại và thoát chế độ chỉnh sửa
   const handleCancel = () => {
     setForm({
       fullName: profile?.fullName || '',

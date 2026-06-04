@@ -1,3 +1,7 @@
+// Mạnh Hùng - HE200743
+// Triển khai các nghiệp vụ xác thực: đăng nhập (kiểm tra email, trạng thái, mật khẩu, tạo JWT),
+// đổi mật khẩu (xác minh mật khẩu cũ, mã hóa và lưu mật khẩu mới),
+// và đăng ký tài khoản bệnh nhân mới (kiểm tra email trùng, gán vai trò PATIENT, tạo JWT).
 package com.ecms.service.impl;
 
 import com.ecms.dto.request.ChangePasswordRequest;
@@ -29,6 +33,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
+    // Xác thực người dùng: kiểm tra email tồn tại, trạng thái tài khoản, mật khẩu; tạo và trả về JWT
     @Override
     public AuthResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
@@ -65,6 +70,7 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
+    // Đổi mật khẩu: kiểm tra mật khẩu mới và xác nhận khớp nhau, xác minh mật khẩu cũ rồi lưu mật khẩu mới đã mã hóa
     @Override
     @Transactional
     public void changePassword(String email, ChangePasswordRequest request) {
@@ -83,6 +89,7 @@ public class AuthServiceImpl implements AuthService {
         userRepository.save(user);
     }
 
+    // Đăng ký tài khoản: kiểm tra email chưa tồn tại, tạo User với vai trò PATIENT, mã hóa mật khẩu và trả về JWT
     @Override
     @Transactional
     public AuthResponse register(RegisterRequest request) {
