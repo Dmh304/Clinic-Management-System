@@ -18,6 +18,9 @@ public class Patient {
     @JoinColumn(name = "user_id", unique = true)
     private User user;
 
+    @Column(name = "patient_code", unique = true, length = 20)
+    private String patientCode;
+
     @Column(name = "full_name", nullable = false)
     private String fullName;
 

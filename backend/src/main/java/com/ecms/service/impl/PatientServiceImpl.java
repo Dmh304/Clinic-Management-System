@@ -15,7 +15,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.ecms.exception.FieldValidationException;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -32,13 +35,15 @@ public class PatientServiceImpl implements PatientService {
     @Override
     @Transactional
     public PatientResponse createWalkInPatient(PatientRequest request) {
+        Map<String, String> errors = new LinkedHashMap<>();
         if (patientRepository.existsByPhone(request.getPhone())) {
-            throw new IllegalArgumentException(
-                    "Số điện thoại " + request.getPhone() + " đã được đăng ký trong hệ thống");
+            errors.put("phone", "Số điện thoại " + request.getPhone() + " đã được đăng ký trong hệ thống");
         }
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new IllegalArgumentException(
-                    "Email " + request.getEmail() + " đã được sử dụng trong hệ thống");
+            errors.put("email", "Email " + request.getEmail() + " đã được sử dụng trong hệ thống");
+        }
+        if (!errors.isEmpty()) {
+            throw new FieldValidationException(errors);
         }
 
         Role patientRole = roleRepository.findByName("PATIENT")
@@ -53,8 +58,12 @@ public class PatientServiceImpl implements PatientService {
                 .build();
         userRepository.save(user);
 
+        long count = patientRepository.count();
+        String patientCode = String.format("PT%04d", count + 1);
+
         Patient patient = Patient.builder()
                 .user(user)
+                .patientCode(patientCode)
                 .fullName(request.getFullName())
                 .phone(request.getPhone())
                 .email(request.getEmail())
