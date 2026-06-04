@@ -1,7 +1,8 @@
-// Le Thi Bich Ngan - HE204710
-// Redux slice quản lý state lịch hẹn cho trang Reception Dashboard.
-// Chứa các async thunk: tải danh sách lịch hôm nay, lấy thống kê dashboard,
-// xác nhận lịch hẹn, check-in bệnh nhân, và cập nhật trạng thái lịch hẹn.
+/**
+ * Redux Slice: appointment
+ * Quản lý trạng thái danh sách lịch khám của phòng khám và các thao tác thay đổi trạng thái (xác nhận, check-in, hủy).
+ * DucTKHHE204463
+ */
 
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 import { appointmentService } from '../../services/appointmentService'
@@ -32,7 +33,10 @@ export const changeAppointmentStatus = createAsyncThunk(
   }
 )
 
-// Xác nhận lịch hẹn PENDING, có thể kèm gán bác sĩ phụ trách (doctorId tùy chọn)
+/**
+ * Xác nhận lịch hẹn của bệnh nhân và phân công bác sĩ.
+ * DucTKH
+ */
 export const confirmAppointment = createAsyncThunk(
   'appointment/confirm',
   async ({ id, doctorId }, { rejectWithValue }) => {
@@ -45,7 +49,10 @@ export const confirmAppointment = createAsyncThunk(
   }
 )
 
-// Check-in bệnh nhân đã xác nhận: chuyển trạng thái sang WAITING và tạo số thứ tự hàng đợi
+/**
+ * Check-in tiếp nhận bệnh nhân.
+ * DucTKH
+ */
 export const checkInAppointment = createAsyncThunk(
   'appointment/checkIn',
   async (id, { rejectWithValue }) => {

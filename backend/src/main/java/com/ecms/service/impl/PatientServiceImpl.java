@@ -28,6 +28,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * Lớp triển khai các dịch vụ nghiệp vụ liên quan đến quản lý Bệnh nhân.
+ * Xử lý nghiệp vụ tạo mới tài khoản bệnh nhân vãng lai và tìm kiếm hồ sơ bệnh nhân.
+ * DucTKH
+ */
 @Service
 @RequiredArgsConstructor
 public class PatientServiceImpl implements PatientService {
@@ -90,15 +95,17 @@ public class PatientServiceImpl implements PatientService {
                 return toResponse(patientRepository.save(patient));
         }
 
-    // Tìm kiếm bệnh nhân theo từ khóa (tên hoặc số điện thoại).
-    // Nếu không có từ khóa thì trả về toàn bộ danh sách bệnh nhân.
-    @Override
-    public List<PatientResponse> searchPatients(String keyword) {
-        List<Patient> patients = (keyword == null || keyword.trim().isEmpty())
-                ? patientRepository.findAll()
-                : patientRepository.searchByNameOrPhone(keyword.trim());
-        return patients.stream().map(this::toResponse).collect(Collectors.toList());
-    }
+        /**
+         * Triển khai nghiệp vụ tìm kiếm bệnh nhân dựa vào từ khóa (Tên hoặc SĐT).
+         * DucTKH
+         */
+        @Override
+        public List<PatientResponse> searchPatients(String keyword) {
+                List<Patient> patients = (keyword == null || keyword.trim().isEmpty())
+                                ? patientRepository.findAll()
+                                : patientRepository.searchByNameOrPhone(keyword.trim());
+                return patients.stream().map(this::toResponse).collect(Collectors.toList());
+        }
 
     // Chuyển đổi entity Patient sang DTO PatientResponse để trả về cho frontend
     private PatientResponse toResponse(Patient p) {
