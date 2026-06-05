@@ -116,6 +116,15 @@ public class EMRServiceImpl implements EMRService {
                                 .collect(Collectors.toList());
         }
 
+        @Override
+        @Transactional(readOnly = true)
+        public List<EMRResponse> getCompletedList() {
+                return medicalRecordRepository.findByStatusOrderByCreatedAtDesc(MedicalRecordStatus.COMPLETED)
+                                .stream()
+                                .map(this::toResponse)
+                                .collect(Collectors.toList());
+        }
+
         // Hàm tiện ích chuyển đổi Entity MedicalRecord sang DTO EMRResponse
         private EMRResponse toResponse(MedicalRecord m) {
                 Appointment appt = m.getAppointment();

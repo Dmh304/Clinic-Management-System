@@ -6,7 +6,15 @@
 */
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Table, Tag, Button, message, Tooltip } from 'antd'
+import {
+  Table, Tag, Select, Button, Space, Typography, Card,
+  message, Modal, Form, Statistic, Row, Col, Input
+} from 'antd'
+import {
+  ReloadOutlined, CheckCircleOutlined, LoginOutlined,
+  CloseCircleOutlined,
+} from '@ant-design/icons'
+
 import { appointmentService } from '../../services/appointmentService'
 
 const STATUS_CONFIG = {
@@ -49,6 +57,8 @@ export default function DoctorDashboard() {
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(null)
+  const [filterStatus, setFilterStatus] = useState('ALL')
+  const [searchText, setSearchText] = useState('')
 
   /* Hàm lấy dữ liệu danh sách bệnh nhân chờ khám và các con số thống kê từ server */
   const fetchData = useCallback(async () => {
@@ -71,6 +81,15 @@ export default function DoctorDashboard() {
     const timer = setInterval(fetchData, 30_000)
     return () => clearInterval(timer)
   }, [fetchData])
+
+  const filteredQueue = queue.filter((r) => filterStatus === 'ALL' || r.status === filterStatus).filter((r) => {
+    if(!searchText) return true
+    const keyword = searchText.toLowerCase()
+    return (
+      r.patientName?.toLowerCase().includes(keyword) ||
+      r.patientPhone?.includes(keyword)
+    )
+  })
 
 /** Hàm xử lý sự kiện khi Bác sĩ click nút "Bắt đầu khám"
 *   Gọi API đổi trạng thái lịch hẹn sang IN_PROGRESS và chuyển hướng sang trang bệnh án (EMR) 
@@ -210,15 +229,32 @@ export default function DoctorDashboard() {
 
       {/* Bảng danh sách hàng đợi */}
       <div style={{ backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
-        <div style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12}}>
           <span style={{ fontWeight: 600, fontSize: 14, color: '#1e293b' }}>Danh sách bệnh nhân</span>
+
+            <Input.Search 
+            placeholder="Tìm kiếm theo tên bệnh nhân hoặc số điện thoại" 
+            allowClear={true} 
+            value={searchText} 
+            onChange={(e) => setSearchText(e.target.value)} 
+            style={{flex: 1}}
+          />
+            <Select 
+            value={filterStatus} 
+            onChange={setFilterStatus} 
+            style={{width: 180}} 
+            options={[{label: 'Tất cả trạng thái', value: 'ALL'},
+              ...Object.entries(STATUS_CONFIG).filter(([v]) => v !== 'CANCELLED' && v !== 'PENDING').map(([v, c]) => ({label: c.label, value: v,}))
+            ]}
+            />
           <Button size="small" onClick={fetchData} style={{ fontSize: 12 }}>
             Làm mới
           </Button>
+        
         </div>
         <Table
           columns={columns}
-          dataSource={queue}
+          dataSource={filteredQueue}
           rowKey="id"
           loading={loading}
           pagination={{ pageSize: 15, showSizeChanger: false, showTotal: (t) => `${t} bệnh nhân` }}

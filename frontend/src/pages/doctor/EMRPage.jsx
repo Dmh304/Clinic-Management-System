@@ -105,11 +105,14 @@ export default function EMRPage() {
 
   const appointmentId = searchParams.get('appointmentId')
   const patientId = searchParams.get('patientId')
+  const originalAppointmentId = searchParams.get('originalAppointmentId') || null
 
   const [emr, setEmr] = useState(null)
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(!!appointmentId)
   const [saving, setSaving] = useState(false)
+  const [completedList, setCompletedList] = useState([])
+  const [listLoading, setListLoading] = useState(false)
 
   // Hàm tiện ích: chuyển đổi object dữ liệu thô từ server (API trả về)
   // sang định dạng object có cấu trúc tương thích với tên các trường (name) khai báo trong Form của Ant Design.
@@ -159,6 +162,22 @@ export default function EMRPage() {
       // ignore
     }
   }, [patientId, appointmentId])
+
+  const fetchCompletedList = useCallback(async () => {
+    setListLoading(true)
+    try{
+      const res = await emrService.getCompletedList()
+      setCompletedList(res.data ?? [])
+    } catch {
+      message.error('Không thể tải danh sách bệnh án')
+    } finally {
+      setListLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if(!appointmentId) fetchCompletedList()
+  }, [appointmentId, fetchCompletedList])
 
   useEffect(() => {
     setEmr(null)
@@ -224,11 +243,15 @@ export default function EMRPage() {
       <div style={{ padding: 24 }}>
         <div style={{ marginBottom: 20 }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Hồ sơ bệnh án</h2>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
+          {/* <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
             Chọn bệnh nhân từ <a onClick={() => navigate('/doctor/dashboard')} style={{ color: '#0d9488', cursor: 'pointer' }}>hàng chờ</a> để tạo hồ sơ
+          </p> */}
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b'}}>
+            Danh sách các hồ sơ bệnh án đã hoàn thành
           </p>
         </div>
-        <div style={{
+
+        {/* <div style={{
           backgroundColor: '#fff', borderRadius: 12, padding: 40,
           textAlign: 'center', border: '1px dashed #cbd5e1',
         }}>
@@ -239,7 +262,63 @@ export default function EMRPage() {
             <line x1="9" y1="15" x2="15" y2="15" />
           </svg>
           <div style={{ color: '#64748b', fontSize: 14 }}>Chưa chọn bệnh nhân</div>
-        </div>
+        </div> */}
+        <div style={{ backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+        <Spin spinning={listLoading}>
+          {completedList.length === 0 && !listLoading ? (
+            <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8', fontSize: 14 }}>
+              Chưa có hồ sơ bệnh án nào hoàn thành
+            </div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid #f1f5f9', backgroundColor: '#f8fafc' }}>
+                  {['STT', 'Bệnh nhân', 'Ngày khám', 'Lý do khám', 'Chẩn đoán', 'Bác sĩ', ''].map((h) => (
+                    <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 13, fontWeight: 600, color: '#475569' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {completedList.map((r, i) => (
+                  <tr
+                    key={r.id}
+                    style={{ borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
+                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f0fdf9'}
+                    onMouseLeave={e => e.currentTarget.style.backgroundColor = ''}
+                  >
+                    <td style={{ padding: '12px 16px', color: '#64748b', fontSize: 13 }}>{i + 1}</td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <div style={{ fontWeight: 600, fontSize: 13, color: '#1e293b' }}>{r.patientName}</div>
+                      <div style={{ fontSize: 12, color: '#64748b' }}>{r.patientPhone}</div>
+                    </td>
+                    <td style={{ padding: '12px 16px', fontSize: 13, color: '#475569' }}>
+                      {r.createdAt ? new Date(r.createdAt).toLocaleDateString('vi-VN') : '—'}
+                    </td>
+                    <td style={{ padding: '12px 16px', fontSize: 13, color: '#475569', maxWidth: 200 }}>
+                      {r.chiefComplaint ?? '—'}
+                    </td>
+                    <td style={{ padding: '12px 16px', fontSize: 13, color: '#475569', maxWidth: 200 }}>
+                      {r.diagnosis ?? '—'}
+                    </td>
+                    <td style={{ padding: '12px 16px', fontSize: 12, color: '#64748b' }}>
+                      {r.doctorName ?? '—'}
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <Button
+                        size="small"
+                        onClick={() => navigate(`/doctor/emr?appointmentId=${r.appointmentId}&patientId=${r.patientId}`)}
+                        style={{ fontSize: 12, borderColor: '#0d9488', color: '#0d9488' }}
+                      >
+                        Xem chi tiết
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Spin>
+      </div>
       </div>
     )
   }
@@ -263,6 +342,12 @@ export default function EMRPage() {
             )}
           </div>
         </div>
+        {originalAppointmentId && (
+          <Button type="primary" onClick={() => navigate(`/doctor/emr?appointmentId=${originalAppointmentId}&patientId=${patientId}`)} style={{ backgroundColor: '#0d9488', borderColor: '#0d9488', fontSize: 12}}
+        >
+          Quay lại bệnh án hiện tại
+        </Button>
+        )}
         <Button onClick={() => navigate('/doctor/dashboard')} style={{ fontSize: 12 }}>
           ← Quay lại hàng chờ
         </Button>
