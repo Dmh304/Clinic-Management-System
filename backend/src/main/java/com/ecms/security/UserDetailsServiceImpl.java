@@ -1,3 +1,7 @@
+// Mạnh Hùng - HE200743
+// Triển khai UserDetailsService của Spring Security.
+// Tải thông tin người dùng từ database theo email để Spring Security có thể xác thực
+// và kiểm tra quyền truy cập trong quá trình xử lý JWT.
 package com.ecms.security;
 
 import com.ecms.entity.User;
@@ -15,6 +19,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
     private final UserRepository userRepository;
 
+    // Tải thông tin xác thực người dùng theo email: lấy passwordHash, trạng thái và vai trò để Spring Security kiểm tra quyền
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         User user = userRepository.findByEmail(email)

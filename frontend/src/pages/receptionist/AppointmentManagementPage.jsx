@@ -1,3 +1,15 @@
+/**
+ * Page: AppointmentManagementPage
+ * Chức năng: Quản lý danh sách lịch khám trong ngày của phòng khám dành cho Lễ tân.
+ * Cho phép thực hiện các thao tác xác nhận lịch hẹn, chỉ định bác sĩ, check-in tiếp nhận bệnh nhân và hủy lịch khám.
+ * DucTKHHE204463
+ */
+// Le Thi Bich Ngan - HE204710
+// Trang quản lý lịch hẹn hôm nay dành cho lễ tân (Reception Dashboard).
+// Hiển thị thống kê lịch hẹn theo từng trạng thái và bảng danh sách lịch hẹn trong ngày.
+// Lễ tân có thể: xác nhận lịch hẹn (gán bác sĩ tùy chọn), check-in bệnh nhân,
+// bắt đầu khám và hủy lịch hẹn trực tiếp từ bảng.
+
 import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import {
@@ -20,6 +32,7 @@ import { doctorService } from '../../services/doctorService'
 const STATUS_CONFIG = {
   PENDING:     { color: 'gold',       label: 'Chờ xác nhận' },
   CONFIRMED:   { color: 'blue',       label: 'Đã xác nhận' },
+  WAITING:     { color: 'cyan',       label: 'Chờ khám' },
   IN_PROGRESS: { color: 'processing', label: 'Đang khám' },
   COMPLETED:   { color: 'green',      label: 'Hoàn thành' },
   CANCELLED:   { color: 'red',        label: 'Đã hủy' },
@@ -31,34 +44,46 @@ export default function AppointmentManagementPage() {
   const [filterStatus, setFilterStatus] = useState('ALL')
   const [doctors, setDoctors] = useState([])
 
-  // confirm modal state
+  // State điều khiển modal xác nhận lịch hẹn (mở/đóng, lịch hẹn đang xử lý, bác sĩ được chọn)
   const [confirmModal, setConfirmModal] = useState({ open: false, appointment: null })
   const [confirmLoading, setConfirmLoading] = useState(false)
   const [selectedDoctorId, setSelectedDoctorId] = useState(null)
 
+  // Khi trang được mount: tải danh sách lịch hẹn hôm nay, thống kê dashboard và danh sách bác sĩ
   useEffect(() => {
     dispatch(fetchTodayAppointments())
     dispatch(fetchDashboard())
     doctorService.getAllDoctors().then((res) => setDoctors(res.data)).catch(() => {})
   }, [dispatch])
 
+  // Hiển thị toast lỗi mỗi khi Redux state có lỗi mới
   useEffect(() => {
     if (error) message.error(error)
   }, [error])
 
+  // Tải lại danh sách lịch hẹn và thống kê dashboard (dùng khi nhấn nút "Làm mới")
   const reload = () => {
     dispatch(fetchTodayAppointments())
     dispatch(fetchDashboard())
   }
 
+  // Lọc danh sách lịch hẹn theo trạng thái đang chọn; 'ALL' thì hiển thị tất cả
   const filtered =
     filterStatus === 'ALL' ? list : list.filter((a) => a.status === filterStatus)
 
+  /**
+   * Mở modal xác nhận lịch hẹn và chuẩn bị thông tin bác sĩ được phân công.
+   * DucTKH
+   */
   const handleOpenConfirm = (appointment) => {
     setSelectedDoctorId(appointment.doctorId ?? null)
     setConfirmModal({ open: true, appointment })
   }
 
+  /**
+   * Gửi yêu cầu xác nhận lịch hẹn lên hệ thống và chọn bác sĩ phụ trách.
+   * DucTKH
+   */
   const handleConfirm = async () => {
     setConfirmLoading(true)
     try {
@@ -76,6 +101,11 @@ export default function AppointmentManagementPage() {
     }
   }
 
+  /**
+   * Thực hiện Check-in khi bệnh nhân đến phòng khám.
+   * Chuyển trạng thái lịch khám sang WAITING.
+   * DucTKH
+   */
   const handleCheckIn = (id) => {
     dispatch(checkInAppointment(id))
       .unwrap()
@@ -86,6 +116,7 @@ export default function AppointmentManagementPage() {
       .catch((err) => message.error(err))
   }
 
+  // Hủy lịch hẹn: chuyển trạng thái sang CANCELLED và cập nhật lại thống kê
   const handleCancel = (id) => {
     dispatch(changeAppointmentStatus({ id, status: 'CANCELLED' }))
       .unwrap()
@@ -96,6 +127,8 @@ export default function AppointmentManagementPage() {
       .catch((err) => message.error(err))
   }
 
+  // Định nghĩa các cột của bảng lịch hẹn: thông tin bệnh nhân, giờ khám, STT hàng đợi,
+  // bác sĩ, dịch vụ, trạng thái và các nút hành động tương ứng từng trạng thái
   const columns = [
     {
       title: 'STT',
@@ -195,6 +228,20 @@ export default function AppointmentManagementPage() {
               </Button>
             </>
           )}
+          {record.status === 'WAITING' && (
+            <Button
+              size="small"
+              type="primary"
+              style={{ backgroundColor: '#8b5cf6', borderColor: '#8b5cf6' }}
+              onClick={() => dispatch(changeAppointmentStatus({ id: record.id, status: 'IN_PROGRESS' }))
+                .unwrap()
+                .then(() => { message.success('Bắt đầu khám'); dispatch(fetchDashboard()) })
+                .catch((err) => message.error(err))
+              }
+            >
+              Bắt đầu khám
+            </Button>
+          )}
         </Space>
       ),
     },
@@ -223,6 +270,7 @@ export default function AppointmentManagementPage() {
             { label: 'Tổng', value: dashboard.total, color: '#6366f1' },
             { label: 'Chờ xác nhận', value: dashboard.pending, color: '#f59e0b' },
             { label: 'Đã xác nhận', value: dashboard.confirmed, color: '#3b82f6' },
+            { label: 'Chờ khám', value: dashboard.waiting, color: '#06b6d4' },
             { label: 'Đang khám', value: dashboard.inProgress, color: '#8b5cf6' },
             { label: 'Hoàn thành', value: dashboard.completed, color: '#10b981' },
             { label: 'Đã hủy', value: dashboard.cancelled, color: '#ef4444' },

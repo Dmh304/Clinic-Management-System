@@ -5,17 +5,25 @@ import lombok.*;
 
 @Entity
 @Table(name = "doctors")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Doctor {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", unique = true)
+    private User user;
+
     @Column(name = "full_name", nullable = false)
     private String fullName;
 
-    @Column(name = "specialization")
+    @Column(name = "specialty")
     private String specialization;
 
     @Column(name = "phone")

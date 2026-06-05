@@ -1,3 +1,7 @@
+// Mạnh Hùng - HE200743
+// Trang đăng nhập của hệ thống. Người dùng nhập email và mật khẩu để xác thực.
+// Sau khi đăng nhập thành công, hệ thống lưu token JWT vào Redux và localStorage,
+// sau đó tự động điều hướng đến dashboard tương ứng với vai trò (PATIENT, DOCTOR, v.v.).
 import { useState } from 'react'
 import { Form, Input, Button, Checkbox, Divider, message } from 'antd'
 import { MailOutlined, LockOutlined, EyeInvisibleOutlined, EyeTwoTone, QuestionCircleOutlined } from '@ant-design/icons'
@@ -189,7 +193,7 @@ const S = {
   },
 }
 
-/* ─── Eye SVG (teal-colored, clinic feel) ─── */
+// Icon mắt dùng làm hình minh họa phía bên trái trang đăng nhập
 function ClinicEyeSvg() {
   return (
     <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="1.2"
@@ -208,19 +212,17 @@ export default function LoginPage() {
   const [errorMsg, setErrorMsg] = useState('')
   const [form] = Form.useForm()
 
-  // Nếu được redirect từ trang khác (ví dụ: click Đặt lịch khi chưa login)
-  const redirectTo = location.state?.from ?? null
 
+  // Xử lý submit form đăng nhập: gọi API login, lưu thông tin vào Redux và điều hướng theo vai trò
   const onFinish = async (values) => {
     setLoading(true)
     setErrorMsg('')
     try {
       const res = await authService.login({ email: values.email, password: values.password })
-      const { token, userId, email, fullName, role } = res.data
-      dispatch(loginSuccess({ token, userId, email, fullName, role }))
+      const { token, userId, email, fullName, role, doctorId } = res.data
+      dispatch(loginSuccess({ token, userId, email, fullName, role, doctorId }))
       message.success('Đăng nhập thành công!')
-      // Ưu tiên trang đang cố vào (từ ProtectedRoute), nếu không thì về home
-      navigate(redirectTo ?? '/', { replace: true })
+      navigate(location.state?.from ?? '/', { replace: true })
     } catch (err) {
       if (!err.response) {
         // Không có phản hồi — backend chưa khởi động hoặc mạng lỗi

@@ -1,3 +1,9 @@
+// Le Thi Bich Ngan - HE204710
+// Trang đăng ký bệnh nhân vãng lai dành cho lễ tân.
+// Cho phép lễ tân tạo hồ sơ mới cho bệnh nhân chưa có tài khoản trong hệ thống.
+// Lễ tân nhập họ tên, số điện thoại, email (bắt buộc) và ngày sinh, giới tính, địa chỉ (tùy chọn).
+// Sau khi đăng ký thành công, hiển thị thông tin bệnh nhân vừa tạo cùng thông tin đăng nhập mặc định.
+
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -11,6 +17,7 @@ import {
   Space,
   Result,
   Descriptions,
+  message,
 } from 'antd'
 import { UserAddOutlined, CheckCircleOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
@@ -24,6 +31,10 @@ export default function WalkInRegistrationPage() {
   const [loading, setLoading] = useState(false)
   const [createdPatient, setCreatedPatient] = useState(null)
 
+  // Xử lý khi lễ tân submit form đăng ký.
+  // Gửi dữ liệu lên API; nếu thành công lưu thông tin bệnh nhân vừa tạo để hiển thị trang kết quả.
+  // Nếu thất bại: lỗi theo từng field (phone/email trùng) hiện ngay dưới field đó,
+  // lỗi hệ thống hiện dạng toast notification.
   const onFinish = async (values) => {
     setLoading(true)
     try {
@@ -36,18 +47,28 @@ export default function WalkInRegistrationPage() {
       const res = await patientService.createWalkInPatient(payload)
       setCreatedPatient(res.data)
     } catch (err) {
-      const msg = err.response?.data?.message || 'Đăng ký thất bại, vui lòng thử lại'
-      form.setFields([{ name: 'phone', errors: [msg] }])
+      const data = err.response?.data
+      if (data?.fieldErrors) {
+        // Backend trả về map lỗi theo từng field → hiển thị đúng vị trí
+        form.setFields(
+          Object.entries(data.fieldErrors).map(([name, msg]) => ({ name, errors: [msg] }))
+        )
+      } else {
+        // Lỗi hệ thống không gắn với field cụ thể → hiện toast
+        message.error(data?.message || 'Đăng ký thất bại, vui lòng thử lại')
+      }
     } finally {
       setLoading(false)
     }
   }
 
+  // Xóa trạng thái bệnh nhân vừa tạo và reset form để lễ tân có thể đăng ký bệnh nhân tiếp theo.
   const handleRegisterAnother = () => {
     form.resetFields()
     setCreatedPatient(null)
   }
 
+  // Hiển thị trang kết quả khi đăng ký thành công với thông tin bệnh nhân và tài khoản mặc định.
   if (createdPatient) {
     return (
       <div style={{ padding: 24, maxWidth: 600, margin: '0 auto' }}>
@@ -55,7 +76,7 @@ export default function WalkInRegistrationPage() {
           status="success"
           icon={<CheckCircleOutlined style={{ color: '#52c41a' }} />}
           title="Đăng ký bệnh nhân thành công!"
-          subTitle={`Mã bệnh nhân: #${createdPatient.id}`}
+          subTitle={`Mã bệnh nhân: #${createdPatient.id} — Tài khoản đã được tạo`}
           extra={[
             <Button type="primary" key="another" onClick={handleRegisterAnother}>
               Đăng ký bệnh nhân khác
@@ -68,26 +89,43 @@ export default function WalkInRegistrationPage() {
           <Descriptions bordered size="small" column={1}>
             <Descriptions.Item label="Họ tên">{createdPatient.fullName}</Descriptions.Item>
             <Descriptions.Item label="Số điện thoại">{createdPatient.phone}</Descriptions.Item>
-            {createdPatient.email && (
-              <Descriptions.Item label="Email">{createdPatient.email}</Descriptions.Item>
-            )}
+            <Descriptions.Item label="Email">{createdPatient.email}</Descriptions.Item>
             {createdPatient.dateOfBirth && (
               <Descriptions.Item label="Ngày sinh">
                 {dayjs(createdPatient.dateOfBirth).format('DD/MM/YYYY')}
               </Descriptions.Item>
             )}
             {createdPatient.gender && (
-              <Descriptions.Item label="Giới tính">{createdPatient.gender}</Descriptions.Item>
+              <Descriptions.Item label="Giới tính">
+                {createdPatient.gender === 'MALE' ? 'Nam' : createdPatient.gender === 'FEMALE' ? 'Nữ' : 'Khác'}
+              </Descriptions.Item>
             )}
             {createdPatient.address && (
               <Descriptions.Item label="Địa chỉ">{createdPatient.address}</Descriptions.Item>
             )}
           </Descriptions>
+          <div
+            style={{
+              marginTop: 16,
+              padding: '12px 16px',
+              background: '#f0f9ff',
+              border: '1px solid #bae6fd',
+              borderRadius: 6,
+            }}
+          >
+            <Text strong style={{ display: 'block', marginBottom: 4 }}>
+              Thông tin đăng nhập hệ thống
+            </Text>
+            <Text>Email: <Text code>{createdPatient.email}</Text></Text>
+            <br />
+            <Text>Mật khẩu: <Text code>Password@123</Text></Text>
+          </div>
         </Result>
       </div>
     )
   }
 
+  // Hiển thị form đăng ký với các field bắt buộc (có dấu *) và tùy chọn.
   return (
     <div style={{ padding: 24, maxWidth: 600, margin: '0 auto' }}>
       <Space align="center" style={{ marginBottom: 24 }}>
@@ -105,7 +143,7 @@ export default function WalkInRegistrationPage() {
           form={form}
           layout="vertical"
           onFinish={onFinish}
-          requiredMark="optional"
+          requiredMark
         >
           <Form.Item
             label="Họ và tên"
@@ -132,7 +170,10 @@ export default function WalkInRegistrationPage() {
           <Form.Item
             label="Email"
             name="email"
-            rules={[{ type: 'email', message: 'Email không hợp lệ' }]}
+            rules={[
+              { required: true, message: 'Vui lòng nhập email' },
+              { type: 'email', message: 'Email không hợp lệ' },
+            ]}
           >
             <Input placeholder="example@email.com" />
           </Form.Item>
@@ -148,9 +189,9 @@ export default function WalkInRegistrationPage() {
 
           <Form.Item label="Giới tính" name="gender">
             <Select placeholder="Chọn giới tính" allowClear>
-              <Select.Option value="Nam">Nam</Select.Option>
-              <Select.Option value="Nữ">Nữ</Select.Option>
-              <Select.Option value="Khác">Khác</Select.Option>
+              <Select.Option value="MALE">Nam</Select.Option>
+              <Select.Option value="FEMALE">Nữ</Select.Option>
+              <Select.Option value="OTHER">Khác</Select.Option>
             </Select>
           </Form.Item>
 
