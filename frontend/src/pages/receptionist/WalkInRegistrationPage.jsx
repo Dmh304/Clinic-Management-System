@@ -148,7 +148,19 @@ export default function WalkInRegistrationPage() {
           <Form.Item
             label="Họ và tên"
             name="fullName"
-            rules={[{ required: true, message: 'Vui lòng nhập họ tên' }]}
+            rules={[
+              { required: true, message: 'Vui lòng nhập họ tên' },
+              {
+                validator: (_, value) => {
+                  if (!value) return Promise.resolve()
+                  if (!/^[\p{L}]/u.test(value))
+                    return Promise.reject(new Error('Họ tên phải bắt đầu bằng chữ cái'))
+                  if (!/^[\p{L}\s]+$/u.test(value))
+                    return Promise.reject(new Error('Họ tên không được chứa số hoặc ký tự đặc biệt'))
+                  return Promise.resolve()
+                },
+              },
+            ]}
           >
             <Input placeholder="Nguyễn Văn A" />
           </Form.Item>
@@ -159,8 +171,16 @@ export default function WalkInRegistrationPage() {
             rules={[
               { required: true, message: 'Vui lòng nhập số điện thoại' },
               {
-                pattern: /^[0-9]{10,11}$/,
-                message: 'Số điện thoại phải có 10-11 chữ số',
+                validator: (_, value) => {
+                  if (!value) return Promise.resolve()
+                  if (!/^\d+$/.test(value))
+                    return Promise.reject(new Error('Số điện thoại chỉ được chứa chữ số, không có chữ hay ký tự đặc biệt'))
+                  if (!value.startsWith('0'))
+                    return Promise.reject(new Error('Số điện thoại phải bắt đầu bằng số 0'))
+                  if (value.length < 10 || value.length > 11)
+                    return Promise.reject(new Error('Số điện thoại phải có 10-11 chữ số'))
+                  return Promise.resolve()
+                },
               },
             ]}
           >
@@ -173,6 +193,14 @@ export default function WalkInRegistrationPage() {
             rules={[
               { required: true, message: 'Vui lòng nhập email' },
               { type: 'email', message: 'Email không hợp lệ' },
+              {
+                validator: (_, value) => {
+                  if (!value) return Promise.resolve()
+                  if (!/^[a-zA-Z]/.test(value))
+                    return Promise.reject(new Error('Email phải bắt đầu bằng chữ cái'))
+                  return Promise.resolve()
+                },
+              },
             ]}
           >
             <Input placeholder="example@email.com" />

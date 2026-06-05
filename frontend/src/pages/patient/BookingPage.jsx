@@ -351,8 +351,12 @@ function Page2({ data, onNext, onBack, submitting, submitError }) {
   const slots = selectedDate ? generateSlots(selectedDate) : [];
   const morningSlots = slots.filter(s => s.session === "morning");
   const afternoonSlots = slots.filter(s => s.session === "afternoon");
-  const isToday = (d) => d.toDateString() === today.toDateString();
-  const isPast = (d) => d < today && !isToday(d);
+  // const isToday = (d) => d.toDateString() === today.toDateString();
+  // const isPast = (d) => d < today && !isToday(d);
+
+  const isToday = (d) => false;
+  const isTodayTest = (d) => d.toDateString() === today.toDateString();
+  const isPast = (d) => d < today && !isTodayTest(d);
 
   const isFuture30 = (d) => d > maxDate;
   const isSunday = (d) => d.getDay() === 0;
@@ -363,7 +367,7 @@ function Page2({ data, onNext, onBack, submitting, submitError }) {
   const isTooSoon = (slot) => {
     const slotTime = new Date(today);
     if (!selectedDate || !isToday(selectedDate)) {
-        return false;
+      return false;
     }
     const [h, m] = slot.time.split(":").map(Number);
     slotTime.setHours(h, m, 0, 0);

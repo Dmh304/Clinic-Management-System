@@ -138,7 +138,10 @@ export default function RegisterPage() {
               <Form.Item
                 name="fullName"
                 label={<span style={S.label}>Họ và Tên</span>}
-                rules={[{ required: true, message: 'Vui lòng nhập họ tên' }]}
+                rules={[
+                  { required: true, message: 'Vui lòng nhập họ tên' },
+                  { pattern: /^[^\d]+$/, message: 'Họ tên không được chứa chữ số' },
+                ]}
                 style={{ marginBottom: 14 }}
               >
                 <Input
@@ -154,6 +157,7 @@ export default function RegisterPage() {
                 rules={[
                   { required: true, message: 'Vui lòng nhập email' },
                   { type: 'email', message: 'Email không hợp lệ' },
+                  { pattern: /^[^\d]/, message: 'Email không được bắt đầu bằng chữ số' },
                 ]}
                 style={{ marginBottom: 14 }}
               >
