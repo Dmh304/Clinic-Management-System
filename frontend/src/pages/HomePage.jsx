@@ -2,16 +2,14 @@
 // Trang chủ của hệ thống quản lý phòng khám nhãn khoa Ánh Sao.
 // Người dùng có thể xem giới thiệu phòng khám, các dịch vụ chẩn đoán (Retina, Glaucoma, Cornea),
 // danh sách bác sĩ có lịch trống, đặt lịch khám, xem đối tác và thông tin footer.
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import axiosClient from '../api/axiosClient'
 import heroImg from '../assets/ECMS_background.png'
 import machineImg from '../assets/ECMS_Machine.png'
 import logoImg from '../assets/ECMS_Logo.png'
 
-const DOCTORS = [
-  { name: 'Dr. Sarah Miller', specialty: 'Chuyên gia Võng mạc', status: 'Available', color: '#3b82f6' },
-  { name: 'Dr. James Chen', specialty: 'Chuyên gia Khúc xạ', status: 'Fully Booked', color: '#6366f1' },
-  { name: 'Dr. Elena Nguyen', specialty: 'Phẫu thuật Lasik', status: 'Available', color: '#ec4899' },
-]
+const AVATAR_COLORS = ['#3b82f6', '#6366f1', '#ec4899', '#0d9488', '#f59e0b', '#8b5cf6']
 
 const PARTNERS = ['MEDITECH', 'OPTIC-GLO', 'VISION-CARE', 'RETINA-HUB', 'HEALTH-SYNC']
 
@@ -159,6 +157,14 @@ const s = {
 }
 
 export default function HomePage() {
+  const [doctors, setDoctors] = useState([])
+
+  useEffect(() => {
+    axiosClient.get('/v1/doctors')
+      .then(res => setDoctors((res.data ?? []).slice(0, 3)))
+      .catch(() => {})
+  }, [])
+
   return (
     <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', color: '#1e293b' }}>
 
@@ -230,7 +236,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── APPOINTMENT ── */}
+      {/* APPOINTMENT */}
       <section style={s.appointmentSection}>
         <div style={s.container}>
           <div style={s.appointmentCard}>
@@ -250,18 +256,19 @@ export default function HomePage() {
               <Link to="/patient/booking" style={s.bookBtn}>📅 Đặt lịch ngay</Link>
             </div>
 
+
+
+            {/* DOCTORS - các bác sĩ có tiếng trong phòng khám */}
             <div style={s.doctorGrid}>
-              {DOCTORS.map(doc => (
-                <div key={doc.name} style={s.doctorCard}>
-                  <div style={{ ...s.doctorAvatar, backgroundColor: doc.color }}>
-                    {doc.name.split(' ').slice(-1)[0][0]}
+              {doctors.map((doc, i) => (
+                <div key={doc.id} style={s.doctorCard}>
+                  <div style={{ ...s.doctorAvatar, backgroundColor: AVATAR_COLORS[i % AVATAR_COLORS.length] }}>
+                    {doc.fullName.split(' ').slice(-1)[0][0]}
                   </div>
                   <div>
-                    <div style={s.doctorName}>{doc.name}</div>
-                    <div style={s.doctorSpec}>{doc.specialty}</div>
-                    <span style={doc.status === 'Available' ? s.badgeAvailable : s.badgeBooked}>
-                      ● {doc.status}
-                    </span>
+                    <div style={s.doctorName}>{doc.fullName}</div>
+                    <div style={s.doctorSpec}>{doc.specialization}</div>
+                    <span style={s.badgeAvailable}>● Available</span>
                   </div>
                 </div>
               ))}
@@ -274,7 +281,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── PARTNERS ── */}
+      {/* PARTNERS ─ Chỉ đọc */}
       <section style={s.partnersSection}>
         <div style={s.container}>
           <p style={s.partnersLabel}>Đối tác chiến lược &amp; Công nghệ</p>
@@ -286,7 +293,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── FOOTER ── */}
+      {/* FOOTER */}
       <footer style={s.footer}>
         <div style={s.footerInner}>
           <div>
