@@ -4,8 +4,6 @@
 * Cung cấp các action bất đồng bộ (async thunks) để gọi API và cập nhật lại store sau khi có kết quả.
 * Bao gồm các tính năng như: lấy danh sách lịch hẹn, thay đổi trạng thái, check-in, lấy dữ liệu dashboard.
 */
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
-import { appointmentService } from '../../services/appointmentService'
 
 /* Action bất đồng bộ để gọi API lấy danh sách lịch hẹn hôm nay */
 /**
@@ -13,7 +11,6 @@ import { appointmentService } from '../../services/appointmentService'
  * Quản lý trạng thái danh sách lịch khám của phòng khám và các thao tác thay đổi trạng thái (xác nhận, check-in, hủy).
  * DucTKHHE204463
  */
-
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 import { appointmentService } from '../../services/appointmentService'
 
@@ -112,11 +109,11 @@ const appointmentSlice = createSlice({
   reducers: {},
   /* extraReducers: nơi xử lý kết quả của các async thunk (pending, fulfilled, rejected). */
   extraReducers: (builder) => {
-      /* Xử lý khi gọi API lấy danh sách lịch hẹn thành công/thất bại */
-      builder.addCase(fetchTodayAppointments.pending, (state) => {
-        state.loading = true
-        state.error = null
-      })
+    /* Xử lý khi gọi API lấy danh sách lịch hẹn thành công/thất bại */
+    builder.addCase(fetchTodayAppointments.pending, (state) => {
+      state.loading = true
+      state.error = null
+    })
       .addCase(fetchTodayAppointments.fulfilled, (state, action) => {
         state.loading = false
         state.list = action.payload
@@ -125,12 +122,12 @@ const appointmentSlice = createSlice({
         state.loading = false
         state.error = action.payload
       })
-      
+
       /* Xử lý khi lấy dữ liệu thống kê Dashboard thành công */
       .addCase(fetchDashboard.fulfilled, (state, action) => {
         state.dashboard = action.payload
       })
-      
+
       /* 
        * Xử lý chung khi trạng thái một lịch hẹn thay đổi (đổi status, xác nhận, check-in).
        * Redux sẽ tìm lịch hẹn đó trong state.list (thông qua id) và cập nhật trực tiếp tại store,

@@ -51,7 +51,10 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html")
-                        .permitAll().requestMatchers("/api/v1/appointments/**")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/appointments/book")
+                        .hasAnyRole("PATIENT", "ADMIN", "RECEPTIONIST")
+                        .requestMatchers("/api/v1/appointments/**")
                         .hasAnyRole("ADMIN", "DOCTOR", "RECEPTIONIST")
                         .requestMatchers("/api/v1/patients/**").hasAnyRole("ADMIN", "DOCTOR", "RECEPTIONIST")
                         .anyRequest().authenticated())
