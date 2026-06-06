@@ -50,6 +50,7 @@ public class EMRController {
         return ResponseEntity.ok(ApiResponse.success(emrService.getPatientHistory(patientId)));
     }
 
+    /* Lấy danh sách tất cả lịch sử bệnh án */
     @GetMapping("/completed")
     public ResponseEntity<ApiResponse<List<EMRResponse>>> getCompletedList() {
         return ResponseEntity.ok(ApiResponse.success(emrService.getCompletedList()));

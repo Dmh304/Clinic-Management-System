@@ -8,7 +8,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Table, Tag, Select, Button, Space, Typography, Card,
-  message, Modal, Form, Statistic, Row, Col, Input
+  message, Modal, Form, Statistic, Row, Col, Input, Tooltip
 } from 'antd'
 import {
   ReloadOutlined, CheckCircleOutlined, LoginOutlined,
@@ -17,6 +17,7 @@ import {
 
 import { appointmentService } from '../../services/appointmentService'
 
+/* Cấu hình màu sắc và nhãn hiển thị cho từng trạng thái lịch hẹn */
 const STATUS_CONFIG = {
   WAITING:     { color: 'orange',     label: 'Đang chờ' },
   IN_PROGRESS: { color: 'processing', label: 'Đang khám' },
@@ -50,6 +51,8 @@ function StatCard({ label, value, color }) {
  * - stats: đối tượng chứa các con số thống kê tổng hợp.
  * - loading: trạng thái tải dữ liệu ban đầu.
  * - actionLoading: ID của bệnh nhân đang được xử lý (để hiển thị loading spinner trên nút).
+ * - fillterStatus: Trạng thái lọc được chọn (mặc định hiển thị tất cả)
+ * - searchText: Từ khóa tìm kiếm được bác sĩ nhập (tên hoặc số điện thoại bệnh nhân)
  */
 export default function DoctorDashboard() {
   const navigate = useNavigate()
@@ -76,12 +79,19 @@ export default function DoctorDashboard() {
     }
   }, [])
 
+  /* 
+  *Hook vòng đời xử lí tải dữ liệu khi vừa vào trang
+  * Đồng thời thiết lập cơ chế tự động làm mới dữ liệu sau mỗi 30 giây
+   */
   useEffect(() => {
     fetchData()
+
+    // Cơ chế Real-time kéo dữ liệu mới để bác sĩ cập nhật hàng đợi liên tục
     const timer = setInterval(fetchData, 30_000)
-    return () => clearInterval(timer)
+    return () => clearInterval(timer)                    // Hủy bỏ bộ đếm thời gian khi component bị unmount khỏi DOM
   }, [fetchData])
 
+  /* Xử lí lọc danh sách: Kết hợp giữa việc chọn bộ lọc trạng thái và tìm kiếm bằng từ khóa  */
   const filteredQueue = queue.filter((r) => filterStatus === 'ALL' || r.status === filterStatus).filter((r) => {
     if(!searchText) return true
     const keyword = searchText.toLowerCase()
@@ -187,7 +197,7 @@ export default function DoctorDashboard() {
               onClick={() => handleViewEMR(record)}
               style={{ borderColor: '#0d9488', color: '#0d9488', fontSize: 12 }}
             >
-              Cập nhật HBK
+              Cập nhật HSBA
             </Button>
           )
         }
@@ -195,7 +205,7 @@ export default function DoctorDashboard() {
           return (
             <Tooltip title="Xem hồ sơ bệnh án">
               <Button size="small" onClick={() => handleViewEMR(record)} style={{ fontSize: 12 }}>
-                Xem HBK
+                Xem HSBA
               </Button>
             </Tooltip>
           )
@@ -217,7 +227,7 @@ export default function DoctorDashboard() {
         </p>
       </div>
 
-      {/* Stats */}
+      {/* Danh sách các thẻ thống kê só lượng ca khám theo trạng thái */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <StatCard label="Tổng hôm nay"  value={stats?.total - stats?.pending - stats?.cancelled}      color="#6366f1" />
         <StatCard label="Đã xác nhận"   value={stats?.confirmed}  color="#ec44ef" />
@@ -232,6 +242,7 @@ export default function DoctorDashboard() {
         <div style={{ padding: '14px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12}}>
           <span style={{ fontWeight: 600, fontSize: 14, color: '#1e293b' }}>Danh sách bệnh nhân</span>
 
+            {/* Thanh tìm kiếm theo tên hoặc số điện thoại bệnh nhân */}
             <Input.Search 
             placeholder="Tìm kiếm theo tên bệnh nhân hoặc số điện thoại" 
             allowClear={true} 
@@ -239,6 +250,8 @@ export default function DoctorDashboard() {
             onChange={(e) => setSearchText(e.target.value)} 
             style={{flex: 1}}
           />
+
+          {/* Hộp chọn select để lọc danh sách lịch khám theo trạng thái */}
             <Select 
             value={filterStatus} 
             onChange={setFilterStatus} 
@@ -247,11 +260,15 @@ export default function DoctorDashboard() {
               ...Object.entries(STATUS_CONFIG).filter(([v]) => v !== 'CANCELLED' && v !== 'PENDING').map(([v, c]) => ({label: c.label, value: v,}))
             ]}
             />
+
+            {/* Nút làm mới dữ liệu */}
           <Button size="small" onClick={fetchData} style={{ fontSize: 12 }}>
             Làm mới
           </Button>
         
         </div>
+
+        {/* Bảng hiển thị danh sách hàng đợi */}
         <Table
           columns={columns}
           dataSource={filteredQueue}
@@ -264,6 +281,7 @@ export default function DoctorDashboard() {
         />
       </div>
 
+      {/* Tùy biến style CSS nội bộ để làm nổi bật dòng "Đang khám" */}
       <style>{`
         .row-in-progress td { background: #f0fdf9 !important; }
         .row-in-progress:hover td { background: #ccfbf1 !important; }
