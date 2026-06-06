@@ -17,4 +17,8 @@ export const emrService = {
   // Hàm lấy lịch sử khám bệnh của một bệnh nhân cụ thể
   getPatientHistory: (patientId) =>
     axiosClient.get(`/v1/emr/patient/${patientId}/history`),
+
+  // Hàm lấy danh sách tất cả hồ sơ bệnh án đã hoàn thành
+  getCompletedList: () =>
+    axiosClient.get(`/v1/emr/completed`),
 }

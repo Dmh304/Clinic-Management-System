@@ -25,10 +25,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class EMRServiceImpl implements EMRService {
 
+        /* Các repository phụ trách thao tác dữ liệu với cơ sở dữ liệu */
         private final MedicalRecordRepository medicalRecordRepository;
         private final AppointmentRepository appointmentRepository;
         private final DoctorRepository doctorRepository;
 
+        /* Hàm lưu hồ sơ bệnh án */
         @Override
         @Transactional
         public EMRResponse saveEMR(EMRRequest request) {
@@ -111,6 +113,15 @@ public class EMRServiceImpl implements EMRService {
         @Transactional(readOnly = true)
         public List<EMRResponse> getPatientHistory(Long patientId) {
                 return medicalRecordRepository.findByPatientIdOrderByCreatedAtDesc(patientId)
+                                .stream()
+                                .map(this::toResponse)
+                                .collect(Collectors.toList());
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public List<EMRResponse> getCompletedList() {
+                return medicalRecordRepository.findByStatusOrderByCreatedAtDesc(MedicalRecordStatus.COMPLETED)
                                 .stream()
                                 .map(this::toResponse)
                                 .collect(Collectors.toList());

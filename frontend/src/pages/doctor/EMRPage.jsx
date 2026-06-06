@@ -14,6 +14,7 @@ import { emrService } from '../../services/emrService'
 const { TextArea } = Input
 const { Panel } = Collapse
 
+/* Cấu hình màu sắc trạng thái của hồ sơ bệnh án */
 const STATUS_MAP = {
   DRAFT:       { color: 'default',    label: 'Nháp' },
   IN_PROGRESS: { color: 'processing', label: 'Đang khám' },
@@ -96,20 +97,30 @@ function HistoryCard({ record, onClick }) {
   )
 }
 
-// Component chính của trang quản lý Bệnh án điện tử
+/* 
+*Component chính của trang quản lý Bệnh án điện tử 
+* Đóng vai trò vừa là trang lập bệnh án mới, vừa là trang tra cứu danh sách bệnh án đã hoàn thành
+*/
 export default function EMRPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const { user } = useSelector((s) => s.auth)
+  const { user } = useSelector((s) => s.auth)        // lấy thông tin tài khoản bác sĩ đang đăng nhập
   const [form] = Form.useForm()
 
-  const appointmentId = searchParams.get('appointmentId')
-  const patientId = searchParams.get('patientId')
-
-  const [emr, setEmr] = useState(null)
-  const [history, setHistory] = useState([])
-  const [loading, setLoading] = useState(!!appointmentId)
-  const [saving, setSaving] = useState(false)
+   /* Trích xuất các tham số điều hướng từ url */
+  const appointmentId = searchParams.get('appointmentId')                                  // id của lịch khám
+  const patientId = searchParams.get('patientId')                                          // id của bệnh nhân
+  const originalAppointmentId = searchParams.get('originalAppointmentId') || null          // hỗ trợ lưu vết ca khám chính khi bác sĩ nhấn sang xem lịch sử
+  const from = searchParams.get('from')                                                    // nguồn điều hướng ('list' từ danh sách tổng, trống từ dashboard) 
+  
+  /* Khai báo state quản lí dữ liệu */
+  const [emr, setEmr] = useState(null)                             // lưu dữ liệu chi tiết của hồ sơ bệnh án đang xem / chỉnh sửa 
+  const [history, setHistory] = useState([])                       // mảng lưu danh sách các lần khám trước đó của bệnh nhân
+  const [loading, setLoading] = useState(!!appointmentId)          // trạng thái chờ tải thông tin bệnh án chi tiết
+  const [saving, setSaving] = useState(false)                      // trạng thái chờ khi bấm nút lưu
+  const [completedList, setCompletedList] = useState([])           // Danh sách các bệnh án đã hoàn thành
+  const [listLoading, setListLoading] = useState(false)            // trạng thái chờ tải danh sách bệnh án đã hoàn thành
+  const [searchText, setSearchText] = useState('')                 // từ khóa tìm kiếm theo bệnh án tại màn hình danh sách tổng
 
   // Hàm tiện ích: chuyển đổi object dữ liệu thô từ server (API trả về)
   // sang định dạng object có cấu trúc tương thích với tên các trường (name) khai báo trong Form của Ant Design.
@@ -137,7 +148,7 @@ export default function EMRPage() {
       console.log('>>> EMR data: ', data)
       if (data) {
         setEmr(data)
-        form.setFieldsValue(emrToFormValues(data))
+        form.setFieldsValue(emrToFormValues(data))     // đổ dữ liệu vào các trường nhập liệu
       }
     } catch (e) {
       // no existing EMR yet — that's fine
@@ -153,13 +164,33 @@ export default function EMRPage() {
     try {
       const res = await emrService.getPatientHistory(patientId)
       const all = res.data ?? []
-      // Exclude the current appointment's EMR from history list
+      
+      // Loại trừ các ca khám hiện tại ra khỏi danh sách lịch sử bệnh án
       setHistory(all.filter((r) => String(r.appointmentId) !== String(appointmentId)))
     } catch {
-      // ignore
+      // bỏ qua lỗi âm thầm để không ảnh hưởng luồng khám chính
     }
   }, [patientId, appointmentId])
 
+  /* Gọi API tải danh sách toàn bộ các bệnh án đã hoàn thành */
+  const fetchCompletedList = useCallback(async () => {
+    setListLoading(true)
+    try{
+      const res = await emrService.getCompletedList()
+      setCompletedList(res.data ?? [])
+    } catch {
+      message.error('Không thể tải danh sách bệnh án')
+    } finally {
+      setListLoading(false)
+    }
+  }, [])
+
+  /* Hook khởi chạy: tải danh sách tổng nếu url không có appointmentId */
+  useEffect(() => {
+    if(!appointmentId) fetchCompletedList()
+  }, [appointmentId, fetchCompletedList])
+
+  /* Reset toàn bộ form và state khi id lịch hẹn thay đổi */
   useEffect(() => {
     setEmr(null)
     setHistory([])
@@ -167,6 +198,7 @@ export default function EMRPage() {
     setLoading(!!appointmentId)
   }, [appointmentId])
 
+  /* Kéo dữ liệu bệnh án hiện tại và bệnh sử liên quan */
   useEffect(() => {
     fetchEMR()
     fetchHistory()
@@ -215,6 +247,17 @@ export default function EMRPage() {
     }
   }
 
+  /* Xử lí bộ lọc tìm kiếm tại chỗ trên danh sách các bệnh án đã hoàn thành */
+  const filteredList = completedList.filter((r) => {
+    if(!searchText) return true
+    const keyword = searchText.toLowerCase()
+    return (
+      r.patientName?.toLowerCase().includes(keyword) ||
+      r.patientPhone?.includes(keyword)
+    )
+  })
+
+  /* Biến cờ kiểm tra xem hồ sơ này đã được chốt hoàn thành chưa */
   const isCompleted = emr?.status === 'COMPLETED'
 
   // Render khi Bác sĩ CHƯA CHỌN bệnh nhân nào
@@ -224,22 +267,77 @@ export default function EMRPage() {
       <div style={{ padding: 24 }}>
         <div style={{ marginBottom: 20 }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Hồ sơ bệnh án</h2>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
-            Chọn bệnh nhân từ <a onClick={() => navigate('/doctor/dashboard')} style={{ color: '#0d9488', cursor: 'pointer' }}>hàng chờ</a> để tạo hồ sơ
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b'}}>
+            Danh sách các hồ sơ bệnh án đã hoàn thành
           </p>
         </div>
-        <div style={{
-          backgroundColor: '#fff', borderRadius: 12, padding: 40,
-          textAlign: 'center', border: '1px dashed #cbd5e1',
-        }}>
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5" style={{ marginBottom: 12 }}>
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-            <line x1="12" y1="18" x2="12" y2="12" />
-            <line x1="9" y1="15" x2="15" y2="15" />
-          </svg>
-          <div style={{ color: '#64748b', fontSize: 14 }}>Chưa chọn bệnh nhân</div>
+        <div style={{ backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+        
+        {/* Thanh tìm kiếm */}
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9' }}>
+         <Input.Search
+            placeholder="Tìm theo tên bệnh nhân hoặc số điện thoại..."
+            allowClear={true}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            style={{ maxWidth: 400 }}
+          />
         </div>
+        <Spin spinning={listLoading}>
+          {filteredList.length === 0 && !listLoading ? (
+            <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8', fontSize: 14 }}>
+              {searchText ? 'Không tìm thấy kết quả phù hợp' : 'Chưa có hồ sơ bệnh án nào hoàn thành'}
+            </div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid #f1f5f9', backgroundColor: '#f8fafc' }}>
+                  {['STT', 'Bệnh nhân', 'Ngày khám', 'Lý do khám', 'Chẩn đoán', 'Bác sĩ', ''].map((h) => (
+                    <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 13, fontWeight: 600, color: '#475569' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filteredList.map((r, i) => (
+                  <tr
+                    key={r.id}
+                    style={{ borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
+                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f0fdf9'}
+                    onMouseLeave={e => e.currentTarget.style.backgroundColor = ''}
+                  >
+                    <td style={{ padding: '12px 16px', color: '#64748b', fontSize: 13 }}>{i + 1}</td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <div style={{ fontWeight: 600, fontSize: 13, color: '#1e293b' }}>{r.patientName}</div>
+                      <div style={{ fontSize: 12, color: '#64748b' }}>{r.patientPhone}</div>
+                    </td>
+                    <td style={{ padding: '12px 16px', fontSize: 13, color: '#475569' }}>
+                      {r.createdAt ? new Date(r.createdAt).toLocaleDateString('vi-VN') : '—'}
+                    </td>
+                    <td style={{ padding: '12px 16px', fontSize: 13, color: '#475569', maxWidth: 200 }}>
+                      {r.chiefComplaint ?? '—'}
+                    </td>
+                    <td style={{ padding: '12px 16px', fontSize: 13, color: '#475569', maxWidth: 200 }}>
+                      {r.diagnosis ?? '—'}
+                    </td>
+                    <td style={{ padding: '12px 16px', fontSize: 12, color: '#64748b' }}>
+                      {r.doctorName ?? '—'}
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <Button
+                        size="small"
+                        onClick={() => navigate(`/doctor/emr?appointmentId=${r.appointmentId}&patientId=${r.patientId}&from=list`)}
+                        style={{ fontSize: 12, borderColor: '#0d9488', color: '#0d9488' }}
+                      >
+                        Xem chi tiết
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Spin>
+      </div>
       </div>
     )
   }
@@ -247,7 +345,8 @@ export default function EMRPage() {
   // Render giao diện CHÍNH của trang Hồ sơ bệnh án điện tử
   return (
     <div style={{ padding: 24 }}>
-      {/* Header */}
+
+      {/* khối header thông tin bệnh nhân đang tiếp đón */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>
@@ -263,15 +362,26 @@ export default function EMRPage() {
             )}
           </div>
         </div>
-        <Button onClick={() => navigate('/doctor/dashboard')} style={{ fontSize: 12 }}>
-          ← Quay lại hàng chờ
+
+        {/* Hệ thống nút điều hướng */}
+        <div style={{ display: 'flex', gap: 8 }}>
+        {originalAppointmentId && (
+          <Button type="primary" onClick={() => navigate(`/doctor/emr?appointmentId=${originalAppointmentId}&patientId=${patientId}`)} style={{ backgroundColor: '#0d9488', borderColor: '#0d9488', fontSize: 12}}
+        >
+          ← Quay lại bệnh án hiện tại
         </Button>
+        )}
+        <Button onClick={() => from === 'list' ? navigate('/doctor/emr') : navigate('/doctor/dashboard')} style={{ fontSize: 12 }}>
+          {from === 'list' ? '← Quay lại danh sách bệnh án' : '← Quay lại hàng chờ'}
+        </Button>
+        </div>
       </div>
 
       <Spin spinning={loading}>
         {!loading && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 16, alignItems: 'start' }}>
-          {/* ── Left: EMR form ── */}
+          
+          {/* form nhập liệu bệnh án hiện tại */}
           <div style={{ backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
             <Form form={form} layout="vertical" disabled={isCompleted} style={{ padding: '20px 24px' }}>
               <Tabs
@@ -353,8 +463,18 @@ export default function EMRPage() {
                 Chưa có lịch sử khám
               </div>
             ) : (
-              history.map((r) => <HistoryCard key={r.id} record={r} onClick={() => navigate(`/doctor/emr?appointmentId=${r.appointmentId}&patientId=${r.patientId}`)}/>)
-            )}
+              history.map((r) => 
+              <HistoryCard 
+              key={r.id} 
+              record={r} 
+              onClick={() => navigate(
+                `/doctor/emr?appointmentId=${r.appointmentId}&patientId=${r.patientId}` +
+                (from !== 'list' ? `&originalAppointmentId=${appointmentId}` : '') +
+                `&from=${from ?? 'dashboard'}`
+              )}
+              />
+            ))
+            }
           </div>
         </div>
         )}
