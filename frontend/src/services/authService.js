@@ -7,6 +7,9 @@ const authService = {
   // Đăng nhập bằng email và mật khẩu, trả về token JWT cùng thông tin người dùng
   login: (credentials) => axiosClient.post('/v1/auth/login', credentials),
 
+  // Đăng nhập bằng tài khoản Google: gửi ID token lên backend để xác minh và tạo/đăng nhập tài khoản
+  loginWithGoogle: (idToken) => axiosClient.post('/v1/auth/google', { idToken }),
+
   // Đăng ký tài khoản bệnh nhân mới với họ tên, email, số điện thoại và mật khẩu
   register: (data) => axiosClient.post('/v1/auth/register', data),
 
