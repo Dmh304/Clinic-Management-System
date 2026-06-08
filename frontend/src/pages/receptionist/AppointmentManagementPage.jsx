@@ -127,6 +127,18 @@ export default function AppointmentManagementPage() {
       .catch((err) => message.error(err))
   }
 
+  //cf hủy lịch
+  const showCancelConfirm = (record) => {
+  Modal.confirm({
+    title: 'Xác nhận hủy lịch hẹn',
+    content: `Bạn có chắc muốn hủy lịch hẹn của ${record.patientName || 'bệnh nhân này'} không?`,
+    okText: 'Hủy lịch',
+    cancelText: 'Không',
+    okType: 'danger',
+    onOk: () => handleCancel(record.id),
+  })
+}
+
   // Định nghĩa các cột của bảng lịch hẹn: thông tin bệnh nhân, giờ khám, STT hàng đợi,
   // bác sĩ, dịch vụ, trạng thái và các nút hành động tương ứng từng trạng thái
   const columns = [
@@ -202,7 +214,7 @@ export default function AppointmentManagementPage() {
                 size="small"
                 danger
                 icon={<CloseCircleOutlined />}
-                onClick={() => handleCancel(record.id)}
+                onClick={() => showCancelConfirm(record)}
               >
                 Hủy
               </Button>
@@ -222,7 +234,7 @@ export default function AppointmentManagementPage() {
                 size="small"
                 danger
                 icon={<CloseCircleOutlined />}
-                onClick={() => handleCancel(record.id)}
+                onClick={() => showCancelConfirm(record)}
               >
                 Hủy
               </Button>
