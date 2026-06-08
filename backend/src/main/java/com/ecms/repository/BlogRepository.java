@@ -3,13 +3,13 @@
 // Dùng để lấy danh sách bài đã công bố hiển thị trên trang blog.
 package com.ecms.repository;
 
-import com.ecms.entity.Blog;
+import com.ecms.entity.BlogPost;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 
-public interface BlogRepository extends JpaRepository<Blog, Long> {
+public interface BlogRepository extends JpaRepository<BlogPost, Long> {
 
     // Lấy danh sách bài blog theo trạng thái (ví dụ: "PUBLISHED"), sắp xếp ngày đăng mới nhất lên đầu
-    List<Blog> findByStatusOrderByPublishedAtDesc(String status);
+    List<BlogPost> findByStatusOrderByPublishedAtDesc(String status);
 }

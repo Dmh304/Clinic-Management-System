@@ -41,7 +41,7 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/register")
+                                HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/register", "/api/v1/auth/google")
                         .permitAll()
                         .requestMatchers(
                                 // "/api/v1/appointments/**",

@@ -67,19 +67,11 @@ CREATE UNIQUE INDEX UX_users_google_id
 GO
 
 -- ============================================================
--- 3. user_roles
+-- (Đã loại bỏ bảng user_roles — xem ghi chú trong "users" ở trên:
+--  hệ thống dùng MỘT role/user qua cột users.role_id, không dùng
+--  mô hình N-N. Giữ cả hai sẽ tạo ra hai nguồn sự thật mâu thuẫn
+--  nhau về quyền của user.)
 -- ============================================================
-CREATE TABLE user_roles (
-    user_id     BIGINT      NOT NULL,
-    role_id     BIGINT      NOT NULL,
-    assigned_at DATETIME2   NOT NULL DEFAULT GETDATE(),
-    assigned_by BIGINT      NULL,
-    CONSTRAINT PK_user_roles PRIMARY KEY (user_id, role_id),
-    CONSTRAINT FK_user_roles_user        FOREIGN KEY (user_id)     REFERENCES users(id),
-    CONSTRAINT FK_user_roles_role        FOREIGN KEY (role_id)     REFERENCES roles(id),
-    CONSTRAINT FK_user_roles_assigned_by FOREIGN KEY (assigned_by) REFERENCES users(id)
-);
-GO
 
 -- ============================================================
 -- 4. refresh_tokens
@@ -139,15 +131,20 @@ CREATE TABLE patients (
     created_at              DATETIME2       NOT NULL DEFAULT GETDATE(),
     updated_at              DATETIME2       NULL,
     CONSTRAINT PK_patients          PRIMARY KEY (id),
-    CONSTRAINT UQ_patients_user_id  UNIQUE (user_id),
     CONSTRAINT FK_patients_user     FOREIGN KEY (user_id) REFERENCES users(id),
     CONSTRAINT CK_patients_gender     CHECK (gender     IN ('MALE', 'FEMALE', 'OTHER')),
     CONSTRAINT CK_patients_blood_type CHECK (blood_type IN ('A', 'B', 'AB', 'O', 'UNKNOWN')),
     CONSTRAINT CK_patients_status     CHECK (status     IN ('ACTIVE', 'INACTIVE'))
 );
 GO
--- Filtered index: cho phep nhieu NULL (khong ap dung unique cho cccd trong truong hop chua co CCCD)
-CREATE UNIQUE INDEX UQ_patients_cccd ON patients(cccd) WHERE cccd IS NOT NULL;
+-- Filtered unique index thay cho UNIQUE CONSTRAINT: user_id, cccd, patient_code đều
+-- là cột NULLABLE (hỗ trợ bệnh nhân walk-in chưa có tài khoản / chưa có CCCD / chưa
+-- được cấp mã). SQL Server coi nhiều NULL là "trùng" trong UNIQUE CONSTRAINT thường,
+-- nên phải dùng filtered index "WHERE ... IS NOT NULL" để chỉ áp ràng buộc duy nhất
+-- lên các giá trị thực sự có dữ liệu.
+CREATE UNIQUE INDEX UQ_patients_user_id     ON patients(user_id)     WHERE user_id     IS NOT NULL;
+CREATE UNIQUE INDEX UQ_patients_cccd        ON patients(cccd)        WHERE cccd        IS NOT NULL;
+CREATE UNIQUE INDEX UQ_patients_patient_code ON patients(patient_code) WHERE patient_code IS NOT NULL;
 GO
 
 -- ============================================================
@@ -656,34 +653,14 @@ CREATE TABLE system_configs (
 GO
 
 -- ============================================================
--- 29. blogs
+-- (Đã loại bỏ "blogs" và "clinic_services": hai bảng này chỉ là
+--  bản rút gọn — không FK, không CHECK, không trạng thái — của
+--  "blog_posts" và "services" đã định nghĩa ở trên. Toàn bộ dữ
+--  liệu mẫu của chúng (3 bài blog, 8 dịch vụ) đã trùng khớp 100%
+--  với dữ liệu seed của blog_posts/services bên dưới, nên không
+--  mất thông tin gì khi gộp lại còn một bảng duy nhất cho mỗi
+--  khái niệm nghiệp vụ.)
 -- ============================================================
-CREATE TABLE blogs (
-    id           BIGINT          NOT NULL IDENTITY(1,1),
-    title        NVARCHAR(255)   NOT NULL,
-    summary      NVARCHAR(500)   NULL,
-    content      NVARCHAR(MAX)   NULL,
-    author       NVARCHAR(255)   NULL,
-    category     NVARCHAR(100)   NULL,
-    image_url    NVARCHAR(500)   NULL,
-    published_at DATETIME2       NULL,
-    status       NVARCHAR(20)    NULL,
-    CONSTRAINT PK_blogs PRIMARY KEY (id)
-);
-GO
-
--- ============================================================
--- 30. clinic_services
--- ============================================================
-CREATE TABLE clinic_services (
-    id               BIGINT          NOT NULL IDENTITY(1,1),
-    service_name     NVARCHAR(255)   NOT NULL,
-    description      NVARCHAR(MAX)   NULL,
-    price            DECIMAL(10,2)   NULL,
-    duration_minutes INT             NULL,
-    CONSTRAINT PK_clinic_services PRIMARY KEY (id)
-);
-GO
 
 -- ============================================================
 -- 28. backup_logs
@@ -812,26 +789,11 @@ SET IDENTITY_INSERT users OFF;
 GO
 
 -- ============================================================
--- 2. user_roles
--- roles: ADMIN=1, MANAGER=2, DOCTOR=3, RECEPTIONIST=4,
---        PHARMACIST=5, LAB_TECHNICIAN=6, PATIENT=7
+-- (Đã loại bỏ seed cho user_roles — vai trò của mỗi user đã được
+--  gán trực tiếp qua cột users.role_id ở bước insert "users" trên.
+--  roles: ADMIN=1, MANAGER=2, DOCTOR=3, RECEPTIONIST=4,
+--         PHARMACIST=5, LAB_TECHNICIAN=6, PATIENT=7)
 -- ============================================================
-INSERT INTO user_roles (user_id, role_id, assigned_by) VALUES
-(1,  1, NULL), -- admin        → ADMIN
-(2,  2, 1),    -- manager      → MANAGER
-(3,  3, 1),    -- doctor 1     → DOCTOR
-(4,  3, 1),    -- doctor 2     → DOCTOR
-(5,  3, 1),    -- doctor 3     → DOCTOR
-(6,  4, 2),    -- reception 1  → RECEPTIONIST
-(7,  4, 2),    -- reception 2  → RECEPTIONIST
-(8,  5, 2),    -- pharmacist   → PHARMACIST
-(9,  6, 2),    -- lab tech     → LAB_TECHNICIAN
-(10, 7, NULL), -- patient 1    → PATIENT
-(11, 7, NULL), -- patient 2    → PATIENT
-(12, 7, NULL), -- patient 3    → PATIENT
-(13, 7, NULL), -- patient 4    → PATIENT
-(14, 7, NULL); -- patient 5    → PATIENT
-GO
 
 -- ============================================================
 -- 3. doctors  (user_id 3, 4, 5)
@@ -1522,61 +1484,28 @@ SET IDENTITY_INSERT backup_logs OFF;
 GO
 
 -- ============================================================
--- 27. blogs  (bài viết trang chủ)
+-- (Đã loại bỏ seed cho "blogs" và "clinic_services": nội dung của
+--  chúng — 3 bài blog và 8 dịch vụ — đã được seed đầy đủ và đúng
+--  cấu trúc hơn (có slug, FK author_id, CHECK status, is_lab_service…)
+--  trong "blog_posts" và "services" ở các bước trên/dưới. Việc duy
+--  trì cả hai cặp bảng song song chỉ tạo nguy cơ giá dịch vụ / nội
+--  dung blog hiển thị ở trang chủ bị lệch so với dữ liệu vận hành
+--  thật khi một bên được cập nhật mà bên kia thì không.)
 -- ============================================================
-SET IDENTITY_INSERT blogs ON;
-
-INSERT INTO blogs
-    (id, title, summary, content, author, category, image_url, published_at, status)
-VALUES
-(1, N'5 Dấu hiệu cảnh báo bệnh tăng nhãn áp bạn không nên bỏ qua',
-    N'Tăng nhãn áp thường được gọi là kẻ trộm thị giác vì tiến triển âm thầm.',
-    N'Tăng nhãn áp thường được gọi là "kẻ trộm thị giác" vì tiến triển âm thầm. Chú ý 5 dấu hiệu: (1) Mờ mắt thoáng qua, (2) Đau đầu phía trán, (3) Nhìn thấy quầng sáng quanh đèn, (4) Thu hẹp thị trường ngoại vi, (5) Buồn nôn kèm đau mắt. Khám nhãn áp định kỳ là cách phát hiện sớm hiệu quả nhất.',
-    N'BS. Nguyễn Văn An', N'Nhãn khoa', NULL, DATEADD(DAY,-10,GETDATE()), N'PUBLISHED'),
-
-(2, N'Kính áp tròng: Những điều cần biết để bảo vệ mắt',
-    N'Kính áp tròng tiện lợi nhưng sử dụng sai cách rất nguy hiểm.',
-    N'Kính áp tròng tiện lợi nhưng sử dụng sai cách rất nguy hiểm. Nguyên tắc vàng: (1) Rửa tay trước khi đeo/tháo, (2) Không đeo khi ngủ, (3) Không dùng nước máy thay nước muối rửa kính, (4) Thay kính đúng chu kỳ, (5) Tháo ngay khi mắt đỏ hoặc đau.',
-    N'BS. Trần Thị Bình', N'Kính áp tròng', NULL, DATEADD(DAY,-5,GETDATE()), N'PUBLISHED'),
-
-(3, N'Phẫu thuật Phaco điều trị đục thể thủy tinh — Quy trình và kết quả',
-    N'Đục thể thủy tinh là nguyên nhân hàng đầu gây mù lòa có thể phòng ngừa.',
-    N'Đục thể thủy tinh là nguyên nhân hàng đầu gây mù lòa có thể phòng ngừa. Phẫu thuật Phaco chỉ mất 15-20 phút, không cần nằm viện, bệnh nhân phục hồi thị lực trong 24-48 giờ. Bài viết này giải thích chi tiết quy trình và những điều cần chuẩn bị.',
-    N'BS. Lê Minh Châu', N'Phẫu thuật', NULL, NULL, N'DRAFT');
-
-SET IDENTITY_INSERT blogs OFF;
-GO
-
--- ============================================================
--- 28. clinic_services  (danh mục dịch vụ cho trang chủ)
--- ============================================================
-SET IDENTITY_INSERT clinic_services ON;
-
-INSERT INTO clinic_services
-    (id, service_name, description, price, duration_minutes)
-VALUES
-(1, N'Khám mắt tổng quát',             N'Khám sức khỏe mắt toàn diện, kiểm tra thị lực và áp suất nhãn cầu.',   150000,  30),
-(2, N'Đo khúc xạ máy',                 N'Đo độ cận viễn loạn bằng máy tự động.',                                  80000,  15),
-(3, N'Soi đáy mắt',                    N'Kiểm tra võng mạc và dây thần kinh thị giác.',                           200000,  20),
-(4, N'Chụp OCT võng mạc',              N'Chụp cắt lớp kết hợp quang học để đánh giá võng mạc.',                  350000,  25),
-(5, N'Đo nhãn áp',                     N'Đo áp suất trong mắt để sàng lọc tăng nhãn áp.',                         60000,  10),
-(6, N'Chụp bản đồ giác mạc (Topo)',    N'Phân tích hình thái giác mạc bằng máy Topographer.',                    250000,  20),
-(7, N'Xét nghiệm sinh hóa máu cơ bản',N'Xét nghiệm đường huyết, mỡ máu phục vụ tiền phẫu.',                    180000,  60),
-(8, N'Phẫu thuật đục thủy tinh thể',   N'Phẫu thuật Phaco thay thể thủy tinh nhân tạo.',                      15000000,  90);
-
-SET IDENTITY_INSERT clinic_services OFF;
-GO
 
 PRINT N'';
 PRINT N'=== ECMS FULL SCRIPT HOÀN TẤT ===';
 PRINT N'';
-PRINT N'PHẦN 1 — Cấu trúc CSDL (30 bảng):';
-PRINT N'  roles, users, user_roles, refresh_tokens, password_reset_tokens';
-PRINT N'  patients, doctors, staffs, doctor_schedules, services';
-PRINT N'  appointments, medical_records, prescriptions, medicines, prescription_items';
-PRINT N'  glasses_orders, lab_orders, lab_order_items, lab_results, service_assignments';
-PRINT N'  invoices, invoice_details, notifications, feedbacks, blog_posts';
-PRINT N'  audit_logs, system_configs, backup_logs, blogs, clinic_services';
+PRINT N'PHẦN 1 — Cấu trúc CSDL (27 bảng):';
+PRINT N'  roles, users, refresh_tokens, password_reset_tokens, patients';
+PRINT N'  doctors, staffs, doctor_schedules, services, appointments';
+PRINT N'  medical_records, prescriptions, medicines, prescription_items, glasses_orders';
+PRINT N'  lab_orders, lab_order_items, lab_results, service_assignments, invoices';
+PRINT N'  invoice_details, notifications, feedbacks, blog_posts, audit_logs';
+PRINT N'  system_configs, backup_logs';
+PRINT N'';
+PRINT N'  (Đã gộp bỏ user_roles — phân quyền dùng users.role_id;';
+PRINT N'   và gộp bỏ blogs/clinic_services — trùng blog_posts/services)';
 PRINT N'';
 PRINT N'PHẦN 2 — Dữ liệu mẫu:';
 PRINT N'  users              : 14 (1 admin, 1 manager, 3 bác sĩ, 2 lễ tân, 1 dược sĩ, 1 lab tech, 5 bệnh nhân)';
@@ -1591,7 +1520,6 @@ PRINT N'  invoice_details    : 8  | notifications      : 5  | feedbacks         
 PRINT N'  blog_posts         : 3 (2 PUBLISHED, 1 DRAFT)';
 PRINT N'  refresh_tokens     : 3  | password_reset_tokens: 2';
 PRINT N'  audit_logs         : 5  | backup_logs        : 2';
-PRINT N'  blogs              : 3 (2 PUBLISHED, 1 DRAFT) | clinic_services : 8';
 PRINT N'';
 PRINT N'  Mật khẩu tất cả tài khoản: Password@123';
 GO

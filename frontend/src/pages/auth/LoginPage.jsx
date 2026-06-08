@@ -5,6 +5,7 @@
 import { useState } from 'react'
 import { Form, Input, Button, Checkbox, Divider, message } from 'antd'
 import { MailOutlined, LockOutlined, EyeInvisibleOutlined, EyeTwoTone, QuestionCircleOutlined } from '@ant-design/icons'
+import { GoogleLogin } from '@react-oauth/google'
 import { useDispatch } from 'react-redux'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { loginSuccess } from '../../store/slices/authSlice'
@@ -237,6 +238,28 @@ export default function LoginPage() {
     }
   }
 
+  // Xử lý đăng nhập bằng Google: gửi ID token nhận được lên backend để xác thực và lấy token nội bộ
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setLoading(true)
+    setErrorMsg('')
+    try {
+      const res = await authService.loginWithGoogle(credentialResponse.credential)
+      const { token, userId, email, fullName, role, doctorId } = res.data
+      dispatch(loginSuccess({ token, userId, email, fullName, role, doctorId }))
+      message.success('Đăng nhập bằng Google thành công!')
+      navigate(location.state?.from ?? '/', { replace: true })
+    } catch (err) {
+      if (!err.response) {
+        setErrorMsg('Không thể kết nối đến máy chủ. Hãy kiểm tra backend đang chạy tại cổng 8080.')
+      } else {
+        const msg = err.response.data?.message ?? 'Đăng nhập bằng Google thất bại. Vui lòng thử lại.'
+        setErrorMsg(msg)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div style={S.page}>
       <Header />
@@ -333,6 +356,18 @@ export default function LoginPage() {
                 </Button>
               </Form.Item>
             </Form>
+
+            <Divider style={{ margin: '20px 0', fontSize: 12, color: '#9ca3af' }}>HOẶC</Divider>
+
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() => setErrorMsg('Đăng nhập bằng Google thất bại. Vui lòng thử lại.')}
+                text="signin_with"
+                locale="vi"
+                width="348"
+              />
+            </div>
 
             <Divider style={{ margin: '20px 0' }} />
 

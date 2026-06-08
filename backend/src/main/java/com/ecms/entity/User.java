@@ -25,7 +25,8 @@ public class User {
     @Column(unique = true, nullable = false)
     private String email;
 
-    @Column(name = "password", nullable = false)
+    // Có thể NULL: tài khoản đăng nhập bằng Google chưa từng đặt mật khẩu
+    @Column(name = "password")
     private String passwordHash;
 
     @Column(name = "full_name", nullable = false)

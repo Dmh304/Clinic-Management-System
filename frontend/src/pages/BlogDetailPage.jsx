@@ -6,7 +6,6 @@ const s = {
   page: { fontFamily: 'system-ui, -apple-system, sans-serif', color: '#1e293b', minHeight: '100vh', backgroundColor: '#f8fafc' },
   container: { maxWidth: 780, margin: '0 auto', padding: '40px 24px 80px' },
   backLink: { display: 'inline-flex', alignItems: 'center', gap: 6, color: '#1d4ed8', fontSize: 14, textDecoration: 'none', marginBottom: 28, fontWeight: 500 },
-  category: { display: 'inline-block', backgroundColor: '#dbeafe', color: '#1d4ed8', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, marginBottom: 16, letterSpacing: 0.5 },
   title: { fontSize: 34, fontWeight: 800, color: '#111827', margin: '0 0 16px', lineHeight: 1.25 },
   meta: { display: 'flex', alignItems: 'center', gap: 20, fontSize: 13, color: '#94a3b8', marginBottom: 28, paddingBottom: 24, borderBottom: '1px solid #e2e8f0' },
   coverImg: { width: '100%', borderRadius: 16, marginBottom: 36, maxHeight: 420, objectFit: 'cover' },
@@ -55,8 +54,6 @@ export default function BlogDetailPage() {
       <div style={s.container}>
         <Link to="/blogs" style={s.backLink}>← Quay lại Tin tức</Link>
 
-        {blog.category && <div><span style={s.category}>{blog.category}</span></div>}
-
         <h1 style={s.title}>{blog.title}</h1>
 
         <div style={s.meta}>
@@ -64,8 +61,8 @@ export default function BlogDetailPage() {
           <span>📅 {formatDate(blog.publishedAt)}</span>
         </div>
 
-        {blog.imageUrl && (
-          <img src={blog.imageUrl} alt={blog.title} style={s.coverImg} />
+        {blog.thumbnailUrl && (
+          <img src={blog.thumbnailUrl} alt={blog.title} style={s.coverImg} />
         )}
 
         <div style={s.content}>{blog.content}</div>

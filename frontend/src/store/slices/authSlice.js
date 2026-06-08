@@ -37,6 +37,13 @@ const authSlice = createSlice({
       localStorage.setItem(TOKEN_KEY, token)
       localStorage.setItem(USER_KEY, JSON.stringify({ userId, email, fullName, role, doctorId }))
     },
+    // Cập nhật một phần thông tin user (vd: sau khi lưu hồ sơ cá nhân) và đồng bộ lại localStorage
+    // để Header và các nơi khác hiển thị đúng dữ liệu mới nhất mà không cần đăng nhập lại
+    updateUser(state, action) {
+      if (!state.user) return
+      state.user = { ...state.user, ...action.payload }
+      localStorage.setItem(USER_KEY, JSON.stringify(state.user))
+    },
     // Xóa toàn bộ thông tin xác thực khỏi state và localStorage khi người dùng đăng xuất
     logout(state) {
       state.token = null
@@ -49,5 +56,5 @@ const authSlice = createSlice({
   },
 })
 
-export const { loginSuccess, logout } = authSlice.actions
+export const { loginSuccess, logout, updateUser } = authSlice.actions
 export default authSlice.reducer
