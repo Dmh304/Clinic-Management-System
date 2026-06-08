@@ -10,8 +10,12 @@ package com.ecms.controller;
 import com.ecms.dto.request.EMRRequest;
 import com.ecms.dto.response.ApiResponse;
 import com.ecms.dto.response.EMRResponse;
+import com.ecms.entity.MedicalRecord;
+import com.ecms.repository.MedicalRecordRepository;
 import com.ecms.service.EMRService;
 import lombok.RequiredArgsConstructor;
+
+import org.apache.catalina.connector.Response;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -44,5 +48,11 @@ public class EMRController {
     @GetMapping("/patient/{patientId}/history")
     public ResponseEntity<ApiResponse<List<EMRResponse>>> getPatientHistory(@PathVariable Long patientId) {
         return ResponseEntity.ok(ApiResponse.success(emrService.getPatientHistory(patientId)));
+    }
+
+    /* Lấy danh sách tất cả lịch sử bệnh án */
+    @GetMapping("/completed")
+    public ResponseEntity<ApiResponse<List<EMRResponse>>> getCompletedList() {
+        return ResponseEntity.ok(ApiResponse.success(emrService.getCompletedList()));
     }
 }

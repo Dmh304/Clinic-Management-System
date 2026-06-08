@@ -36,13 +36,16 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AppointmentServiceImpl implements AppointmentService {
 
+        // Giới hạn số lượng lịch khám tối đa của 1 bác sĩ trong 1 ngày
         private static final int MAX_APPOINTMENTS_PER_DOCTOR_PER_DAY = 30;
 
+        // các repository phụ trách thao tác dữ liệu với cơ sở dữ liệu
         private final AppointmentRepository appointmentRepository;
         private final DoctorRepository doctorRepository;
         private final PatientRepository patientRepository;
         private final ClinicServiceRepository clinicServiceRepository;
 
+        /* Lấy danh sách toàn bộ lịch khám trong ngày hôm nay */
         @Override
         @Transactional(readOnly = true)
         public List<AppointmentResponse> getTodayAppointments() {
@@ -123,6 +126,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                                 .build();
         }
 
+        /* Lấy danh sách khám riêng biệt của 1 bác sĩ trong ngày */
         @Override
         public List<AppointmentResponse> getDoctorQueue(LocalDate date, Long doctorId) {
                 LocalDate targetDate = date != null ? date : LocalDate.now();
@@ -136,6 +140,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                                 .collect(Collectors.toList());
         }
 
+        /* Tổng hợp số liệu thống kê riêng cho 1 bác sĩ cụ thể trong ngày */
         @Override
         public AppointmentDashboardResponse getDashboard(LocalDate date, Long doctorId) {
                 LocalDate targetDate = date != null ? date : LocalDate.now();
@@ -161,6 +166,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                                 .build();
         }
 
+        /* Cập nhật trạng thái trực tiếp cho 1 lịch khám */
         @Override
         @Transactional
         public AppointmentResponse updateAppointmentStatus(Long id, AppointmentStatus status) {
