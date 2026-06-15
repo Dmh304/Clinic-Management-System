@@ -21,6 +21,27 @@ const STATUS_MAP = {
   COMPLETED:   { color: 'success',    label: 'Hoàn thành' },
 }
 
+const calculateAge = (dobString) => {
+  if (!dobString) return '—';
+  const today = new Date();
+  const birthDate = new Date(dobString);
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+};
+
+const textEllipsisStyle = {
+  display: '-webkit-box',
+  WebkitLineClamp: 1, // Số dòng muốn hiển thị trước khi cắt (ở đây là 1 dòng)
+  WebkitBoxOrient: 'vertical',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  wordBreak: 'break-all' // Giúp cắt từ chuẩn xác theo độ rộng cột
+};
+
 // Component hiển thị các trường nhập liệu dành cho khám lâm sàng Mắt (thị lực, nhãn áp, khúc xạ...)
 function EyeFields({ prefix, label }) {
   return (
@@ -78,13 +99,21 @@ function HistoryCard({ record, onClick }) {
       {record.chiefComplaint && (
         <div style={{ marginBottom: 4 }}>
           <span style={{ fontSize: 12, color: '#64748b', fontWeight: 500 }}>Lý do khám: </span>
-          <span style={{ fontSize: 12, color: '#334155' }}>{record.chiefComplaint}</span>
+          <span style={{ fontSize: 12, color: '#334155' }}>
+            <div title={record.chiefComplaint} style={{ ...textEllipsisStyle, fontSize: 12, color: '#334155' }}>
+              {record.chiefComplaint}
+            </div>
+          </span>
         </div>
       )}
       {record.diagnosis && (
         <div style={{ marginBottom: 4 }}>
           <span style={{ fontSize: 12, color: '#64748b', fontWeight: 500 }}>Chẩn đoán: </span>
-          <span style={{ fontSize: 12, color: '#334155' }}>{record.diagnosis}</span>
+          <span style={{ fontSize: 12, color: '#334155' }}>
+            <div title={record.diagnosis} style={{ ...textEllipsisStyle, fontSize: 12, color: '#334155' }}>
+              {record.diagnosis}
+            </div>
+          </span>
         </div>
       )}
       {record.treatmentPlan && (
@@ -314,10 +343,34 @@ export default function EMRPage() {
                       {r.createdAt ? new Date(r.createdAt).toLocaleDateString('vi-VN') : '—'}
                     </td>
                     <td style={{ padding: '12px 16px', fontSize: 13, color: '#475569', maxWidth: 200 }}>
+                      <div 
+                            title={r.chiefComplaint ?? '—'} 
+                            style={{
+                              display: '-webkit-box',
+                              WebkitLineClamp: 1,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              wordBreak: 'break-all'
+                            }}
+                      >
                       {r.chiefComplaint ?? '—'}
+                      </div>
                     </td>
                     <td style={{ padding: '12px 16px', fontSize: 13, color: '#475569', maxWidth: 200 }}>
+                      <div 
+                          title={r.diagnosis ?? '—'} 
+                          style={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: 1,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            wordBreak: 'break-all'
+                          }}
+                      >
                       {r.diagnosis ?? '—'}
+                      </div>
                     </td>
                     <td style={{ padding: '12px 16px', fontSize: 12, color: '#64748b' }}>
                       {r.doctorName ?? '—'}
@@ -379,6 +432,44 @@ export default function EMRPage() {
 
       <Spin spinning={loading}>
         {!loading && (
+          <div>
+          {/* ================= THẺ THÔNG TIN CHI TIẾT BỆNH NHÂN (MỚI THÊM) ================= */}
+      <div style={{ 
+        backgroundColor: '#fff', 
+        borderRadius: 12, 
+        boxShadow: '0 1px 4px rgba(0,0,0,0.06)', 
+        padding: '16px 24px', 
+        marginBottom: 16,
+        borderLeft: '4px solid #0d9488' // Tạo điểm nhấn màu Teal đồng bộ với nút của bạn
+      }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+          <div>
+            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Họ và tên</div>
+            <div style={{ fontWeight: 600, color: '#1e293b', fontSize: 14 }}>{emr?.patientName ?? '—'}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Ngày sinh / Tuổi</div>
+            <div style={{ fontWeight: 500, color: '#334155' }}>
+              {emr?.patientDob ? new Date(emr.patientDob).toLocaleDateString('vi-VN') : '—'} 
+              {emr?.patientDob && ` (${calculateAge(emr.patientDob)} tuổi)`}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Giới tính</div>
+            <div style={{ fontWeight: 500, color: '#334155' }}>{emr?.patientGender === 'FEMALE' ? 'Nữ' : 
+     emr?.patientGender === 'MALE' ? 'Nam' : (emr?.patientGender ?? '—')}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Số điện thoại</div>
+            <div style={{ fontWeight: 500, color: '#334155' }}>{emr?.patientPhone ?? '—'}</div>
+          </div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Địa chỉ thường trú</div>
+            <div style={{ fontWeight: 500, color: '#334155' }}>{emr?.patientAddress ?? '—'}</div>
+          </div>
+        </div>
+      </div>
+      {/* ========================================================================= */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 16, alignItems: 'start' }}>
           
           {/* form nhập liệu bệnh án hiện tại */}
@@ -475,6 +566,7 @@ export default function EMRPage() {
               />
             ))
             }
+            </div>
           </div>
         </div>
         )}

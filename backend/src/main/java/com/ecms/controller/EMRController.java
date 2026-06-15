@@ -10,13 +10,17 @@ package com.ecms.controller;
 import com.ecms.dto.request.EMRRequest;
 import com.ecms.dto.response.ApiResponse;
 import com.ecms.dto.response.EMRResponse;
+import com.ecms.entity.Doctor;
 import com.ecms.entity.MedicalRecord;
+import com.ecms.repository.DoctorRepository;
 import com.ecms.repository.MedicalRecordRepository;
 import com.ecms.service.EMRService;
 import lombok.RequiredArgsConstructor;
 
 import org.apache.catalina.connector.Response;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -28,6 +32,7 @@ public class EMRController {
 
     /* Dịch vụ xử lí logic nghiệp vụ của hồ sơ bệnh án điện tử */
     private final EMRService emrService;
+    private final DoctorRepository doctorRepository;
 
     /* Tạo mới hoặc cập nhật hồ sơ bệnh án điện tử */
     @PostMapping
@@ -52,7 +57,17 @@ public class EMRController {
 
     /* Lấy danh sách tất cả lịch sử bệnh án */
     @GetMapping("/completed")
-    public ResponseEntity<ApiResponse<List<EMRResponse>>> getCompletedList() {
-        return ResponseEntity.ok(ApiResponse.success(emrService.getCompletedList()));
+    public ResponseEntity<ApiResponse<List<EMRResponse>>> getCompletedList(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Long doctorId = resolveDoctorId(userDetails);
+        return ResponseEntity.ok(ApiResponse.success(emrService.getCompletedList(doctorId)));
+    }
+
+    /* Tìm kiếm và trả về id của bác sĩ dựa trên thông tin tài khoản đăng nhập */
+    private Long resolveDoctorId(UserDetails userDetails) {
+        if (userDetails == null) {
+            return null;
+        }
+        return doctorRepository.findByEmail(userDetails.getUsername()).map(Doctor::getId).orElse(null);
     }
 }

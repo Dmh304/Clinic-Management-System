@@ -22,5 +22,5 @@ public interface EMRService {
     List<EMRResponse> getPatientHistory(Long patientId);
 
     // Lấy danh sách tất cả lịch sử bệnh án đã hoàn thành
-    List<EMRResponse> getCompletedList();
+    List<EMRResponse> getCompletedList(Long doctorId);
 }
