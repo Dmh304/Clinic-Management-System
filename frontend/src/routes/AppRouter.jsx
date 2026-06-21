@@ -27,6 +27,13 @@ import PatientDashboard from '../pages/patient/PatientDashboard'
 import BookingPage from '../pages/patient/BookingPage'
 import MedicalHistoryPage from '../pages/patient/MedicalHistoryPage'
 import PrescriptionViewPage from '../pages/patient/PrescriptionViewPage'
+import ServicePackagesPage from '../pages/patient/ServicePackagesPage'
+import MySubscriptionsPage from '../pages/patient/MySubscriptionsPage'
+import BookCareSessionPage from '../pages/patient/BookCareSessionPage'
+import MyCareSessionsPage from '../pages/patient/MyCareSessionsPage'
+import MyAppointmentsPage from '../pages/patient/MyAppointmentsPage'
+
+
 
 import DoctorDashboard from '../pages/doctor/DoctorDashboard'
 import EMRPage from '../pages/doctor/EMRPage'
@@ -37,8 +44,13 @@ import AppointmentManagementPage from '../pages/receptionist/AppointmentManageme
 import WalkInRegistrationPage from '../pages/receptionist/WalkInRegistrationPage'
 import WalkInAppointmentPage from '../pages/receptionist/WalkInAppointmentPage'
 import InvoicePage from '../pages/receptionist/InvoicePage'
+import DailySchedulePage from '../pages/receptionist/DailySchedulePage'
+import CheckoutCareSessionPage from '../pages/receptionist/CheckoutCareSessionPage'
 import ReceptionistLayout from '../components/layout/ReceptionistLayout'
 import DoctorLayout from '../components/layout/DoctorLayout'
+
+import CareQueuePage from '../pages/nurse/CareQueuePage'
+import DeliverCareSessionPage from '../pages/nurse/DeliverCareSessionPage'
 
 import LabQueuePage from '../pages/lab/LabQueuePage'
 import LabResultEntryPage from '../pages/lab/LabResultEntryPage'
@@ -49,6 +61,10 @@ import PharmacyInvoicePage from '../pages/pharmacy/PharmacyInvoicePage'
 import ManagerDashboard from '../pages/manager/ManagerDashboard'
 import RevenueReportPage from '../pages/manager/RevenueReportPage'
 import StaffPerformancePage from '../pages/manager/StaffPerformancePage'
+import ManageServicePackagesPage from '../pages/manager/ManageServicePackagesPage'
+import ManageDiscountCampaignsPage from '../pages/manager/ManageDiscountCampaignsPage'
+import AssignNursePage from '../pages/manager/AssignNursePage'
+import ReassignAppointmentPage from '../pages/manager/ReassignAppointmentPage'
 
 import UserManagementPage from '../pages/admin/UserManagementPage'
 import SystemConfigPage from '../pages/admin/SystemConfigPage'
@@ -83,6 +99,8 @@ export default function AppRouter() {
       <Route path="/" element={<WithHeader><HomePage /></WithHeader>} />
       <Route path="/blogs" element={<WithHeader><BlogListPage /></WithHeader>} />
       <Route path="/blogs/:id" element={<WithHeader><BlogDetailPage /></WithHeader>} />
+      {/* Trang dịch vụ — mọi người đều xem được (chỉ PATIENT/RECEPTIONIST mới đăng ký được) */}
+      <Route path="/services" element={<WithHeader><ServicePackagesPage /></WithHeader>} />
 
       {/* ── Auth pages — không có Header ── */}
       <Route path="/login" element={<LoginPage />} />
@@ -93,7 +111,7 @@ export default function AppRouter() {
       <Route path="/unauthorized" element={<UnauthorizedPage />} />
 
       {/* ── Shared (all authenticated users) ── */}
-      <Route element={<ProtectedRoute allowedRoles={['PATIENT', 'DOCTOR', 'RECEPTIONIST', 'LAB_TECHNICIAN', 'PHARMACIST', 'MANAGER', 'ADMIN']} />}>
+      <Route element={<ProtectedRoute allowedRoles={['PATIENT', 'DOCTOR', 'RECEPTIONIST', 'LAB_TECHNICIAN', 'PHARMACIST', 'MANAGER', 'ADMIN', 'NURSE']} />}>
         <Route path="/profile" element={<WithHeader><ProfilePage /></WithHeader>} />
         <Route path="/change-password" element={<WithHeader><ChangePasswordPage /></WithHeader>} />
       </Route>
@@ -104,6 +122,10 @@ export default function AppRouter() {
         <Route path="/patient/booking" element={<BookingPage />} />
         <Route path="/patient/history" element={<MedicalHistoryPage />} />
         <Route path="/patient/prescription" element={<PrescriptionViewPage />} />
+        <Route path="/patient/subscriptions" element={<WithHeader><MySubscriptionsPage /></WithHeader>} />
+        <Route path="/patient/book-session" element={<WithHeader><BookCareSessionPage /></WithHeader>} />
+        <Route path="/patient/care-sessions" element={<WithHeader><MyCareSessionsPage /></WithHeader>} />
+        <Route path="/patient/appointments" element={<WithHeader><MyAppointmentsPage /></WithHeader>} />
       </Route>
 
       {/* ── Doctor ── */}
@@ -123,7 +145,15 @@ export default function AppRouter() {
           <Route path="/receptionist/walk-in-appointment" element={<WalkInAppointmentPage />} />
           <Route path="/receptionist/walk-in" element={<WalkInRegistrationPage />} />
           <Route path="/receptionist/invoice" element={<InvoicePage />} />
+          <Route path="/receptionist/daily-schedule" element={<DailySchedulePage />} />
+          <Route path="/receptionist/checkout-care-sessions" element={<CheckoutCareSessionPage />} />
         </Route>
+      </Route>
+
+      {/* ── Nurse ── */}
+      <Route element={<ProtectedRoute allowedRoles={['NURSE']} />}>
+        <Route path="/nurse/queue" element={<WithHeader><CareQueuePage /></WithHeader>} />
+        <Route path="/nurse/deliver/:id" element={<WithHeader><DeliverCareSessionPage /></WithHeader>} />
       </Route>
 
       {/* ── Lab ── */}
@@ -143,6 +173,11 @@ export default function AppRouter() {
         <Route path="/manager/dashboard" element={<ManagerDashboard />} />
         <Route path="/manager/revenue" element={<RevenueReportPage />} />
         <Route path="/manager/staff" element={<StaffPerformancePage />} />
+        <Route path="/manager/service-packages" element={<WithHeader><ManageServicePackagesPage /></WithHeader>} />
+        <Route path="/manager/discount-campaigns" element={<WithHeader><ManageDiscountCampaignsPage /></WithHeader>} />
+        <Route path="/manager/assign-nurse" element={<WithHeader><AssignNursePage /></WithHeader>} />
+        <Route path="/manager/reassign-appointment" element={<WithHeader><ReassignAppointmentPage /></WithHeader>} />
+        <Route path="/manager/daily-schedule" element={<WithHeader><DailySchedulePage /></WithHeader>} />
       </Route>
 
       {/* ── Admin ── */}

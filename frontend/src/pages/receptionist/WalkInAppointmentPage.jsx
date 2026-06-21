@@ -1,11 +1,3 @@
-/**
- * Page: WalkInAppointmentPage
- * Chức năng: Cho phép Lễ tân tạo lịch khám vãng lai (Walk-in) cho bệnh nhân tại quầy.
- * Hỗ trợ tìm kiếm nhanh hồ sơ bệnh nhân, đăng ký nhanh hồ sơ bệnh nhân mới bằng modal,
- * chỉ định bác sĩ, dịch vụ và đẩy bệnh nhân vào hàng đợi (trạng thái WAITING) ngay lập tức.
- * DucTKH
- */
-
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -41,17 +33,11 @@ export default function WalkInAppointmentPage() {
 
   useEffect(() => {
     doctorService.getAllDoctors().then((r) => setDoctors(r.data)).catch(() => { })
-    clinicServiceService.getAllServices().then((r) => setServices(r.data)).catch(() => { })
+    clinicServiceService.getServicesByType('CLINICAL').then((r) => setServices(r.data)).catch(() => { })
   }, [])
 
-  /**
-   * Tìm kiếm nhanh thông tin bệnh nhân qua tên hoặc số điện thoại khi nhập form.
-   * Yêu cầu nhập tối thiểu 2 ký tự.
-   * DucTKH
-   */
   const handlePatientSearch = async (value) => {
     setPatientSearch(value)
-    // Chỉ gửi yêu cầu tìm kiếm khi người dùng nhập từ 2 ký tự trở lên
     if (!value || value.length < 2) {
       setPatients([])
       return
@@ -67,25 +53,17 @@ export default function WalkInAppointmentPage() {
     }
   }
 
-  /**
-   * Gửi thông tin form tạo lịch khám vãng lai lên máy chủ để xếp vào hàng chờ.
-   * 
-   * DucTKH
-   */
   const onFinish = async (values) => {
-    // Yêu cầu bắt buộc nhập thời gian khám
     if (!values.appointmentTime) {
       message.error('Vui lòng chọn thời gian khám')
       return
     }
 
-    // Không cho phép tạo lịch khám ở thời gian đã qua
     if (values.appointmentTime.isBefore(dayjs())) {
       message.error('Không thể tạo lịch khám trong quá khứ')
       return
     }
 
-    // Yêu cầu bắt buộc phân công bác sĩ
     if (!values.doctorId) {
       message.error('Vui lòng chọn bác sĩ')
       return
@@ -109,6 +87,11 @@ export default function WalkInAppointmentPage() {
     }
   }
 
+  const newPatientDob = Form.useWatch('dateOfBirth', newPatientForm)
+  const isChildPatient = newPatientDob
+    ? dayjs().diff(newPatientDob, 'year') < 14
+    : false
+
   const handleOpenNewPatientModal = () => {
     const isPhone = /^[0-9]{6,11}$/.test(patientSearch)
     newPatientForm.setFieldsValue(
@@ -117,14 +100,14 @@ export default function WalkInAppointmentPage() {
     setNewPatientModal(true)
   }
 
-  /**
-   * Tạo nhanh hồ sơ bệnh nhân vãng lai mới ngay.
-   * DucTKH
-   */
   const handleCreateNewPatient = async (values) => {
     setNewPatientLoading(true)
     try {
-      const res = await patientService.createWalkInPatient(values)
+      const payload = {
+        ...values,
+        dateOfBirth: values.dateOfBirth ? values.dateOfBirth.format('YYYY-MM-DD') : null,
+      }
+      const res = await patientService.createWalkInPatient(payload)
       const created = res.data
       setPatients([created])
       form.setFieldValue('patientId', created.id)
@@ -238,7 +221,6 @@ export default function WalkInAppointmentPage() {
                       </div>
                     )
               }
-              // Duyệt qua danh sách bệnh nhân tìm thấy để hiển thị lên dropdown của ô tìm kiếm Select
               options={patients.map((p) => ({
                 label: (
                   <Space>
@@ -246,6 +228,17 @@ export default function WalkInAppointmentPage() {
                     <Text type="secondary" style={{ fontSize: 12 }}>
                       {p.phone}
                     </Text>
+                    {p.dateOfBirth && (
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        NS: {dayjs(p.dateOfBirth).format('DD/MM/YYYY')}
+                      </Text>
+                    )}
+                    {p.isChild && <Tag color="orange" style={{ fontSize: 11 }}>Trẻ em</Tag>}
+                    {p.cccd && (
+                      <Text type="secondary" style={{ fontSize: 11 }}>
+                        CCCD: ...{p.cccd.slice(-4)}
+                      </Text>
+                    )}
                   </Space>
                 ),
                 value: p.id,
@@ -295,7 +288,6 @@ export default function WalkInAppointmentPage() {
           >
             <Select
               placeholder="Chọn bác sĩ"
-              // Duyệt danh sách bác sĩ lấy từ hệ thống để làm các lựa chọn (options) trong Select
               options={doctors.map((d) => ({
                 label: `${d.fullName}${d.specialization ? ` — ${d.specialization}` : ''}`,
                 value: d.id,
@@ -303,11 +295,9 @@ export default function WalkInAppointmentPage() {
             />
           </Form.Item>
 
-          <Form.Item label="Dịch vụ (không bắt buộc)" name="serviceId">
+          <Form.Item label="Dịch vụ khám" name="serviceId">
             <Select
-              rules={[{ required: true, message: 'Vui lòng chọn bác sĩ' }]}
               placeholder="Chọn dịch vụ"
-              // Duyệt danh sách dịch vụ y tế của phòng khám làm các lựa chọn (options) trong Select
               options={services.map((s) => ({
                 label: s.serviceName,
                 value: s.id,
@@ -363,15 +353,56 @@ export default function WalkInAppointmentPage() {
             <Input placeholder="0901234567" maxLength={11} />
           </Form.Item>
           <Form.Item
-            label="Email"
-            name="email"
-            rules={[
-              { required: true, message: 'Vui lòng nhập email' },
-              { type: 'email', message: 'Email không hợp lệ' },
-            ]}
+            label="Ngày sinh"
+            name="dateOfBirth"
+            rules={[{ required: true, message: 'Vui lòng chọn ngày sinh' }]}
           >
-            <Input placeholder="example@email.com" />
+            <DatePicker
+              format="DD/MM/YYYY"
+              placeholder="Chọn ngày sinh"
+              style={{ width: '100%' }}
+              disabledDate={(d) => d && d.isAfter(dayjs())}
+            />
           </Form.Item>
+
+          {isChildPatient ? (
+            <>
+              <Form.Item
+                label="Tên phụ huynh"
+                name="emergencyContactName"
+                rules={[{ required: true, message: 'Vui lòng nhập tên phụ huynh' }]}
+              >
+                <Input placeholder="Nguyễn Văn A" />
+              </Form.Item>
+              <Form.Item
+                label="SĐT phụ huynh"
+                name="emergencyContactPhone"
+                rules={[
+                  { required: true, message: 'Vui lòng nhập SĐT phụ huynh' },
+                  { pattern: /^[0-9]{10,11}$/, message: 'Số điện thoại phải có 10-11 chữ số' },
+                ]}
+              >
+                <Input placeholder="0901234567" maxLength={11} />
+              </Form.Item>
+            </>
+          ) : (
+            <>
+              <Form.Item
+                label="CCCD"
+                name="cccd"
+                rules={[{ pattern: /^[0-9]{12}$/, message: 'CCCD phải có đúng 12 chữ số' }]}
+              >
+                <Input placeholder="012345678901" maxLength={12} />
+              </Form.Item>
+              <Form.Item
+                label="Email"
+                name="email"
+                rules={[{ type: 'email', message: 'Email không hợp lệ' }]}
+              >
+                <Input placeholder="example@email.com" />
+              </Form.Item>
+            </>
+          )}
         </Form>
       </Modal>
     </div>
