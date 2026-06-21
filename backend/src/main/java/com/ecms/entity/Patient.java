@@ -48,6 +48,15 @@ public class Patient {
     @Column(name = "address")
     private String address;
 
+    @Column(name = "cccd", length = 12)
+    private String cccd;
+
+    @Column(name = "emergency_contact_name")
+    private String emergencyContactName;
+
+    @Column(name = "emergency_contact_phone", length = 15)
+    private String emergencyContactPhone;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

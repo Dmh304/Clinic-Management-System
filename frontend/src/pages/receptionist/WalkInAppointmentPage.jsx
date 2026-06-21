@@ -33,7 +33,7 @@ export default function WalkInAppointmentPage() {
 
   useEffect(() => {
     doctorService.getAllDoctors().then((r) => setDoctors(r.data)).catch(() => { })
-    clinicServiceService.getAllServices().then((r) => setServices(r.data)).catch(() => { })
+    clinicServiceService.getServicesByType('CLINICAL').then((r) => setServices(r.data)).catch(() => { })
   }, [])
 
   const handlePatientSearch = async (value) => {
@@ -87,6 +87,11 @@ export default function WalkInAppointmentPage() {
     }
   }
 
+  const newPatientDob = Form.useWatch('dateOfBirth', newPatientForm)
+  const isChildPatient = newPatientDob
+    ? dayjs().diff(newPatientDob, 'year') < 14
+    : false
+
   const handleOpenNewPatientModal = () => {
     const isPhone = /^[0-9]{6,11}$/.test(patientSearch)
     newPatientForm.setFieldsValue(
@@ -98,7 +103,11 @@ export default function WalkInAppointmentPage() {
   const handleCreateNewPatient = async (values) => {
     setNewPatientLoading(true)
     try {
-      const res = await patientService.createWalkInPatient(values)
+      const payload = {
+        ...values,
+        dateOfBirth: values.dateOfBirth ? values.dateOfBirth.format('YYYY-MM-DD') : null,
+      }
+      const res = await patientService.createWalkInPatient(payload)
       const created = res.data
       setPatients([created])
       form.setFieldValue('patientId', created.id)
@@ -219,6 +228,17 @@ export default function WalkInAppointmentPage() {
                     <Text type="secondary" style={{ fontSize: 12 }}>
                       {p.phone}
                     </Text>
+                    {p.dateOfBirth && (
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        NS: {dayjs(p.dateOfBirth).format('DD/MM/YYYY')}
+                      </Text>
+                    )}
+                    {p.isChild && <Tag color="orange" style={{ fontSize: 11 }}>Trẻ em</Tag>}
+                    {p.cccd && (
+                      <Text type="secondary" style={{ fontSize: 11 }}>
+                        CCCD: ...{p.cccd.slice(-4)}
+                      </Text>
+                    )}
                   </Space>
                 ),
                 value: p.id,
@@ -275,9 +295,8 @@ export default function WalkInAppointmentPage() {
             />
           </Form.Item>
 
-          <Form.Item label="Dịch vụ (không bắt buộc)" name="serviceId">
+          <Form.Item label="Dịch vụ khám" name="serviceId">
             <Select
-              rules={[{ required: true, message: 'Vui lòng chọn bác sĩ' }]}
               placeholder="Chọn dịch vụ"
               options={services.map((s) => ({
                 label: s.serviceName,
@@ -334,15 +353,56 @@ export default function WalkInAppointmentPage() {
             <Input placeholder="0901234567" maxLength={11} />
           </Form.Item>
           <Form.Item
-            label="Email"
-            name="email"
-            rules={[
-              { required: true, message: 'Vui lòng nhập email' },
-              { type: 'email', message: 'Email không hợp lệ' },
-            ]}
+            label="Ngày sinh"
+            name="dateOfBirth"
+            rules={[{ required: true, message: 'Vui lòng chọn ngày sinh' }]}
           >
-            <Input placeholder="example@email.com" />
+            <DatePicker
+              format="DD/MM/YYYY"
+              placeholder="Chọn ngày sinh"
+              style={{ width: '100%' }}
+              disabledDate={(d) => d && d.isAfter(dayjs())}
+            />
           </Form.Item>
+
+          {isChildPatient ? (
+            <>
+              <Form.Item
+                label="Tên phụ huynh"
+                name="emergencyContactName"
+                rules={[{ required: true, message: 'Vui lòng nhập tên phụ huynh' }]}
+              >
+                <Input placeholder="Nguyễn Văn A" />
+              </Form.Item>
+              <Form.Item
+                label="SĐT phụ huynh"
+                name="emergencyContactPhone"
+                rules={[
+                  { required: true, message: 'Vui lòng nhập SĐT phụ huynh' },
+                  { pattern: /^[0-9]{10,11}$/, message: 'Số điện thoại phải có 10-11 chữ số' },
+                ]}
+              >
+                <Input placeholder="0901234567" maxLength={11} />
+              </Form.Item>
+            </>
+          ) : (
+            <>
+              <Form.Item
+                label="CCCD"
+                name="cccd"
+                rules={[{ pattern: /^[0-9]{12}$/, message: 'CCCD phải có đúng 12 chữ số' }]}
+              >
+                <Input placeholder="012345678901" maxLength={12} />
+              </Form.Item>
+              <Form.Item
+                label="Email"
+                name="email"
+                rules={[{ type: 'email', message: 'Email không hợp lệ' }]}
+              >
+                <Input placeholder="example@email.com" />
+              </Form.Item>
+            </>
+          )}
         </Form>
       </Modal>
     </div>

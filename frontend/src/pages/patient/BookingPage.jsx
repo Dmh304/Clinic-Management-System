@@ -64,18 +64,18 @@ const S = {
 const font = "'IBM Plex Sans', 'Segoe UI', sans-serif";
 const Footer = () => (
   <footer style={S.footer}>
-        <div>
-          <p style={{ fontWeight: 700, fontSize: 13, color: '#1f2937', margin: 0 }}>Nhãn Khoa Ánh Sao</p>
-          <p style={{ fontSize: 12, color: '#9ca3af', margin: 0 }}>
-            © 2024 Phòng Khám Nhãn Khoa Ánh Sao. Bảo lưu mọi quyền.
-          </p>
-        </div>
-        <nav style={S.footerLinks}>
-          {['Chính Sách Bảo Mật', 'Điều Khoản Dịch Vụ', 'Liên Hệ Hỗ Trợ', 'Địa Điểm Phòng Khám'].map(t => (
-            <a key={t} href="#" style={S.footerLink}>{t}</a>
-          ))}
-        </nav>
-      </footer>
+    <div>
+      <p style={{ fontWeight: 700, fontSize: 13, color: '#1f2937', margin: 0 }}>Nhãn Khoa Ánh Sao</p>
+      <p style={{ fontSize: 12, color: '#9ca3af', margin: 0 }}>
+        © 2024 Phòng Khám Nhãn Khoa Ánh Sao. Bảo lưu mọi quyền.
+      </p>
+    </div>
+    <nav style={S.footerLinks}>
+      {['Chính Sách Bảo Mật', 'Điều Khoản Dịch Vụ', 'Liên Hệ Hỗ Trợ', 'Địa Điểm Phòng Khám'].map(t => (
+        <a key={t} href="#" style={S.footerLink}>{t}</a>
+      ))}
+    </nav>
+  </footer>
 );
 
 // ─── Progress bar ─────────────────────────────────────────────────
@@ -293,7 +293,7 @@ function Page1({ onNext }) {
             })}
           </div>
         </section>
-        
+
 
         {/* CTA */}
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
@@ -340,8 +340,13 @@ function Page2({ data, onNext, onBack, submitting, submitError }) {
   const morningSlots = slots.filter(s => s.session === "morning");
   const afternoonSlots = slots.filter(s => s.session === "afternoon");
 
-  const isToday = (d) => d.toDateString() === today.toDateString();
-  const isPast = (d) => d < today && !isToday(d);
+  // const isToday = (d) => d.toDateString() === today.toDateString();
+  // const isPast = (d) => d < today && !isToday(d);
+  const isToday = (d) => false;
+  const isTodayTest = (d) => d.toDateString() === today.toDateString();
+  const isPast = (d) => d < today && !isTodayTest(d);
+
+
   const isFuture30 = (d) => d > maxDate;
   const isSunday = (d) => d.getDay() === 0;
   const isDisabled = (d) => isPast(d) || isFuture30(d) || isSunday(d);
@@ -351,12 +356,13 @@ function Page2({ data, onNext, onBack, submitting, submitError }) {
   const isTooSoon = (slot) => {
     const slotTime = new Date(today);
     if (!selectedDate || !isToday(selectedDate)) {
-        return false;
-      
+      return false;
+
     }
     const [h, m] = slot.time.split(":").map(Number);
     slotTime.setHours(h, m, 0, 0);
-    return (slotTime - today) < 24 * 60 * 60 * 1000;
+    //return (slotTime - today) < 24 * 60 * 60 * 1000;
+    return false;
   };
 
   const dayLabels = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
@@ -604,7 +610,7 @@ function Page2({ data, onNext, onBack, submitting, submitError }) {
 function Page3({ data, onReset, bookingResult }) {
   const navigate = useNavigate();
   const fmtDate = (d) =>
-  d.toLocaleDateString("vi-VN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    d.toLocaleDateString("vi-VN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
   const bookingCode = bookingResult?.id ? `#${bookingResult.id}` : `NKA-${Date.now().toString(36).slice(-6).toUpperCase()}`;
   const { user } = useSelector((s) => s.auth);
   return (

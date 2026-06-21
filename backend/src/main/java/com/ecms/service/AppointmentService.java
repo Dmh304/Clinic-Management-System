@@ -1,6 +1,7 @@
 package com.ecms.service;
 
 import com.ecms.dto.request.BookAppointmentRequest;
+import com.ecms.dto.request.ReassignAppointmentRequest;
 import com.ecms.dto.request.WalkInAppointmentRequest;
 import com.ecms.dto.response.AppointmentDashboardResponse;
 import com.ecms.dto.response.AppointmentResponse;
@@ -34,4 +35,11 @@ public interface AppointmentService {
     List<AppointmentResponse> getDoctorQueue(LocalDate date, Long doctorId);
 
     AppointmentDashboardResponse getDashboard(LocalDate date, Long doctorId);
+
+    AppointmentResponse reassignAppointment(Long id, ReassignAppointmentRequest request);
+
+    List<AppointmentResponse> getDailySchedule(LocalDate date);
+
+    /** Lịch hẹn trong khoảng ngày [startDate, endDate] — dùng cho calendar view tuần/tháng */
+    List<AppointmentResponse> getScheduleRange(LocalDate startDate, LocalDate endDate);
 }

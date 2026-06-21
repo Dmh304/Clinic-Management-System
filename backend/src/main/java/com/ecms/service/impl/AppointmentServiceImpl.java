@@ -1,6 +1,7 @@
 package com.ecms.service.impl;
 
 import com.ecms.dto.request.BookAppointmentRequest;
+import com.ecms.dto.request.ReassignAppointmentRequest;
 import com.ecms.dto.request.WalkInAppointmentRequest;
 import com.ecms.dto.response.AppointmentDashboardResponse;
 import com.ecms.dto.response.AppointmentResponse;
@@ -265,6 +266,51 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .build();
 
         return toResponse(appointmentRepository.save(appointment));
+    }
+
+    @Override
+    @Transactional
+    public AppointmentResponse reassignAppointment(Long id, ReassignAppointmentRequest request) {
+        Appointment appointment = appointmentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Lịch hẹn không tồn tại: " + id));
+
+        if (appointment.getStatus() == AppointmentStatus.COMPLETED
+                || appointment.getStatus() == AppointmentStatus.CANCELLED) {
+            throw new IllegalStateException("Không thể chuyển lịch hẹn đã hoàn thành hoặc đã huỷ");
+        }
+
+        if (request.getDoctorId() != null) {
+            Doctor doctor = doctorRepository.findById(request.getDoctorId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Bác sĩ không tồn tại: " + request.getDoctorId()));
+            appointment.setDoctor(doctor);
+        }
+
+        if (request.getNewAppointmentTime() != null) {
+            appointment.setAppointmentTime(request.getNewAppointmentTime());
+            appointment.setTimeSlot(request.getNewAppointmentTime().toLocalTime().toString());
+        }
+
+        if (request.getReason() != null) {
+            appointment.setNotes(request.getReason());
+        }
+
+        return toResponse(appointmentRepository.save(appointment));
+    }
+
+    @Override
+    public List<AppointmentResponse> getDailySchedule(LocalDate date) {
+        LocalDateTime start = date.atStartOfDay();
+        LocalDateTime end = date.plusDays(1).atStartOfDay();
+        return appointmentRepository.findByAppointmentDateOrderByTimeSlotAsc(start, end)
+                .stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    @Override
+    public List<AppointmentResponse> getScheduleRange(LocalDate startDate, LocalDate endDate) {
+        LocalDateTime start = startDate.atStartOfDay();
+        LocalDateTime end = endDate.plusDays(1).atStartOfDay();
+        return appointmentRepository.findByAppointmentDateOrderByTimeSlotAsc(start, end)
+                .stream().map(this::toResponse).collect(Collectors.toList());
     }
 
     private void validateDoctorCapacity(Long doctorId, LocalDate date) {

@@ -1,6 +1,7 @@
 package com.ecms.controller;
 
 import com.ecms.dto.request.BookAppointmentRequest;
+import com.ecms.dto.request.ReassignAppointmentRequest;
 import com.ecms.dto.request.WalkInAppointmentRequest;
 import com.ecms.dto.response.ApiResponse;
 import com.ecms.dto.response.AppointmentDashboardResponse;
@@ -112,6 +113,32 @@ public class AppointmentController {
                         @Valid @RequestBody WalkInAppointmentRequest request) {
                 return ResponseEntity.ok(
                                 ApiResponse.success(appointmentService.createWalkInAppointment(request)));
+        }
+
+        /** Chuyển lịch hẹn (đổi bác sĩ / giờ) — MANAGER */
+        @PatchMapping("/{id}/reassign")
+        public ResponseEntity<ApiResponse<AppointmentResponse>> reassign(
+                        @PathVariable Long id,
+                        @RequestBody ReassignAppointmentRequest request) {
+                return ResponseEntity.ok(
+                                ApiResponse.success("Chuyển lịch hẹn thành công",
+                                                appointmentService.reassignAppointment(id, request)));
+        }
+
+        /** Lịch hẹn trong ngày theo bác sĩ — public for MANAGER/RECEPTIONIST */
+        @GetMapping("/daily-schedule")
+        public ResponseEntity<ApiResponse<List<AppointmentResponse>>> getDailySchedule(
+                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+                LocalDate targetDate = date != null ? date : LocalDate.now();
+                return ResponseEntity.ok(ApiResponse.success(appointmentService.getDailySchedule(targetDate)));
+        }
+
+        /** Lịch hẹn trong khoảng ngày — dùng cho calendar view tuần/tháng */
+        @GetMapping("/schedule-range")
+        public ResponseEntity<ApiResponse<List<AppointmentResponse>>> getScheduleRange(
+                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+                return ResponseEntity.ok(ApiResponse.success(appointmentService.getScheduleRange(startDate, endDate)));
         }
 
         @Data
