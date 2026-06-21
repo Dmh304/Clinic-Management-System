@@ -1,7 +1,14 @@
+/**
+ * @file BookingPage.jsx
+ * @version 1.0.0
+ * @author ThangNBHE201024
+ * @description Hiển thị và chọn bác sĩ và lịch khám bởi bệnh nhân.
+ */
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import Header from '../../components/layout/Header'
 import { useSelector } from 'react-redux'
+import logoImg from '../../assets/ECMS_Logo.png'
 import { doctorService } from '../../services/doctorService';
 import { appointmentService } from '../../services/appointmentService';
 // ─── Design tokens ───────────────────────────────────────────────
@@ -42,43 +49,40 @@ const S = {
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  footer: {
-    background: '#dde8ff',
-    padding: '20px 40px',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 12,
+  footer: { backgroundColor: '#0f172a', color: '#94a3b8', padding: '40px 0' },
+  footerInner: {
+    maxWidth: 1280, margin: '0 auto', padding: '0 24px',
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16,
   },
-  footerLinks: {
-    display: 'flex',
-    gap: 24,
-  },
-  footerLink: {
-    fontSize: 12,
-    color: '#4b5563',
-    textDecoration: 'none',
-  },
+  footerLogo: { display: 'flex', alignItems: 'center', gap: 8, color: '#fff', fontWeight: 700, fontSize: 16, marginBottom: 6 },
+  footerCopy: { fontSize: 12, color: '#475569' },
+  footerLinks: { display: 'flex', alignItems: 'center', gap: 24 },
+  footerLink: { fontSize: 13, color: '#94a3b8', textDecoration: 'none' },
 }
 const font = "'IBM Plex Sans', 'Segoe UI', sans-serif";
 const Footer = () => (
   <footer style={S.footer}>
-    <div>
-      <p style={{ fontWeight: 700, fontSize: 13, color: '#1f2937', margin: 0 }}>Nhãn Khoa Ánh Sao</p>
-      <p style={{ fontSize: 12, color: '#9ca3af', margin: 0 }}>
-        © 2024 Phòng Khám Nhãn Khoa Ánh Sao. Bảo lưu mọi quyền.
-      </p>
+    <div style={S.footerInner}>
+      <div>
+        <div style={S.footerLogo}>
+          <img src={logoImg} alt="Anh Sao Eye Clinic" style={{ height: 44, width: 'auto' }} />
+          NHÃN KHOA ÁNH SAO
+        </div>
+        <div style={S.footerCopy}>© 2024 Eyes Clinic Management System. All rights reserved.</div>
+        <div style={{ ...S.footerCopy, marginTop: 2 }}>Chuyên nghiệp – Tin cậy – Tận tâm.</div>
+      </div>
+      <nav style={S.footerLinks}>
+        {['Privacy Policy', 'Terms of Service', 'Contact Support', 'Clinic Locations'].map(t => (
+          <Link key={t} to="/" style={S.footerLink}>{t}</Link>
+        ))}
+      </nav>
     </div>
-    <nav style={S.footerLinks}>
-      {['Chính Sách Bảo Mật', 'Điều Khoản Dịch Vụ', 'Liên Hệ Hỗ Trợ', 'Địa Điểm Phòng Khám'].map(t => (
-        <a key={t} href="#" style={S.footerLink}>{t}</a>
-      ))}
-    </nav>
   </footer>
 );
 
-// ─── Progress bar ─────────────────────────────────────────────────
+/**
+ * Thanh quá trình
+ */
 const steps = ["Chọn Bác Sĩ", "Chọn Lịch", "Xác Nhận"];
 const StepBar = ({ current }) => (
   <div style={{
@@ -116,7 +120,11 @@ const StepBar = ({ current }) => (
   </div>
 );
 
-
+/**
+ * Tạo bảng chọn thời gian khám
+ * @param {*} date ngày chọn thời gian khám
+ * @returns 
+ */
 const generateSlots = (date) => {
   const dayOfWeek = date.getDay();
   if (dayOfWeek === 0) return []; // Sunday
@@ -132,7 +140,10 @@ const generateSlots = (date) => {
   }));
 };
 
-// ─── PAGE 1: Select Specialty & Doctor ───────────────────────────
+/**
+ * Trang 1: Chọn bác sĩ khám
+ * @returns 
+ */
 function Page1({ onNext }) {
   const [selectedDoc, setSelectedDoc] = useState(null);
   const [forOther, setForOther] = useState(false);
@@ -237,7 +248,6 @@ function Page1({ onNext }) {
         )}
 
         {/* Doctors */}
-        {/* Doctors */}
         <section style={{ marginBottom: 28 }}>
           <h2 style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 12 }}>
             Chọn Bác Sĩ
@@ -315,7 +325,10 @@ function Page1({ onNext }) {
   );
 }
 
-// ─── PAGE 2: Select Date, Time & Confirm ─────────────────────────
+/**
+ * Trang 2: chọn ngày và giờ khám bệnh
+ * @returns 
+ */
 function Page2({ data, onNext, onBack, submitting, submitError }) {
   const today = new Date();
   const [selectedDate, setSelectedDate] = useState(null);
@@ -323,7 +336,6 @@ function Page2({ data, onNext, onBack, submitting, submitError }) {
   const [calOffset, setCalOffset] = useState(0); // week offset
   const { isAuthenticated, user } = useSelector((s) => s.auth)
 
-  // Build 30-day calendar grid (5 weeks view, offset by week)
   const startDate = new Date(today);
   startDate.setDate(today.getDate() - today.getDay() + 1 + calOffset * 7); // Monday
 
@@ -339,13 +351,12 @@ function Page2({ data, onNext, onBack, submitting, submitError }) {
   const slots = selectedDate ? generateSlots(selectedDate) : [];
   const morningSlots = slots.filter(s => s.session === "morning");
   const afternoonSlots = slots.filter(s => s.session === "afternoon");
-
   // const isToday = (d) => d.toDateString() === today.toDateString();
   // const isPast = (d) => d < today && !isToday(d);
+
   const isToday = (d) => false;
   const isTodayTest = (d) => d.toDateString() === today.toDateString();
   const isPast = (d) => d < today && !isTodayTest(d);
-
 
   const isFuture30 = (d) => d > maxDate;
   const isSunday = (d) => d.getDay() === 0;
@@ -357,7 +368,6 @@ function Page2({ data, onNext, onBack, submitting, submitError }) {
     const slotTime = new Date(today);
     if (!selectedDate || !isToday(selectedDate)) {
       return false;
-
     }
     const [h, m] = slot.time.split(":").map(Number);
     slotTime.setHours(h, m, 0, 0);
@@ -606,7 +616,10 @@ function Page2({ data, onNext, onBack, submitting, submitError }) {
   );
 }
 
-// ─── PAGE 3: Success ──────────────────────────────────────────────
+/**
+ * Trang 3: Hiển thị tạo xét duyệt lịch khám thành công
+ * @returns 
+ */
 function Page3({ data, onReset, bookingResult }) {
   const navigate = useNavigate();
   const fmtDate = (d) =>
@@ -746,7 +759,14 @@ function Page3({ data, onReset, bookingResult }) {
   );
 }
 
-// ─── App shell ────────────────────────────────────────────────────
+/**
+ * Trang đặt lịch khám bệnh.
+ *
+ * Bao gồm:
+ * - Chọn thông tin lịch hẹn
+ * - Xác nhận đặt lịch
+ * - Hiển thị kết quả đặt lịch thành công
+ */
 export default function BookingPage() {
   const [page, setPage] = useState(1);
   const [bookingData, setBookingData] = useState({});

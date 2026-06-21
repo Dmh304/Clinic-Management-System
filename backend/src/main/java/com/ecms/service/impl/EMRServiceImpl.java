@@ -1,3 +1,9 @@
+/**
+ * Tuấn - HE204215
+ * 
+ * Class triển khai chi tiết các nghiệp vụ liên quan đến quản lý Hồ sơ bệnh án điện tử (EMR).
+*/
+
 package com.ecms.service.impl;
 
 import com.ecms.dto.request.EMRRequest;
@@ -19,23 +25,28 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class EMRServiceImpl implements EMRService {
 
+        /* Các repository phụ trách thao tác dữ liệu với cơ sở dữ liệu */
         private final MedicalRecordRepository medicalRecordRepository;
         private final AppointmentRepository appointmentRepository;
         private final DoctorRepository doctorRepository;
 
+        /* Hàm lưu hồ sơ bệnh án */
         @Override
         @Transactional
         public EMRResponse saveEMR(EMRRequest request) {
 
+                // Tìm thông tin lịch hẹn dựa vào ID, ném lỗi nếu không tồn tại
                 Appointment appointment = appointmentRepository.findById(request.getAppointmentId())
                                 .orElseThrow(
                                                 () -> new ResourceNotFoundException("Lịch hẹn không tồn tại: "
                                                                 + request.getAppointmentId()));
 
+                // Tìm thông tin Bác sĩ phụ trách
                 Doctor doctor = doctorRepository.findById(request.getDoctorId())
                                 .orElseThrow(() -> new ResourceNotFoundException(
                                                 "Bác sĩ không tồn tại: " + request.getDoctorId()));
 
+                // Tìm Hồ sơ bệnh án cũ (nếu đã từng lưu nháp) hoặc tạo mới nếu chưa có
                 MedicalRecord record = medicalRecordRepository
                                 .findByAppointmentId(request.getAppointmentId())
                                 .orElse(MedicalRecord.builder()
@@ -44,6 +55,8 @@ public class EMRServiceImpl implements EMRService {
                                                 .doctor(doctor)
                                                 .build());
 
+                // Cập nhật các trường thông tin khám bệnh (Lý do khám, triệu chứng, chẩn
+                // đoán,...)
                 record.setDoctor(doctor);
                 record.setChiefComplaint(request.getChiefComplaint());
                 record.setSymptoms(request.getSymptoms());
@@ -63,18 +76,15 @@ public class EMRServiceImpl implements EMRService {
                 record.setAxisR(request.getAxisR());
                 record.setIopR(request.getIopR());
 
+                // Xử lý trạng thái của Hồ sơ và Lịch hẹn tương ứng
                 if (request.getStatus() != null) {
-                        // record.setStatus(MedicalRecordStatus.valueOf(request.getStatus()));
-
                         MedicalRecordStatus newStatus = MedicalRecordStatus.valueOf(request.getStatus());
                         record.setStatus(newStatus);
 
-                        // if (newStatus == MedicalRecordStatus.COMPLETED) {
-                        // appointment.setStatus(AppointmentStatus.COMPLETED);
-                        // } else if (newStatus == MedicalRecordStatus.IN_PROGRESS) {
-                        // appointment.setStatus(AppointmentStatus.IN_PROGRESS);
-                        // }
-
+                        /*
+                         * Nếu Lịch hẹn chưa được đánh dấu là HOÀN THÀNH (COMPLETED) trước đó,
+                         * tiến hành đồng bộ trạng thái từ Bệnh án sang Lịch hẹn.
+                         */
                         if (appointment.getStatus() != AppointmentStatus.COMPLETED) {
                                 if (newStatus == MedicalRecordStatus.COMPLETED) {
                                         appointment.setStatus(AppointmentStatus.COMPLETED);
@@ -83,12 +93,13 @@ public class EMRServiceImpl implements EMRService {
                                 }
                                 appointmentRepository.save(appointment);
                         }
-                        // appointmentRepository.save(appointment);
                 }
 
+                // Lưu hồ sơ xuống database và trả về DTO
                 return toResponse(medicalRecordRepository.save(record));
         }
 
+        // Hàm lấy hồ sơ bệnh án dựa trên ID lịch hẹn
         @Override
         @Transactional(readOnly = true)
         public EMRResponse getByAppointmentId(Long appointmentId) {
@@ -97,6 +108,7 @@ public class EMRServiceImpl implements EMRService {
                                 .orElse(null);
         }
 
+        // Hàm lấy danh sách lịch sử các lần khám trước đó của một bệnh nhân
         @Override
         @Transactional(readOnly = true)
         public List<EMRResponse> getPatientHistory(Long patientId) {
@@ -106,6 +118,16 @@ public class EMRServiceImpl implements EMRService {
                                 .collect(Collectors.toList());
         }
 
+        @Override
+        @Transactional(readOnly = true)
+        public List<EMRResponse> getCompletedList() {
+                return medicalRecordRepository.findByStatusOrderByCreatedAtDesc(MedicalRecordStatus.COMPLETED)
+                                .stream()
+                                .map(this::toResponse)
+                                .collect(Collectors.toList());
+        }
+
+        // Hàm tiện ích chuyển đổi Entity MedicalRecord sang DTO EMRResponse
         private EMRResponse toResponse(MedicalRecord m) {
                 Appointment appt = m.getAppointment();
                 return EMRResponse.builder()

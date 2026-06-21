@@ -1,6 +1,11 @@
+// Mạnh Hùng - HE200743
+// Trang hồ sơ cá nhân dành cho người dùng đã đăng nhập.
+// Hiển thị avatar, họ tên, email, vai trò và thông tin chi tiết (SĐT, ngày sinh, giới tính, địa chỉ).
+// Người dùng có thể chỉnh sửa thông tin và lưu lại, hoặc truy cập nhanh trang đổi mật khẩu.
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { useSelector } from 'react-redux'
+import { useSelector, useDispatch } from 'react-redux'
+import { updateUser } from '../../store/slices/authSlice'
 import userService from '../../services/userService'
 
 const GENDER_OPTIONS = [
@@ -10,6 +15,7 @@ const GENDER_OPTIONS = [
   { value: 'OTHER', label: 'Khác' },
 ]
 
+// Component hiển thị một trường thông tin có nhãn, dùng trong form hồ sơ
 function Field({ label, children }) {
   return (
     <div style={{ marginBottom: 22 }}>
@@ -21,17 +27,36 @@ function Field({ label, children }) {
   )
 }
 
+// Trả về style cho ô input tùy theo chế độ chỉ đọc hay chỉnh sửa
 const inputStyle = (readOnly) => ({
   width: '100%', padding: '10px 14px', borderRadius: 8, boxSizing: 'border-box',
-  border: `1px solid ${readOnly ? '#f1f5f9' : '#e2e8f0'}`,
+  border: `1px solid ${readOnly ? '#e2e8f0' : '#e2e8f0'}`,
   backgroundColor: readOnly ? '#f8fafc' : '#fff',
-  fontSize: 14, color: readOnly ? '#64748b' : '#374151',
+  fontSize: 14, fontWeight: readOnly ? 500 : 400, color: readOnly ? '#1e293b' : '#374151',
   outline: 'none', transition: 'border-color 0.15s',
   cursor: readOnly ? 'default' : 'text',
 })
 
+// Hiển thị giá trị dạng văn bản (dùng khi không ở chế độ chỉnh sửa) thay vì ô input
+// để thông tin luôn hiện rõ ràng, dễ đọc thay vì trông như ô trống
+function ReadOnlyValue({ value, placeholder }) {
+  const hasValue = value !== null && value !== undefined && value !== ''
+  return (
+    <div style={{
+      width: '100%', padding: '10px 14px', borderRadius: 8, boxSizing: 'border-box',
+      border: '1px solid #e2e8f0', backgroundColor: '#f8fafc',
+      fontSize: 14, fontWeight: hasValue ? 500 : 400,
+      color: hasValue ? '#1e293b' : '#94a3b8',
+      minHeight: 38, display: 'flex', alignItems: 'center',
+    }}>
+      {hasValue ? value : (placeholder || 'Chưa cập nhật')}
+    </div>
+  )
+}
+
 export default function ProfilePage() {
   const navigate = useNavigate()
+  const dispatch = useDispatch()
   const { user } = useSelector(s => s.auth)
 
   const [profile, setProfile] = useState(null)
@@ -42,6 +67,7 @@ export default function ProfilePage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
+  // Tải thông tin hồ sơ từ server khi component được mount lần đầu
   useEffect(() => {
     userService.getProfile()
       .then(data => {
@@ -58,12 +84,14 @@ export default function ProfilePage() {
       .finally(() => setLoading(false))
   }, [])
 
+  // Cập nhật giá trị form khi người dùng thay đổi nội dung ô nhập liệu
   const handleChange = (e) => {
     setForm(f => ({ ...f, [e.target.name]: e.target.value }))
     setError('')
     setSuccess('')
   }
 
+  // Lưu thay đổi hồ sơ: gọi API cập nhật, cập nhật state local và thoát chế độ chỉnh sửa
   const handleSave = async (e) => {
     e.preventDefault()
     setSaving(true)
@@ -77,6 +105,9 @@ export default function ProfilePage() {
         address: form.address || undefined,
       })
       setProfile(updated)
+      // Đồng bộ lại tên/SĐT trong Redux + localStorage để Header và các nơi khác
+      // hiển thị đúng dữ liệu mới mà không cần đăng nhập lại
+      dispatch(updateUser({ fullName: updated.fullName, phone: updated.phone }))
       setSuccess('Cập nhật hồ sơ thành công!')
       setEditing(false)
     } catch (err) {
@@ -86,6 +117,7 @@ export default function ProfilePage() {
     }
   }
 
+  // Hủy chỉnh sửa: khôi phục form về giá trị hồ sơ hiện tại và thoát chế độ chỉnh sửa
   const handleCancel = () => {
     setForm({
       fullName: profile?.fullName || '',
@@ -135,9 +167,9 @@ export default function ProfilePage() {
               </div>
               <div>
                 <h2 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: '0 0 4px' }}>
-                  {profile?.fullName}
+                  {profile?.fullName || user?.fullName}
                 </h2>
-                <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>{profile?.email}</p>
+                <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>{profile?.email || user?.email}</p>
                 <span style={{
                   display: 'inline-block', marginTop: 6, fontSize: 11, fontWeight: 700,
                   backgroundColor: '#dbeafe', color: '#1d4ed8',
@@ -189,41 +221,49 @@ export default function ProfilePage() {
               <form onSubmit={handleSave}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 24px' }}>
                   <Field label="Họ và tên">
-                    <input
-                      name="fullName" value={form.fullName} onChange={handleChange}
-                      readOnly={!editing} required
-                      style={inputStyle(!editing)}
-                      onFocus={e => { if (editing) e.target.style.borderColor = '#1d4ed8' }}
-                      onBlur={e => e.target.style.borderColor = editing ? '#e2e8f0' : '#f1f5f9'}
-                    />
+                    {editing ? (
+                      <input
+                        name="fullName" value={form.fullName} onChange={handleChange}
+                        required
+                        style={inputStyle(false)}
+                        onFocus={e => { e.target.style.borderColor = '#1d4ed8' }}
+                        onBlur={e => { e.target.style.borderColor = '#e2e8f0' }}
+                      />
+                    ) : (
+                      <ReadOnlyValue value={profile?.fullName} />
+                    )}
                   </Field>
 
                   <Field label="Email">
-                    <input
-                      value={profile?.email || ''} readOnly
-                      style={inputStyle(true)}
-                    />
+                    <ReadOnlyValue value={profile?.email} />
                   </Field>
 
                   <Field label="Số điện thoại">
-                    <input
-                      name="phone" value={form.phone} onChange={handleChange}
-                      readOnly={!editing} placeholder="Chưa cập nhật"
-                      style={inputStyle(!editing)}
-                      onFocus={e => { if (editing) e.target.style.borderColor = '#1d4ed8' }}
-                      onBlur={e => e.target.style.borderColor = editing ? '#e2e8f0' : '#f1f5f9'}
-                    />
+                    {editing ? (
+                      <input
+                        name="phone" value={form.phone} onChange={handleChange}
+                        placeholder="Chưa cập nhật"
+                        style={inputStyle(false)}
+                        onFocus={e => { e.target.style.borderColor = '#1d4ed8' }}
+                        onBlur={e => { e.target.style.borderColor = '#e2e8f0' }}
+                      />
+                    ) : (
+                      <ReadOnlyValue value={profile?.phone} />
+                    )}
                   </Field>
 
                   {isPatient && (
                     <Field label="Ngày sinh">
-                      <input
-                        type="date" name="dateOfBirth" value={form.dateOfBirth} onChange={handleChange}
-                        readOnly={!editing}
-                        style={inputStyle(!editing)}
-                        onFocus={e => { if (editing) e.target.style.borderColor = '#1d4ed8' }}
-                        onBlur={e => e.target.style.borderColor = editing ? '#e2e8f0' : '#f1f5f9'}
-                      />
+                      {editing ? (
+                        <input
+                          type="date" name="dateOfBirth" value={form.dateOfBirth} onChange={handleChange}
+                          style={inputStyle(false)}
+                          onFocus={e => { e.target.style.borderColor = '#1d4ed8' }}
+                          onBlur={e => { e.target.style.borderColor = '#e2e8f0' }}
+                        />
+                      ) : (
+                        <ReadOnlyValue value={profile?.dateOfBirth} />
+                      )}
                     </Field>
                   )}
 
@@ -235,10 +275,7 @@ export default function ProfilePage() {
                           {GENDER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                         </select>
                       ) : (
-                        <input
-                          value={GENDER_OPTIONS.find(o => o.value === form.gender)?.label || 'Chưa cập nhật'}
-                          readOnly style={inputStyle(true)}
-                        />
+                        <ReadOnlyValue value={GENDER_OPTIONS.find(o => o.value === profile?.gender)?.label} />
                       )}
                     </Field>
                   )}
@@ -246,13 +283,17 @@ export default function ProfilePage() {
 
                 {isPatient && (
                   <Field label="Địa chỉ">
-                    <input
-                      name="address" value={form.address} onChange={handleChange}
-                      readOnly={!editing} placeholder="Chưa cập nhật"
-                      style={inputStyle(!editing)}
-                      onFocus={e => { if (editing) e.target.style.borderColor = '#1d4ed8' }}
-                      onBlur={e => e.target.style.borderColor = editing ? '#e2e8f0' : '#f1f5f9'}
-                    />
+                    {editing ? (
+                      <input
+                        name="address" value={form.address} onChange={handleChange}
+                        placeholder="Chưa cập nhật"
+                        style={inputStyle(false)}
+                        onFocus={e => { e.target.style.borderColor = '#1d4ed8' }}
+                        onBlur={e => { e.target.style.borderColor = '#e2e8f0' }}
+                      />
+                    ) : (
+                      <ReadOnlyValue value={profile?.address} />
+                    )}
                   </Field>
                 )}
 

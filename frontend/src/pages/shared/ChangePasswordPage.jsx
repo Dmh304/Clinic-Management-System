@@ -1,7 +1,12 @@
+// Mạnh Hùng - HE200743
+// Trang đổi mật khẩu dành cho người dùng đã đăng nhập.
+// Người dùng nhập mật khẩu hiện tại, mật khẩu mới và xác nhận.
+// Có thanh hiển thị độ mạnh mật khẩu và icon ẩn/hiện mật khẩu.
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import authService from '../../services/authService'
 
+// Hiển thị icon con mắt (mở hoặc đóng) để toggle ẩn/hiện mật khẩu trong ô nhập liệu
 function EyeIcon({ visible }) {
   return visible ? (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -17,6 +22,7 @@ function EyeIcon({ visible }) {
   )
 }
 
+// Tính độ mạnh của mật khẩu dựa trên độ dài, chữ hoa, số và ký tự đặc biệt; trả về nhãn và màu hiển thị
 function getStrength(password) {
   if (!password) return { label: 'Empty', color: '#94a3b8', width: 0 }
   let score = 0
@@ -40,12 +46,14 @@ export default function ChangePasswordPage() {
 
   const strength = getStrength(form.newPassword)
 
+  // Cập nhật giá trị form khi người dùng nhập liệu, đồng thời xóa thông báo lỗi/thành công cũ
   const handleChange = (e) => {
     setForm(f => ({ ...f, [e.target.name]: e.target.value }))
     setError('')
     setSuccess('')
   }
 
+  // Xử lý submit form: kiểm tra mật khẩu mới khớp nhau, gọi API đổi mật khẩu và hiển thị kết quả
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (form.newPassword !== form.confirmPassword) {

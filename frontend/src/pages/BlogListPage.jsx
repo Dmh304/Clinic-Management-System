@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import blogService from '../services/blogService'
+import logoImg from '../assets/ECMS_Logo.png'
 
-const CATEGORIES = ['Tất cả', 'Sức khỏe Mắt', 'Tin tức Phòng khám', 'Công nghệ Điều trị']
 const PAGE_SIZE = 4 // 1 featured + 3 grid
 
 const s = {
@@ -14,10 +14,7 @@ const s = {
   subtitle: { color: '#64748b', fontSize: 15, lineHeight: 1.65, marginBottom: 32, maxWidth: 520 },
 
   /* filter row */
-  filterRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 12 },
-  tabs: { display: 'flex', gap: 8, flexWrap: 'wrap' },
-  tab: { padding: '7px 18px', borderRadius: 999, fontSize: 13, fontWeight: 500, cursor: 'pointer', border: '1px solid #e2e8f0', backgroundColor: '#fff', color: '#64748b', transition: 'all 0.15s' },
-  tabActive: { backgroundColor: '#1d4ed8', color: '#fff', border: '1px solid #1d4ed8' },
+  filterRow: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 28, flexWrap: 'wrap', gap: 12 },
   count: { fontSize: 13, color: '#94a3b8' },
 
   /* featured card */
@@ -45,11 +42,12 @@ const s = {
   cardImgPlaceholder: { width: '100%', height: '100%', backgroundColor: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40, color: '#94a3b8' },
   cardBody: { padding: '16px 18px 20px', flex: 1, display: 'flex', flexDirection: 'column' },
   cardMeta: { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 },
-  cardCategory: { display: 'inline-block', backgroundColor: '#dbeafe', color: '#1d4ed8', fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 999 },
   cardDate: { fontSize: 12, color: '#94a3b8' },
   cardTitle: { fontSize: 15, fontWeight: 700, color: '#111827', margin: '0 0 8px', lineHeight: 1.4 },
-  cardSummary: { color: '#64748b', fontSize: 13, lineHeight: 1.65, flex: 1, marginBottom: 14,
-    display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' },
+  cardSummary: {
+    color: '#64748b', fontSize: 13, lineHeight: 1.65, flex: 1, marginBottom: 14,
+    display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+  },
 
   /* pagination */
   paginationWrap: { display: 'flex', justifyContent: 'center', gap: 6 },
@@ -63,10 +61,11 @@ const s = {
   error: { textAlign: 'center', padding: '60px 24px', color: '#ef4444', fontSize: 14 },
 
   /* footer */
-  footer: { backgroundColor: '#0f172a', color: '#94a3b8', padding: '36px 0' },
-  footerInner: { maxWidth: 1100, margin: '0 auto', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 },
-  footerCopy: { fontSize: 13 },
-  footerLinks: { display: 'flex', gap: 24 },
+  footer: { backgroundColor: '#0f172a', color: '#94a3b8', padding: '40px 0' },
+  footerInner: { maxWidth: 1280, margin: '0 auto', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 },
+  footerLogo: { display: 'flex', alignItems: 'center', gap: 8, color: '#fff', fontWeight: 700, fontSize: 16, marginBottom: 6 },
+  footerCopy: { fontSize: 12, color: '#475569' },
+  footerLinks: { display: 'flex', alignItems: 'center', gap: 24 },
   footerLink: { fontSize: 13, color: '#94a3b8', textDecoration: 'none' },
 }
 
@@ -79,18 +78,17 @@ function BlogCard({ blog }) {
   return (
     <div style={s.card}>
       <div style={s.cardImgWrap}>
-        {blog.imageUrl
-          ? <img src={blog.imageUrl} alt={blog.title} style={s.cardImg} />
+        {blog.thumbnailUrl
+          ? <img src={blog.thumbnailUrl} alt={blog.title} style={s.cardImg} />
           : <div style={s.cardImgPlaceholder}>👁️</div>
         }
       </div>
       <div style={s.cardBody}>
         <div style={s.cardMeta}>
-          {blog.category && <span style={s.cardCategory}>{blog.category}</span>}
           <span style={s.cardDate}>{formatDate(blog.publishedAt)}</span>
         </div>
         <h3 style={s.cardTitle}>{blog.title}</h3>
-        <p style={s.cardSummary}>{blog.summary || blog.content}</p>
+        <p style={s.cardSummary}>{blog.content}</p>
         <Link to={`/blogs/${blog.id}`} style={s.readMoreLink}>Đọc tiếp →</Link>
       </div>
     </div>
@@ -101,7 +99,6 @@ export default function BlogListPage() {
   const [blogs, setBlogs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [activeCategory, setActiveCategory] = useState('Tất cả')
   const [page, setPage] = useState(1)
 
   useEffect(() => {
@@ -111,20 +108,11 @@ export default function BlogListPage() {
       .finally(() => setLoading(false))
   }, [])
 
-  const filtered = activeCategory === 'Tất cả'
-    ? blogs
-    : blogs.filter(b => b.category === activeCategory)
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil(blogs.length / PAGE_SIZE))
   const safePage = Math.min(page, totalPages)
-  const pageItems = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
+  const pageItems = blogs.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
   const featured = pageItems[0] || null
   const gridItems = pageItems.slice(1)
-
-  function handleCategory(cat) {
-    setActiveCategory(cat)
-    setPage(1)
-  }
 
   return (
     <div style={s.page}>
@@ -136,26 +124,15 @@ export default function BlogListPage() {
         </p>
 
         <div style={s.filterRow}>
-          <div style={s.tabs}>
-            {CATEGORIES.map(cat => (
-              <button
-                key={cat}
-                style={cat === activeCategory ? { ...s.tab, ...s.tabActive } : s.tab}
-                onClick={() => handleCategory(cat)}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
           {!loading && !error && (
-            <span style={s.count}>Hiển thị <strong>{filtered.length}</strong> bài viết</span>
+            <span style={s.count}>Hiển thị <strong>{blogs.length}</strong> bài viết</span>
           )}
         </div>
 
         {loading && <div style={s.loading}>Đang tải bài viết...</div>}
         {error && <div style={s.error}>{error}</div>}
 
-        {!loading && !error && filtered.length === 0 && (
+        {!loading && !error && blogs.length === 0 && (
           <div style={s.empty}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>📰</div>
             <div style={{ fontSize: 16, fontWeight: 600, color: '#64748b', marginBottom: 6 }}>Chưa có bài viết nào</div>
@@ -168,8 +145,8 @@ export default function BlogListPage() {
             {/* Featured article */}
             <div style={s.featured}>
               <div style={s.featuredImgWrap}>
-                {featured.imageUrl
-                  ? <img src={featured.imageUrl} alt={featured.title} style={s.featuredImg} />
+                {featured.thumbnailUrl
+                  ? <img src={featured.thumbnailUrl} alt={featured.title} style={s.featuredImg} />
                   : <div style={s.featuredImgPlaceholder}>👁️</div>
                 }
                 <span style={s.featuredBadge}>NỔI BẬT</span>
@@ -180,7 +157,7 @@ export default function BlogListPage() {
                   <span>{formatDate(featured.publishedAt)}</span>
                 </div>
                 <h2 style={s.featuredTitle}>{featured.title}</h2>
-                <p style={{ ...s.featuredSummary }}>{featured.summary || featured.content}</p>
+                <p style={{ ...s.featuredSummary }}>{featured.content}</p>
                 <Link to={`/blogs/${featured.id}`} style={s.readMoreLink}>Đọc tiếp →</Link>
               </div>
             </div>
@@ -232,9 +209,16 @@ export default function BlogListPage() {
       {/* Footer */}
       <footer style={s.footer}>
         <div style={s.footerInner}>
-          <div style={s.footerCopy}>© 2024 Eyes Clinic Management System. All rights reserved.</div>
+          <div>
+            <div style={s.footerLogo}>
+              <img src={logoImg} alt="NHÃN KHOA ÁNH SAO" style={{ height: 44, width: 'auto' }} />
+              NHÃN KHOA ÁNH SAO
+            </div>
+            <div style={s.footerCopy}>© 2024 Eyes Clinic Management System. All rights reserved.</div>
+            <div style={{ ...s.footerCopy, marginTop: 2 }}>Chuyên nghiệp – Tin cậy – Tận tâm.</div>
+          </div>
           <div style={s.footerLinks}>
-            {['Privacy Policy', 'Terms of Service', 'Contact Us', 'Accessibility'].map(l => (
+            {['Privacy Policy', 'Terms of Service', 'Contact Support', 'Clinic Locations'].map(l => (
               <Link key={l} to="/" style={s.footerLink}>{l}</Link>
             ))}
           </div>

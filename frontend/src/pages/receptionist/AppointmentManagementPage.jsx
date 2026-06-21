@@ -1,3 +1,9 @@
+/**
+ * Page: AppointmentManagementPage
+ * Chức năng: Quản lý danh sách lịch khám trong ngày của phòng khám dành cho Lễ tân.
+ * Cho phép thực hiện các thao tác xác nhận lịch hẹn, chỉ định bác sĩ, check-in tiếp nhận bệnh nhân và hủy lịch khám.
+ * DucTKHHE204463
+ */
 // Le Thi Bich Ngan - HE204710
 // Trang quản lý lịch hẹn hôm nay dành cho lễ tân (Reception Dashboard).
 // Hiển thị thống kê lịch hẹn theo từng trạng thái và bảng danh sách lịch hẹn trong ngày.
@@ -65,13 +71,19 @@ export default function AppointmentManagementPage() {
   const filtered =
     filterStatus === 'ALL' ? list : list.filter((a) => a.status === filterStatus)
 
-  // Mở modal xác nhận lịch hẹn, giữ lại bác sĩ đã phân công trước đó (nếu có)
+  /**
+   * Mở modal xác nhận lịch hẹn và chuẩn bị thông tin bác sĩ được phân công.
+   * DucTKH
+   */
   const handleOpenConfirm = (appointment) => {
     setSelectedDoctorId(appointment.doctorId ?? null)
     setConfirmModal({ open: true, appointment })
   }
 
-  // Gửi request xác nhận lịch hẹn kèm bác sĩ được chọn, cập nhật lại thống kê sau khi thành công
+  /**
+   * Gửi yêu cầu xác nhận lịch hẹn lên hệ thống và chọn bác sĩ phụ trách.
+   * DucTKH
+   */
   const handleConfirm = async () => {
     setConfirmLoading(true)
     try {
@@ -89,7 +101,11 @@ export default function AppointmentManagementPage() {
     }
   }
 
-  // Check-in bệnh nhân đã xác nhận: chuyển sang WAITING và cấp số thứ tự hàng đợi
+  /**
+   * Thực hiện Check-in khi bệnh nhân đến phòng khám.
+   * Chuyển trạng thái lịch khám sang WAITING.
+   * DucTKH
+   */
   const handleCheckIn = (id) => {
     dispatch(checkInAppointment(id))
       .unwrap()
@@ -110,6 +126,18 @@ export default function AppointmentManagementPage() {
       })
       .catch((err) => message.error(err))
   }
+
+  //cf hủy lịch
+  const showCancelConfirm = (record) => {
+  Modal.confirm({
+    title: 'Xác nhận hủy lịch hẹn',
+    content: `Bạn có chắc muốn hủy lịch hẹn của ${record.patientName || 'bệnh nhân này'} không?`,
+    okText: 'Hủy lịch',
+    cancelText: 'Không',
+    okType: 'danger',
+    onOk: () => handleCancel(record.id),
+  })
+}
 
   // Định nghĩa các cột của bảng lịch hẹn: thông tin bệnh nhân, giờ khám, STT hàng đợi,
   // bác sĩ, dịch vụ, trạng thái và các nút hành động tương ứng từng trạng thái
@@ -186,7 +214,7 @@ export default function AppointmentManagementPage() {
                 size="small"
                 danger
                 icon={<CloseCircleOutlined />}
-                onClick={() => handleCancel(record.id)}
+                onClick={() => showCancelConfirm(record)}
               >
                 Hủy
               </Button>
@@ -206,7 +234,7 @@ export default function AppointmentManagementPage() {
                 size="small"
                 danger
                 icon={<CloseCircleOutlined />}
-                onClick={() => handleCancel(record.id)}
+                onClick={() => showCancelConfirm(record)}
               >
                 Hủy
               </Button>

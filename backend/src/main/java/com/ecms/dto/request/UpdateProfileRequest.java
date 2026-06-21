@@ -1,3 +1,6 @@
+// Mạnh Hùng - HE200743
+// DTO nhận dữ liệu cập nhật hồ sơ cá nhân từ client.
+// Tất cả các trường đều là tùy chọn (không bắt buộc); số điện thoại được validate định dạng Việt Nam.
 package com.ecms.dto.request;
 
 import jakarta.validation.constraints.Pattern;

@@ -1,3 +1,5 @@
+// Mạnh Hùng - HE200743
+// DTO trả về thông tin một dịch vụ khám chữa bệnh: ID, tên dịch vụ, mô tả, giá và thời lượng (phút).
 package com.ecms.dto.response;
 
 import lombok.*;

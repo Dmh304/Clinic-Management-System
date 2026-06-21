@@ -1,3 +1,8 @@
+// Mạnh Hùng - HE200743
+// Định nghĩa toàn bộ cấu trúc định tuyến (routing) của ứng dụng.
+// Phân chia route theo nhóm: công khai (trang chủ, blog), xác thực (login, register),
+// và các route bảo vệ theo vai trò (PATIENT, DOCTOR, RECEPTIONIST, LAB_TECHNICIAN,
+// PHARMACIST, MANAGER, ADMIN). Route không tồn tại sẽ redirect về trang chủ.
 import { Routes, Route, Navigate } from 'react-router-dom'
 
 import ProtectedRoute from './ProtectedRoute'
@@ -65,6 +70,7 @@ import UserManagementPage from '../pages/admin/UserManagementPage'
 import SystemConfigPage from '../pages/admin/SystemConfigPage'
 import AuditLogPage from '../pages/admin/AuditLogPage'
 
+// Bọc nội dung trang với Header để các trang công khai hiển thị thanh điều hướng
 function WithHeader({ children }) {
   return (
     <>
@@ -74,6 +80,7 @@ function WithHeader({ children }) {
   )
 }
 
+// Hiển thị trang lỗi 403 khi người dùng không có quyền truy cập vào trang đó
 function UnauthorizedPage() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' }}>

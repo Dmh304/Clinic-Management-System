@@ -1,3 +1,7 @@
+// Mạnh Hùng - HE200743
+// Trang đăng ký tài khoản bệnh nhân mới. Người dùng nhập họ tên, email, số điện thoại,
+// mật khẩu và xác nhận mật khẩu. Sau khi đăng ký thành công, tự động đăng nhập
+// và điều hướng về trang chủ.
 import { useState } from 'react'
 import { Form, Input, Button, Divider, message } from 'antd'
 import {
@@ -48,6 +52,7 @@ const S = {
   },
 }
 
+// Hiển thị một dòng lợi ích với dấu tick màu xanh, dùng trong phần giới thiệu bên trái trang đăng ký
 function BenefitItem({ text }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: '#374151' }}>
@@ -64,6 +69,7 @@ export default function RegisterPage() {
   const [errorMsg, setErrorMsg] = useState('')
   const [form] = Form.useForm()
 
+  // Xử lý submit form đăng ký: gọi API tạo tài khoản, tự động đăng nhập và điều hướng về trang chủ
   const onFinish = async (values) => {
     setLoading(true)
     setErrorMsg('')
@@ -132,7 +138,10 @@ export default function RegisterPage() {
               <Form.Item
                 name="fullName"
                 label={<span style={S.label}>Họ và Tên</span>}
-                rules={[{ required: true, message: 'Vui lòng nhập họ tên' }]}
+                rules={[
+                  { required: true, message: 'Vui lòng nhập họ tên' },
+                  { pattern: /^[^\d]+$/, message: 'Họ tên không được chứa chữ số' },
+                ]}
                 style={{ marginBottom: 14 }}
               >
                 <Input
@@ -148,6 +157,7 @@ export default function RegisterPage() {
                 rules={[
                   { required: true, message: 'Vui lòng nhập email' },
                   { type: 'email', message: 'Email không hợp lệ' },
+                  { pattern: /^[^\d]/, message: 'Email không được bắt đầu bằng chữ số' },
                 ]}
                 style={{ marginBottom: 14 }}
               >
