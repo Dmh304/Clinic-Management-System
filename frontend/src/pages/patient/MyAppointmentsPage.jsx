@@ -71,7 +71,7 @@ export default function MyAppointmentsPage() {
                     </div>
                     {a.notes && <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Ghi chú: {a.notes}</div>}
                   </div>
-                  {(a.status === 'PENDING' || a.status === 'CONFIRMED') && (
+                  {(a.status === 'PENDING' || a.status === 'CONFIRMED' || a.status === 'WAITING') && (
                     <button onClick={() => handleCancel(a.id)} disabled={cancelling === a.id}
                       style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '7px 14px', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
                       {cancelling === a.id ? '...' : 'Huỷ'}
