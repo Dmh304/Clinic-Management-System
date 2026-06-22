@@ -62,19 +62,19 @@ CREATE UNIQUE INDEX UX_users_google_id ON users(google_id) WHERE google_id IS NO
 GO
 
 -- ============================================================
--- 3. user_roles
+-- 3. service_registrations
+-- (Thay cho bảng user_roles đã loại bỏ — phân quyền của mỗi user
+--  dùng MỘT role/user qua cột users.role_id ở mục 2, không dùng
+--  mô hình N-N. Không có entity/repository nào trong backend tham
+--  chiếu tới user_roles; giữ cả hai sẽ tạo ra hai nguồn sự thật
+--  mâu thuẫn nhau về quyền của user.)
+--
+-- service_registrations cần FK tới services và patients, nên CREATE
+-- TABLE thật được đặt ở dưới — ngay sau mục 11 "services" (xem mục
+-- "3 (tiếp)" trước mục 12 "appointments") để giữ đúng thứ tự FK
+-- dependency của toàn script. Mục số vẫn giữ là 3 để dễ theo dõi,
+-- không đánh số lại các mục phía sau.
 -- ============================================================
-CREATE TABLE user_roles (
-    user_id     BIGINT      NOT NULL,
-    role_id     BIGINT      NOT NULL,
-    assigned_at DATETIME2   NOT NULL DEFAULT GETDATE(),
-    assigned_by BIGINT      NULL,
-    CONSTRAINT PK_user_roles PRIMARY KEY (user_id, role_id),
-    CONSTRAINT FK_user_roles_user FOREIGN KEY (user_id) REFERENCES users(id),
-    CONSTRAINT FK_user_roles_role FOREIGN KEY (role_id) REFERENCES roles(id),
-    CONSTRAINT FK_user_roles_assigned_by FOREIGN KEY (assigned_by) REFERENCES users(id)
-);
-GO
 
 -- ============================================================
 -- 4. refresh_tokens
@@ -268,6 +268,32 @@ CREATE UNIQUE INDEX UQ_services_slug ON services(slug) WHERE slug IS NOT NULL;
 GO
 
 -- ============================================================
+-- 3 (tiếp) — service_registrations
+-- Đặt ở đây (sau patients + services) để đúng thứ tự FK dependency;
+-- xem ghi chú ở mục 3 phía trên.
+--
+-- service_registrations: bệnh nhân đăng ký 1 dịch vụ chăm sóc mắt
+-- (UC-46 Register for Eye Care Services) — khác với
+-- patient_service_subscriptions (mua nguyên gói nhiều buổi).
+-- ============================================================
+CREATE TABLE service_registrations (
+    id                BIGINT          NOT NULL IDENTITY(1,1),
+    service_id        BIGINT          NOT NULL,
+    patient_id        BIGINT          NOT NULL,
+    registered_by     BIGINT          NOT NULL,
+    registration_date DATE            NULL,
+    status            NVARCHAR(20)    NOT NULL DEFAULT 'PENDING',
+    notes             NVARCHAR(500)   NULL,
+    created_at        DATETIME2       NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT PK_service_registrations PRIMARY KEY (id),
+    CONSTRAINT FK_service_registrations_service FOREIGN KEY (service_id) REFERENCES services(id),
+    CONSTRAINT FK_service_registrations_patient FOREIGN KEY (patient_id) REFERENCES patients(id),
+    CONSTRAINT FK_service_registrations_registered_by FOREIGN KEY (registered_by) REFERENCES users(id),
+    CONSTRAINT CK_service_registrations_status CHECK (status IN ('PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'))
+);
+GO
+
+-- ============================================================
 -- 12. appointments
 -- ============================================================
 CREATE TABLE appointments (
@@ -326,6 +352,7 @@ CREATE TABLE medical_records (
     cyl_r            DECIMAL(5,2)    NULL,
     axis_r           SMALLINT        NULL,
     iop_r            DECIMAL(4,1)    NULL,
+    image_url        NVARCHAR(500)   NULL,
     total_amount     DECIMAL(10,2)   NULL,
     locked_at        DATETIME2       NULL,
     locked_by        BIGINT          NULL,
@@ -447,6 +474,8 @@ CREATE TABLE lab_orders (
     notes             NVARCHAR(MAX)   NULL,
     priority          NVARCHAR(20)    NOT NULL DEFAULT 'NORMAL',
     completed_at      DATETIME2       NULL,
+    rejection_reason  NVARCHAR(MAX)   NULL,
+    rejected_at       DATETIME2       NULL,
     status            NVARCHAR(20)    NOT NULL DEFAULT 'PENDING',
     created_at        DATETIME2       NOT NULL DEFAULT GETDATE(),
     updated_at        DATETIME2       NULL,
@@ -455,7 +484,7 @@ CREATE TABLE lab_orders (
     CONSTRAINT FK_lab_orders_ordered_by FOREIGN KEY (ordered_by) REFERENCES users(id),
     CONSTRAINT FK_lab_orders_assigned_to FOREIGN KEY (assigned_to) REFERENCES users(id),
     CONSTRAINT CK_lab_orders_priority CHECK (priority IN ('NORMAL', 'URGENT')),
-    CONSTRAINT CK_lab_orders_status CHECK (status IN ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'))
+    CONSTRAINT CK_lab_orders_status CHECK (status IN ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'REJECTED'))
 );
 GO
 
@@ -479,23 +508,41 @@ GO
 -- ============================================================
 -- 20. lab_results
 -- ============================================================
+-- result_data: vẫn giữ làm cột dữ liệu mở (JSON tự do) cho các xét nghiệm
+-- không theo khuôn mắt trái/phải (xét nghiệm máu, OCT, Topo...). Các cột
+-- va_*/bcva_*/sph_*/cyl_*/axis_*/iop_* dùng cho nhóm xét nghiệm khúc xạ/
+-- thị lực/nhãn áp — cùng cấu trúc với medical_records để Doctor đối chiếu
+-- dễ dàng giữa kết quả khám và kết quả lab.
+-- status: đã bỏ — trạng thái "đã review hay chưa" suy ra từ reviewed_at
+-- (NULL = chưa review). lab_order_items.status mới là nơi theo dõi vòng
+-- đời PENDING/IN_PROGRESS/COMPLETED của từng xét nghiệm trong đơn.
 CREATE TABLE lab_results (
     id           BIGINT          NOT NULL IDENTITY(1,1),
     lab_order_id BIGINT          NOT NULL,
     result_data  NVARCHAR(MAX)   NULL,
+    va_l         DECIMAL(4,2)    NULL,
+    va_r         DECIMAL(4,2)    NULL,
+    bcva_l       DECIMAL(4,2)    NULL,
+    bcva_r       DECIMAL(4,2)    NULL,
+    sph_l        DECIMAL(5,2)    NULL,
+    cyl_l        DECIMAL(5,2)    NULL,
+    axis_l       SMALLINT        NULL,
+    iop_l        DECIMAL(4,1)    NULL,
+    sph_r        DECIMAL(5,2)    NULL,
+    cyl_r        DECIMAL(5,2)    NULL,
+    axis_r       SMALLINT        NULL,
+    iop_r        DECIMAL(4,1)    NULL,
     image_url    NVARCHAR(500)   NULL,
     doctor_notes NVARCHAR(MAX)   NULL,
     uploaded_by  BIGINT          NOT NULL,
     reviewed_by  BIGINT          NULL,
     reviewed_at  DATETIME2       NULL,
-    status       NVARCHAR(20)    NOT NULL DEFAULT 'PENDING',
     created_at   DATETIME2       NOT NULL DEFAULT GETDATE(),
     updated_at   DATETIME2       NULL,
     CONSTRAINT PK_lab_results PRIMARY KEY (id),
     CONSTRAINT FK_lab_results_lab_order FOREIGN KEY (lab_order_id) REFERENCES lab_orders(id),
     CONSTRAINT FK_lab_results_uploaded_by FOREIGN KEY (uploaded_by) REFERENCES users(id),
-    CONSTRAINT FK_lab_results_reviewed_by FOREIGN KEY (reviewed_by) REFERENCES users(id),
-    CONSTRAINT CK_lab_results_status CHECK (status IN ('PENDING', 'COMPLETED', 'REVIEWED'))
+    CONSTRAINT FK_lab_results_reviewed_by FOREIGN KEY (reviewed_by) REFERENCES users(id)
 );
 GO
 
@@ -766,6 +813,31 @@ CREATE TABLE care_sessions (
 GO
 
 -- ============================================================
+-- 33. lab_technicians — hồ sơ riêng cho Kỹ thuật viên xét nghiệm
+-- (giống doctors); trước đây chỉ là 1 user gắn role LAB_TECHNICIAN
+-- + 1 dòng staffs chung, không có license/chuyên môn thiết bị riêng.
+-- ============================================================
+CREATE TABLE lab_technicians (
+    id              BIGINT          NOT NULL IDENTITY(1,1),
+    user_id         BIGINT          NOT NULL,
+    lab_tech_code   NVARCHAR(20)    NOT NULL,
+    full_name       NVARCHAR(255)   NOT NULL,
+    license_number  NVARCHAR(100)   NULL,
+    specialization  NVARCHAR(255)   NULL,
+    phone_number    NVARCHAR(15)    NULL,
+    email           NVARCHAR(255)   NULL,
+    status          NVARCHAR(20)    NOT NULL DEFAULT 'ACTIVE',
+    created_at      DATETIME2       NOT NULL DEFAULT GETDATE(),
+    updated_at      DATETIME2       NULL,
+    CONSTRAINT PK_lab_technicians PRIMARY KEY (id),
+    CONSTRAINT UQ_lab_technicians_user_id UNIQUE (user_id),
+    CONSTRAINT UQ_lab_technicians_lab_tech_code UNIQUE (lab_tech_code),
+    CONSTRAINT FK_lab_technicians_user FOREIGN KEY (user_id) REFERENCES users(id),
+    CONSTRAINT CK_lab_technicians_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
+);
+GO
+
+-- ============================================================
 -- Add FK từ lab_order_items → lab_results
 -- (tạo sau vì lab_results phụ thuộc lab_orders, lab_order_items cũng vậy)
 -- ============================================================
@@ -801,5 +873,5 @@ INSERT INTO system_configs (config_key, config_value, data_type, description) VA
     ('JWT_REFRESH_EXPIRY_MS',       '604800000', 'INTEGER', N'JWT Refresh Token hết hạn sau (ms)');
 GO
 
-PRINT N'✅ Tạo database ECMS thành công — 32 bảng + seed data hoàn tất.';
+PRINT N'✅ Tạo database ECMS thành công — 33 bảng + seed data hoàn tất.';
 GO

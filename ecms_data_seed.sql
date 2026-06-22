@@ -85,29 +85,11 @@ SET IDENTITY_INSERT users OFF;
 GO
 
 -- ============================================================
--- 2. user_roles
--- roles seed từ schema: ADMIN=1, MANAGER=2, DOCTOR=3,
--- RECEPTIONIST=4, PHARMACIST=5, LAB_TECHNICIAN=6, NURSE=7, PATIENT=8
--- (LƯU Ý: thứ tự insert roles trong schema.sql là ADMIN, MANAGER, DOCTOR,
---  RECEPTIONIST, PHARMACIST, LAB_TECHNICIAN, NURSE, PATIENT → id 1..8)
+-- (Đã loại bỏ seed cho user_roles — vai trò của mỗi user đã được
+--  gán trực tiếp qua cột users.role_id ở bước insert "users" trên.
+--  roles: ADMIN=1, MANAGER=2, DOCTOR=3, RECEPTIONIST=4,
+--         PHARMACIST=5, LAB_TECHNICIAN=6, NURSE=7, PATIENT=8)
 -- ============================================================
-INSERT INTO user_roles (user_id, role_id, assigned_by) VALUES
-(1,  1, NULL),   -- admin        → ADMIN
-(2,  2, 1),      -- manager      → MANAGER
-(3,  3, 1),      -- doctor 1     → DOCTOR
-(4,  3, 1),      -- doctor 2     → DOCTOR
-(5,  3, 1),      -- doctor 3     → DOCTOR
-(6,  4, 2),      -- reception 1  → RECEPTIONIST
-(7,  4, 2),      -- reception 2  → RECEPTIONIST
-(8,  5, 2),      -- pharmacist   → PHARMACIST
-(9,  6, 2),      -- lab tech     → LAB_TECHNICIAN
-(15, 7, 2),      -- nurse        → NURSE
-(10, 8, NULL),   -- patient 1-5  → PATIENT
-(11, 8, NULL),
-(12, 8, NULL),
-(13, 8, NULL),
-(14, 8, NULL);
-GO
 
 -- ============================================================
 -- 3. doctors  (user_id 3, 4, 5)
