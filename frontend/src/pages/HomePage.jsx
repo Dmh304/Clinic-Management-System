@@ -1,15 +1,30 @@
-// Mạnh Hùng - HE200743
-// Trang chủ của hệ thống quản lý phòng khám nhãn khoa Ánh Sao.
-// Người dùng có thể xem giới thiệu phòng khám, các dịch vụ chẩn đoán (Retina, Glaucoma, Cornea),
-// danh sách bác sĩ có lịch trống, đặt lịch khám, xem đối tác và thông tin footer.
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import axiosClient from '../api/axiosClient'
 import heroImg from '../assets/ECMS_background.png'
 import machineImg from '../assets/ECMS_Machine.png'
 import logoImg from '../assets/ECMS_Logo.png'
+import { serviceService } from '../services/serviceService'
 
-const AVATAR_COLORS = ['#3b82f6', '#6366f1', '#ec4899', '#0d9488', '#f59e0b', '#8b5cf6']
+function formatPrice(price) {
+  if (!price && price !== 0) return null
+  return new Intl.NumberFormat('vi-VN').format(price) + 'đ'
+}
+
+const FALLBACK_CLINICAL_SERVICES = [
+  {
+    serviceName: 'Chụp đáy mắt độ phân giải cao',
+    description:
+      'Hệ thống máy OCT hiện đại giúp bác sĩ quan sát chi tiết từng lớp võng mạc, phát hiện sớm các dấu hiệu thoái hóa điểm vàng và glôcôm.',
+  },
+  { serviceName: 'Glaucoma', description: 'Tầm soát và điều trị sớm cườm nước hiệu quả.' },
+  { serviceName: 'Cornea', description: 'Chẩn đoán và phục hồi giác mạc chuyên sâu.' },
+]
+
+const DOCTORS = [
+  { name: 'Dr. Sarah Miller', specialty: 'Chuyên gia Võng mạc', status: 'Available', color: '#3b82f6' },
+  { name: 'Dr. James Chen', specialty: 'Chuyên gia Khúc xạ', status: 'Fully Booked', color: '#6366f1' },
+  { name: 'Dr. Elena Nguyen', specialty: 'Phẫu thuật Lasik', status: 'Available', color: '#ec4899' },
+]
 
 const PARTNERS = ['MEDITECH', 'OPTIC-GLO', 'VISION-CARE', 'RETINA-HUB', 'HEALTH-SYNC']
 
@@ -157,13 +172,19 @@ const s = {
 }
 
 export default function HomePage() {
-  const [doctors, setDoctors] = useState([])
+  const [clinicalServices, setClinicalServices] = useState(FALLBACK_CLINICAL_SERVICES)
 
   useEffect(() => {
-    axiosClient.get('/v1/doctors')
-      .then(res => setDoctors((res.data ?? []).slice(0, 3)))
+    serviceService
+      .getServicesByType('CLINICAL')
+      .then((res) => {
+        const data = res.data ?? []
+        if (data.length > 0) setClinicalServices(data.slice(0, 3))
+      })
       .catch(() => {})
   }, [])
+
+  const [featured, small1, small2] = clinicalServices
 
   return (
     <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', color: '#1e293b' }}>
@@ -201,17 +222,16 @@ export default function HomePage() {
             {/* Featured card */}
             <div style={s.featuredCard}>
               <div style={{ flex: 1 }}>
-                <span style={s.retinaTag}>RETINA SCAN</span>
-                <h3 style={s.featuredH3}>Chụp đáy mắt độ phân giải cao</h3>
+                <span style={s.retinaTag}>KHÁM LÂM SÀNG</span>
+                <h3 style={s.featuredH3}>{featured?.serviceName || FALLBACK_CLINICAL_SERVICES[0].serviceName}</h3>
                 <p style={s.featuredDesc}>
-                  Hệ thống máy OCT hiện đại giúp bác sĩ quan sát chi tiết từng lớp võng mạc,
-                  phát hiện sớm các dấu hiệu thoái hóa điểm vàng và glôcôm.
+                  {featured?.description || FALLBACK_CLINICAL_SERVICES[0].description}
                 </p>
-                {['Retina & Vitreous', 'Glaucoma Screening', 'Cornea Mapping'].map(f => (
-                  <div key={f} style={s.featureItem}>
-                    <span style={{ color: '#0d9488', fontWeight: 700 }}>✓</span> {f}
+                {featured?.price != null && (
+                  <div style={s.featureItem}>
+                    <span style={{ color: '#0d9488', fontWeight: 700 }}>✓</span> Giá: {formatPrice(featured.price)}
                   </div>
-                ))}
+                )}
               </div>
               <img src={machineImg} alt="OCT Machine" style={{ width: 190, height: 160, objectFit: 'cover', borderRadius: 14, flexShrink: 0 }} />
             </div>
@@ -223,20 +243,20 @@ export default function HomePage() {
                   <span style={{ fontSize: 16 }}>👁️</span>
                 </div>
                 <div style={s.serviceIcon}>👁️</div>
-                <div style={s.serviceCardTitle}>Glaucoma</div>
-                <div style={s.serviceCardDesc}>Tầm soát và điều trị sớm cườm nước hiệu quả.</div>
+                <div style={s.serviceCardTitle}>{small1?.serviceName || FALLBACK_CLINICAL_SERVICES[1].serviceName}</div>
+                <div style={s.serviceCardDesc}>{small1?.description || FALLBACK_CLINICAL_SERVICES[1].description}</div>
               </div>
               <div style={s.corneaCard}>
                 <div style={s.serviceIcon}>🔍</div>
-                <div style={s.serviceCardTitle}>Cornea</div>
-                <div style={s.serviceCardDesc}>Chẩn đoán và phục hồi giác mạc chuyên sâu.</div>
+                <div style={s.serviceCardTitle}>{small2?.serviceName || FALLBACK_CLINICAL_SERVICES[2].serviceName}</div>
+                <div style={s.serviceCardDesc}>{small2?.description || FALLBACK_CLINICAL_SERVICES[2].description}</div>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* APPOINTMENT */}
+      {/* ── APPOINTMENT ── */}
       <section style={s.appointmentSection}>
         <div style={s.container}>
           <div style={s.appointmentCard}>
@@ -256,19 +276,18 @@ export default function HomePage() {
               <Link to="/patient/booking" style={s.bookBtn}>📅 Đặt lịch ngay</Link>
             </div>
 
-
-
-            {/* DOCTORS - các bác sĩ có tiếng trong phòng khám */}
             <div style={s.doctorGrid}>
-              {doctors.map((doc, i) => (
-                <div key={doc.id} style={s.doctorCard}>
-                  <div style={{ ...s.doctorAvatar, backgroundColor: AVATAR_COLORS[i % AVATAR_COLORS.length] }}>
-                    {doc.fullName.split(' ').slice(-1)[0][0]}
+              {DOCTORS.map(doc => (
+                <div key={doc.name} style={s.doctorCard}>
+                  <div style={{ ...s.doctorAvatar, backgroundColor: doc.color }}>
+                    {doc.name.split(' ').slice(-1)[0][0]}
                   </div>
                   <div>
-                    <div style={s.doctorName}>{doc.fullName}</div>
-                    <div style={s.doctorSpec}>{doc.specialization}</div>
-                    <span style={s.badgeAvailable}>● Available</span>
+                    <div style={s.doctorName}>{doc.name}</div>
+                    <div style={s.doctorSpec}>{doc.specialty}</div>
+                    <span style={doc.status === 'Available' ? s.badgeAvailable : s.badgeBooked}>
+                      ● {doc.status}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -281,7 +300,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* PARTNERS ─ Chỉ đọc */}
+      {/* ── PARTNERS ── */}
       <section style={s.partnersSection}>
         <div style={s.container}>
           <p style={s.partnersLabel}>Đối tác chiến lược &amp; Công nghệ</p>
@@ -293,13 +312,13 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* FOOTER */}
+      {/* ── FOOTER ── */}
       <footer style={s.footer}>
         <div style={s.footerInner}>
           <div>
             <div style={s.footerLogo}>
               <img src={logoImg} alt="Anh Sao Eye Clinic" style={{ height: 44, width: 'auto' }} />
-              NHÃN KHOA ÁNH SAO
+              ANH SAO EYE CLINIC
             </div>
             <div style={s.footerCopy}>© 2024 Eyes Clinic Management System. All rights reserved.</div>
             <div style={{ ...s.footerCopy, marginTop: 2 }}>Chuyên nghiệp – Tin cậy – Tận tâm.</div>

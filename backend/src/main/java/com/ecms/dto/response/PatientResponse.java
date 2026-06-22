@@ -13,11 +13,16 @@ import java.time.LocalDateTime;
 public class PatientResponse {
 
     private Long id;
+    private String patientCode;
     private String fullName;
     private String phone;
     private String email;
     private LocalDate dateOfBirth;
     private String gender;
     private String address;
+    private String cccd;
+    private String emergencyContactName;
+    private String emergencyContactPhone;
+    private Boolean isChild;
     private LocalDateTime createdAt;
 }

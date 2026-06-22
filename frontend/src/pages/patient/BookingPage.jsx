@@ -371,7 +371,8 @@ function Page2({ data, onNext, onBack, submitting, submitError }) {
     }
     const [h, m] = slot.time.split(":").map(Number);
     slotTime.setHours(h, m, 0, 0);
-    return (slotTime - today) < 24 * 60 * 60 * 1000;
+    //return (slotTime - today) < 24 * 60 * 60 * 1000;
+    return false;
   };
 
   const dayLabels = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
