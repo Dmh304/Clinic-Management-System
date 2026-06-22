@@ -373,7 +373,7 @@ export default function EMRPage() {
         <Spin spinning={listLoading}>
           {filteredList.length === 0 && !listLoading ? (
             <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8', fontSize: 14 }}>
-              {searchText ? 'Không tìm thấy kết quả phù hợp' : 'Chưa có hồ sơ bệnh án nào hoàn thành'}
+              {searchText ? 'Không tìm thấy kết quả phù hợp' : 'Chưa có hồ sơ bệnh án'}
             </div>
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>

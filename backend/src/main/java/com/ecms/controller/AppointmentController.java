@@ -172,6 +172,12 @@ public class AppointmentController {
                 if (userDetails == null) {
                         return null;
                 }
-                return patientRepository.findByEmail(userDetails.getUsername()).map(Patient::getId).orElse(null);
+                return patientRepository.findByUser_Email(userDetails.getUsername())
+                                .map(Patient::getId)
+                                .orElseGet(() ->
+                                // Fallback: tìm theo email trực tiếp trong bảng patients (walk-in)
+                                patientRepository.findByEmail(userDetails.getUsername())
+                                                .map(Patient::getId)
+                                                .orElse(null));
         }
 }

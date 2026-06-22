@@ -27,7 +27,7 @@ public class DoctorController {
                         .id(d.getId())
                         .fullName(d.getFullName())
                         .specialization(d.getSpecialization())
-                        .phone(d.getPhone())
+                        .phone(d.getPhoneNumber())
                         .email(d.getEmail())
                         .build())
                 .collect(Collectors.toList());

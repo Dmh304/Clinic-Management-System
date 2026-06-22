@@ -360,7 +360,7 @@ export default function MedicalHistoryPage() {
           {/* Hệ thống nút điều hướng */}
           <div style={{ display: 'flex', gap: 8 }}>
             <Button onClick={() => navigate('/patient/history')} style={{ fontSize: 12 }}>
-              {'← Quay lại danh sách bệnh án'}
+              {'← Quay lại danh sách lịch khám'}
             </Button>
           </div>
         </div>

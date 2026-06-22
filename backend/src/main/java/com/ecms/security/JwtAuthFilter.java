@@ -25,7 +25,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private final JwtUtil jwtUtil;
     private final UserDetailsServiceImpl userDetailsService;
 
-    // Trích xuất JWT từ header, xác thực chữ ký và nạp thông tin người dùng vào SecurityContext nếu hợp lệ
+    // Trích xuất JWT từ header, xác thực chữ ký và nạp thông tin người dùng vào
+    // SecurityContext nếu hợp lệ
     @Override
     protected void doFilterInternal(HttpServletRequest request,
             HttpServletResponse response,
