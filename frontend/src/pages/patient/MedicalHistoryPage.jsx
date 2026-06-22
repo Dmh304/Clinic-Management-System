@@ -4,6 +4,7 @@ import { useSelector } from 'react-redux'
 import Header from '../../components/layout/Header'
 import { Form, Input, InputNumber, Tabs, Button, message, Tag, Spin, Collapse, Divider } from 'antd'
 import { emrService } from '../../services/emrService'
+import { appointmentService } from '../../services/appointmentService'
 
 const { TextArea } = Input
 const { Panel } = Collapse
@@ -13,6 +14,16 @@ const STATUS_MAP = {
   DRAFT:       { color: 'default',    label: 'Nháp' },
   IN_PROGRESS: { color: 'processing', label: 'Đang khám' },
   COMPLETED:   { color: 'success',    label: 'Hoàn thành' },
+}
+
+/* Cấu hình màu sắc và nhãn hiển thị cho từng trạng thái lịch hẹn */
+const APPOINTMENT_STATUS_MAP = {
+  WAITING:     { color: 'orange',     label: 'Đang chờ' },
+  IN_PROGRESS: { color: 'processing', label: 'Đang khám' },
+  COMPLETED:   { color: 'success',    label: 'Hoàn thành' },
+  CANCELLED:   { color: 'error',      label: 'Đã hủy' },
+  CONFIRMED:   { color: 'purple',       label: 'Đã xác nhận' },
+  PENDING:     { color: 'default',    label: 'Chờ xác nhận' },
 }
 
 const textEllipsisStyle = {
@@ -74,16 +85,17 @@ export default function MedicalHistoryPage() {
   const [form] = Form.useForm()
 
      /* Trích xuất các tham số điều hướng từ url */
-  const appointmentId = searchParams.get('appointmentId')                                  // id của lịch khám
+  const medicalRecordId = searchParams.get('medicalRecordId')                                  // id của lịch khám
 
     /* Khai báo state quản lí dữ liệu */
   const [emr, setEmr] = useState(null)                             // lưu dữ liệu chi tiết của hồ sơ bệnh án đang xem / chỉnh sửa 
-  const [history, setHistory] = useState([])                       // mảng lưu danh sách các lần khám trước đó của bệnh nhân
-  const [loading, setLoading] = useState(!!appointmentId)          // trạng thái chờ tải thông tin bệnh án chi tiết
-  const [saving, setSaving] = useState(false)                      // trạng thái chờ khi bấm nút lưu
-  const [completedList, setCompletedList] = useState([])           // Danh sách các bệnh án đã hoàn thành
+  //const [history, setHistory] = useState([])                       // mảng lưu danh sách các lần khám trước đó của bệnh nhân
+  const [loading, setLoading] = useState(!!medicalRecordId)          // trạng thái chờ tải thông tin bệnh án chi tiết
+  //const [saving, setSaving] = useState(false)                      // trạng thái chờ khi bấm nút lưu
+  //const [completedList, setCompletedList] = useState([])           // Danh sách các bệnh án đã hoàn thành
   const [listLoading, setListLoading] = useState(false)            // trạng thái chờ tải danh sách bệnh án đã hoàn thành
   const [searchText, setSearchText] = useState('')                 // từ khóa tìm kiếm theo bệnh án tại màn hình danh sách tổng
+  const [appointmentList, setAppointmentList] = useState([])       // Danh sách TOÀN BỘ lịch hẹn của bệnh nhân (mọi trạng thái)
 
     // Hàm tiện ích: chuyển đổi object dữ liệu thô từ server (API trả về)
   // sang định dạng object có cấu trúc tương thích với tên các trường (name) khai báo trong Form của Ant Design.
@@ -105,26 +117,26 @@ export default function MedicalHistoryPage() {
   //const isCompleted = emr?.status === 'COMPLETED'  // tạm thời thêm vào để code không bị lỗi
 
  // Hàm tải danh sách các lần khám trước đây của bệnh nhân (bỏ qua lịch hẹn hiện tại)
-  const fetchHistory = useCallback(async () => {
-    try {
-      const res = await emrService.getLoggingInPatientHistory()
-      const all = res.data ?? []
+  // const fetchHistory = useCallback(async () => {
+  //   try {
+  //     const res = await emrService.getLoggingInPatientHistory()
+  //     const all = res.data ?? []
       
-      // Loại trừ các ca khám hiện tại ra khỏi danh sách lịch sử bệnh án
-      setHistory(all.filter((r) => String(r.appointmentId) !== String(appointmentId)))
-    } catch {
-      // bỏ qua lỗi âm thầm để không ảnh hưởng luồng khám chính
-    }
-  }, [appointmentId])
+  //     // Loại trừ các ca khám hiện tại ra khỏi danh sách lịch sử bệnh án
+  //     setHistory(all.filter((r) => String(r.appointmentId) !== String(appointmentId)))
+  //   } catch {
+  //     // bỏ qua lỗi âm thầm để không ảnh hưởng luồng khám chính
+  //   }
+  // }, [appointmentId])
 
     // Hàm tải dữ liệu bệnh án hiện tại của lịch hẹn (nếu đã từng lưu nháp)
   const fetchEMR = useCallback(async () => {
-    if (!appointmentId) return
+    if (!medicalRecordId) return
     setLoading(true)
     try {
-      const res = await emrService.getByAppointment(appointmentId)
+      const res = await emrService.getById(medicalRecordId)
       const data = res.data
-      console.log('>>> EMR data: ', data)
+      //console.log('>>> EMR data: ', data)
       if (data) {
         setEmr(data)
         form.setFieldsValue(emrToFormValues(data))     // đổ dữ liệu vào các trường nhập liệu
@@ -135,16 +147,56 @@ export default function MedicalHistoryPage() {
     } finally {
       setLoading(false)
     }
-  }, [appointmentId, form])
+  }, [medicalRecordId, form])
 
    /* Gọi API tải danh sách toàn bộ các bệnh án đã hoàn thành */
-  const fetchCompletedList = useCallback(async () => {
+  // const fetchCompletedList = useCallback(async () => {
+  //   setListLoading(true)
+  //   try{
+  //     const res = await emrService.getLoggingInPatientHistory()
+  //     setCompletedList(res.data ?? [])
+  //   } catch {
+  //     message.error('Không thể tải danh sách bệnh án')
+  //   } finally {
+  //     setListLoading(false)
+  //   }
+  // }, [])
+
+  const fetchAppointments = useCallback(async () => {
     setListLoading(true)
-    try{
-      const res = await emrService.getLoggingInPatientHistory()
-      setCompletedList(res.data ?? [])
+    try {
+      const [apptRes, recordRes] = await Promise.all([
+        appointmentService.getMyAppointments(),
+        emrService.getLoggingInPatientHistory(),
+      ])
+      const appts = apptRes.data ?? []
+      const records = recordRes.data ?? []
+
+      const recordByAppointmentId = new Map(
+        records.map((r) => [String(r.appointmentId), r])
+      )
+
+      const merged = appts.map((a) => {
+        const record = recordByAppointmentId.get(String(a.id))
+        return {
+          id: a.id,
+          appointmentId: a.id,
+          medicalRecordId: record?.id ?? null,
+          patientName: a.patientName ?? '—',
+          patientPhone: a.patientPhone ?? '—',
+          appointmentTime: a.appointmentTime ?? a.createdAt ?? null,   // dùng ngày giờ khám thực tế, không phải ngày tạo record
+          timeSlot: a.timeSlot ?? null,
+          chiefComplaint: record?.chiefComplaint ?? null,
+          doctorName: a.doctorName ?? record?.doctorName ?? '—',
+          serviceName: a.serviceName ?? '—',
+          status: a.status ?? 'PENDING',
+          diagnosis: record?.diagnosis ?? null,
+        }
+      })
+
+      setAppointmentList(merged)
     } catch {
-      message.error('Không thể tải danh sách bệnh án')
+      message.error('Không thể tải lịch sử khám')
     } finally {
       setListLoading(false)
     }
@@ -152,34 +204,34 @@ export default function MedicalHistoryPage() {
 
   /* Hook khởi chạy: tải danh sách tổng nếu url không có appointmentId */
   useEffect(() => {
-    if(!appointmentId) fetchCompletedList()
-  }, [appointmentId, fetchCompletedList])
+    if (!medicalRecordId) fetchAppointments()
+  }, [medicalRecordId, fetchAppointments])
 
     /* Reset toàn bộ form và state khi id lịch hẹn thay đổi */
   useEffect(() => {
     setEmr(null)
-    setHistory([])
+    //setHistory([])
     form.resetFields()
-    setLoading(!!appointmentId)
-  }, [appointmentId])
+    setLoading(!!medicalRecordId)
+  }, [medicalRecordId])
 
     /* Kéo dữ liệu bệnh án hiện tại và bệnh sử liên quan */
   useEffect(() => {
     fetchEMR()
-    fetchHistory()
-  }, [fetchEMR, fetchHistory])
+    //fetchHistory()
+  }, [fetchEMR])
 
     /* Xử lí bộ lọc tìm kiếm tại chỗ trên danh sách các bệnh án đã hoàn thành */
-  const filteredList = completedList.filter((r) => {
+  const filteredList = appointmentList.filter((r) => {
     if(!searchText) return true
     const keyword = searchText.toLowerCase()
     return (
-      r.patientName?.toLowerCase().includes(keyword) ||
-      r.patientPhone?.includes(keyword)
+      r.doctorName?.toLowerCase().includes(keyword) ||
+      r.serviceName?.includes(keyword)
     )
   })
 
-  if(!appointmentId){
+  if(!medicalRecordId){
   return (
     <>
     <Header />
@@ -187,15 +239,15 @@ export default function MedicalHistoryPage() {
         <div style={{ marginBottom: 20 }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Hồ sơ bệnh án</h2>
           <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b'}}>
-            Danh sách các hồ sơ bệnh án đã hoàn thành
+            Danh sách các lần khám của bạn
           </p>
         </div>
-        <div style={{ backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+      <div style={{ backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
         
         {/* Thanh tìm kiếm */}
         <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9' }}>
          <Input.Search
-            placeholder="Tìm theo tên bệnh nhân hoặc số điện thoại..."
+            placeholder="Tìm theo tên bác sĩ hoặc dịch vụ..."
             allowClear={true}
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
@@ -205,13 +257,13 @@ export default function MedicalHistoryPage() {
         <Spin spinning={listLoading}>
           {filteredList.length === 0 && !listLoading ? (
             <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8', fontSize: 14 }}>
-              {searchText ? 'Không tìm thấy kết quả phù hợp' : 'Chưa có hồ sơ bệnh án nào hoàn thành'}
+              {searchText ? 'Không tìm thấy kết quả phù hợp' : 'Bạn chưa có lịch hẹn nào'}
             </div>
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid #f1f5f9', backgroundColor: '#f8fafc' }}>
-                  {['STT', 'Bệnh nhân', 'Ngày khám', 'Lý do khám', 'Chẩn đoán', 'Bác sĩ', ''].map((h) => (
+                  {['STT', 'Ngày khám', 'Giờ khám', 'Dịch vụ', 'Bác sĩ', 'Trạng thái', 'Chẩn đoán', ''].map((h) => (
                     <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 13, fontWeight: 600, color: '#475569' }}>{h}</th>
                   ))}
                 </tr>
@@ -225,27 +277,24 @@ export default function MedicalHistoryPage() {
                     onMouseLeave={e => e.currentTarget.style.backgroundColor = ''}
                   >
                     <td style={{ padding: '12px 16px', color: '#64748b', fontSize: 13 }}>{i + 1}</td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <div style={{ fontWeight: 600, fontSize: 13, color: '#1e293b' }}>{r.patientName}</div>
-                      <div style={{ fontSize: 12, color: '#64748b' }}>{r.patientPhone}</div>
+                    <td style={{ padding: '12px 16px', fontSize: 13, color: '#475569' }}>
+                      {r.appointmentTime ? new Date(r.appointmentTime).toLocaleDateString('vi-VN') : '—'}
                     </td>
                     <td style={{ padding: '12px 16px', fontSize: 13, color: '#475569' }}>
-                      {r.createdAt ? new Date(r.createdAt).toLocaleDateString('vi-VN') : '—'}
+                          {r.timeSlot ?? (r.appointmentTime
+                            ? new Date(r.appointmentTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+                            : '—')}
                     </td>
-                    <td style={{ padding: '12px 16px', fontSize: 13, color: '#475569', maxWidth: 200 }}>
-                      <div 
-                            title={r.chiefComplaint ?? '—'} 
-                            style={{
-                              display: '-webkit-box',
-                              WebkitLineClamp: 1,
-                              WebkitBoxOrient: 'vertical',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              wordBreak: 'break-all'
-                            }}
-                      >
-                      {r.chiefComplaint ?? '—'}
-                      </div>
+                    <td style={{ padding: '12px 16px', fontSize: 13, color: '#475569', maxWidth: 180 }}>
+                      <div title={r.serviceName ?? '—'} style={textEllipsisStyle}>{r.serviceName ?? '—'}</div>
+                    </td>
+                    <td style={{ padding: '12px 16px', fontSize: 12, color: '#64748b' }}>
+                          {r.doctorName ?? '—'}
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <Tag color={APPOINTMENT_STATUS_MAP[r.status]?.color ?? 'default'}>
+                            {APPOINTMENT_STATUS_MAP[r.status]?.label ?? r.status}
+                      </Tag>
                     </td>
                     <td style={{ padding: '12px 16px', fontSize: 13, color: '#475569', maxWidth: 200 }}>
                       <div 
@@ -262,25 +311,24 @@ export default function MedicalHistoryPage() {
                       {r.diagnosis ?? '—'}
                       </div>
                     </td>
-                    <td style={{ padding: '12px 16px', fontSize: 12, color: '#64748b' }}>
-                      {r.doctorName ?? '—'}
-                    </td>
                     <td style={{ padding: '12px 16px' }}>
-                      <Button
-                        size="small"
-                        onClick={() => navigate(`/patient/history?appointmentId=${r.appointmentId}`)}
-                        style={{ fontSize: 12, borderColor: '#0d9488', color: '#0d9488' }}
-                      >
-                        Xem chi tiết
-                      </Button>
-                    </td>
+                      {r.status === 'COMPLETED' && r.medicalRecordId ? (
+                        <Button
+                          size="small"
+                          onClick={() => navigate(`/patient/history?medicalRecordId=${r.medicalRecordId}`)}
+                          style={{ fontSize: 12, borderColor: '#0d9488', color: '#0d9488' }}
+                        >
+                          Xem HSBA
+                        </Button>
+                      ) : null}
+                      </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
-        </Spin>
-      </div>
+          </Spin>
+        </div>
       </div>
       </>
     )
@@ -359,7 +407,7 @@ export default function MedicalHistoryPage() {
               {/* ========================================================================= */}
                 <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16 }}>
             
-                  {/* form nhập liệu bệnh án hiện tại */}
+                  {/* form hiển thị chi tiết bệnh án (chỉ xem, không chỉnh sửa) */}
                   <div style={{ backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
                     <Form form={form} layout="vertical" disabled={true} style={{ padding: '20px 24px' }}>
                       <Tabs

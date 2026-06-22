@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 import org.hibernate.annotations.NotFound;
 import org.hibernate.annotations.NotFoundAction;
+import org.springframework.cglib.core.Local;
 
 import com.ecms.entity.Doctor;
 import com.ecms.entity.LabOrderStatus;
@@ -34,6 +35,10 @@ public class LabOrderRequest {
     private Long labTechnicianId;
 
     private String notes;
+
+    private String rejectionReason;
+
+    private LocalDateTime rejectedAt;
 
     private LabPriority priority;
 

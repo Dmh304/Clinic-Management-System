@@ -25,6 +25,8 @@ public interface AppointmentService {
     // Lấy danh sách toàn bộ lịch hẹn trong hệ thống
     List<AppointmentResponse> getAllAppointments();
 
+    List<AppointmentResponse> getMyAppointments(Long patientId);
+
     // Xác nhận lịch hẹn và phân công bác sĩ phụ trách (nếu có)
     AppointmentResponse confirmAppointment(Long id, Long doctorId);
 

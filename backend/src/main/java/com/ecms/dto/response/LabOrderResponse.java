@@ -33,6 +33,10 @@ public class LabOrderResponse {
 
     private LabOrderStatus status;
 
+    private String rejectionReason;
+
+    private LocalDateTime rejectedAt;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime completedAt;

@@ -158,4 +158,22 @@ public class EMRServiceImpl implements EMRService {
                                 .updatedAt(m.getUpdatedAt())
                                 .build();
         }
+
+        @Override
+        @Transactional(readOnly = true)
+        public EMRResponse getById(Long id) {
+                return medicalRecordRepository.findById(id)
+                                .map(this::toResponse)
+                                .orElse(null);
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public List<EMRResponse> getAllList() {
+                return medicalRecordRepository
+                                .findAllByOrderByCreatedAtDesc()
+                                .stream()
+                                .map(this::toResponse)
+                                .collect(Collectors.toList());
+        }
 }

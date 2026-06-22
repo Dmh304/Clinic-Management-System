@@ -419,4 +419,12 @@ public class AppointmentServiceImpl implements AppointmentService {
                                 .createdAt(a.getCreatedAt())
                                 .build();
         }
+
+        @Override
+        public List<AppointmentResponse> getMyAppointments(Long patientId) {
+                return appointmentRepository.findAllWithDetailsAndPatientId(patientId)
+                                .stream()
+                                .map(this::toResponse)
+                                .collect(Collectors.toList());
+        }
 }

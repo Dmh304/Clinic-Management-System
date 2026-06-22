@@ -85,6 +85,12 @@ public class LabOrder {
     @Column(name = "status", nullable = false)
     private LabOrderStatus status;
 
+    @Column(name = "rejection_reason")
+    private String rejectionReason;
+
+    @Column(name = "rejected_at")
+    private LocalDateTime rejectedAt;
+
     /**
      * Thời điểm tạo lịch hẹn.
      */

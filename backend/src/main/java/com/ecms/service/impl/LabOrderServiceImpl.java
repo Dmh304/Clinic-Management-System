@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.stereotype.Service;
 
 import com.ecms.dto.request.LabOrderRequest;
 import com.ecms.dto.request.LabResultRequest;
@@ -23,7 +24,10 @@ import com.ecms.repository.LabTechnicianRepository;
 import com.ecms.service.LabOrderService;
 
 import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 
+@Service
+@RequiredArgsConstructor
 public class LabOrderServiceImpl implements LabOrderService {
 
     private final LabOrderRepository labOrderRepository;
@@ -31,18 +35,6 @@ public class LabOrderServiceImpl implements LabOrderService {
     private final MedicalRecordRepository medicalRecordRepository;
     private final DoctorRepository doctorRepository;
     private final LabTechnicianRepository labTechnicianRepository;
-
-    public LabOrderServiceImpl(LabOrderRepository labOrderRepository,
-            LabResultRepository labResultRepository,
-            MedicalRecordRepository medicalRecordRepository,
-            DoctorRepository doctorRepository,
-            LabTechnicianRepository labTechnicianRepository) {
-        this.labOrderRepository = labOrderRepository;
-        this.labResultRepository = labResultRepository;
-        this.medicalRecordRepository = medicalRecordRepository;
-        this.doctorRepository = doctorRepository;
-        this.labTechnicianRepository = labTechnicianRepository;
-    }
 
     @Override
     @Transactional
@@ -179,8 +171,8 @@ public class LabOrderServiceImpl implements LabOrderService {
         previousOrder.setStatus(LabOrderStatus.REJECTED);
 
         /** Thảo luận xem có nên thêm reject reason và time vào không */
-        // previousOrder.setRejectionReason(request.getRejectionReason());
-        // previousOrder.setRejectedAt(LocalDateTime.now());
+        previousOrder.setRejectionReason(request.getRejectionReason());
+        previousOrder.setRejectedAt(LocalDateTime.now());
 
         labOrderRepository.save(previousOrder);
 
@@ -213,6 +205,8 @@ public class LabOrderServiceImpl implements LabOrderService {
                 .status(labOrder.getStatus())
                 .createdAt(labOrder.getCreatedAt())
                 .completedAt(labOrder.getCompletedAt())
+                .rejectionReason(labOrder.getRejectionReason())
+                .rejectedAt(labOrder.getRejectedAt())
                 .build();
     }
 
