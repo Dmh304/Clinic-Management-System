@@ -15,6 +15,7 @@ const SERVICE_GROUPS = [
 const PROTECTED_GUEST_ROUTES = {
   'Đặt lịch': '/patient/booking',
   'Hồ sơ bệnh án': '/patient/history',
+  'Đơn thuốc của tôi': '/patient/prescription',
 }
 
 const PUBLIC_LINKS = [
@@ -264,7 +265,7 @@ export default function Header() {
             )}
           </div>
 
-          {Object.entries(PROTECTED_GUEST_ROUTES).map(([label, path]) => {
+          {(!isAuthenticated || user?.role === 'PATIENT') && Object.entries(PROTECTED_GUEST_ROUTES).map(([label, path]) => {
             const active = pathname.startsWith(path)
             return (
               <button
@@ -363,6 +364,28 @@ export default function Header() {
                   }}
                 >
                   Quản lý
+                </button>
+              )}
+
+              {user?.role === 'PHARMACIST' && (
+                <button
+                  onClick={() => navigate('/pharmacy/dispensing')}
+                  style={{
+                    backgroundColor: '#10b981', color: '#fff',
+                    border: 'none', cursor: 'pointer',
+                    padding: '6px 14px', borderRadius: 8, fontSize: 13, fontWeight: 500,
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    transition: 'background-color 0.15s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#059669' }}
+                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#10b981' }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    <path d="M8 11h8"/>
+                    <path d="M12 7v8"/>
+                  </svg>
+                  Phát thuốc
                 </button>
               )}
 

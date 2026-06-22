@@ -781,7 +781,12 @@ export default function BookingPage() {
       const [hours, minutes] = d.slot.time.split(':');
       const dt = new Date(d.date);
       dt.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-      const appointmentTime = dt.toISOString().slice(0, 19);
+      const yyyy = dt.getFullYear();
+      const mm = String(dt.getMonth() + 1).padStart(2, '0');
+      const dd = String(dt.getDate()).padStart(2, '0');
+      const hh = String(dt.getHours()).padStart(2, '0');
+      const min = String(dt.getMinutes()).padStart(2, '0');
+      const appointmentTime = `${yyyy}-${mm}-${dd}T${hh}:${min}:00`;
 
       const res = await appointmentService.bookAppointment({
         doctorId: d.doctor.id,

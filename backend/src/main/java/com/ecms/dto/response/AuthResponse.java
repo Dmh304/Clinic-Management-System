@@ -21,4 +21,5 @@ public class AuthResponse {
     private String fullName;
     private String role;
     private Long doctorId;
+    private Long patientId;
 }
