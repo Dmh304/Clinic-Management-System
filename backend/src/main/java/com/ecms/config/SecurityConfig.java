@@ -41,8 +41,15 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         // ── Auth ──────────────────────────────────────────────────────────
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/register")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/register",
+                                "/api/v1/auth/google", "/api/v1/auth/resend-verification",
+                                "/api/v1/auth/staff/login", "/api/v1/auth/staff/verify-otp",
+                                "/api/v1/auth/forgot-password", "/api/v1/auth/reset-password")
                         .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auth/verify-email")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/admin/unlock-user")
+                        .hasRole("ADMIN")
 
                         // ── Swagger / Docs ─────────────────────────────────────────────
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")

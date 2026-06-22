@@ -18,4 +18,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // Kiểm tra email đã tồn tại trong hệ thống chưa; dùng khi đăng ký để tránh trùng lặp
     boolean existsByEmail(String email);
     List<User> findByRole_Name(String roleName);
+
+    // Tìm người dùng theo số điện thoại; dùng khi đăng nhập bệnh nhân bằng số điện thoại
+    Optional<User> findByPhone(String phone);
 }

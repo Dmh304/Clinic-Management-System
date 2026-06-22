@@ -39,9 +39,22 @@ public class User {
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;
 
-    @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 30)
     @Builder.Default
-    private String status = "ACTIVE";
+    private UserStatus status = UserStatus.ACTIVE;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "auth_provider", nullable = false, length = 20)
+    @Builder.Default
+    private AuthProvider authProvider = AuthProvider.LOCAL;
+
+    @Column(name = "failed_login_attempts", nullable = false)
+    @Builder.Default
+    private int failedLoginAttempts = 0;
+
+    @Column(name = "lock_until")
+    private LocalDateTime lockUntil;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
