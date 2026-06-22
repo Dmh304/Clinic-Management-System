@@ -8,7 +8,9 @@ import com.ecms.dto.response.AppointmentDashboardResponse;
 import com.ecms.dto.response.AppointmentResponse;
 import com.ecms.entity.AppointmentStatus;
 import com.ecms.entity.Doctor;
+import com.ecms.entity.Patient;
 import com.ecms.repository.DoctorRepository;
+import com.ecms.repository.PatientRepository;
 import com.ecms.service.AppointmentService;
 import jakarta.validation.Valid;
 import lombok.Data;
@@ -29,7 +31,9 @@ public class AppointmentController {
 
         private final AppointmentService appointmentService;
         private final DoctorRepository doctorRepository;
+        private final PatientRepository patientRepository;
 
+        /* Lấy danh sách tất cả các lịch hẹn có trong hệ thống */
         @GetMapping
         public ResponseEntity<ApiResponse<List<AppointmentResponse>>> getAllAppointments() {
                 return ResponseEntity.ok(
@@ -115,6 +119,16 @@ public class AppointmentController {
                                 ApiResponse.success(appointmentService.createWalkInAppointment(request)));
         }
 
+        @GetMapping("/my")
+        public ResponseEntity<ApiResponse<List<AppointmentResponse>>> getMyAppointments(
+                        @AuthenticationPrincipal UserDetails userDetails) {
+                Long patientId = resolvePatientId(userDetails);
+                return ResponseEntity.ok(
+                                ApiResponse.success(appointmentService.getMyAppointments(patientId)));
+        }
+
+        /* Lớp DTO nội bộ chứa thông tin bổ sung xác nhận lịch hẹn */
+
         /** Chuyển lịch hẹn (đổi bác sĩ / giờ) — MANAGER */
         @PatchMapping("/{id}/reassign")
         public ResponseEntity<ApiResponse<AppointmentResponse>> reassign(
@@ -151,5 +165,13 @@ public class AppointmentController {
                         return null;
                 }
                 return doctorRepository.findByEmail(userDetails.getUsername()).map(Doctor::getId).orElse(null);
+        }
+
+        /* Tìm kiếm và trả về id của bác sĩ dựa trên thông tin tài khoản đăng nhập */
+        private Long resolvePatientId(UserDetails userDetails) {
+                if (userDetails == null) {
+                        return null;
+                }
+                return patientRepository.findByEmail(userDetails.getUsername()).map(Patient::getId).orElse(null);
         }
 }

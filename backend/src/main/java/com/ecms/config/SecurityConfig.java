@@ -47,9 +47,18 @@ public class SecurityConfig {
                         // ── Swagger / Docs ─────────────────────────────────────────────
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
                         .permitAll()
-
+                        .requestMatchers(HttpMethod.POST, "/api/v1/appointments/book")
+                        .hasAnyRole("PATIENT", "ADMIN", "RECEPTIONIST")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/appointments/my")
+                        .hasRole("PATIENT")
+                        .requestMatchers("/api/v1/appointments/**")
+                        .hasAnyRole("ADMIN", "DOCTOR", "RECEPTIONIST")
+                        .requestMatchers("/api/v1/emr/all").hasAnyRole("DOCTOR", "ADMIN")
+                        .requestMatchers("/api/v1/patients/**").hasAnyRole("ADMIN", "DOCTOR", "RECEPTIONIST")
+                        .requestMatchers("/api/v1/emr/history").hasRole("PATIENT")
                         // ── Services: GET public, POST/registrations restricted ─────────
-                        .requestMatchers(HttpMethod.GET, "/api/v1/services", "/api/v1/services/categories", "/api/v1/services/{id:[0-9]+}")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/services", "/api/v1/services/categories",
+                                "/api/v1/services/{id:[0-9]+}")
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/services/register")
                         .hasAnyRole("PATIENT", "RECEPTIONIST")
@@ -125,10 +134,8 @@ public class SecurityConfig {
                         .hasAnyRole("ADMIN", "DOCTOR", "RECEPTIONIST", "MANAGER")
 
                         // ── Everything else requires authentication ────────────────────
-                        .anyRequest().authenticated()
-                )
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
-
+                        .anyRequest().authenticated());
+        http.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 }

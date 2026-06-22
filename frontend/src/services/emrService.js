@@ -21,4 +21,14 @@ export const emrService = {
   // Hàm lấy danh sách tất cả hồ sơ bệnh án đã hoàn thành
   getCompletedList: () =>
     axiosClient.get(`/v1/emr/completed`),
+
+  // Hàm lấy lịch sử bệnh án của chính bệnh nhân đang đăng nhập
+  getLoggingInPatientHistory: () =>
+    axiosClient.get(`/v1/emr/history`),
+
+  getById: (id) =>
+    axiosClient.get(`/v1/emr/${id}`),
+
+  getAllList: () =>
+    axiosClient.get(`/v1/emr/all`),
 }

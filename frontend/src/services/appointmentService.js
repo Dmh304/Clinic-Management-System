@@ -44,4 +44,7 @@ export const appointmentService = {
   /* Hàm đặt trước một lịch hẹn khám bệnh mới (từ phía bệnh nhân) */
   bookAppointment: (data) =>
     axiosClient.post('/v1/appointments/book', data),
+
+  getMyAppointments: () =>
+    axiosClient.get('/v1/appointments/my'),
 }
