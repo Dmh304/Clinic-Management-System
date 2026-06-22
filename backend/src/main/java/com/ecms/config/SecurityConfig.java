@@ -56,7 +56,10 @@ public class SecurityConfig {
                         .hasAnyRole("PATIENT", "ADMIN", "RECEPTIONIST")
                         .requestMatchers("/api/v1/appointments/**")
                         .hasAnyRole("ADMIN", "DOCTOR", "RECEPTIONIST")
-                        .requestMatchers("/api/v1/patients/**").hasAnyRole("ADMIN", "DOCTOR", "RECEPTIONIST")
+                        .requestMatchers("/api/v1/patients/**")
+                        .hasAnyRole("ADMIN", "DOCTOR", "RECEPTIONIST")
+                        .requestMatchers("/api/v1/invoices/**")
+                        .hasAnyRole("ADMIN", "RECEPTIONIST", "MANAGER")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
