@@ -7,6 +7,7 @@ import com.ecms.exception.ResourceNotFoundException;
 import com.ecms.repository.AppointmentRepository;
 import com.ecms.repository.InvoiceRepository;
 import com.ecms.service.InvoiceService;
+import com.ecms.service.InvoicePdfService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -31,6 +32,7 @@ public class InvoiceServiceImpl implements InvoiceService {
     private final InvoiceRepository invoiceRepository;
     private final AppointmentRepository appointmentRepository;
     private final JavaMailSender mailSender;
+    private final InvoicePdfService invoicePdfService;
 
     @Override
     @Transactional(readOnly = true)
@@ -290,6 +292,13 @@ public class InvoiceServiceImpl implements InvoiceService {
              + "<div style='background:#f8fafc;padding:16px 32px;text-align:center;color:#64748b;font-size:13px'>"
              + "Cảm ơn quý khách đã tin tưởng sử dụng dịch vụ của chúng tôi.</div></div>"
              + "</body></html>";
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public byte[] generateInvoicePdf(Long id) {
+        InvoiceResponse inv = getInvoiceById(id);
+        return invoicePdfService.generate(inv);
     }
 
     private InvoiceResponse toResponseWithItems(Invoice i) {

@@ -94,6 +94,7 @@ export default function InvoicePage() {
   // Modal xem chi tiết
   const [detailModal, setDetailModal] = useState({ open: false, invoice: null })
   const [emailSending, setEmailSending] = useState(false)
+  const [printLoading, setPrintLoading] = useState(false)
 
   // ─── Load ────────────────────────────────────────────────────────────────────
 
@@ -220,78 +221,38 @@ export default function InvoicePage() {
     }
   }
 
-  // ─── Print invoice ────────────────────────────────────────────────────────────
+  // ─── Print invoice (PDF) ─────────────────────────────────────────────────────
 
-  const handlePrint = (inv) => {
-    const payLabel = inv.paymentMethod === 'CASH' ? 'Tiền mặt' : 'QR Code'
-    const paidAt = inv.paidAt
-      ? new Date(inv.paidAt).toLocaleString('vi-VN')
-      : '—'
-    const html = `
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-  <meta charset="UTF-8">
-  <title>Hóa đơn ${inv.invoiceCode}</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: Arial, sans-serif; padding: 32px; color: #1e293b; }
-    h2 { color: #4f46e5; margin-bottom: 4px; }
-    .sub { color: #64748b; font-size: 13px; margin-bottom: 24px; }
-    .meta { display: flex; justify-content: space-between; margin-bottom: 20px; }
-    .meta p { margin: 4px 0; font-size: 14px; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-    th { background: #f8fafc; padding: 8px; text-align: left; border-bottom: 2px solid #e2e8f0; font-size: 13px; }
-    td { padding: 7px 8px; border-bottom: 1px solid #e2e8f0; font-size: 13px; }
-    td.r { text-align: right; }
-    .total { text-align: right; padding: 12px 0; border-top: 2px solid #e2e8f0; }
-    .total span { font-size: 20px; font-weight: 700; color: #10b981; }
-    .footer { margin-top: 32px; text-align: center; font-size: 12px; color: #94a3b8; }
-    @media print { body { padding: 0; } }
-  </style>
-</head>
-<body>
-  <h2>HÓA ĐƠN KHÁM BỆNH</h2>
-  <div class="sub">Mã hóa đơn: <strong>${inv.invoiceCode}</strong></div>
-  <div class="meta">
-    <div>
-      <p><strong>Bệnh nhân:</strong> ${inv.patientName || '—'}</p>
-      <p><strong>SĐT:</strong> ${inv.patientPhone || '—'}</p>
-    </div>
-    <div style="text-align:right">
-      <p><strong>Bác sĩ:</strong> ${inv.doctorName || '—'}</p>
-      <p><strong>Ngày thanh toán:</strong> ${paidAt}</p>
-    </div>
-  </div>
-  <table>
-    <thead>
-      <tr>
-        <th>Dịch vụ / Thuốc</th>
-        <th class="r">SL</th>
-        <th class="r">Đơn giá</th>
-        <th class="r">Thành tiền</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${(inv.items || []).map((it) => `
-        <tr>
-          <td>${it.description || '—'}</td>
-          <td class="r">${it.quantity ?? 1}</td>
-          <td class="r">${fmt(it.unitPrice)}</td>
-          <td class="r">${fmt(it.subtotal)}</td>
-        </tr>`).join('')}
-    </tbody>
-  </table>
-  <div class="total">Tổng cộng: <span>${fmt(inv.totalAmount)}</span></div>
-  <p style="font-size:13px;color:#64748b">Phương thức: ${payLabel}</p>
-  <div class="footer">Cảm ơn quý khách đã tin tưởng sử dụng dịch vụ của chúng tôi.</div>
-</body>
-</html>`
-    const win = window.open('', '_blank', 'width=700,height=600')
-    win.document.write(html)
-    win.document.close()
-    win.focus()
-    win.print()
+  const handlePrint = async (inv) => {
+    setPrintLoading(true)
+    try {
+      const blob = await invoiceService.downloadPdf(inv.id)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.target = '_blank'
+      a.rel = 'noopener noreferrer'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 60000)
+    } catch (err) {
+      let errorMsg = 'Không thể tạo PDF hóa đơn'
+      if (err?.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text()
+          const json = JSON.parse(text)
+          errorMsg = json.message || json.error || errorMsg
+        } catch { /* keep default */ }
+      } else if (err?.response?.data?.message) {
+        errorMsg = err.response.data.message
+      } else if (err?.message) {
+        errorMsg = err.message
+      }
+      message.error(errorMsg)
+    } finally {
+      setPrintLoading(false)
+    }
   }
 
   // ─── Send email ───────────────────────────────────────────────────────────────
@@ -306,7 +267,11 @@ export default function InvoicePage() {
       await invoiceService.sendEmail(inv.id)
       message.success(`Đã gửi hóa đơn đến ${inv.patientEmail}`)
     } catch (err) {
-      message.error(err?.response?.data?.message || 'Không thể gửi email')
+      const isTimeout = err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')
+      const serverMsg = err?.response?.data?.message
+      message.error(
+        serverMsg || (isTimeout ? 'Hết thời gian chờ — máy chủ SMTP không phản hồi' : 'Không thể gửi email')
+      )
     } finally {
       setEmailSending(false)
     }
@@ -697,9 +662,10 @@ export default function InvoicePage() {
           <Space>
             <Button
               icon={<PrinterOutlined />}
+              loading={printLoading}
               onClick={() => handlePrint(detailModal.invoice)}
             >
-              In hóa đơn
+              In hóa đơn (PDF)
             </Button>
             <Button
               icon={<MailOutlined />}

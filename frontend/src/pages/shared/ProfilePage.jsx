@@ -51,7 +51,8 @@ export default function ProfilePage() {
   // Tải thông tin hồ sơ từ server khi component được mount lần đầu
   useEffect(() => {
     userService.getProfile()
-      .then(data => {
+      .then(res => {
+        const data = res.data ?? res
         setProfile(data)
         setForm({
           fullName: data.fullName || '',
@@ -78,13 +79,14 @@ export default function ProfilePage() {
     setSaving(true)
     setError('')
     try {
-      const updated = await userService.updateProfile({
+      const res = await userService.updateProfile({
         fullName: form.fullName || undefined,
         phone: form.phone || undefined,
         dateOfBirth: form.dateOfBirth || undefined,
         gender: form.gender || undefined,
         address: form.address || undefined,
       })
+      const updated = res.data ?? res
       setProfile(updated)
       setSuccess('Cập nhật hồ sơ thành công!')
       setEditing(false)

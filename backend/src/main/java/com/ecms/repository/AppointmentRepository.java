@@ -155,4 +155,13 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
             @Param("end") LocalDateTime end,
             @Param("status") AppointmentStatus status,
             @Param("doctorId") Long doctorId);
+
+    @Query("SELECT a.timeSlot FROM Appointment a " +
+            "WHERE a.doctor.id = :doctorId " +
+            "AND a.appointmentTime >= :start AND a.appointmentTime < :end " +
+            "AND a.status <> 'CANCELLED'")
+    List<String> findBookedSlotsByDoctorAndDate(
+            @Param("doctorId") Long doctorId,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end);
 }

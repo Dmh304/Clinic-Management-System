@@ -141,6 +141,15 @@ public class AppointmentController {
                                 ApiResponse.success(appointmentService.checkInAppointment(id)));
         }
 
+        /* Lấy danh sách khung giờ đã được đặt của một bác sĩ trong một ngày */
+        @GetMapping("/available-slots")
+        public ResponseEntity<ApiResponse<List<String>>> getAvailableSlots(
+                        @RequestParam Long doctorId,
+                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+                return ResponseEntity.ok(
+                                ApiResponse.success(appointmentService.getBookedSlots(doctorId, date)));
+        }
+
         /* Đặt lịch hẹn trực tuyến bởi bệnh nhân */
         @PostMapping("/book")
         public ResponseEntity<ApiResponse<AppointmentResponse>> bookOnlineAppointment(

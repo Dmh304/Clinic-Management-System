@@ -9,11 +9,13 @@ import com.ecms.dto.request.LoginRequest;
 import com.ecms.dto.request.RegisterRequest;
 import com.ecms.dto.response.AuthResponse;
 import com.ecms.entity.Doctor;
+import com.ecms.entity.Patient;
 import com.ecms.entity.Role;
 import com.ecms.entity.User;
 import com.ecms.exception.ResourceNotFoundException;
 import com.ecms.exception.UnauthorizedException;
 import com.ecms.repository.DoctorRepository;
+import com.ecms.repository.PatientRepository;
 import com.ecms.repository.RoleRepository;
 import com.ecms.repository.UserRepository;
 import com.ecms.security.JwtUtil;
@@ -30,6 +32,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final DoctorRepository doctorRepository;
+    private final PatientRepository patientRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
@@ -109,6 +112,17 @@ public class AuthServiceImpl implements AuthService {
                 .build();
 
         userRepository.save(user);
+
+        // Tạo hồ sơ bệnh nhân liên kết với tài khoản vừa đăng ký
+        String patientCode = String.format("PT%04d", patientRepository.count() + 1);
+        Patient patient = Patient.builder()
+                .user(user)
+                .patientCode(patientCode)
+                .fullName(request.getFullName())
+                .phone(request.getPhone())
+                .email(request.getEmail())
+                .build();
+        patientRepository.save(patient);
 
         String token = jwtUtil.generateToken(user.getEmail(), patientRole.getName(), null);
 

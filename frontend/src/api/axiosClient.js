@@ -10,10 +10,28 @@ const axiosClient = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
+function isTokenExpired(token) {
+  try {
+    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+    const payload = JSON.parse(atob(base64))
+    return payload.exp * 1000 < Date.now()
+  } catch {
+    return false
+  }
+}
+
 // Interceptor request: tự động lấy token từ localStorage và gắn vào header Authorization của mỗi request
 axiosClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('ecms_token')
-  if (token) config.headers.Authorization = `Bearer ${token}`
+  if (token) {
+    if (isTokenExpired(token)) {
+      localStorage.removeItem('ecms_token')
+      localStorage.removeItem('ecms_user')
+      window.location.href = '/login'
+      return Promise.reject(new Error('Token expired'))
+    }
+    config.headers.Authorization = `Bearer ${token}`
+  }
   return config
 })
 

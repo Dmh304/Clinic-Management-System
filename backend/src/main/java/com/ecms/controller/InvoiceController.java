@@ -7,6 +7,8 @@ import com.ecms.service.InvoiceService;
 import jakarta.validation.Valid;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -66,6 +68,17 @@ public class InvoiceController {
     public ResponseEntity<ApiResponse<Void>> sendEmail(@PathVariable Long id) {
         invoiceService.sendInvoiceEmail(id);
         return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    @GetMapping("/{id}/pdf")
+    public ResponseEntity<byte[]> downloadPdf(@PathVariable Long id) {
+        InvoiceResponse inv = invoiceService.getInvoiceById(id);
+        byte[] pdf = invoiceService.generateInvoicePdf(id);
+        String filename = "hoa-don-" + inv.getInvoiceCode() + ".pdf";
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
+                .body(pdf);
     }
 
     @Data

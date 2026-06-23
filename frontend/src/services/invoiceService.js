@@ -23,5 +23,8 @@ export const invoiceService = {
     axiosClient.patch(`/v1/invoices/${id}/cancel`),
 
   sendEmail: (id) =>
-    axiosClient.post(`/v1/invoices/${id}/send-email`),
+    axiosClient.post(`/v1/invoices/${id}/send-email`, {}, { timeout: 30000 }),
+
+  downloadPdf: (id) =>
+    axiosClient.get(`/v1/invoices/${id}/pdf`, { responseType: 'blob' }),
 }

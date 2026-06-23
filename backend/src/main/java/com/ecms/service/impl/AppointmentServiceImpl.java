@@ -166,6 +166,13 @@ public class AppointmentServiceImpl implements AppointmentService {
                                 .build();
         }
 
+        @Override
+        public List<String> getBookedSlots(Long doctorId, LocalDate date) {
+                LocalDateTime start = date.atStartOfDay();
+                LocalDateTime end = date.plusDays(1).atStartOfDay();
+                return appointmentRepository.findBookedSlotsByDoctorAndDate(doctorId, start, end);
+        }
+
         /* Cập nhật trạng thái trực tiếp cho 1 lịch khám */
         @Override
         @Transactional
@@ -279,11 +286,19 @@ public class AppointmentServiceImpl implements AppointmentService {
                                 .orElseThrow(() -> new ResourceNotFoundException(
                                                 "Bác sĩ không tồn tại: " + request.getDoctorId()));
 
+                ClinicService service = null;
+                if (request.getServiceId() != null) {
+                        service = clinicServiceRepository.findById(request.getServiceId())
+                                        .orElseThrow(() -> new ResourceNotFoundException(
+                                                        "Dịch vụ không tồn tại: " + request.getServiceId()));
+                }
+
                 validateDoctorCapacity(doctor.getId(), request.getAppointmentTime().toLocalDate());
 
                 Appointment appointment = Appointment.builder()
                                 .patient(patient)
                                 .doctor(doctor)
+                                .clinicService(service)
                                 .appointmentTime(request.getAppointmentTime())
                                 .timeSlot(request.getAppointmentTime().toLocalTime().toString())
                                 .status(AppointmentStatus.PENDING)

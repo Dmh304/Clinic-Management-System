@@ -52,4 +52,7 @@ public interface AppointmentService {
 
     // Lấy số liệu thống kê Dashboard dành riêng cho một bác sĩ cụ thể
     AppointmentDashboardResponse getDashboard(LocalDate date, Long doctorId);
+
+    // Lấy danh sách khung giờ đã được đặt của một bác sĩ trong một ngày
+    List<String> getBookedSlots(Long doctorId, LocalDate date);
 }

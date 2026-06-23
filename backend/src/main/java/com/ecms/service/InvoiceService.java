@@ -22,4 +22,6 @@ public interface InvoiceService {
     InvoiceResponse cancelInvoice(Long id);
 
     void sendInvoiceEmail(Long id);
+
+    byte[] generateInvoicePdf(Long id);
 }
