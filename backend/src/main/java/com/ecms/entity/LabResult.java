@@ -7,7 +7,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "lab_results")
+@Table(name = "lab_results", uniqueConstraints = @UniqueConstraint(columnNames = "lab_order_id"))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -62,8 +62,8 @@ public class LabResult {
     @Column(name = "iop_r", precision = 4, scale = 1)
     private BigDecimal iopR;
 
-    @Column(name = "image_url", columnDefinition = "NVARCHAR(500)")
-    private String imageUrl;
+    @Column(name = "image_url", columnDefinition = "TEXT")
+    private String imageUrls;
 
     @Column(name = "doctor_notes", columnDefinition = "NVARCHAR(MAX)")
     private String doctorNotes;

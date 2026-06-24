@@ -2,6 +2,7 @@ package com.ecms.dto.response;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -55,7 +56,7 @@ public class LabResultResponse {
     /* Nhãn áp mắt phải (đơn vị: mmHg) */
     private BigDecimal iopR;
 
-    private String imageUrl;
+    private List<String> imageUrls;
 
     private String doctorNotes;
 

@@ -8,7 +8,11 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "medical_records")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class MedicalRecord {
 
     @Id
@@ -81,6 +85,9 @@ public class MedicalRecord {
     @Column(name = "iop_r", precision = 4, scale = 1)
     private BigDecimal iopR;
 
+    @Column(name = "lab_image_url", columnDefinition = "TEXT")
+    private String labImageUrl;
+
     @Column(name = "total_amount", precision = 10, scale = 2)
     private BigDecimal totalAmount;
 
@@ -102,8 +109,10 @@ public class MedicalRecord {
 
     @PrePersist
     private void prePersist() {
-        if (status == null) status = MedicalRecordStatus.DRAFT;
-        if (createdAt == null) createdAt = LocalDateTime.now();
+        if (status == null)
+            status = MedicalRecordStatus.DRAFT;
+        if (createdAt == null)
+            createdAt = LocalDateTime.now();
     }
 
     @PreUpdate

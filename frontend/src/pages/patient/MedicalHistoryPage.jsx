@@ -143,7 +143,7 @@ export default function MedicalHistoryPage() {
       }
     } catch (e) {
       // no existing EMR yet — that's fine
-      console.log('>>> EMR fetch error: ', e)
+      //console.log('>>> EMR fetch error: ', e)
     } finally {
       setLoading(false)
     }

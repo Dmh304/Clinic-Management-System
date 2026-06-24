@@ -11,6 +11,7 @@ import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -105,6 +106,9 @@ public class EMRResponse {
 
     /* Nhãn áp mắt phải (đơn vị: mmHg) */
     private BigDecimal iopR;
+
+    /* URL ảnh từ LabResult APPROVED gần nhất */
+    private List<String> labImageUrls;
 
     /* Trạng thái của hồ sơ bệnh án */
     private String status;

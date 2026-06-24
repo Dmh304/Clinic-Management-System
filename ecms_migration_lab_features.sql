@@ -42,7 +42,7 @@ GO
 
 ALTER TABLE lab_orders
     ADD CONSTRAINT CK_lab_orders_status
-    CHECK (status IN ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'REJECTED'));
+    CHECK (status IN ('PENDING', 'IN_PROGRESS', 'SUBMITTED', 'APPROVED', 'REJECTED', 'COMPLETED', 'CANCELLED'));
 GO
 
 -- ============================================================

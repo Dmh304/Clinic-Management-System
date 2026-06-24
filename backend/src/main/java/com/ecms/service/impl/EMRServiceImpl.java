@@ -12,13 +12,21 @@ import com.ecms.entity.*;
 import com.ecms.exception.ResourceNotFoundException;
 import com.ecms.repository.AppointmentRepository;
 import com.ecms.repository.DoctorRepository;
+import com.ecms.repository.LabOrderRepository;
+import com.ecms.repository.LabResultRepository;
 import com.ecms.repository.MedicalRecordRepository;
 import com.ecms.service.EMRService;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -29,6 +37,9 @@ public class EMRServiceImpl implements EMRService {
         private final MedicalRecordRepository medicalRecordRepository;
         private final AppointmentRepository appointmentRepository;
         private final DoctorRepository doctorRepository;
+        private final LabOrderRepository labOrderRepository;
+        private final LabResultRepository labResultRepository;
+        private final ObjectMapper objectMapper;
 
         /* Hàm lưu hồ sơ bệnh án */
         @Override
@@ -102,10 +113,37 @@ public class EMRServiceImpl implements EMRService {
         // Hàm lấy hồ sơ bệnh án dựa trên ID lịch hẹn
         @Override
         @Transactional(readOnly = true)
-        public EMRResponse getByAppointmentId(Long appointmentId) {
-                return medicalRecordRepository.findByAppointmentId(appointmentId)
-                                .map(this::toResponse)
-                                .orElse(null);
+        public EMRResponse getOrCreateByAppointmentId(Long appointmentId, Long doctorId) {
+                // Nếu đã có record thì trả về luôn
+                Optional<MedicalRecord> existing = medicalRecordRepository.findByAppointmentId(appointmentId);
+                if (existing.isPresent()) {
+                        return toResponse(existing.get());
+                }
+
+                Appointment appointment = appointmentRepository.findById(appointmentId)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "Lịch hẹn không tồn tại: " + appointmentId));
+
+                Doctor doctor = doctorRepository.findById(doctorId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Bác sĩ không tồn tại: " + doctorId));
+
+                MedicalRecord record = MedicalRecord.builder()
+                                .appointment(appointment)
+                                .patient(appointment.getPatient())
+                                .doctor(doctor)
+                                .status(MedicalRecordStatus.IN_PROGRESS)
+                                .build();
+
+                // Đồng bộ appointment status
+                if (appointment.getStatus() != AppointmentStatus.COMPLETED) {
+                        appointment.setStatus(AppointmentStatus.IN_PROGRESS);
+                        appointmentRepository.save(appointment);
+                }
+
+                return toResponse(medicalRecordRepository.save(record));
+                // return medicalRecordRepository.findByAppointmentId(appointmentId)
+                // .map(this::toResponse)
+                // .orElse(null);
         }
 
         // Hàm lấy danh sách lịch sử các lần khám trước đó của một bệnh nhân
@@ -153,6 +191,7 @@ public class EMRServiceImpl implements EMRService {
                                 .bcvaL(m.getBcvaL()).bcvaR(m.getBcvaR())
                                 .sphL(m.getSphL()).cylL(m.getCylL()).axisL(m.getAxisL()).iopL(m.getIopL())
                                 .sphR(m.getSphR()).cylR(m.getCylR()).axisR(m.getAxisR()).iopR(m.getIopR())
+                                .labImageUrls(resolveLabImageUrls(m))
                                 .status(m.getStatus() != null ? m.getStatus().name() : null)
                                 .createdAt(m.getCreatedAt())
                                 .updatedAt(m.getUpdatedAt())
@@ -175,5 +214,37 @@ public class EMRServiceImpl implements EMRService {
                                 .stream()
                                 .map(this::toResponse)
                                 .collect(Collectors.toList());
+        }
+
+        private List<String> resolveLabImageUrls(MedicalRecord m) {
+                return labOrderRepository
+                                .findByMedicalRecordIdOrderByCreatedAtDesc(m.getId())
+                                .stream()
+                                .filter(o -> o.getStatus() == LabOrderStatus.APPROVED)
+                                .findFirst()
+                                .flatMap(o -> labResultRepository.findTopByLabOrderIdOrderByIdDesc(o.getId()))
+                                .map(r -> fromJson(r.getImageUrls()))
+                                .orElse(List.of());
+        }
+
+        private String toJson(List<String> urls) {
+                if (urls == null || urls.isEmpty())
+                        return null;
+                try {
+                        return objectMapper.writeValueAsString(urls);
+                } catch (Exception e) {
+                        return null;
+                }
+        }
+
+        private List<String> fromJson(String json) {
+                if (json == null || json.isBlank())
+                        return List.of();
+                try {
+                        return objectMapper.readValue(json, new TypeReference<List<String>>() {
+                        });
+                } catch (Exception e) {
+                        return List.of();
+                }
         }
 }

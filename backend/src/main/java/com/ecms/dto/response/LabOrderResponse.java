@@ -27,6 +27,10 @@ public class LabOrderResponse {
 
     private String patientFullName;
 
+    private String patientPhone;
+
+    private String serviceName;
+
     private String notes;
 
     private LabPriority priority;

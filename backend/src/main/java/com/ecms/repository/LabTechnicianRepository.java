@@ -1,5 +1,6 @@
 package com.ecms.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -10,4 +11,6 @@ import com.ecms.entity.LabTechnician;
 @Repository
 public interface LabTechnicianRepository extends JpaRepository<LabTechnician, Long> {
     Optional<LabTechnician> findByEmail(String email);
+
+    List<LabTechnician> findByStatus(String status);
 }

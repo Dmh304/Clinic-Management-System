@@ -484,7 +484,7 @@ CREATE TABLE lab_orders (
     CONSTRAINT FK_lab_orders_ordered_by FOREIGN KEY (ordered_by) REFERENCES users(id),
     CONSTRAINT FK_lab_orders_assigned_to FOREIGN KEY (assigned_to) REFERENCES users(id),
     CONSTRAINT CK_lab_orders_priority CHECK (priority IN ('NORMAL', 'URGENT')),
-    CONSTRAINT CK_lab_orders_status CHECK (status IN ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'REJECTED'))
+    CONSTRAINT CK_lab_orders_status CHECK (status IN ('PENDING', 'IN_PROGRESS', 'SUBMITTED', 'APPROVED', 'REJECTED', 'COMPLETED', 'CANCELLED'))
 );
 GO
 

@@ -2,15 +2,21 @@ package com.ecms.service.impl;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.ecms.dto.request.LabOrderRequest;
 import com.ecms.dto.request.LabResultRequest;
 import com.ecms.dto.response.LabOrderResponse;
 import com.ecms.dto.response.LabResultResponse;
+import com.ecms.dto.response.LabTechnicianResponse;
+import com.ecms.entity.Doctor;
 import com.ecms.entity.LabOrder;
 import com.ecms.entity.LabOrderStatus;
 import com.ecms.entity.LabResult;
@@ -35,6 +41,7 @@ public class LabOrderServiceImpl implements LabOrderService {
     private final MedicalRecordRepository medicalRecordRepository;
     private final DoctorRepository doctorRepository;
     private final LabTechnicianRepository labTechnicianRepository;
+    private final ObjectMapper objectMapper;
 
     @Override
     @Transactional
@@ -54,9 +61,10 @@ public class LabOrderServiceImpl implements LabOrderService {
     }
 
     @Override
+    @Transactional
     public List<LabOrderResponse> getLabQueue(Long labTechnicianId) {
         return labOrderRepository
-                .findByLabTechnicianId(labTechnicianId)
+                .findByLabTechnicianIdOrderByCreatedAtDesc(labTechnicianId)
                 .stream()
                 .map(this::toOrderResponse)
                 .collect(Collectors.toList());
@@ -70,14 +78,16 @@ public class LabOrderServiceImpl implements LabOrderService {
         if (labOrder.getLabTechnician() == null || !labOrder.getLabTechnician().getId().equals(labTechnicianId)) {
             throw new AccessDeniedException("You are not authorized");
         }
-
+        if (labOrder.getStatus() != LabOrderStatus.IN_PROGRESS) {
+            throw new IllegalStateException("Can only submit results for an IN_PROGRESS LabOrder");
+        }
         LabResult labResult = LabResult.builder()
                 .labOrder(labOrder)
                 .vaL(request.getVaL()).vaR(request.getVaR())
                 .bcvaL(request.getBcvaL()).bcvaR(request.getBcvaR())
                 .sphL(request.getSphL()).cylL(request.getCylL()).axisL(request.getAxisL()).iopL(request.getIopL())
                 .sphR(request.getSphR()).cylR(request.getCylR()).axisR(request.getAxisR()).iopR(request.getIopR())
-                .imageUrl(request.getImageUrl())
+                .imageUrls(toJson(request.getImageUrls()))
                 .doctorNotes(request.getDoctorNotes())
                 .labTechnician(labTechnicianRepository.getReferenceById(labTechnicianId))
                 // reviewed_by đang NOT NULL trên entity LabResult nên phải gán ngay lúc tạo;
@@ -96,9 +106,10 @@ public class LabOrderServiceImpl implements LabOrderService {
     }
 
     @Override
+    @Transactional
     public List<LabOrderResponse> getLabOrdersForMedicalRecord(Long medicalRecordId) {
         return labOrderRepository
-                .findByMedicalRecordId(medicalRecordId)
+                .findByMedicalRecordIdOrderByCreatedAtDesc(medicalRecordId)
                 .stream()
                 .map(this::toOrderResponse)
                 .collect(Collectors.toList());
@@ -121,11 +132,12 @@ public class LabOrderServiceImpl implements LabOrderService {
                 throw new IllegalStateException("LabOrder is not ready yet");
             }
         } else {
-            if (labOrder.getStatus() != LabOrderStatus.APPROVED && labOrder.getStatus() != LabOrderStatus.SUBMITTED) {
+            if (labOrder.getStatus() != LabOrderStatus.APPROVED && labOrder.getStatus() != LabOrderStatus.SUBMITTED
+                    && labOrder.getStatus() != LabOrderStatus.IN_PROGRESS) {
                 throw new IllegalStateException("LabOrder is not ready yet");
             }
         }
-        LabResult labResult = labResultRepository.findByLabOrderId(labOrderId)
+        LabResult labResult = labResultRepository.findTopByLabOrderIdOrderByIdDesc(labOrderId)
                 .orElseThrow(() -> new RuntimeException("LabResult not found for LabOrder: " + labOrderId));
 
         return toResultResponse(labResult);
@@ -144,10 +156,30 @@ public class LabOrderServiceImpl implements LabOrderService {
             throw new IllegalStateException("Can only approve a SUBMITTED LabOrder");
         }
 
-        LabResult labResult = labResultRepository.findByLabOrderId(labOrderId)
+        LabResult labResult = labResultRepository.findTopByLabOrderIdOrderByIdDesc(labOrderId)
                 .orElseThrow(() -> new RuntimeException("LabResult not found for LabOrder: " + labOrderId));
         labResult.setReviewedAt(LocalDateTime.now());
         labResultRepository.save(labResult);
+
+        // ── Auto-fill MedicalRecord từ LabResult ─────────────────────
+        MedicalRecord record = labOrder.getMedicalRecord();
+
+        // Chỉ fill nếu chưa có giá trị (không ghi đè dữ liệu bác sĩ đã nhập thủ công)
+        record.setVaL(labResult.getVaL());
+        record.setVaR(labResult.getVaR());
+        record.setBcvaL(labResult.getBcvaL());
+        record.setBcvaR(labResult.getBcvaR());
+        record.setSphL(labResult.getSphL());
+        record.setSphR(labResult.getSphR());
+        record.setCylL(labResult.getCylL());
+        record.setCylR(labResult.getCylR());
+        record.setAxisL(labResult.getAxisL());
+        record.setAxisR(labResult.getAxisR());
+        record.setIopL(labResult.getIopL());
+        record.setIopR(labResult.getIopR());
+        record.setLabImageUrl(labResult.getImageUrls());
+
+        medicalRecordRepository.save(record);
 
         labOrder.setStatus(LabOrderStatus.APPROVED);
         LabOrder saved = labOrderRepository.save(labOrder);
@@ -156,6 +188,7 @@ public class LabOrderServiceImpl implements LabOrderService {
     }
 
     @Override
+    @Transactional
     public LabOrderResponse requestRetest(Long labOrderId, Long doctorId, LabOrderRequest request) {
         LabOrder previousOrder = labOrderRepository.findById(labOrderId)
                 .orElseThrow(() -> new RuntimeException("LabOrder not found: " + labOrderId));
@@ -191,15 +224,33 @@ public class LabOrderServiceImpl implements LabOrderService {
     }
 
     private LabOrderResponse toOrderResponse(LabOrder labOrder) {
+        String doctorFullName = null;
+        if (labOrder.getDoctor() != null) {
+            // Nếu id liên kết thực chất là user_id
+            Doctor realDoctor = doctorRepository.findByUserId(labOrder.getDoctor().getId()).orElse(null);
+            if (realDoctor != null) {
+                doctorFullName = realDoctor.getFullName();
+            } else {
+                doctorFullName = labOrder.getDoctor().getFullName();
+            }
+        }
+
         return LabOrderResponse.builder()
                 .id(labOrder.getId())
                 .medicalRecordId(labOrder.getMedicalRecord().getId())
-                .doctorFullName(labOrder.getDoctor() != null ? labOrder.getDoctor().getFullName() : null)
+                .doctorFullName(doctorFullName)
                 .labTechnicianFullName(
                         labOrder.getLabTechnician() != null ? labOrder.getLabTechnician().getFullName() : null)
                 .patientFullName(labOrder.getMedicalRecord().getPatient() != null
                         ? labOrder.getMedicalRecord().getPatient().getFullName()
                         : null)
+                .patientPhone(labOrder.getMedicalRecord().getPatient() != null
+                        ? labOrder.getMedicalRecord().getPatient().getPhone()
+                        : null)
+                .serviceName(labOrder.getMedicalRecord().getAppointment() != null
+                        && labOrder.getMedicalRecord().getAppointment().getClinicService() != null
+                                ? labOrder.getMedicalRecord().getAppointment().getClinicService().getServiceName()
+                                : null)
                 .notes(labOrder.getNotes())
                 .priority(labOrder.getPriority())
                 .status(labOrder.getStatus())
@@ -222,7 +273,7 @@ public class LabOrderServiceImpl implements LabOrderService {
                 .iopL(labResult.getIopL())
                 .sphR(labResult.getSphR()).cylR(labResult.getCylR()).axisR(labResult.getAxisR())
                 .iopR(labResult.getIopR())
-                .imageUrl(labResult.getImageUrl())
+                .imageUrls(fromJson(labResult.getImageUrls()))
                 .doctorNotes(labResult.getDoctorNotes())
                 .labTechnicianId(labResult.getLabTechnician() != null ? labResult.getLabTechnician().getId() : null)
                 .labTechnicianFullName(
@@ -239,5 +290,115 @@ public class LabOrderServiceImpl implements LabOrderService {
                 .createdAt(labResult.getCreatedAt())
                 .updatedAt(labResult.getUpdatedAt())
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public LabOrderResponse startLabOrder(Long labOrderId, Long labTechnicianId) {
+        LabOrder labOrder = labOrderRepository.findById(labOrderId)
+                .orElseThrow(() -> new RuntimeException("LabOrder not found: " + labOrderId));
+
+        if (labOrder.getStatus() != LabOrderStatus.PENDING) {
+            throw new IllegalStateException("Only PENDING lab orders can be started");
+        }
+
+        if (labOrder.getLabTechnician() == null) {
+            labOrder.setLabTechnician(labTechnicianRepository.getReferenceById(labTechnicianId));
+        } else if (!labOrder.getLabTechnician().getId().equals(labTechnicianId)) {
+            throw new AccessDeniedException("You are not authorized to start this lab order");
+        }
+
+        labOrder.setStatus(LabOrderStatus.IN_PROGRESS);
+        LabOrder saved = labOrderRepository.save(labOrder);
+        return toOrderResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public List<LabOrderResponse> getLabOrdersForDoctor(Long doctorId) {
+        return labOrderRepository.findByDoctorIdOrderByCreatedAtDesc(doctorId)
+                .stream()
+                .map(this::toOrderResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public List<LabTechnicianResponse> getActiveLabTechnicians() {
+        return labTechnicianRepository.findByStatus("ACTIVE")
+                .stream()
+                .map(lt -> LabTechnicianResponse.builder()
+                        .id(lt.getId())
+                        .fullName(lt.getFullName())
+                        .specialization(lt.getSpecialization())
+                        .email(lt.getEmail())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public LabOrderResponse saveDraft(Long labOrderId, LabResultRequest request, Long labTechnicianId) {
+        LabOrder labOrder = labOrderRepository.findById(labOrderId)
+                .orElseThrow(() -> new RuntimeException("LabOrder not found: " + labOrderId));
+
+        if (labOrder.getLabTechnician() == null || !labOrder.getLabTechnician().getId().equals(labTechnicianId)) {
+            throw new AccessDeniedException("You are not authorized");
+        }
+
+        // Chỉ cho phép lưu nháp khi đang IN_PROGRESS
+        if (labOrder.getStatus() != LabOrderStatus.IN_PROGRESS) {
+            throw new IllegalStateException("Can only save draft for an IN_PROGRESS LabOrder");
+        }
+
+        // Tìm LabResult hiện có hoặc tạo mới
+        Optional<LabResult> existing = labResultRepository.findTopByLabOrderIdOrderByIdDesc(labOrderId);
+        LabResult labResult = existing.orElse(LabResult.builder()
+                .labOrder(labOrder)
+                .labTechnician(labTechnicianRepository.getReferenceById(labTechnicianId))
+                .doctor(labOrder.getDoctor())
+                .build());
+
+        // Cập nhật các trường — KHÔNG đổi status của LabOrder
+        labResult.setVaL(request.getVaL());
+        labResult.setVaR(request.getVaR());
+        labResult.setBcvaL(request.getBcvaL());
+        labResult.setBcvaR(request.getBcvaR());
+        labResult.setSphL(request.getSphL());
+        labResult.setSphR(request.getSphR());
+        labResult.setCylL(request.getCylL());
+        labResult.setCylR(request.getCylR());
+        labResult.setAxisL(request.getAxisL());
+        labResult.setAxisR(request.getAxisR());
+        labResult.setIopL(request.getIopL());
+        labResult.setIopR(request.getIopR());
+        labResult.setImageUrls(toJson(request.getImageUrls()));
+        labResult.setDoctorNotes(request.getDoctorNotes());
+
+        labResultRepository.save(labResult);
+
+        // Status LabOrder giữ nguyên IN_PROGRESS
+        return toOrderResponse(labOrder);
+    }
+
+    private String toJson(List<String> urls) {
+        if (urls == null || urls.isEmpty())
+            return null;
+        try {
+            return objectMapper.writeValueAsString(urls);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private List<String> fromJson(String json) {
+        if (json == null || json.isBlank())
+            return List.of();
+        try {
+            return objectMapper.readValue(json, new TypeReference<List<String>>() {
+            });
+        } catch (Exception e) {
+            return List.of();
+        }
     }
 }

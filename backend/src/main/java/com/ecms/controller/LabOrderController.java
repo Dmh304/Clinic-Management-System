@@ -8,6 +8,7 @@ import com.ecms.dto.request.LabResultRequest;
 import com.ecms.dto.response.ApiResponse;
 import com.ecms.dto.response.LabOrderResponse;
 import com.ecms.dto.response.LabResultResponse;
+import com.ecms.dto.response.LabTechnicianResponse;
 import com.ecms.entity.Doctor;
 import com.ecms.entity.LabOrder;
 import com.ecms.entity.LabTechnician;
@@ -56,6 +57,13 @@ public class LabOrderController {
         return ResponseEntity.ok(ApiResponse.success(labOrderService.getLabQueue(labTechnicianId)));
     }
 
+    @PutMapping("/{id}/start")
+    public ResponseEntity<ApiResponse<LabOrderResponse>> startLabOrder(@PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Long labTechnicianId = resolveLabTechnicianId(userDetails);
+        return ResponseEntity.ok(ApiResponse.success(labOrderService.startLabOrder(id, labTechnicianId)));
+    }
+
     @PutMapping("/{id}/result")
     public ResponseEntity<ApiResponse<LabOrderResponse>> submitResult(@PathVariable Long id,
             @RequestBody LabResultRequest request, @AuthenticationPrincipal UserDetails userDetails) {
@@ -74,6 +82,14 @@ public class LabOrderController {
             @AuthenticationPrincipal UserDetails userDetails) {
         Long currentUserId = resolveDoctorId(userDetails);
         String role = "DOCTOR";
+
+        // Kiểm tra xem có phải Kỹ thuật viên xét nghiệm hay không
+        if (currentUserId == null) {
+            currentUserId = resolveLabTechnicianId(userDetails);
+            role = "LAB_TECHNICIAN";
+        }
+
+        // Nếu không phải Doctor hoặc Lab Tech thì mới xét là Patient
         if (currentUserId == null) {
             currentUserId = resolvePatientId(userDetails);
             role = "PATIENT";
@@ -93,6 +109,28 @@ public class LabOrderController {
             @RequestBody LabOrderRequest request, @AuthenticationPrincipal UserDetails userDetails) {
         Long doctorId = resolveDoctorId(userDetails);
         return ResponseEntity.ok(ApiResponse.success(labOrderService.requestRetest(id, doctorId, request)));
+    }
+
+    @GetMapping("/technicians")
+    @PreAuthorize("hasAnyRole('DOCTOR')")
+    public ResponseEntity<ApiResponse<List<LabTechnicianResponse>>> getActiveLabTechnicians() {
+        return ResponseEntity.ok(ApiResponse.success(labOrderService.getActiveLabTechnicians()));
+    }
+
+    @GetMapping("/doctor")
+    public ResponseEntity<ApiResponse<List<LabOrderResponse>>> getLabOrdersForDoctor(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Long doctorId = resolveDoctorId(userDetails);
+        return ResponseEntity.ok(ApiResponse.success(labOrderService.getLabOrdersForDoctor(doctorId)));
+    }
+
+    @PutMapping("/{id}/draft")
+    public ResponseEntity<ApiResponse<LabOrderResponse>> saveDraft(
+            @PathVariable Long id,
+            @RequestBody LabResultRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Long labTechnicianId = resolveLabTechnicianId(userDetails);
+        return ResponseEntity.ok(ApiResponse.success(labOrderService.saveDraft(id, request, labTechnicianId)));
     }
 
     /* Tìm kiếm và trả về id của bác sĩ dựa trên thông tin tài khoản đăng nhập */

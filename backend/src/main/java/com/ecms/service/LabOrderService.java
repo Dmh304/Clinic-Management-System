@@ -6,6 +6,7 @@ import com.ecms.dto.request.LabOrderRequest;
 import com.ecms.dto.request.LabResultRequest;
 import com.ecms.dto.response.LabOrderResponse;
 import com.ecms.dto.response.LabResultResponse;
+import com.ecms.dto.response.LabTechnicianResponse;
 
 public interface LabOrderService {
     LabOrderResponse createLabOrder(LabOrderRequest request, Long doctorId);
@@ -21,4 +22,12 @@ public interface LabOrderService {
     LabOrderResponse approveLabResult(Long labOrderId, Long doctorId);
 
     LabOrderResponse requestRetest(Long labOrderId, Long doctorId, LabOrderRequest request);
+
+    LabOrderResponse startLabOrder(Long labOrderId, Long labTechnicianId);
+
+    List<LabTechnicianResponse> getActiveLabTechnicians();
+
+    List<LabOrderResponse> getLabOrdersForDoctor(Long doctorId);
+
+    LabOrderResponse saveDraft(Long labOrderId, LabResultRequest request, Long labTechnicianId);
 }

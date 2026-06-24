@@ -1,6 +1,7 @@
 package com.ecms.dto.request;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import lombok.Data;
 
@@ -45,7 +46,7 @@ public class LabResultRequest {
     /* Nhãn áp mắt phải (đơn vị: mmHg) */
     private BigDecimal iopR;
 
-    private String imageUrl;
+    private List<String> imageUrls;
 
     private String doctorNotes;
 }
