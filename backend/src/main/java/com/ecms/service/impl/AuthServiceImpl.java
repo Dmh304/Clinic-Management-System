@@ -134,6 +134,17 @@ public class AuthServiceImpl implements AuthService {
 
         userRepository.save(user);
 
+        // Tạo hồ sơ bệnh nhân liên kết với tài khoản vừa đăng ký
+        String patientCode = String.format("PT%04d", patientRepository.count() + 1);
+        Patient patient = Patient.builder()
+                .user(user)
+                .patientCode(patientCode)
+                .fullName(request.getFullName())
+                .phone(request.getPhone())
+                .email(request.getEmail())
+                .build();
+        patientRepository.save(patient);
+
         String token = jwtUtil.generateToken(user.getEmail(), patientRole.getName(), null);
 
         return AuthResponse.builder()

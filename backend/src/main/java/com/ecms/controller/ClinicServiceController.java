@@ -63,7 +63,22 @@ public class ClinicServiceController {
                 clinicServiceService.getMyRegistrations(authentication.getName())));
     }
 
+    /** Cập nhật trạng thái đăng ký (vd: lễ tân đánh dấu đã liên hệ tư vấn) — RECEPTIONIST / ADMIN */
+    @PatchMapping("/registrations/{id}/status")
+    public ResponseEntity<ApiResponse<ServiceRegistrationResponse>> updateRegistrationStatus(
+            @PathVariable Long id,
+            @RequestParam String status) {
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật trạng thái đăng ký thành công",
+                clinicServiceService.updateRegistrationStatus(id, status)));
+    }
+
     // ── Manager CRUD ──────────────────────────────────────────────
+
+    /** Danh sách tất cả gói (kể cả đã ẩn) — MANAGER, để khôi phục gói đã ẩn */
+    @GetMapping("/packages")
+    public ResponseEntity<ApiResponse<List<ClinicServiceResponse>>> getAllPackages() {
+        return ResponseEntity.ok(ApiResponse.success(clinicServiceService.getAllPackages()));
+    }
 
     /** Tạo gói dịch vụ mới — MANAGER */
     @PostMapping("/packages")

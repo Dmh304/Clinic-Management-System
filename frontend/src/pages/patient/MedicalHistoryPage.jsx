@@ -193,7 +193,9 @@ export default function MedicalHistoryPage() {
         records.map((r) => [String(r.appointmentId), r])
       )
 
-      const merged = appts.map((a) => {
+      const merged = appts
+        .filter((a) => a.status === 'COMPLETED')
+        .map((a) => {
         const record = recordByAppointmentId.get(String(a.id))
         return {
           id: a.id,
@@ -249,184 +251,217 @@ export default function MedicalHistoryPage() {
     )
   })
 
-  if(!medicalRecordId){
-  return (
-    <>
-    <Header />
-      <div style={{ padding: 24 }}>
-        <div style={{ marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Hồ sơ bệnh án</h2>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b'}}>
-            Danh sách các lần khám của bạn
-          </p>
-        </div>
-      <div style={{ backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
-        
-        {/* Thanh tìm kiếm */}
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9' }}>
-         <Input.Search
-            placeholder="Tìm theo tên bác sĩ hoặc dịch vụ..."
-            allowClear={true}
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            style={{ maxWidth: 400 }}
-          />
-        </div>
-        <Spin spinning={listLoading}>
-          {filteredList.length === 0 && !listLoading ? (
-            <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8', fontSize: 14 }}>
-              {searchText ? 'Không tìm thấy kết quả phù hợp' : 'Bạn chưa có lịch hẹn nào'}
+  const columns = [
+    {
+      title: 'STT',
+      key: 'stt',
+      width: 60,
+      render: (_, __, index) => <span style={{ color: '#64748b', fontSize: 13 }}>{index + 1}</span>,
+    },
+    {
+      title: 'Ngày khám',
+      dataIndex: 'appointmentTime',
+      key: 'appointmentTime',
+      render: (time) => (
+        <span style={{ fontSize: 13, color: '#334155' }}>
+          {time ? new Date(time).toLocaleDateString('vi-VN') : '—'}
+        </span>
+      ),
+    },
+    {
+      title: 'Giờ khám',
+      key: 'timeSlot',
+      render: (_, r) => (
+        <span style={{ fontSize: 13, color: '#334155' }}>
+          {r.timeSlot ?? (r.appointmentTime
+            ? new Date(r.appointmentTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+            : '—')}
+        </span>
+      ),
+    },
+    {
+      title: 'Dịch vụ',
+      dataIndex: 'serviceName',
+      key: 'serviceName',
+      render: (name) => (
+        <span style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>
+          {name ?? '—'}
+        </span>
+      ),
+    },
+    {
+      title: 'Bác sĩ',
+      dataIndex: 'doctorName',
+      key: 'doctorName',
+      render: (name) => (
+        <span style={{ fontSize: 13, color: '#475569' }}>
+          {name ?? '—'}
+        </span>
+      ),
+    },
+    {
+      title: 'Trạng thái',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status) => {
+        const mapped = APPOINTMENT_STATUS_MAP[status] ?? { color: 'default', label: status }
+        return (
+          <Tag color={mapped.color} style={{ borderRadius: 6, fontWeight: 500 }}>
+            {mapped.label}
+          </Tag>
+        )
+      },
+    },
+    {
+      title: 'Chẩn đoán',
+      dataIndex: 'diagnosis',
+      key: 'diagnosis',
+      render: (diag) => (
+        <span style={{ fontSize: 13, color: '#475569' }} title={diag ?? '—'}>
+          {diag ? (diag.length > 40 ? diag.substring(0, 40) + '...' : diag) : '—'}
+        </span>
+      ),
+    },
+    {
+      title: 'Hành động',
+      key: 'action',
+      render: (_, r) => {
+        if (r.status === 'COMPLETED' && r.medicalRecordId) {
+          return (
+            <Button
+              type="primary"
+              size="small"
+              onClick={() => navigate(`/patient/history?medicalRecordId=${r.medicalRecordId}`)}
+              style={{
+                fontSize: 12,
+                backgroundColor: '#0d9488',
+                borderColor: '#0d9488',
+                borderRadius: 6,
+                fontWeight: 500,
+              }}
+            >
+              Xem HSBA
+            </Button>
+          )
+        }
+        return null
+      },
+    },
+  ]
+
+  if (!medicalRecordId) {
+    return (
+      <>
+        <Header />
+        <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', padding: '32px 24px' }}>
+          <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+            <div style={{ marginBottom: 24 }}>
+              <h2 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: '#1e293b' }}>Hồ sơ bệnh án</h2>
+              <p style={{ margin: '4px 0 0', fontSize: 14, color: '#64748b' }}>
+                Danh sách các lần khám và bệnh án điện tử của bạn
+              </p>
             </div>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid #f1f5f9', backgroundColor: '#f8fafc' }}>
-                  {['STT', 'Ngày khám', 'Giờ khám', 'Dịch vụ', 'Bác sĩ', 'Trạng thái', 'Chẩn đoán', ''].map((h) => (
-                    <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 13, fontWeight: 600, color: '#475569' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredList.map((r, i) => (
-                  <tr
-                    key={r.id}
-                    style={{ borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
-                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f0fdf9'}
-                    onMouseLeave={e => e.currentTarget.style.backgroundColor = ''}
-                  >
-                    <td style={{ padding: '12px 16px', color: '#64748b', fontSize: 13 }}>{i + 1}</td>
-                    <td style={{ padding: '12px 16px', fontSize: 13, color: '#475569' }}>
-                      {r.appointmentTime ? new Date(r.appointmentTime).toLocaleDateString('vi-VN') : '—'}
-                    </td>
-                    <td style={{ padding: '12px 16px', fontSize: 13, color: '#475569' }}>
-                          {r.timeSlot ?? (r.appointmentTime
-                            ? new Date(r.appointmentTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-                            : '—')}
-                    </td>
-                    <td style={{ padding: '12px 16px', fontSize: 13, color: '#475569', maxWidth: 180 }}>
-                      <div title={r.serviceName ?? '—'} style={textEllipsisStyle}>{r.serviceName ?? '—'}</div>
-                    </td>
-                    <td style={{ padding: '12px 16px', fontSize: 12, color: '#64748b' }}>
-                          {r.doctorName ?? '—'}
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <Tag color={APPOINTMENT_STATUS_MAP[r.status]?.color ?? 'default'}>
-                            {APPOINTMENT_STATUS_MAP[r.status]?.label ?? r.status}
-                      </Tag>
-                    </td>
-                    <td style={{ padding: '12px 16px', fontSize: 13, color: '#475569', maxWidth: 200 }}>
-                      <div 
-                          title={r.diagnosis ?? '—'} 
-                          style={{
-                            display: '-webkit-box',
-                            WebkitLineClamp: 1,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            wordBreak: 'break-all'
-                          }}
-                      >
-                      {r.diagnosis ?? '—'}
-                      </div>
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      {r.status === 'COMPLETED' && r.medicalRecordId ? (
-                        <Button
-                          size="small"
-                          onClick={() => navigate(`/patient/history?medicalRecordId=${r.medicalRecordId}`)}
-                          style={{ fontSize: 12, borderColor: '#0d9488', color: '#0d9488' }}
-                        >
-                          Xem HSBA
-                        </Button>
-                      ) : null}
-                      </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-          </Spin>
+            <div style={{ backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #e2e8f0', overflow: 'hidden', padding: 20 }}>
+              {/* Thanh tìm kiếm */}
+              <div style={{ marginBottom: 16 }}>
+                <Input.Search
+                  placeholder="Tìm theo tên bác sĩ hoặc dịch vụ..."
+                  allowClear={true}
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  style={{ maxWidth: 400 }}
+                />
+              </div>
+              <Table
+                columns={columns}
+                dataSource={filteredList}
+                rowKey="id"
+                loading={listLoading}
+                pagination={{ pageSize: 8, showSizeChanger: false }}
+                locale={{ emptyText: searchText ? 'Không tìm thấy kết quả phù hợp' : 'Bạn chưa có lịch hẹn nào' }}
+              />
+            </div>
+          </div>
         </div>
-      </div>
       </>
     )
   }
 
   // Render giao diện CHÍNH của trang Hồ sơ bệnh án điện tử
-    return (
-      <>
+  return (
+    <>
       <Header />
-      <div style={{ padding: 24 }}>
-  
-        {/* khối header thông tin bệnh nhân đang tiếp đón */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>
-              Hồ sơ bệnh án
-              {emr?.patientName && <span style={{ fontWeight: 400, color: '#64748b', fontSize: 15, marginLeft: 8 }}>— {emr.patientName}</span>}
-            </h2>
-            <div style={{ marginTop: 4, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-              {emr?.patientPhone && <span style={{ fontSize: 12, color: '#64748b' }}>{emr.patientPhone}</span>}
-              {emr?.status && (
-                <Tag color={STATUS_MAP[emr.status]?.color ?? 'default'}>
-                  {STATUS_MAP[emr.status]?.label ?? emr.status}
-                </Tag>
-              )}
+      <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', padding: '32px 24px' }}>
+        <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+          {/* khối header thông tin bệnh nhân đang tiếp đón */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#1e293b' }}>
+                Chi tiết Hồ sơ bệnh án
+                {emr?.patientName && <span style={{ fontWeight: 400, color: '#64748b', fontSize: 15, marginLeft: 8 }}>— {emr.patientName}</span>}
+              </h2>
+              <div style={{ marginTop: 4, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                {emr?.patientPhone && <span style={{ fontSize: 12, color: '#64748b' }}>{emr.patientPhone}</span>}
+                {emr?.status && (
+                  <Tag color={STATUS_MAP[emr.status]?.color ?? 'default'} style={{ borderRadius: 6 }}>
+                    {STATUS_MAP[emr.status]?.label ?? emr.status}
+                  </Tag>
+                )}
+              </div>
+            </div>
+
+            {/* Hệ thống nút điều hướng */}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button onClick={() => navigate('/patient/history')} style={{ fontSize: 13, borderRadius: 8 }}>
+                {'← Quay lại danh sách'}
+              </Button>
             </div>
           </div>
-  
-          {/* Hệ thống nút điều hướng */}
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Button onClick={() => navigate('/patient/history')} style={{ fontSize: 12 }}>
-              {'← Quay lại danh sách bệnh án'}
-            </Button>
-          </div>
-        </div>
-  
-        <Spin spinning={loading}>
-          {!loading && (
-            <div>
-            {/* ================= THẺ THÔNG TIN CHI TIẾT BỆNH NHÂN (MỚI THÊM) ================= */}
-              <div div style={{ 
-                backgroundColor: '#fff', 
-                borderRadius: 12, 
-                boxShadow: '0 1px 4px rgba(0,0,0,0.06)', 
-                padding: '16px 24px', 
-                marginBottom: 16,
-                borderLeft: '4px solid #0d9488' // Tạo điểm nhấn màu Teal đồng bộ với nút của bạn
-              }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
-                  <div>
-                    <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Họ và tên</div>
-                    <div style={{ fontWeight: 600, color: '#1e293b', fontSize: 14 }}>{emr?.patientName ?? '—'}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Ngày sinh / Tuổi</div>
-                    <div style={{ fontWeight: 500, color: '#334155' }}>
-                      {emr?.patientDob ? new Date(emr.patientDob).toLocaleDateString('vi-VN') : '—'} 
-                      {emr?.patientDob && ` (${calculateAge(emr.patientDob)} tuổi)`}
+
+          <Spin spinning={loading}>
+            {!loading && (
+              <div>
+                {/* ================= THẺ THÔNG TIN CHI TIẾT BỆNH NHÂN (MỚI THÊM) ================= */}
+                <div style={{
+                  backgroundColor: '#fff',
+                  borderRadius: 12,
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                  border: '1px solid #e2e8f0',
+                  padding: '20px 24px',
+                  marginBottom: 16,
+                  borderLeft: '4px solid #0d9488' // Tạo điểm nhấn màu Teal đồng bộ với nút của bạn
+                }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+                    <div>
+                      <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Họ và tên</div>
+                      <div style={{ fontWeight: 600, color: '#1e293b', fontSize: 14 }}>{emr?.patientName ?? '—'}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Ngày sinh / Tuổi</div>
+                      <div style={{ fontWeight: 500, color: '#334155' }}>
+                        {emr?.patientDob ? new Date(emr.patientDob).toLocaleDateString('vi-VN') : '—'} 
+                        {emr?.patientDob && ` (${calculateAge(emr.patientDob)} tuổi)`}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Giới tính</div>
+                      <div style={{ fontWeight: 500, color: '#334155' }}>{emr?.patientGender === 'FEMALE' ? 'Nữ' : 
+                        emr?.patientGender === 'MALE' ? 'Nam' : (emr?.patientGender ?? '—')}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Số điện thoại</div>
+                      <div style={{ fontWeight: 500, color: '#334155' }}>{emr?.patientPhone ?? '—'}</div>
+                    </div>
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Địa chỉ thường trú</div>
+                      <div style={{ fontWeight: 500, color: '#334155' }}>{emr?.patientAddress ?? '—'}</div>
                     </div>
                   </div>
-                  <div>
-                    <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Giới tính</div>
-                    <div style={{ fontWeight: 500, color: '#334155' }}>{emr?.patientGender === 'FEMALE' ? 'Nữ' : 
-                      emr?.patientGender === 'MALE' ? 'Nam' : (emr?.patientGender ?? '—')}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Số điện thoại</div>
-                    <div style={{ fontWeight: 500, color: '#334155' }}>{emr?.patientPhone ?? '—'}</div>
-                  </div>
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Địa chỉ thường trú</div>
-                    <div style={{ fontWeight: 500, color: '#334155' }}>{emr?.patientAddress ?? '—'}</div>
-                  </div>
                 </div>
-              </div>
-              {/* ========================================================================= */}
+                {/* ========================================================================= */}
                 <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16 }}>
-            
                   {/* form hiển thị chi tiết bệnh án (chỉ xem, không chỉnh sửa) */}
-                  <div style={{ backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+                  <div style={{ backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
                     <Form form={form} layout="vertical" disabled={true} style={{ padding: '20px 24px' }}>
                       <Tabs
                         size="small"
@@ -436,11 +471,11 @@ export default function MedicalHistoryPage() {
                             label: 'Khai thác bệnh sử',
                             children: (
                               <div style={{ paddingTop: 12 }}>
-                                <Form.Item label="Lý do khám" name="chiefComplaint" rules={[{ required: true, message: 'Nhập lý do khám' }]}>
-                                  <TextArea rows={3} placeholder="Bệnh nhân đến khám vì…" />
+                                <Form.Item label="Lý do khám" name="chiefComplaint">
+                                  <TextArea rows={3} placeholder="Bệnh nhân đến khám vì…" style={{ borderRadius: 8 }} />
                                 </Form.Item>
                                 <Form.Item label="Triệu chứng" name="symptoms">
-                                  <TextArea rows={4} placeholder="Mô tả chi tiết triệu chứng..." />
+                                  <TextArea rows={4} placeholder="Mô tả chi tiết triệu chứng..." style={{ borderRadius: 8 }} />
                                 </Form.Item>
                               </div>
                             ),
@@ -460,14 +495,14 @@ export default function MedicalHistoryPage() {
                             label: 'Chẩn đoán & Điều trị',
                             children: (
                               <div style={{ paddingTop: 12 }}>
-                                <Form.Item label="Chẩn đoán" name="diagnosis" rules={[{ required: true, message: 'Nhập chẩn đoán' }]}>
-                                  <TextArea rows={3} placeholder="Chẩn đoán bệnh..." />
+                                <Form.Item label="Chẩn đoán" name="diagnosis">
+                                  <TextArea rows={3} placeholder="Chẩn đoán bệnh..." style={{ borderRadius: 8 }} />
                                 </Form.Item>
                                 <Form.Item label="Kế hoạch điều trị" name="treatmentPlan">
-                                  <TextArea rows={4} placeholder="Hướng xử lý, đơn thuốc, tái khám..." />
+                                  <TextArea rows={4} placeholder="Hướng xử lý, đơn thuốc, tái khám..." style={{ borderRadius: 8 }} />
                                 </Form.Item>
                                 <Form.Item label="Ghi chú thêm" name="notes">
-                                  <TextArea rows={3} placeholder="Lưu ý đặc biệt..." />
+                                  <TextArea rows={3} placeholder="Lưu ý đặc biệt..." style={{ borderRadius: 8 }} />
                                 </Form.Item>
                               </div>
                             ),
@@ -609,7 +644,7 @@ export default function MedicalHistoryPage() {
                 </div>
               </div>
             )}
-        </Spin>
+             </Spin>
         <style>{`
             @media print {
                 body * { visibility: hidden; }
@@ -620,8 +655,8 @@ export default function MedicalHistoryPage() {
                 .ant-table-pagination { display: none !important; }
             }
         `}</style>
+        </div>
       </div>
-      </>
-    )
-
+    </>
+  )
 }

@@ -7,11 +7,26 @@ import { createSlice } from '@reduxjs/toolkit'
 const TOKEN_KEY = 'ecms_token'
 const USER_KEY = 'ecms_user'
 
+function isTokenExpired(token) {
+  try {
+    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
+    const payload = JSON.parse(atob(base64))
+    return payload.exp * 1000 < Date.now()
+  } catch {
+    return false
+  }
+}
+
 // Khôi phục trạng thái xác thực từ localStorage khi ứng dụng khởi động lại
 function loadFromStorage() {
   try {
     const token = localStorage.getItem(TOKEN_KEY)
     const user = JSON.parse(localStorage.getItem(USER_KEY) || 'null')
+    if (token && isTokenExpired(token)) {
+      localStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem(USER_KEY)
+      return { token: null, user: null, role: null, isAuthenticated: false }
+    }
     return {
       token,
       user,

@@ -13,6 +13,10 @@ import axiosClient from '../api/axiosClient'
 
 export const appointmentService = {
 
+  /* Hàm lấy toàn bộ lịch hẹn (dùng cho trang hóa đơn - gọi search với keyword rỗng) */
+  getAllAppointments: () =>
+    axiosClient.get('/v1/appointments/search'),
+
   /* Hàm lấy danh sách tất cả các lịch hẹn trong ngày hôm nay */
   getTodayAppointments: () =>
     axiosClient.get('/v1/appointments/today'),
@@ -47,4 +51,20 @@ export const appointmentService = {
 
   getMyAppointments: () =>
     axiosClient.get('/v1/appointments/my'),
+
+  /* Huỷ lịch hẹn (bệnh nhân tự huỷ hoặc lễ tân huỷ), có thể kèm lý do */
+  cancelAppointment: (id, reason) =>
+    axiosClient.patch(`/v1/appointments/${id}/cancel`, reason ? { reason } : null),
+
+  /* Bệnh nhân tự đổi giờ khám trong giới hạn cho phép */
+  rescheduleAppointment: (id, newAppointmentTime) =>
+    axiosClient.patch(`/v1/appointments/${id}/reschedule`, { newAppointmentTime }),
+
+  /* Lấy chi tiết 1 lịch hẹn theo id (dùng cho modal chi tiết / mở từ thông báo) */
+  getById: (id) =>
+    axiosClient.get(`/v1/appointments/${id}`),
+
+  /* UC-13: gửi nhắc lịch thủ công cho 1 lịch hẹn (bỏ qua cửa sổ 24h) */
+  sendReminder: (id) =>
+    axiosClient.post(`/v1/appointments/${id}/send-reminder`),
 }
