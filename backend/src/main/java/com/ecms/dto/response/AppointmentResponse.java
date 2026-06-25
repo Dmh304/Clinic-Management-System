@@ -3,7 +3,6 @@ package com.ecms.dto.response;
 import com.ecms.entity.AppointmentStatus;
 import lombok.*;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Getter
@@ -20,7 +19,6 @@ public class AppointmentResponse {
     private Long doctorId;
     private String doctorName;
     private String serviceName;
-    private BigDecimal servicePrice;
     private LocalDateTime appointmentTime;
     private String timeSlot;
     private AppointmentStatus status;
