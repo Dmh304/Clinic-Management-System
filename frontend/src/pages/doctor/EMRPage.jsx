@@ -1,8 +1,8 @@
 /**
  * Author: Tuấn - HE204215
  * 
- * Giao diện quản lý Bệnh án điện tử (EMR) cho Bác sĩ. 
- * Cho phép bác sĩ xem bệnh sử trước đó, khai thác triệu chứng hiện tại, khám lâm sàng và lưu hồ sơ bệnh án.
+ * Giao diện quản lý Bệnh án điện tử (EMR) cho Bác sĩ
+ * Cho phép bác sĩ xem bệnh sử trước đó, khai thác triệu chứng hiện tại, khám lâm sàng và lưu hồ sơ bệnh án
 */
 
 import { useEffect, useState, useCallback } from 'react'
@@ -22,6 +22,7 @@ const STATUS_MAP = {
   COMPLETED:   { color: 'success',    label: 'Hoàn thành' },
 }
 
+// Hàm tính tuổi của bệnh nhân dựa trên ngày sinh
 const calculateAge = (dobString) => {
   if (!dobString) return '—';
   const today = new Date();
@@ -36,7 +37,7 @@ const calculateAge = (dobString) => {
 
 const textEllipsisStyle = {
   display: '-webkit-box',
-  WebkitLineClamp: 1, // Số dòng muốn hiển thị trước khi cắt (ở đây là 1 dòng)
+  WebkitLineClamp: 1, // Số dòng muốn hiển thị trước khi cắt (1 dòng)
   WebkitBoxOrient: 'vertical',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
@@ -93,7 +94,7 @@ function HistoryCard({ record, onClick }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <span style={{ fontWeight: 600, fontSize: 13, color: '#1e293b' }}>{date}</span>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <span style={{ fontSize: 11, color: '#94a3b8' }}>BS: {record.doctorName ?? '—'}</span>
+          <span style={{ fontSize: 11, color: '#94a3b8' }}>{record.doctorName ?? '—'}</span>
           <Tag color={cfg.color} style={{ margin: 0 }}>{cfg.label}</Tag>
         </div>
       </div>
@@ -168,7 +169,7 @@ const openLabModal = async () => {
   if (labTechnicians.length > 0) return
   setLoadingLabTechs(true)
   try {
-    const res = await labService.getActiveLabTechnicians()  // ← gọi đúng endpoint
+    const res = await labService.getActiveLabTechnicians()
     setLabTechnicians(res.data ?? [])
   } catch {
     message.error('Không thể tải danh sách kỹ thuật viên')
@@ -187,7 +188,7 @@ const handleCreateLabOrder = async () => {
   try {
     await labService.createLabOrder({
       medicalRecordId:  emr?.id,
-      labTechnicianId:  labTechnicianId,   // ← thêm field này
+      labTechnicianId:  labTechnicianId,
       priority:         labPriority,
       notes:            labNotes,
     })
@@ -232,8 +233,7 @@ const handleCreateLabOrder = async () => {
         form.setFieldsValue(emrToFormValues(data))     // đổ dữ liệu vào các trường nhập liệu
       }
     } catch (e) {
-      // no existing EMR yet — that's fine
-      console.log('>>> EMR fetch error: ', e)
+        console.log('>>> EMR fetch error: ', e)
     } finally {
       setLoading(false)
     }
@@ -359,7 +359,7 @@ const handleCreateLabOrder = async () => {
   const isReadOnly = !!emr && (emr.status === 'COMPLETED' || !isOwner)
 
   // Render khi Bác sĩ CHƯA CHỌN bệnh nhân nào
-  // Hiển thị một giao diện hướng dẫn người dùng quay lại Dashboard để chọn lịch hẹn.
+  // Hiển thị một giao diện hướng dẫn người dùng quay lại Dashboard để chọn lịch hẹn
   if (!appointmentId) {
     return (
       <div style={{ padding: 24 }}>
@@ -547,7 +547,7 @@ const handleCreateLabOrder = async () => {
       <Spin spinning={loading}>
         {!loading && (
           <div>
-          {/* ================= THẺ THÔNG TIN CHI TIẾT BỆNH NHÂN (MỚI THÊM) ================= */}
+          {/* ================= THẺ THÔNG TIN CHI TIẾT BỆNH NHÂN ================= */}
       <div style={{ 
         backgroundColor: '#fff', 
         borderRadius: 12, 
@@ -577,9 +577,13 @@ const handleCreateLabOrder = async () => {
             <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Số điện thoại</div>
             <div style={{ fontWeight: 500, color: '#334155' }}>{emr?.patientPhone ?? '—'}</div>
           </div>
-          <div style={{ gridColumn: '1 / -1' }}>
+          <div>
             <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Địa chỉ thường trú</div>
             <div style={{ fontWeight: 500, color: '#334155' }}>{emr?.patientAddress ?? '—'}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Dịch vụ khám</div>
+            <div style={{ fontWeight: 500, color: '#334155' }}>{emr?.serviceName ?? '—'}</div>
           </div>
         </div>
       </div>

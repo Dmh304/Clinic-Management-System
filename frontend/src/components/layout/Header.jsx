@@ -342,7 +342,7 @@ export default function Header() {
                 <button
                   onClick={() => navigate('/lab/queue')}
                   style={{
-                  backgroundColor: '#0d9488', // Tone màu xanh Teal tương tự của Bác sĩ/Lễ tân
+                  backgroundColor: '#0d9488',
                   color: '#fff',
                   border: 'none', cursor: 'pointer',
                   padding: '6px 14px', borderRadius: 8, fontSize: 13, fontWeight: 500,

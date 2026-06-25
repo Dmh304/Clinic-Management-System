@@ -1,3 +1,18 @@
+/**
+ * Author: TuanTD
+ * 
+ * Triển khai các nghiệp vụ quản lý xét nghiệm trong hệ thống
+ *
+ * Quy trình nghiệp vụ:
+ *
+ * 1. Doctor tạo Lab Order (phiếu chỉ định xét nghiệm)
+ * 2. Lab Technician nhận và bắt đầu thực hiện xét nghiệm
+ * 3. Lab Technician lưu nháp hoặc gửi kết quả
+ * 4. Doctor xem và duyệt kết quả
+ * 5. Kết quả được đồng bộ vào Medical Record
+ * 6. Doctor có thể yêu cầu xét nghiệm lại nếu cần
+ */
+
 package com.ecms.service.impl;
 
 import java.time.LocalDateTime;
@@ -20,7 +35,6 @@ import com.ecms.entity.Doctor;
 import com.ecms.entity.LabOrder;
 import com.ecms.entity.LabOrderStatus;
 import com.ecms.entity.LabResult;
-import com.ecms.entity.LabTechnician;
 import com.ecms.entity.MedicalRecord;
 import com.ecms.repository.DoctorRepository;
 import com.ecms.repository.LabOrderRepository;
@@ -43,6 +57,21 @@ public class LabOrderServiceImpl implements LabOrderService {
     private final LabTechnicianRepository labTechnicianRepository;
     private final ObjectMapper objectMapper;
 
+    /**
+     * Tạo mới một phiếu chỉ định xét nghiệm.
+     *
+     * Người thực hiện: Doctor
+     *
+     * Chức năng:
+     * - Liên kết Medical Record
+     * - Liên kết Doctor chỉ định
+     * - Gán Lab Technician
+     * - Thiết lập mức độ ưu tiên
+     * - Lưu ghi chú của bác sĩ
+     *
+     * Trạng thái khởi tạo:
+     * - PENDING
+     */
     @Override
     @Transactional
     public LabOrderResponse createLabOrder(LabOrderRequest request, Long doctorId) {
@@ -60,6 +89,10 @@ public class LabOrderServiceImpl implements LabOrderService {
         return toOrderResponse(saved);
     }
 
+    /**
+     * Lấy danh sách các phiếu xét nghiệm được phân công
+     * cho một kỹ thuật viên
+     */
     @Override
     @Transactional
     public List<LabOrderResponse> getLabQueue(Long labTechnicianId) {
@@ -70,6 +103,21 @@ public class LabOrderServiceImpl implements LabOrderService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Nộp kết quả xét nghiệm hoàn chỉnh.
+     *
+     * Quy trình:
+     * 1. Tạo bản ghi LabResult
+     * 2. Lưu toàn bộ chỉ số đo mắt
+     * 3. Lưu ảnh xét nghiệm
+     * 4. Ghi nhận kỹ thuật viên thực hiện
+     * 5. Chuyển LabOrder sang SUBMITTED
+     * 6. Ghi nhận thời điểm hoàn thành
+     *
+     * Sau khi gửi:
+     * - Kỹ thuật viên không được sửa nữa
+     * - Chờ bác sĩ duyệt
+     */
     @Override
     @Transactional
     public LabOrderResponse submitLabResult(Long labOrderId, LabResultRequest request, Long labTechnicianId) {
@@ -90,9 +138,6 @@ public class LabOrderServiceImpl implements LabOrderService {
                 .imageUrls(toJson(request.getImageUrls()))
                 .doctorNotes(request.getDoctorNotes())
                 .labTechnician(labTechnicianRepository.getReferenceById(labTechnicianId))
-                // reviewed_by đang NOT NULL trên entity LabResult nên phải gán ngay lúc tạo;
-                // gán tạm là bác sĩ chỉ định order, còn reviewedAt chỉ set khi Doctor thực sự
-                // mở xem (xem getResults bên dưới)
                 .doctor(labOrder.getDoctor())
                 .build();
 
@@ -115,6 +160,9 @@ public class LabOrderServiceImpl implements LabOrderService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Trả về kết quả xét nghiệm.
+     */
     @Override
     @Transactional
     public LabResultResponse getLabResults(Long labOrderId, Long currentUserId, String currentUserRole) {
@@ -143,6 +191,20 @@ public class LabOrderServiceImpl implements LabOrderService {
         return toResultResponse(labResult);
     }
 
+    /**
+     * Duyệt kết quả xét nghiệm
+     * 
+     * Quy trình:
+     * 1. Kiểm tra quyền truy cập
+     * 2. Ghi nhận thời điểm duyệt
+     * 3. Đồng bộ dữ liệu từ LabResult
+     * sang MedicalRecord
+     * 4. Chuyển trạng thái sang APPROVED
+     *
+     * Lưu ý:
+     * Sau khi duyệt, Medical Record sẽ được cập nhật
+     * tự động bằng các chỉ số xét nghiệm mới nhất
+     */
     @Override
     @Transactional
     public LabOrderResponse approveLabResult(Long labOrderId, Long doctorId) {
@@ -187,40 +249,86 @@ public class LabOrderServiceImpl implements LabOrderService {
         return toOrderResponse(saved);
     }
 
+    /**
+     * Yêu cầu thực hiện xét nghiệm lại.
+     *
+     * Quy trình:
+     * 1. Chuyển phiếu cũ sang REJECTED
+     * 2. Lưu lý do từ chối
+     * 3. Tạo phiếu xét nghiệm mới (kế thừa thông tin từ phiếu cũ)
+     * 4. Copy LabResult của phiếu cũ sang phiếu mới làm dữ liệu nháp
+     * để kỹ thuật viên không phải nhập lại từ đầu
+     *
+     * Phiếu mới sẽ bắt đầu lại quy trình xét nghiệm từ trạng thái PENDING
+     */
     @Override
     @Transactional
     public LabOrderResponse requestRetest(Long labOrderId, Long doctorId, LabOrderRequest request) {
+        // Validate & reject phiếu cũ
         LabOrder previousOrder = labOrderRepository.findById(labOrderId)
                 .orElseThrow(() -> new RuntimeException("LabOrder not found: " + labOrderId));
 
         if (previousOrder.getDoctor() == null || !previousOrder.getDoctor().getId().equals(doctorId)) {
             throw new AccessDeniedException("You are not authorized");
         }
-
         if (previousOrder.getStatus() != LabOrderStatus.SUBMITTED) {
             throw new IllegalStateException("Can request a retest for a SUBMITTED Order only");
         }
 
         previousOrder.setStatus(LabOrderStatus.REJECTED);
-
-        /** Thảo luận xem có nên thêm reject reason và time vào không */
         previousOrder.setRejectionReason(request.getRejectionReason());
         previousOrder.setRejectedAt(LocalDateTime.now());
-
         labOrderRepository.save(previousOrder);
 
+        // Tạo LabOrder mới kế thừa từ phiếu cũ
         LabOrder newOrder = LabOrder.builder()
                 .medicalRecord(previousOrder.getMedicalRecord())
                 .doctor(previousOrder.getDoctor())
                 .labTechnician(previousOrder.getLabTechnician())
                 .priority(previousOrder.getPriority())
                 .notes(previousOrder.getNotes())
-                // .previousLabOrder(previousOrder)
                 .build();
 
-        LabOrder saved = labOrderRepository.save(newOrder);
+        LabOrder savedOrder = labOrderRepository.save(newOrder);
 
-        return toOrderResponse(saved);
+        // Copy LabResult của phiếu cũ sang phiếu mới
+        // Kỹ thuật viên sẽ thấy dữ liệu đã nhập trước đó làm điểm xuất phát,
+        // chỉ cần chỉnh sửa những chỉ số bị bác sĩ yêu cầu đo lại
+        labResultRepository.findTopByLabOrderIdOrderByIdDesc(labOrderId).ifPresent(previousResult -> {
+            LabResult copiedResult = LabResult.builder()
+                    .labOrder(savedOrder)
+                    // ── Thông số thị lực ──
+                    .vaL(previousResult.getVaL())
+                    .vaR(previousResult.getVaR())
+                    .bcvaL(previousResult.getBcvaL())
+                    .bcvaR(previousResult.getBcvaR())
+                    // ── Thông số khúc xạ & nhãn áp mắt trái ──
+                    .sphL(previousResult.getSphL())
+                    .cylL(previousResult.getCylL())
+                    .axisL(previousResult.getAxisL())
+                    .iopL(previousResult.getIopL())
+                    // ── Thông số khúc xạ & nhãn áp mắt phải ──
+                    .sphR(previousResult.getSphR())
+                    .cylR(previousResult.getCylR())
+                    .axisR(previousResult.getAxisR())
+                    .iopR(previousResult.getIopR())
+                    // ── Ảnh & ghi chú ──
+                    // imageUrls được copy để kỹ thuật viên tham khảo ảnh cũ;
+                    // họ có thể xoá / thêm ảnh mới khi submit lại.
+                    .imageUrls(previousResult.getImageUrls())
+                    // doctorNotes của phiếu cũ KHÔNG copy — đây là ghi chú bác sĩ viết
+                    // sau khi duyệt, không thuộc về lần xét nghiệm mới.
+                    .doctorNotes(null)
+                    // ── Người thực hiện ──
+                    .labTechnician(previousResult.getLabTechnician())
+                    .doctor(savedOrder.getDoctor())
+                    // reviewedAt để null — chưa có bác sĩ duyệt lần này
+                    .build();
+
+            labResultRepository.save(copiedResult);
+        });
+
+        return toOrderResponse(savedOrder);
     }
 
     private LabOrderResponse toOrderResponse(LabOrder labOrder) {
@@ -292,6 +400,9 @@ public class LabOrderServiceImpl implements LabOrderService {
                 .build();
     }
 
+    /**
+     * Bắt đầu thực hiện xét nghiệm
+     */
     @Override
     @Transactional
     public LabOrderResponse startLabOrder(Long labOrderId, Long labTechnicianId) {
@@ -336,6 +447,13 @@ public class LabOrderServiceImpl implements LabOrderService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Lưu nháp kết quả xét nghiệm
+     *
+     * Mục đích:
+     * Cho phép kỹ thuật viên lưu kết quả tạm thời
+     * trong quá trình thực hiện xét nghiệm
+     */
     @Override
     @Transactional
     public LabOrderResponse saveDraft(Long labOrderId, LabResultRequest request, Long labTechnicianId) {
@@ -381,6 +499,10 @@ public class LabOrderServiceImpl implements LabOrderService {
         return toOrderResponse(labOrder);
     }
 
+    /**
+     * Chuyển danh sách URL ảnh thành JSON string
+     * để lưu xuống database
+     */
     private String toJson(List<String> urls) {
         if (urls == null || urls.isEmpty())
             return null;
@@ -391,6 +513,9 @@ public class LabOrderServiceImpl implements LabOrderService {
         }
     }
 
+    /**
+     * Chuyển JSON string thành danh sách URL ảnh
+     */
     private List<String> fromJson(String json) {
         if (json == null || json.isBlank())
             return List.of();

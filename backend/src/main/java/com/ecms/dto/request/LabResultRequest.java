@@ -1,8 +1,14 @@
+/**
+ * Author: TuanTD
+ * 
+ * Đối tượng vận chuyển dữ liệu (DTO Request) chứa thông tin kết quả xét nghiệm/đo khám mắt
+ * do kỹ thuật viên phòng xét nghiệm nhập và gửi lên hệ thống
+ */
+
 package com.ecms.dto.request;
 
 import java.math.BigDecimal;
 import java.util.List;
-
 import lombok.Data;
 
 @Data
@@ -46,7 +52,12 @@ public class LabResultRequest {
     /* Nhãn áp mắt phải (đơn vị: mmHg) */
     private BigDecimal iopR;
 
+    /*
+     * Danh sách đường dẫn URL của các hình ảnh kết quả chụp chiếu, siêu âm mắt được
+     * tải lên
+     */
     private List<String> imageUrls;
 
+    /* Ghi chú của bác sĩ */
     private String doctorNotes;
 }
