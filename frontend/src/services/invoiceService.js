@@ -32,7 +32,7 @@ export const invoiceService = {
   cancel: (id) =>
     axiosClient.patch(`/v1/invoices/${id}/cancel`),
 
-  // Gửi hóa đơn điện tử qua email đến bệnh nhân (UC-17); timeout 30s vì SMTP có thể chậm
+  // ThangNBHE201024 - Gửi hóa đơn điện tử qua email đến bệnh nhân; timeout 30s vì SMTP có thể chậm
   sendEmail: (id) =>
     axiosClient.post(`/v1/invoices/${id}/send-email`, {}, { timeout: 30000 }),
 

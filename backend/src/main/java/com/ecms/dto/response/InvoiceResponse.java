@@ -3,7 +3,7 @@
 // Gồm 2 lớp lồng nhau:
 //   - InvoiceResponse: thông tin tổng quan hóa đơn (bệnh nhân, bác sĩ, tổng tiền, trạng thái)
 //   - InvoiceItemResponse: từng dòng chi tiết khoản phí bên trong hóa đơn
-// patientEmail được thêm để hỗ trợ tính năng gửi email hóa đơn điện tử (UC-17).
+// patientEmail được thêm để hỗ trợ tính năng gửi email hóa đơn điện tử.
 package com.ecms.dto.response;
 
 import lombok.*;

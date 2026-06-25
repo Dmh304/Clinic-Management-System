@@ -8,7 +8,7 @@
  *  3. Chọn phương thức thanh toán: Tiền mặt hoặc QR Code (VietQR)
  *     - Nếu chọn QR Code: hiển thị mã QR để bệnh nhân quét và chuyển khoản
  *  4. Xác nhận thu tiền → hóa đơn được tạo (DRAFT) và phát hành ngay (ISSUED)
- *  5. Tab "Lịch sử hóa đơn": xem chi tiết, in hoặc gửi email hóa đơn (UC-17)
+ *  5. Tab "Lịch sử hóa đơn": xem chi tiết, in hoặc gửi email hóa đơn
  *
  * State quản lý qua Redux (invoiceSlice):
  *  - list: danh sách hóa đơn, loading: trạng thái tải

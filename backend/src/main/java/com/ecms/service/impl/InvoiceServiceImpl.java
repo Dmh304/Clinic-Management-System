@@ -250,7 +250,7 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     /**
-     * Gửi hóa đơn điện tử qua email đến bệnh nhân (UC-17).
+     * Gửi hóa đơn điện tử qua email đến bệnh nhân.
      * Tạo MimeMessage với nội dung HTML được sinh bởi buildEmailHtml().
      * Ném IllegalStateException nếu bệnh nhân chưa có email trong hồ sơ.
      */

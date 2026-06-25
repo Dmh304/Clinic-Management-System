@@ -31,7 +31,8 @@ public interface InvoiceService {
     // Hủy hóa đơn (chỉ áp dụng cho trạng thái DRAFT)
     InvoiceResponse cancelInvoice(Long id);
 
-    // Gửi hóa đơn điện tử qua email đến bệnh nhân (UC-17)
+    // ThangNBHE201024 - Gửi hóa đơn điện tử qua email đến bệnh nhân
+    // Ném IllegalStateException nếu bệnh nhân chưa có email; RuntimeException nếu SMTP thất bại
     void sendInvoiceEmail(Long id);
 
     // Xuất hóa đơn dạng PDF để tải về hoặc in

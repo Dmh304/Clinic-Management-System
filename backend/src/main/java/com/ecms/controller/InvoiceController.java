@@ -89,7 +89,8 @@ public class InvoiceController {
         return ResponseEntity.ok(ApiResponse.success(invoiceService.cancelInvoice(id)));
     }
 
-    // Gửi hóa đơn điện tử qua email đến địa chỉ email của bệnh nhân (UC-17)
+    // ThangNBHE201024 - Gửi hóa đơn điện tử qua email đến bệnh nhân
+    // Backend tạo MimeMessage HTML qua JavaMailSender, SMTP Gmail gửi đến patient.email
     @PostMapping("/{id}/send-email")
     public ResponseEntity<ApiResponse<Void>> sendEmail(@PathVariable Long id) {
         invoiceService.sendInvoiceEmail(id);
