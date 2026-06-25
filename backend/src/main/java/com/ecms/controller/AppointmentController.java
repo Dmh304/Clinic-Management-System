@@ -1,3 +1,12 @@
+
+/**
+ * Author: TuanTD
+ * 
+ * Controller quản lý toàn bộ các nghiệp vụ liên quan đến Lịch hẹn (Appointments)
+ * Cung cấp các API dành cho Bác sĩ, Nhân viên tiếp tân (Receptionist), Quản lý (Manager) và Bệnh nhân
+ * * Base URL: /api/v1/appointments
+ */
+
 package com.ecms.controller;
 
 import com.ecms.dto.request.BookAppointmentRequest;
@@ -46,12 +55,14 @@ public class AppointmentController {
                                 ApiResponse.success(appointmentService.getAllAppointments()));
         }
 
+        /* Lấy danh sách tất cả các lịch hẹn được lên lịch trong ngày hôm nay */
         @GetMapping("/today")
         public ResponseEntity<ApiResponse<List<AppointmentResponse>>> getTodayAppointments() {
                 return ResponseEntity.ok(
                                 ApiResponse.success(appointmentService.getTodayAppointments()));
         }
 
+        /* Tìm kiếm lịch hẹn dựa trên từ khóa (Tên bệnh nhân, số điện thoại) */
         @GetMapping("/search")
         public ResponseEntity<ApiResponse<List<AppointmentResponse>>> searchAppointments(
                         @RequestParam(required = false) String keyword) {
@@ -59,19 +70,34 @@ public class AppointmentController {
                                 ApiResponse.success(appointmentService.searchAppointments(keyword)));
         }
 
+        /**
+         * Lấy danh sách hàng đợi khám (Queue) theo ngày
+         * - Nếu tài khoản đăng nhập là Bác sĩ: Trả về danh sách khám của riêng bác sĩ
+         * đó
+         * - Nếu là vai trò khác (Hành chính/Quản lý): Trả về toàn bộ danh sách khám của
+         * ngày đó
+         */
         @GetMapping("/doctor-queue")
         public ResponseEntity<ApiResponse<List<AppointmentResponse>>> getDoctorQueue(
                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
                         @AuthenticationPrincipal UserDetails userDetails) {
+                // Xác thực xem user đang đăng nhập có phải là Bác sĩ không và lấy Doctor ID
                 Long doctorId = resolveDoctorId(userDetails);
                 if (doctorId != null) {
+                        // Nếu là bác sĩ, chỉ lấy danh sách hàng đợi của bác sĩ đó
                         return ResponseEntity
                                         .ok(ApiResponse.success(appointmentService.getDoctorQueue(date, doctorId)));
                 }
+                // Nếu không phải bác sĩ (ví dụ: Tiếp tân), lấy danh sách tổng hợp
                 return ResponseEntity.ok(
                                 ApiResponse.success(appointmentService.getDoctorQueue(date)));
         }
 
+        /**
+         * Lấy dữ liệu thống kê (Dashboard) tổng quan về lịch hẹn theo ngày
+         * - Nếu là Bác sĩ: Thống kê số liệu cá nhân (Số ca đã khám, đang đợi, hủy...)
+         * - Nếu là Quản lý/Tiếp tân: Thống kê số liệu của toàn bộ phòng khám/bệnh viện
+         */
         @GetMapping("/dashboard")
         public ResponseEntity<ApiResponse<AppointmentDashboardResponse>> getDashboard(
                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
@@ -84,6 +110,7 @@ public class AppointmentController {
                                 ApiResponse.success(appointmentService.getDashboard(date)));
         }
 
+        /* Cập nhật trạng thái trực tiếp của một lịch hẹn */
         @PatchMapping("/{id}/status")
         public ResponseEntity<ApiResponse<AppointmentResponse>> updateStatus(
                         @PathVariable Long id,
@@ -92,6 +119,7 @@ public class AppointmentController {
                                 ApiResponse.success(appointmentService.updateAppointmentStatus(id, status)));
         }
 
+        /* Xác nhận (Confirm) một lịch hẹn đăng ký online */
         @PatchMapping("/{id}/confirm")
         public ResponseEntity<ApiResponse<AppointmentResponse>> confirmAppointment(
                         @PathVariable Long id,
@@ -102,6 +130,7 @@ public class AppointmentController {
                                 ApiResponse.success(appointmentService.confirmAppointment(id, doctorId)));
         }
 
+        /* Đánh dấu bệnh nhân đã đến phòng khám và check-in vào hàng đợi */
         @PatchMapping("/{id}/check-in")
         public ResponseEntity<ApiResponse<AppointmentResponse>> checkInAppointment(
                         @PathVariable Long id,
@@ -114,6 +143,7 @@ public class AppointmentController {
                                 ApiResponse.success(appointmentService.checkInAppointment(id, checkInByUserId)));
         }
 
+        /* Đặt lịch hẹn trực tuyến */
         @PostMapping("/book")
         public ResponseEntity<ApiResponse<AppointmentResponse>> bookOnlineAppointment(
                         @Valid @RequestBody BookAppointmentRequest request,
@@ -123,6 +153,9 @@ public class AppointmentController {
                                                 userDetails.getUsername())));
         }
 
+        /*
+         * Tạo lịch hẹn trực tiếp tại quầy (Walk-in) - Dành cho Tiếp tân (RECEPTIONIST)
+         */
         @PostMapping("/walk-in")
         public ResponseEntity<ApiResponse<AppointmentResponse>> createWalkInAppointment(
                         @Valid @RequestBody WalkInAppointmentRequest request) {
@@ -130,6 +163,7 @@ public class AppointmentController {
                                 ApiResponse.success(appointmentService.createWalkInAppointment(request)));
         }
 
+        /* Lấy danh sách toàn bộ lịch hẹn của Bệnh nhân đang đăng nhập */
         @GetMapping("/my")
         public ResponseEntity<ApiResponse<List<AppointmentResponse>>> getMyAppointments(
                         @AuthenticationPrincipal UserDetails userDetails) {
@@ -138,9 +172,10 @@ public class AppointmentController {
                                 ApiResponse.success(appointmentService.getMyAppointments(patientId)));
         }
 
-        /* Lớp DTO nội bộ chứa thông tin bổ sung xác nhận lịch hẹn */
-
-        /** Chuyển lịch hẹn (đổi bác sĩ / giờ) — MANAGER */
+        /*
+         * Điều chuyển lịch hẹn (Đổi bác sĩ khám hoặc đổi khung giờ) - Quyền MANAGER
+         * hoặc RECEPTIONIST
+         */
         @PatchMapping("/{id}/reassign")
         public ResponseEntity<ApiResponse<AppointmentResponse>> reassign(
                         @PathVariable Long id,
@@ -150,7 +185,7 @@ public class AppointmentController {
                                                 appointmentService.reassignAppointment(id, request)));
         }
 
-        /** Lịch hẹn trong ngày theo bác sĩ — public for MANAGER/RECEPTIONIST */
+        /* Lấy lịch trình phân bổ hẹn khám tổng thể trong một ngày cụ thể */
         @GetMapping("/daily-schedule")
         public ResponseEntity<ApiResponse<List<AppointmentResponse>>> getDailySchedule(
                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
@@ -211,11 +246,15 @@ public class AppointmentController {
                 return ResponseEntity.ok(ApiResponse.success(appointmentService.getScheduleRange(startDate, endDate)));
         }
 
+        /*
+         * DTO nội bộ (Inner Static Class) nhận thông tin bổ sung khi xác nhận lịch hẹn
+         */
         @Data
         public static class ConfirmAppointmentRequest {
-                private Long doctorId;
+                private Long doctorId; // ID Bác sĩ được chỉ định phụ trách ca khám
         }
 
+        /* Tìm kiếm và trả về ID của Bác sĩ dựa trên Email tài khoản đăng nhập */
         private Long resolveDoctorId(UserDetails userDetails) {
                 if (userDetails == null) {
                         return null;
@@ -223,10 +262,26 @@ public class AppointmentController {
                 return doctorRepository.findByEmail(userDetails.getUsername()).map(Doctor::getId).orElse(null);
         }
 
+        /**
+         * Tìm kiếm và trả về ID của Bệnh nhân dựa trên Email tài khoản đăng nhập
+         * Cơ chế tìm kiếm 2 bước:
+         * 1. Tìm thông qua tài khoản User liên kết (Đối với bệnh nhân đăng ký tài khoản
+         * hệ thống)
+         * 2. Nếu không thấy, tìm kiếm trực tiếp bằng email trong bảng Patient (Đối với
+         * bệnh nhân vãng lai/walk-in được lưu email)
+         */
         private Long resolvePatientId(UserDetails userDetails) {
                 if (userDetails == null) {
                         return null;
                 }
+                return patientRepository.findByUser_Email(userDetails.getUsername())
+                                .map(Patient::getId)
+                                .orElseGet(() ->
+                                // Fallback: tìm theo email trực tiếp trong bảng patients (dành cho ca walk-in
+                                // trước đó)
+                                patientRepository.findByEmail(userDetails.getUsername())
+                                                .map(Patient::getId)
+                                                .orElse(null));
                 return patientRepository.findByUser_Email(userDetails.getUsername()).map(Patient::getId).orElse(null);
         }
 }

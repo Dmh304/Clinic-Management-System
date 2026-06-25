@@ -162,7 +162,7 @@ export default function AppRouter() {
       {/* ── Lab ── */}
       <Route element={<ProtectedRoute allowedRoles={['LAB_TECHNICIAN']} />}>
         <Route path="/lab/queue" element={<LabQueuePage />} />
-        <Route path="/lab/result" element={<LabResultEntryPage />} />
+        <Route path="/lab/result-entry" element={<LabResultEntryPage />} />
       </Route>
 
       {/* ── Pharmacy ── */}

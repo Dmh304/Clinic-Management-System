@@ -1,15 +1,16 @@
 /**
  * Author: Tuấn - HE204215
  * 
- * Giao diện quản lý Bệnh án điện tử (EMR) cho Bác sĩ. 
- * Cho phép bác sĩ xem bệnh sử trước đó, khai thác triệu chứng hiện tại, khám lâm sàng và lưu hồ sơ bệnh án.
+ * Giao diện quản lý Bệnh án điện tử (EMR) cho Bác sĩ
+ * Cho phép bác sĩ xem bệnh sử trước đó, khai thác triệu chứng hiện tại, khám lâm sàng và lưu hồ sơ bệnh án
 */
 
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Form, Input, InputNumber, Tabs, Button, message, Tag, Spin, Collapse, Divider } from 'antd'
+import { Form, Input, InputNumber, Tabs, Button, message, Tag, Spin, Collapse, Divider, Modal, Select } from 'antd'
 import { emrService } from '../../services/emrService'
+import { labService } from '../../services/labService'
 import DrugPrescriptionForm from './components/DrugPrescriptionForm'
 import EyeglassPrescriptionForm from './components/EyeglassPrescriptionForm'
 
@@ -23,6 +24,7 @@ const STATUS_MAP = {
   COMPLETED:   { color: 'success',    label: 'Hoàn thành' },
 }
 
+// Hàm tính tuổi của bệnh nhân dựa trên ngày sinh
 const calculateAge = (dobString) => {
   if (!dobString) return '—';
   const today = new Date();
@@ -37,7 +39,7 @@ const calculateAge = (dobString) => {
 
 const textEllipsisStyle = {
   display: '-webkit-box',
-  WebkitLineClamp: 1, // Số dòng muốn hiển thị trước khi cắt (ở đây là 1 dòng)
+  WebkitLineClamp: 1, // Số dòng muốn hiển thị trước khi cắt (1 dòng)
   WebkitBoxOrient: 'vertical',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
@@ -94,7 +96,7 @@ function HistoryCard({ record, onClick }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <span style={{ fontWeight: 600, fontSize: 13, color: '#1e293b' }}>{date}</span>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <span style={{ fontSize: 11, color: '#94a3b8' }}>BS: {record.doctorName ?? '—'}</span>
+          <span style={{ fontSize: 11, color: '#94a3b8' }}>{record.doctorName ?? '—'}</span>
           <Tag color={cfg.color} style={{ margin: 0 }}>{cfg.label}</Tag>
         </div>
       </div>
@@ -154,6 +156,56 @@ export default function EMRPage() {
   const [searchText, setSearchText] = useState('')                 // từ khóa tìm kiếm theo bệnh án tại màn hình danh sách tổng
   const [statusFilter, setStatusFilter] = useState('ALL')  // 'ALL' | 'DRAFT' | 'IN_PROGRESS' | 'COMPLETED'
 
+    // ---- Lab order modal state ----
+  const [labModal,       setLabModal]       = useState(false)
+  const [labTechnicianId,   setLabTechnicianId]   = useState(null)
+  const [labPriority,    setLabPriority]    = useState('PRIMARY')
+  const [labNotes,       setLabNotes]       = useState('')
+  const [labTechnicians,    setLabTechnicians]    = useState([])   // danh sách dịch vụ XN từ backend
+  const [loadingLabTechs,  setLoadingLabTechs]  = useState(false)
+  const [creatingOrder,  setCreatingOrder]  = useState(false)
+  
+// Load danh sách Lab Technician khi mở modal
+const openLabModal = async () => {
+  setLabModal(true)
+  if (labTechnicians.length > 0) return
+  setLoadingLabTechs(true)
+  try {
+    const res = await labService.getActiveLabTechnicians()
+    setLabTechnicians(res.data ?? [])
+  } catch {
+    message.error('Không thể tải danh sách kỹ thuật viên')
+  } finally {
+    setLoadingLabTechs(false)
+  }
+}
+
+// Tạo lab order
+const handleCreateLabOrder = async () => {
+  if (!labTechnicianId) {
+    message.warning('Vui lòng chọn kỹ thuật viên')
+    return
+  }
+  setCreatingOrder(true)
+  try {
+    await labService.createLabOrder({
+      medicalRecordId:  emr?.id,
+      labTechnicianId:  labTechnicianId,
+      priority:         labPriority,
+      notes:            labNotes,
+    })
+    message.success('Đã tạo phiếu chỉ định xét nghiệm thành công!')
+    setLabModal(false)
+    setLabTechnicianId(null)
+    setLabPriority('NORMAL')
+    setLabNotes('')
+  } catch (e) {
+    message.error(e?.response?.data?.message || 'Tạo phiếu xét nghiệm thất bại')
+  } finally {
+    setCreatingOrder(false)
+  }
+}
+
   // Hàm tiện ích: chuyển đổi object dữ liệu thô từ server (API trả về)
   // sang định dạng object có cấu trúc tương thích với tên các trường (name) khai báo trong Form của Ant Design.
   const emrToFormValues = (data) => ({
@@ -183,8 +235,7 @@ export default function EMRPage() {
         form.setFieldsValue(emrToFormValues(data))     // đổ dữ liệu vào các trường nhập liệu
       }
     } catch (e) {
-      // no existing EMR yet — that's fine
-      console.log('>>> EMR fetch error: ', e)
+        console.log('>>> EMR fetch error: ', e)
     } finally {
       setLoading(false)
     }
@@ -314,7 +365,7 @@ export default function EMRPage() {
   const isReadOnly = !!emr && (emr.status === 'COMPLETED' || !isOwner)
 
   // Render khi Bác sĩ CHƯA CHỌN bệnh nhân nào
-  // Hiển thị một giao diện hướng dẫn người dùng quay lại Dashboard để chọn lịch hẹn.
+  // Hiển thị một giao diện hướng dẫn người dùng quay lại Dashboard để chọn lịch hẹn
   if (!appointmentId) {
     return (
       <div style={{ padding: 24 }}>
@@ -379,7 +430,7 @@ export default function EMRPage() {
         <Spin spinning={listLoading}>
           {filteredList.length === 0 && !listLoading ? (
             <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8', fontSize: 14 }}>
-              {searchText ? 'Không tìm thấy kết quả phù hợp' : 'Chưa có hồ sơ bệnh án nào hoàn thành'}
+              {searchText ? 'Không tìm thấy kết quả phù hợp' : 'Chưa có hồ sơ bệnh án'}
             </div>
           ) : (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -502,7 +553,7 @@ export default function EMRPage() {
       <Spin spinning={loading}>
         {!loading && (
           <div>
-          {/* ================= THẺ THÔNG TIN CHI TIẾT BỆNH NHÂN (MỚI THÊM) ================= */}
+          {/* ================= THẺ THÔNG TIN CHI TIẾT BỆNH NHÂN ================= */}
       <div style={{ 
         backgroundColor: '#fff', 
         borderRadius: 12, 
@@ -532,9 +583,13 @@ export default function EMRPage() {
             <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Số điện thoại</div>
             <div style={{ fontWeight: 500, color: '#334155' }}>{emr?.patientPhone ?? '—'}</div>
           </div>
-          <div style={{ gridColumn: '1 / -1' }}>
+          <div>
             <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Địa chỉ thường trú</div>
             <div style={{ fontWeight: 500, color: '#334155' }}>{emr?.patientAddress ?? '—'}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Dịch vụ khám</div>
+            <div style={{ fontWeight: 500, color: '#334155' }}>{emr?.serviceName ?? '—'}</div>
           </div>
         </div>
       </div>
@@ -568,6 +623,37 @@ export default function EMRPage() {
                       <div style={{ paddingTop: 12 }}>
                         <EyeFields prefix="l" label="Mắt trái (OS)" />
                         <EyeFields prefix="r" label="Mắt phải (OD)" />
+                      {/* Ảnh xét nghiệm từ Lab Result (nếu có) */}
+                      {emr?.labImageUrls?.length > 0 && (
+                        <div style={{ marginTop: 16 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: '#475569', marginBottom: 8 }}>
+                            Ảnh kết quả đo mắt chuyên sâu ({emr.labImageUrls.length} ảnh)
+                          </div>
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+                            gap: 10,
+                          }}>
+                            {emr.labImageUrls.map((url, i) => (
+                              <img
+                                key={i}
+                                src={url}
+                                alt={`Ảnh ${i + 1}`}
+                                style={{
+                                  width: '100%', height: 120, objectFit: 'cover',
+                                  borderRadius: 8, border: '1px solid #e2e8f0',
+                                  cursor: 'zoom-in', backgroundColor: '#f8fafc',
+                                }}
+                                onClick={() => window.open(url, '_blank')}
+                                onError={(e) => { e.currentTarget.style.display = 'none' }}
+                              />
+                            ))}
+                          </div>
+                          <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>
+                            Bấm vào ảnh để xem toàn màn hình
+                          </div>
+                        </div>
+                      )}
                       </div>
                     ),
                   },
@@ -610,20 +696,34 @@ export default function EMRPage() {
             {!isReadOnly && !loading && (
               <div style={{
                 borderTop: '1px solid #f1f5f9', padding: '14px 24px',
-                display: 'flex', gap: 10, justifyContent: 'flex-end',
+                display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'center',
               }}>
-                <Button onClick={() => handleSave('IN_PROGRESS')} loading={saving} style={{ fontSize: 13 }}>
-                  Lưu nháp
-                </Button>
-                <Button
-                  type="primary"
-                  onClick={() => handleSave('COMPLETED')}
-                  loading={saving}
-                  style={{ backgroundColor: '#0d9488', borderColor: '#0d9488', fontSize: 13 }}
-                >
-                  Hoàn thành khám
-                </Button>
-              </div>
+                {/* Nút chỉ định XN — chỉ hiện khi EMR đang IN_PROGRESS (đã lưu nháp ít nhất 1 lần) */}
+                {emr?.status === 'IN_PROGRESS' ? (
+                  <Button
+                    onClick={openLabModal}
+                    style={{ fontSize: 13, borderColor: '#7c3aed', color: '#7c3aed' }}
+                  >
+                    Yêu cầu đo mắt chuyên sâu
+                  </Button>
+                ) : (
+                  <div />
+                )}
+
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <Button onClick={() => handleSave('IN_PROGRESS')} loading={saving} style={{ fontSize: 13 }}>
+                    Lưu nháp
+                  </Button>
+                  <Button
+                    type="primary"
+                    onClick={() => handleSave('COMPLETED')}
+                    loading={saving}
+                    style={{ backgroundColor: '#0d9488', borderColor: '#0d9488', fontSize: 13 }}
+                  >
+                    Hoàn thành khám
+                  </Button>
+                </div>
+             </div>
             )}
           </div>
 
@@ -637,7 +737,7 @@ export default function EMRPage() {
                 Chưa có lịch sử khám
               </div>
             ) : (
-              history.map((r) => 
+              history.map((r) => (
               <HistoryCard 
               key={r.id} 
               record={r} 
@@ -648,12 +748,100 @@ export default function EMRPage() {
               )}
               />
             ))
-            }
+            )}
             </div>
           </div>
         </div>
         )}
       </Spin>
-    </div>
+      {/* Modal tạo Lab Order */}
+      <Modal
+        open={labModal}
+        onCancel={() => setLabModal(false)}
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 18 }}>🔬</span>
+            <span style={{ fontWeight: 700, fontSize: 16, color: '#0f172a' }}>
+              Yêu cầu đo mắt chuyên sâu
+            </span>
+          </div>
+        }
+        footer={null}
+        width={520}
+        destroyOnClose
+      >
+        <div style={{ padding: '8px 0' }}>
+          <p style={{ fontSize: 13, color: '#475569', marginBottom: 20 }}>
+            Tạo phiếu chỉ định xét nghiệm cho kỹ thuật viên. Sau khi kỹ thuật viên
+            hoàn thành và nộp kết quả, bạn sẽ nhận được thông báo để duyệt.
+          </p>
+
+          {/* Chọn kỹ thuật viên */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>
+              Kỹ thuật viên <span style={{ color: '#ef4444' }}>*</span>
+            </div>
+            <Select
+              value={labTechnicianId}
+              onChange={setLabTechnicianId}
+              style={{ width: '100%' }}
+              placeholder="Chọn kỹ thuật viên..."
+              loading={loadingLabTechs}
+              showSearch
+              optionFilterProp="label"
+              options={(labTechnicians ?? []).map((lt) => ({
+                value: lt.id,
+                label: lt.fullName,
+              }))}
+            />
+          </div>
+
+          {/* Mức độ ưu tiên */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>
+              Mức độ ưu tiên
+            </div>
+            <Select
+              value={labPriority}
+              onChange={setLabPriority}
+              style={{ width: '100%' }}
+              options={[
+                { value: 'PRIMARY',    label: '🟢 Thường' },
+                { value: 'WARNING',   label: '🟠 Nghiêm trọng' },
+                { value: 'EMERGENCY', label: '🔴 Khẩn cấp' },
+              ]}
+            />
+          </div>
+
+          {/* Ghi chú */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>
+              Ghi chú cho kỹ thuật viên
+            </div>
+            <TextArea
+              rows={3}
+              value={labNotes}
+              onChange={(e) => setLabNotes(e.target.value)}
+              placeholder="Lưu ý đặc biệt cần kỹ thuật viên chú ý..."
+              maxLength={300}
+              showCount
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <Button onClick={() => setLabModal(false)} style={{ fontSize: 13 }}>Hủy bỏ</Button>
+            <Button
+              type="primary"
+              loading={creatingOrder}
+              onClick={handleCreateLabOrder}
+              style={{ fontSize: 13, backgroundColor: '#7c3aed', borderColor: '#7c3aed' }}
+            >
+              Tạo phiếu chỉ định
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+    </div>  
   )
 }

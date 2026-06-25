@@ -341,6 +341,21 @@ export default function Header() {
                 </button>
               )}
 
+              {user?.role === 'LAB_TECHNICIAN' && (
+                <button
+                  onClick={() => navigate('/lab/queue')}
+                  style={{
+                  backgroundColor: '#0d9488',
+                  color: '#fff',
+                  border: 'none', cursor: 'pointer',
+                  padding: '6px 14px', borderRadius: 8, fontSize: 13, fontWeight: 500,
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  }}
+                >
+                  Hàng đợi xét nghiệm
+                </button>
+              )}
+
               {user?.role === 'NURSE' && (
                 <button
                   onClick={() => navigate('/nurse/queue')}

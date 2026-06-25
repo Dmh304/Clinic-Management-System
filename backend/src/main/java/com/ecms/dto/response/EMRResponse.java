@@ -1,5 +1,5 @@
 /**
- * Author: Tuấn - HE204215
+ * Author: TuanTD
  * 
  * Đối tượng chuyển đổi dữ liệu (DTO) phàn hồi thông tin hồ sơ bệnh án điện tử
  */
@@ -11,6 +11,7 @@ import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -54,6 +55,12 @@ public class EMRResponse {
 
     /** Họ và tên của bác sĩ khám */
     private String doctorName;
+
+    /** Số điện thoại liên hệ của bác sĩ */
+    private String doctorPhone;
+
+    /* Tên loại khám cần thực hiện */
+    private String serviceName;
 
     /** Lí do đến khám chính từ phía bệnh nhân */
     private String chiefComplaint;
@@ -105,6 +112,9 @@ public class EMRResponse {
 
     /* Nhãn áp mắt phải (đơn vị: mmHg) */
     private BigDecimal iopR;
+
+    /* URL ảnh từ LabResult APPROVED gần nhất */
+    private List<String> labImageUrls;
 
     /* Trạng thái của hồ sơ bệnh án */
     private String status;
