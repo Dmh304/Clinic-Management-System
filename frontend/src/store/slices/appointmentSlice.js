@@ -18,20 +18,11 @@ import { appointmentService } from '../../services/appointmentService'
 export const fetchTodayAppointments = createAsyncThunk(
   'appointment/fetchToday',
   async (_, { rejectWithValue }) => {
-    // Retry 1 lần sau 2 giây chỉ khi lỗi mạng hoặc server 5xx (bỏ qua 4xx)
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const res = await appointmentService.getTodayAppointments()
-        return res.data
-      } catch (err) {
-        const status = err.response?.status
-        const isRetryable = !status || status >= 500
-        if (attempt === 0 && isRetryable) {
-          await new Promise((r) => setTimeout(r, 2000))
-          continue
-        }
-        return rejectWithValue(err.response?.data?.message || 'Không thể tải danh sách lịch hẹn')
-      }
+    try {
+      const res = await appointmentService.getTodayAppointments()
+      return res.data
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || 'Không thể tải danh sách lịch hẹn')
     }
   }
 )

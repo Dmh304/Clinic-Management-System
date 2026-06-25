@@ -10,28 +10,10 @@ const axiosClient = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
-function isTokenExpired(token) {
-  try {
-    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
-    const payload = JSON.parse(atob(base64))
-    return payload.exp * 1000 < Date.now()
-  } catch {
-    return false
-  }
-}
-
 // Interceptor request: tự động lấy token từ localStorage và gắn vào header Authorization của mỗi request
 axiosClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('ecms_token')
-  if (token) {
-    if (isTokenExpired(token)) {
-      localStorage.removeItem('ecms_token')
-      localStorage.removeItem('ecms_user')
-      window.location.href = '/login'
-      return Promise.reject(new Error('Token expired'))
-    }
-    config.headers.Authorization = `Bearer ${token}`
-  }
+  if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
 
@@ -39,17 +21,16 @@ axiosClient.interceptors.request.use((config) => {
 axiosClient.interceptors.response.use(
   (res) => res.data,   // trả về { success, message, data } trực tiếp
   (err) => {
-    const status = err.response?.status
-    const url = err.config?.url ?? ''
-    const hadToken = !!localStorage.getItem('ecms_token')
-
-    // 401: token hết hạn / không hợp lệ
-    // 403 + có token: backend trả 403 thay vì 401 khi JwtFilter bỏ qua token lỗi
-    const isAuthError = status === 401 || (status === 403 && hadToken)
-    if (isAuthError && !url.includes('/auth/login')) {
-      localStorage.removeItem('ecms_token')
-      localStorage.removeItem('ecms_user')
-      window.location.href = '/login'
+    if (err.response?.status === 401) {
+      const url = err.config?.url ?? ''
+      const hadToken = !!localStorage.getItem('ecms_token')
+      // Chỉ redirect khi đang có token mà bị invalid (hết hạn, sai...)
+      // Nếu không có token thì là request công khai, không redirect
+      if (!url.includes('/auth/login') && hadToken) {
+        localStorage.removeItem('ecms_token')
+        localStorage.removeItem('ecms_user')
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(err)
   }

@@ -209,19 +209,11 @@ public class AppointmentServiceImpl implements AppointmentService {
                                 .orElseThrow(() -> new ResourceNotFoundException(
                                                 "Bác sĩ không tồn tại: " + request.getDoctorId()));
 
-                ClinicService service = null;
-                if (request.getServiceId() != null) {
-                        service = clinicServiceRepository.findById(request.getServiceId())
-                                        .orElseThrow(() -> new ResourceNotFoundException(
-                                                        "Dịch vụ không tồn tại: " + request.getServiceId()));
-                }
-
                 validateDoctorCapacity(doctor.getId(), request.getAppointmentTime().toLocalDate());
 
                 Appointment appointment = Appointment.builder()
                                 .patient(patient)
                                 .doctor(doctor)
-                                .clinicService(service)
                                 .appointmentTime(request.getAppointmentTime())
                                 .timeSlot(request.getAppointmentTime().toLocalTime().toString())
                                 .status(AppointmentStatus.PENDING)
@@ -381,8 +373,8 @@ public class AppointmentServiceImpl implements AppointmentService {
                                 .patientPhone(a.getPatient() != null ? a.getPatient().getPhone() : null)
                                 .doctorId(a.getDoctor() != null ? a.getDoctor().getId() : null)
                                 .doctorName(a.getDoctor() != null ? a.getDoctor().getFullName() : null)
-                                .serviceName(a.getClinicService() != null ? a.getClinicService().getServiceName() : null)
-                                .servicePrice(a.getClinicService() != null ? a.getClinicService().getPrice() : null)
+                                .serviceName(a.getClinicService() != null ? a.getClinicService().getServiceName()
+                                                : null)
                                 .appointmentTime(a.getAppointmentTime())
                                 .timeSlot(a.getTimeSlot())
                                 .status(a.getStatus())
