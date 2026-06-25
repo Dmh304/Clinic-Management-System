@@ -34,13 +34,13 @@ public class PrescriptionServiceImpl implements PrescriptionService {
     private final InvoiceRepository invoiceRepository;
     private final InvoiceItemRepository invoiceItemRepository;
 
-    // Tạo mới một đơn thuốc từ yêu cầu của bác sĩ 
+    // Tạo mới một đơn thuốc từ yêu cầu của bác sĩ
     @Override
     @Transactional
     public PrescriptionResponse createPrescription(PrescriptionRequest request, String doctorEmail) {
         MedicalRecord record = medicalRecordRepository.findById(request.getMedicalRecordId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bệnh án"));
-        
+
         Doctor doctor = doctorRepository.findByEmail(doctorEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bác sĩ"));
 
@@ -71,8 +71,9 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         // Duyệt qua danh sách từng loại thuốc trong yêu cầu để thêm vào đơn
         for (PrescriptionItemRequest itemReq : request.getItems()) {
             Medicine medicine = medicineRepository.findById(itemReq.getMedicineId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thuốc: " + itemReq.getMedicineId()));
-            
+                    .orElseThrow(
+                            () -> new ResourceNotFoundException("Không tìm thấy thuốc: " + itemReq.getMedicineId()));
+
             PrescriptionItem item = PrescriptionItem.builder()
                     .prescription(prescription)
                     .medicine(medicine)
@@ -83,14 +84,14 @@ public class PrescriptionServiceImpl implements PrescriptionService {
                     .instructions(itemReq.getInstructions())
                     .unitPrice(medicine.getUnitPrice())
                     .build();
-            
+
             prescription.getItems().add(item);
         }
 
         return toResponse(prescriptionRepository.save(prescription));
     }
 
-    // Lấy danh sách các đơn thuốc của một bệnh nhân cụ thể 
+    // Lấy danh sách các đơn thuốc của một bệnh nhân cụ thể
     @Override
     @Transactional(readOnly = true)
     public List<PrescriptionResponse> getPatientPrescriptions(Long patientId) {
@@ -108,15 +109,16 @@ public class PrescriptionServiceImpl implements PrescriptionService {
                 .collect(Collectors.toList());
     }
 
-    // Xử lý logic khi dược sĩ ấn nút "Phát thuốc" 
+    // Xử lý logic khi dược sĩ ấn nút "Phát thuốc"
     @Override
     @Transactional
     public PrescriptionResponse dispensePrescription(Long id, DispenseRequest request) {
         // DucTKH: Tương tác DB - Lấy đơn thuốc theo id
         Prescription p = prescriptionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn thuốc"));
-        
-        // DucTKH: Điều kiện - Kiểm tra trạng thái, chỉ cho phép phát nếu đơn đang chờ (PENDING)
+
+        // DucTKH: Điều kiện - Kiểm tra trạng thái, chỉ cho phép phát nếu đơn đang chờ
+        // (PENDING)
         if (p.getStatus() != PrescriptionStatus.PENDING) {
             throw new IllegalStateException("Chỉ có thể phát đơn thuốc ở trạng thái PENDING");
         }
@@ -125,7 +127,8 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         Map<Long, Integer> actualQuantityMap = new HashMap<>();
         // DucTKH: Điều kiện - Kiểm tra request có danh sách chi tiết thuốc không
         if (request != null && request.getItems() != null) {
-            // DucTKH: Vòng lặp - Duyệt qua từng chi tiết thuốc được dược sĩ phát để lấy số lượng thực tế
+            // DucTKH: Vòng lặp - Duyệt qua từng chi tiết thuốc được dược sĩ phát để lấy số
+            // lượng thực tế
             for (var reqItem : request.getItems()) {
                 actualQuantityMap.put(reqItem.getPrescriptionItemId(), reqItem.getActualQuantity());
             }
@@ -149,11 +152,13 @@ public class PrescriptionServiceImpl implements PrescriptionService {
                 .tax(BigDecimal.ZERO)
                 .totalAmount(BigDecimal.ZERO)
                 .build();
-        
-        // DucTKH: Tương tác DB - Lưu trước bản ghi Invoice để có ID phục vụ cho InvoiceItem
+
+        // DucTKH: Tương tác DB - Lưu trước bản ghi Invoice để có ID phục vụ cho
+        // InvoiceItem
         invoice = invoiceRepository.save(invoice);
 
-        // DucTKH: Vòng lặp - Xây dựng các chi tiết hóa đơn (InvoiceItem) dựa trên từng thuốc trong đơn
+        // DucTKH: Vòng lặp - Xây dựng các chi tiết hóa đơn (InvoiceItem) dựa trên từng
+        // thuốc trong đơn
         for (PrescriptionItem item : p.getItems()) {
             Integer dispensedQuantity = actualQuantityMap.getOrDefault(item.getId(), item.getQuantity());
             BigDecimal unitPrice = item.getUnitPrice() != null ? item.getUnitPrice() : BigDecimal.ZERO;
@@ -190,7 +195,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         // DucTKH: Tương tác DB - Lấy đơn thuốc theo id
         Prescription p = prescriptionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn thuốc"));
-        
+
         // DucTKH: Điều kiện - Kiểm tra trạng thái giống như khi phát thuốc
         if (p.getStatus() != PrescriptionStatus.PENDING) {
             throw new IllegalStateException("Chỉ có thể hủy đơn thuốc ở trạng thái PENDING");
@@ -224,14 +229,15 @@ public class PrescriptionServiceImpl implements PrescriptionService {
 
         // DucTKH: Điều kiện - Nếu đơn thuốc đã xuất, lấy số lượng thực tế từ Hóa đơn
         if (i.getPrescription().getStatus() == PrescriptionStatus.DISPENSED) {
-            // DucTKH: Tương tác DB - Tìm chi tiết hóa đơn dựa vào reference ID (id của chi tiết đơn thuốc)
+            // DucTKH: Tương tác DB - Tìm chi tiết hóa đơn dựa vào reference ID (id của chi
+            // tiết đơn thuốc)
             Optional<InvoiceItem> invoiceItemOpt = invoiceItemRepository.findByRefId(i.getId());
             // DucTKH: Điều kiện - Nếu tìm thấy chi tiết hóa đơn
             if (invoiceItemOpt.isPresent()) {
                 actualQuantity = invoiceItemOpt.get().getQuantity();
             }
         }
-        
+
         Integer displayQuantity = actualQuantity != null ? actualQuantity : i.getQuantity();
         // DucTKH: Điều kiện - Nếu có đơn giá, tính tổng tiền dựa trên số lượng hiển thị
         if (i.getUnitPrice() != null) {
@@ -262,12 +268,12 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         // DucTKH: Tương tác DB - Lấy đơn thuốc theo id
         Prescription p = prescriptionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn thuốc"));
-        
+
         // DucTKH: Điều kiện - Chặn thao tác xóa nếu đơn thuốc đã được dược sĩ xử lý
         if (p.getStatus() != PrescriptionStatus.PENDING) {
             throw new IllegalStateException("Đơn thuốc đã được xuất hoặc phát, không thể xóa!");
         }
-        
+
         // DucTKH: Tương tác DB - Thực hiện xóa đơn thuốc khỏi cơ sở dữ liệu
         prescriptionRepository.delete(p);
     }

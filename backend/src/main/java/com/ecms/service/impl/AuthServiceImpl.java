@@ -47,7 +47,8 @@ public class AuthServiceImpl implements AuthService {
     @Value("${google.oauth.client-id}")
     private String googleClientId;
 
-    // Xác thực người dùng: kiểm tra email tồn tại, trạng thái tài khoản, mật khẩu; tạo và trả về JWT
+    // Xác thực người dùng: kiểm tra email tồn tại, trạng thái tài khoản, mật khẩu;
+    // tạo và trả về JWT
     @Override
     public AuthResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
@@ -60,7 +61,7 @@ public class AuthServiceImpl implements AuthService {
         if (user.getPasswordHash() == null) {
             throw new UnauthorizedException(
                     "Tài khoản này đang đăng nhập bằng Google. Vui lòng dùng nút \"Đăng nhập với Google\", " +
-                    "hoặc đặt mật khẩu trong phần Cài đặt tài khoản.");
+                            "hoặc đặt mật khẩu trong phần Cài đặt tài khoản.");
         }
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
@@ -94,7 +95,8 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
-    // Đổi mật khẩu: kiểm tra mật khẩu mới và xác nhận khớp nhau, xác minh mật khẩu cũ rồi lưu mật khẩu mới đã mã hóa
+    // Đổi mật khẩu: kiểm tra mật khẩu mới và xác nhận khớp nhau, xác minh mật khẩu
+    // cũ rồi lưu mật khẩu mới đã mã hóa
     @Override
     @Transactional
     public void changePassword(String email, ChangePasswordRequest request) {
@@ -113,7 +115,8 @@ public class AuthServiceImpl implements AuthService {
         userRepository.save(user);
     }
 
-    // Đăng ký tài khoản: kiểm tra email chưa tồn tại, tạo User với vai trò PATIENT, mã hóa mật khẩu và trả về JWT
+    // Đăng ký tài khoản: kiểm tra email chưa tồn tại, tạo User với vai trò PATIENT,
+    // mã hóa mật khẩu và trả về JWT
     @Override
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -157,8 +160,10 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
-    // Đăng nhập bằng Google: xác minh ID token, tìm tài khoản theo email — nếu chưa có thì tạo mới
-    // với vai trò PATIENT và passwordHash = NULL (chưa có phương thức đăng nhập bằng mật khẩu)
+    // Đăng nhập bằng Google: xác minh ID token, tìm tài khoản theo email — nếu chưa
+    // có thì tạo mới
+    // với vai trò PATIENT và passwordHash = NULL (chưa có phương thức đăng nhập
+    // bằng mật khẩu)
     @Override
     @Transactional
     public AuthResponse loginWithGoogle(GoogleLoginRequest request) {
@@ -208,10 +213,12 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
-    // Xác minh ID token do Google cấp: kiểm tra chữ ký, hạn sử dụng và audience (Client ID) khớp với hệ thống
+    // Xác minh ID token do Google cấp: kiểm tra chữ ký, hạn sử dụng và audience
+    // (Client ID) khớp với hệ thống
     private GoogleIdToken.Payload verifyGoogleIdToken(String idTokenString) {
         try {
-            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), GsonFactory.getDefaultInstance())
+            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(),
+                    GsonFactory.getDefaultInstance())
                     .setAudience(Collections.singletonList(googleClientId))
                     .build();
 
