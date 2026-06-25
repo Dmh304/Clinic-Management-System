@@ -193,21 +193,21 @@ export default function MyAppointmentsPage() {
                     </div>
                     {a.notes && <div style={{ fontSize: 12, color: '#64748b', marginTop: 4, background: '#f8fafc', padding: '6px 10px', borderRadius: 6, display: 'inline-block' }}>Ghi chú: {a.notes}</div>}
                   </div>
-                  {(a.status === 'PENDING' || a.status === 'CONFIRMED') && (
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button onClick={() => openReschedule(a.id)}
+            {(a.status === 'PENDING' || a.status === 'CONFIRMED' || a.status === 'WAITING') && (
+                <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => openReschedule(a.id)}
                         style={{ background: '#dbeafe', color: '#2563eb', border: 'none', padding: '7px 14px', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13, transition: 'background-color 0.15s' }}
                         onMouseEnter={e => e.currentTarget.style.backgroundColor = '#bfdbfe'}
                         onMouseLeave={e => e.currentTarget.style.backgroundColor = '#dbeafe'}>
                         Đổi giờ
-                      </button>
-                      <button onClick={() => openCancelModal(a.id)} disabled={cancelling === a.id}
+                    </button>
+                    <button onClick={() => openCancelModal(a.id)} disabled={cancelling === a.id}
                         style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '7px 14px', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13, transition: 'background-color 0.15s' }}
                         onMouseEnter={e => e.currentTarget.style.backgroundColor = '#fecaca'}
                         onMouseLeave={e => e.currentTarget.style.backgroundColor = '#fee2e2'}>
-                        {cancelling === a.id ? '...' : 'Huỷ'}
-                      </button>
-                    </div>
+                        {cancelling === a.id ? '...' : 'Hủy'}
+                    </button>
+                </div>
                   )}
                 </div>
               )

@@ -1,3 +1,6 @@
+// DucTKH
+// Màn hình chi tiết Hồ sơ bệnh án điện tử (EMR) dành cho Bệnh nhân.
+// Gồm nhiều tab: Khai thác bệnh sử, Khám lâm sàng, Chẩn đoán & Điều trị, Đơn thuốc, Đơn kính.
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
@@ -5,6 +8,9 @@ import Header from '../../components/layout/Header'
 import { Form, Input, InputNumber, Tabs, Button, message, Tag, Spin, Collapse, Divider, Table } from 'antd'
 import { emrService } from '../../services/emrService'
 import { appointmentService } from '../../services/appointmentService'
+import { prescriptionService } from '../../services/prescriptionService'
+import { eyeglassPrescriptionService } from '../../services/eyeglassPrescriptionService'
+import { PrinterOutlined } from '@ant-design/icons'
 
 const { TextArea } = Input
 const { Panel } = Collapse
@@ -96,6 +102,8 @@ export default function MedicalHistoryPage() {
   const [listLoading, setListLoading] = useState(false)            // trạng thái chờ tải danh sách bệnh án đã hoàn thành
   const [searchText, setSearchText] = useState('')                 // từ khóa tìm kiếm theo bệnh án tại màn hình danh sách tổng
   const [appointmentList, setAppointmentList] = useState([])       // Danh sách TOÀN BỘ lịch hẹn của bệnh nhân (mọi trạng thái)
+  const [drugPrescriptions, setDrugPrescriptions] = useState([])
+  const [eyePrescriptions, setEyePrescriptions] = useState([])
 
     // Hàm tiện ích: chuyển đổi object dữ liệu thô từ server (API trả về)
   // sang định dạng object có cấu trúc tương thích với tên các trường (name) khai báo trong Form của Ant Design.
@@ -113,21 +121,30 @@ export default function MedicalHistoryPage() {
     lAxis: data.axisL, rAxis: data.axisR,
   })
 
-    /* Biến cờ kiểm tra xem hồ sơ này đã được chốt hoàn thành chưa */
-  //const isCompleted = emr?.status === 'COMPLETED'  // tạm thời thêm vào để code không bị lỗi
+  const fetchPrescriptions = useCallback(async () => {
+    const patientId = user?.patientId || user?.id;
+    if (!medicalRecordId || !patientId) return;
+    try {
+      const [drugRes, eyeRes] = await Promise.all([
+          prescriptionService.getByPatient(patientId),
+          eyeglassPrescriptionService.getByPatient(patientId)
+      ]);
+      setDrugPrescriptions((drugRes.data || []).filter(p => String(p.medicalRecordId) === String(medicalRecordId)));
+      setEyePrescriptions((eyeRes.data || []).filter(p => String(p.medicalRecordId) === String(medicalRecordId)));
+    } catch (error) {
+      console.log('fetch prescriptions error', error);
+    }
+  }, [medicalRecordId, user]);
 
- // Hàm tải danh sách các lần khám trước đây của bệnh nhân (bỏ qua lịch hẹn hiện tại)
-  // const fetchHistory = useCallback(async () => {
-  //   try {
-  //     const res = await emrService.getLoggingInPatientHistory()
-  //     const all = res.data ?? []
+  const handlePrint = (id, type) => {
+      const printContent = document.getElementById(`print-area-${type}-${id}`);
+      const originalContents = document.body.innerHTML;
       
-  //     // Loại trừ các ca khám hiện tại ra khỏi danh sách lịch sử bệnh án
-  //     setHistory(all.filter((r) => String(r.appointmentId) !== String(appointmentId)))
-  //   } catch {
-  //     // bỏ qua lỗi âm thầm để không ảnh hưởng luồng khám chính
-  //   }
-  // }, [appointmentId])
+      document.body.innerHTML = printContent.innerHTML;
+      window.print();
+      document.body.innerHTML = originalContents;
+      window.location.reload(); // Reload to restore React state bindings
+  };
 
     // Hàm tải dữ liệu bệnh án hiện tại của lịch hẹn (nếu đã từng lưu nháp)
   const fetchEMR = useCallback(async () => {
@@ -220,8 +237,9 @@ export default function MedicalHistoryPage() {
     /* Kéo dữ liệu bệnh án hiện tại và bệnh sử liên quan */
   useEffect(() => {
     fetchEMR()
+    fetchPrescriptions()
     //fetchHistory()
-  }, [fetchEMR])
+  }, [fetchEMR, fetchPrescriptions])
 
     /* Xử lí bộ lọc tìm kiếm tại chỗ trên danh sách các bệnh án đã hoàn thành */
   const filteredList = appointmentList.filter((r) => {
@@ -489,6 +507,136 @@ export default function MedicalHistoryPage() {
                               </div>
                             ),
                           },
+                          {
+                            key: 'drugs',
+                            label: 'Đơn thuốc',
+                            children: (
+                                <div style={{ paddingTop: 12 }}>
+                                    {drugPrescriptions.length === 0 ? <p>Chưa có đơn thuốc nào.</p> : (
+                                        drugPrescriptions.map(p => (
+                                            <div key={p.id} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 16, marginBottom: 16 }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+                                                    <div>
+                                                        <div style={{ fontWeight: 600 }}>Ngày khám: {new Date(p.createdAt).toLocaleDateString('vi-VN')}</div>
+                                                        <div style={{ color: '#64748b' }}>Bác sĩ: {p.doctorName}</div>
+                                                        <div style={{ color: '#64748b' }}>Trạng thái: {p.status}</div>
+                                                    </div>
+                                                    <Button icon={<PrinterOutlined />} onClick={() => handlePrint(p.id, 'drug')} disabled={false}>In đơn thuốc</Button>
+                                                </div>
+                                                
+                                                <div id={`print-area-drug-${p.id}`} className="print-area">
+                                                    <div className="print-header" style={{ display: 'none' }}>
+                                                        <h1 style={{ textAlign: 'center', margin: 0 }}>PHÒNG KHÁM EYESCARE</h1>
+                                                        <h2 style={{ textAlign: 'center', marginTop: 10 }}>ĐƠN THUỐC</h2>
+                                                        <p><strong>Bệnh nhân:</strong> {p.patientName}</p>
+                                                        <p><strong>Bác sĩ khám:</strong> {p.doctorName}</p>
+                                                        <p><strong>Ngày kê:</strong> {new Date(p.createdAt).toLocaleDateString('vi-VN')}</p>
+                                                        <hr/>
+                                                    </div>
+                                                    
+                                                    <Table 
+                                                        dataSource={p.items} 
+                                                        rowKey="id" 
+                                                        pagination={false} 
+                                                        size="small"
+                                                        columns={[
+                                                            { title: 'Tên thuốc', dataIndex: 'medicineName', render: (t, r) => <b>{t} ({r.dosageForm})</b> },
+                                                            { title: 'SL', render: (_, r) => r.actualQuantity != null ? r.actualQuantity : r.quantity },
+                                                            { title: 'ĐVT', dataIndex: 'unit' },
+                                                            { title: 'Đơn giá', dataIndex: 'unitPrice', render: val => (val || 0).toLocaleString('vi-VN') + ' đ' },
+                                                            { title: 'Thành tiền', dataIndex: 'totalPrice', render: val => (val || 0).toLocaleString('vi-VN') + ' đ' },
+                                                            { title: 'Cách dùng', render: (_, r) => [r.dosage, r.frequency, r.instructions].filter(v => v && v !== '-').join('. ') }
+                                                        ]}
+                                                    />
+
+                                                    <div style={{ marginTop: 16, textAlign: 'right', fontSize: 16 }}>
+                                                        <strong>Tổng tiền đơn thuốc: </strong>
+                                                        <span style={{ color: '#1677ff', fontSize: 18 }}>{p.items?.reduce((sum, item) => sum + (item.totalPrice || 0), 0).toLocaleString('vi-VN')} VNĐ</span>
+                                                    </div>
+                                                    
+                                                    <div className="print-footer" style={{ display: 'none', marginTop: 40, textAlign: 'right' }}>
+                                                        <p><strong>Chữ ký Bác sĩ</strong></p>
+                                                        <div style={{ height: 60 }}></div>
+                                                        <p>{p.doctorName}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            )
+                          },
+                          {
+                            key: 'eyeglasses',
+                            label: 'Đơn kính',
+                            children: (
+                                <div style={{ paddingTop: 12 }}>
+                                    {eyePrescriptions.length === 0 ? <p>Chưa có đơn kính nào.</p> : (
+                                        eyePrescriptions.map(p => (
+                                            <div key={p.id} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 16, marginBottom: 16 }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+                                                    <div>
+                                                        <div style={{ fontWeight: 600 }}>Ngày khám: {new Date(p.createdAt).toLocaleDateString('vi-VN')}</div>
+                                                        <div style={{ color: '#64748b' }}>Bác sĩ: {p.doctorName}</div>
+                                                        <div style={{ color: '#64748b' }}>PD: {p.pd}mm | Loại tròng: {p.lensType}</div>
+                                                    </div>
+                                                    <Button icon={<PrinterOutlined />} onClick={() => handlePrint(p.id, 'eye')} disabled={false}>In đơn kính</Button>
+                                                </div>
+                                                
+                                                <div id={`print-area-eye-${p.id}`} className="print-area">
+                                                    <div className="print-header" style={{ display: 'none' }}>
+                                                        <h1 style={{ textAlign: 'center', margin: 0 }}>PHÒNG KHÁM EYESCARE</h1>
+                                                        <h2 style={{ textAlign: 'center', marginTop: 10 }}>ĐƠN KÍNH</h2>
+                                                        <p><strong>Bệnh nhân:</strong> {p.patientName}</p>
+                                                        <p><strong>Bác sĩ đo:</strong> {p.doctorName}</p>
+                                                        <p><strong>Ngày đo:</strong> {new Date(p.createdAt).toLocaleDateString('vi-VN')}</p>
+                                                        <hr/>
+                                                    </div>
+
+                                                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', marginBottom: 20 }} border="1">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Mắt</th>
+                                                                <th>Cầu (SPH)</th>
+                                                                <th>Trụ (CYL)</th>
+                                                                <th>Trục (AXIS)</th>
+                                                                <th>Cộng thêm (ADD)</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <tr>
+                                                                <td><strong>Phải (OD)</strong></td>
+                                                                <td>{p.odSph}</td>
+                                                                <td>{p.odCyl}</td>
+                                                                <td>{p.odAxis}</td>
+                                                                <td>{p.odAdd}</td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td><strong>Trái (OS)</strong></td>
+                                                                <td>{p.osSph}</td>
+                                                                <td>{p.osCyl}</td>
+                                                                <td>{p.osAxis}</td>
+                                                                <td>{p.osAdd}</td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+
+                                                    <p><strong>Khoảng cách đồng tử (PD):</strong> {p.pd} mm</p>
+                                                    <p><strong>Loại tròng:</strong> {p.lensType}</p>
+                                                    {p.notes && <p><strong>Ghi chú:</strong> {p.notes}</p>}
+
+                                                    <div className="print-footer" style={{ display: 'none', marginTop: 40, textAlign: 'right' }}>
+                                                        <p><strong>Chữ ký Bác sĩ</strong></p>
+                                                        <div style={{ height: 60 }}></div>
+                                                        <p>{p.doctorName}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            )
+                          },
                         ]}
                       />
                     </Form>
@@ -496,7 +644,17 @@ export default function MedicalHistoryPage() {
                 </div>
               </div>
             )}
-          </Spin>
+             </Spin>
+        <style>{`
+            @media print {
+                body * { visibility: hidden; }
+                .print-area, .print-area * { visibility: visible; }
+                .print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
+                .print-header { display: block !important; margin-bottom: 20px; }
+                .print-footer { display: block !important; }
+                .ant-table-pagination { display: none !important; }
+            }
+        `}</style>
         </div>
       </div>
     </>

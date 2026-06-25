@@ -73,8 +73,11 @@ public class AuthServiceImpl implements AuthService {
         String roleName = user.getRole().getName();
 
         Long doctorId = null;
+        Long patientId = null;
         if ("DOCTOR".equals(roleName)) {
             doctorId = doctorRepository.findByUserId(user.getId()).map(Doctor::getId).orElse(null);
+        } else if ("PATIENT".equals(roleName)) {
+            patientId = patientRepository.findByUserId(user.getId()).map(Patient::getId).orElse(null);
         }
 
         String token = jwtUtil.generateToken(user.getEmail(), roleName, doctorId);
@@ -87,6 +90,7 @@ public class AuthServiceImpl implements AuthService {
                 .fullName(user.getFullName())
                 .role(roleName)
                 .doctorId(doctorId)
+                .patientId(patientId)
                 .build();
     }
 

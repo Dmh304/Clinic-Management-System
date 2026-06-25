@@ -65,6 +65,18 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/emr/all").hasAnyRole("DOCTOR", "ADMIN")
                         .requestMatchers("/api/v1/patients/**").hasAnyRole("ADMIN", "DOCTOR", "RECEPTIONIST")
                         .requestMatchers("/api/v1/emr/history").hasRole("PATIENT")
+                        
+                        // ── EMR ────────────────────────────────────────────────────────
+                        .requestMatchers(HttpMethod.POST, "/api/v1/emr").hasRole("DOCTOR")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/emr/appointment/*").hasAnyRole("DOCTOR", "RECEPTIONIST", "ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/emr/patient/*/history").hasAnyRole("DOCTOR", "PATIENT", "ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/emr/*").hasAnyRole("DOCTOR", "PATIENT", "ADMIN")
+                        
+                        // ── Prescriptions ──────────────────────────────────────────────
+                        .requestMatchers(HttpMethod.POST, "/api/v1/prescriptions", "/api/v1/eyeglass-prescriptions").hasRole("DOCTOR")
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/prescriptions/*/dispense", "/api/v1/prescriptions/*/skip").hasRole("PHARMACIST")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/prescriptions/pending").hasRole("PHARMACIST")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/prescriptions/patient/*", "/api/v1/eyeglass-prescriptions/patient/*").hasAnyRole("PATIENT", "DOCTOR", "PHARMACIST", "ADMIN")
                         // ── Services: GET public, POST/registrations restricted ─────────
                         .requestMatchers(HttpMethod.GET, "/api/v1/services", "/api/v1/services/categories",
                                 "/api/v1/services/{id:[0-9]+}")
