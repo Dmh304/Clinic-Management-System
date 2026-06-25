@@ -9,7 +9,7 @@ server.port=8080
 # ============================================================
 spring.datasource.url=jdbc:sqlserver://localhost:1433;databaseName=ecms_db;encrypt=false
 spring.datasource.username=sa
-spring.datasource.password=0864213579
+spring.datasource.password=YOUR_DB_PASSWORD
 spring.datasource.driver-class-name=com.microsoft.sqlserver.jdbc.SQLServerDriver
 
 # HikariCP connection pool
@@ -30,19 +30,29 @@ spring.jpa.open-in-view=false
 # ============================================================
 # JWT
 # ============================================================
-jwt.secret=ecms$2024!XkP9mQrL#vZ7nFwBsUjYhTdCgAoNiElRu5WqM8pJ3Hz
+jwt.secret=YOUR_JWT_SECRET
 jwt.access-token-expiration=3600000
 jwt.refresh-token-expiration=604800000
+
+# ============================================================
+# Google OAuth (đăng nhập bằng tài khoản Google)
+# ============================================================
+google.oauth.client-id=YOUR_GOOGLE_OAUTH_CLIENT_ID
 
 # ============================================================
 # Mail (Gmail SMTP)
 # ============================================================
 spring.mail.host=smtp.gmail.com
 spring.mail.port=587
-spring.mail.username=your_email@gmail.com
-spring.mail.password=your_app_password
+spring.mail.username=${MAIL_USERNAME:}
+spring.mail.password=${MAIL_APP_PASSWORD:}
 spring.mail.properties.mail.smtp.auth=true
 spring.mail.properties.mail.smtp.starttls.enable=true
+
+# ============================================================
+# Frontend base URL (used to build verification/reset links in emails)
+# ============================================================
+app.frontend-base-url=${FRONTEND_BASE_URL:http://localhost:5173}
 
 # ============================================================
 # Swagger / OpenAPI
