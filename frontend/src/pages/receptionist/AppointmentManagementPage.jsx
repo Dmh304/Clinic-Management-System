@@ -10,6 +10,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import dayjs from 'dayjs'
+import { useNavigate } from 'react-router-dom'
 import {
   Table, Tag, Select, Button, Space, Typography, Card,
   message, Modal, Form, Statistic, Row, Col, Segmented,
@@ -17,6 +18,7 @@ import {
 import {
   ReloadOutlined, CheckCircleOutlined, LoginOutlined,
   CloseCircleOutlined, BellOutlined,
+  CloseCircleOutlined, DollarOutlined,
 } from '@ant-design/icons'
 import {
   fetchTodayAppointments,
@@ -25,6 +27,7 @@ import {
   checkInAppointment,
   changeAppointmentStatus,
 } from '../../store/slices/appointmentSlice'
+import { fetchAllInvoices } from '../../store/slices/invoiceSlice'
 import { doctorService } from '../../services/doctorService'
 import { appointmentService } from '../../services/appointmentService'
 import axiosClient from '../../api/axiosClient'
@@ -72,6 +75,7 @@ function formatTime(dt) {
 
 export default function AppointmentManagementPage() {
   const dispatch = useDispatch()
+  const navigate = useNavigate()
   const { list, loading, error, dashboard } = useSelector((s) => s.appointment)
 
   // ── Chế độ xem & điều hướng ──
@@ -79,6 +83,11 @@ export default function AppointmentManagementPage() {
   const [anchorDate, setAnchorDate] = useState(dayjs().startOf('day'))
 
   // ── Chế độ Ngày (Redux) ──
+  const { list: invoices } = useSelector((s) => s.invoice)
+
+  const billedIds = new Set(
+    invoices.filter((i) => i.status !== 'CANCELLED').map((i) => i.appointmentId)
+  )
   const [filterStatus, setFilterStatus] = useState('ALL')
   const [doctors, setDoctors] = useState([])
   const [confirmModal, setConfirmModal] = useState({ open: false, appointment: null })
@@ -112,6 +121,7 @@ export default function AppointmentManagementPage() {
   useEffect(() => {
     dispatch(fetchTodayAppointments())
     dispatch(fetchDashboard())
+    dispatch(fetchAllInvoices())
     doctorService.getAllDoctors().then((res) => setDoctors(res.data)).catch(() => {})
   }, [dispatch])
 
@@ -281,6 +291,21 @@ export default function AppointmentManagementPage() {
               }>
               Bắt đầu khám
             </Button>
+          )}
+          {record.status === 'COMPLETED' && (
+            billedIds.has(record.id)
+              ? <Tag color="green" icon={<CheckCircleOutlined />}>Đã xuất HĐ</Tag>
+              : (
+                <Button
+                  size="small"
+                  type="primary"
+                  icon={<DollarOutlined />}
+                  style={{ backgroundColor: '#10b981', borderColor: '#10b981' }}
+                  onClick={() => navigate('/receptionist/invoice')}
+                >
+                  Thu phí & HĐ
+                </Button>
+              )
           )}
         </Space>
       ),

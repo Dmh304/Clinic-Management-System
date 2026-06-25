@@ -54,6 +54,10 @@ public class SecurityConfig {
                         // Upload ảnh: chỉ MANAGER/ADMIN
                         .requestMatchers(HttpMethod.POST, "/api/v1/files/upload")
                         .hasAnyRole("MANAGER", "ADMIN")
+
+                        // ── Available slots ────────────────────────────────────────────
+                        .requestMatchers(HttpMethod.GET, "/api/v1/appointments/available-slots")
+                        .hasAnyRole("PATIENT", "ADMIN", "RECEPTIONIST", "DOCTOR")
                         .requestMatchers(HttpMethod.POST, "/api/v1/appointments/book")
                         .hasAnyRole("PATIENT", "ADMIN", "RECEPTIONIST")
                         .requestMatchers(HttpMethod.GET, "/api/v1/appointments/my")

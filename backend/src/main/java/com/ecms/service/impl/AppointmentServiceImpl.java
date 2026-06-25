@@ -251,6 +251,13 @@ public class AppointmentServiceImpl implements AppointmentService {
                                 .orElseThrow(() -> new ResourceNotFoundException(
                                                 "Bác sĩ không tồn tại: " + request.getDoctorId()));
 
+                ClinicService service = null;
+                if (request.getServiceId() != null) {
+                        service = clinicServiceRepository.findById(request.getServiceId())
+                                        .orElseThrow(() -> new ResourceNotFoundException(
+                                                        "Dịch vụ không tồn tại: " + request.getServiceId()));
+                }
+
                 validateDoctorCapacity(doctor.getId(), request.getAppointmentTime().toLocalDate());
 
                 // UC-46: gắn dịch vụ khám nếu bệnh nhân chọn từ trang Dịch vụ khám mắt
@@ -653,6 +660,8 @@ public class AppointmentServiceImpl implements AppointmentService {
                                 .serviceId(a.getClinicService() != null ? a.getClinicService().getId() : null)
                                 .serviceName(a.getClinicService() != null ? a.getClinicService().getServiceName()
                                                 : null)
+                                .serviceName(a.getClinicService() != null ? a.getClinicService().getServiceName() : null)
+                                .servicePrice(a.getClinicService() != null ? a.getClinicService().getPrice() : null)
                                 .appointmentTime(a.getAppointmentTime())
                                 .timeSlot(a.getTimeSlot())
                                 .status(a.getStatus())

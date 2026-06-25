@@ -11,6 +11,7 @@ import { useSelector } from 'react-redux'
 import logoImg from '../../assets/ECMS_Logo.png'
 import { doctorService } from '../../services/doctorService';
 import { appointmentService } from '../../services/appointmentService';
+import { clinicServiceService } from '../../services/clinicServiceService';
 // ─── Design tokens ───────────────────────────────────────────────
 const C = {
   bg: "#f0f4ff",
@@ -121,36 +122,25 @@ const StepBar = ({ current }) => (
 );
 
 /**
- * Tạo bảng chọn thời gian khám
- * @param {*} date ngày chọn thời gian khám
- * @returns 
- */
-const generateSlots = (date) => {
-  const dayOfWeek = date.getDay();
-  if (dayOfWeek === 0) return []; // Sunday
-  const morning = ["07:30", "08:00", "08:30", "09:00", "09:30", "10:00", "10:30", "11:00"];
-  const afternoon = ["13:30", "14:00", "14:30", "15:00", "15:30", "16:00", "16:30"];
-  const all = [...morning, ...afternoon];
-  // Randomly mark some as booked for realism
-  const seed = date.getDate() + date.getMonth();
-  return all.map((t, i) => ({
-    time: t,
-    available: !((seed + i) % 3 === 0),
-    session: morning.includes(t) ? "morning" : "afternoon",
-  }));
-};
-
-/**
  * Trang 1: Chọn bác sĩ khám
  * @returns 
  */
+
+const fmtVND = (amount) =>
+  amount != null
+    ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount)
+    : '—';
+
 function Page1({ onNext, service }) {
   const [selectedDoc, setSelectedDoc] = useState(null);
+  const [selectedService, setSelectedService] = useState(null);
   const [forOther, setForOther] = useState(false);
   const [otherName, setOtherName] = useState("");
   const [otherPhone, setOtherPhone] = useState("");
   const [doctors, setDoctors] = useState([]);
+  const [services, setServices] = useState([]);
   const [loadingDoctors, setLoadingDoctors] = useState(true);
+  const [loadingServices, setLoadingServices] = useState(true);
 
   useEffect(() => {
     doctorService.getAllDoctors()
@@ -165,6 +155,11 @@ function Page1({ onNext, service }) {
       })
       .catch(() => setDoctors([]))
       .finally(() => setLoadingDoctors(false));
+
+    clinicServiceService.getAllServices()
+      .then(res => setServices(res.data || []))
+      .catch(() => setServices([]))
+      .finally(() => setLoadingServices(false));
   }, []);
 
   const canContinue = selectedDoc && (!forOther || (otherName.trim() && otherPhone.trim()));
@@ -260,6 +255,76 @@ function Page1({ onNext, service }) {
           </div>
         )}
 
+        {/* Services */}
+        <section style={{ marginBottom: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <h2 style={{ fontSize: 14, fontWeight: 600, color: C.text, margin: 0 }}>
+              Chọn Dịch Vụ Khám
+            </h2>
+            <span style={{ fontSize: 11, color: C.textMuted, background: C.bg, padding: '2px 8px', borderRadius: 20 }}>
+              Tùy chọn
+            </span>
+          </div>
+
+          {loadingServices ? (
+            <div style={{ textAlign: 'center', padding: '20px 0', color: C.textMuted, fontSize: 13 }}>
+              Đang tải dịch vụ...
+            </div>
+          ) : services.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '20px 0', color: C.textMuted, fontSize: 13 }}>
+              Không có dịch vụ nào
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
+              {services.map(svc => {
+                const active = selectedService?.id === svc.id;
+                return (
+                  <button
+                    key={svc.id}
+                    onClick={() => setSelectedService(active ? null : svc)}
+                    style={{
+                      padding: '14px 16px', borderRadius: 12, textAlign: 'left',
+                      border: `2px solid ${active ? C.primary : C.border}`,
+                      background: active ? C.primaryLight : C.surface,
+                      cursor: 'pointer', transition: 'all .2s',
+                      display: 'flex', flexDirection: 'column', gap: 6,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: active ? C.primary : C.text, lineHeight: 1.3 }}>
+                        {svc.serviceName}
+                      </span>
+                      {active && (
+                        <div style={{
+                          width: 18, height: 18, borderRadius: '50%', background: C.primary, flexShrink: 0,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#fff',
+                        }}>✓</div>
+                      )}
+                    </div>
+                    {svc.description && (
+                      <span style={{ fontSize: 11, color: C.textSub, lineHeight: 1.4 }}>
+                        {svc.description}
+                      </span>
+                    )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 2 }}>
+                      {svc.price != null && (
+                        <span style={{ fontSize: 12, fontWeight: 700, color: active ? C.primary : '#059669' }}>
+                          {fmtVND(svc.price)}
+                        </span>
+                      )}
+                      {svc.durationMinutes != null && (
+                        <span style={{ fontSize: 11, color: C.textMuted }}>
+                          ⏱ {svc.durationMinutes} phút
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
         {/* Doctors */}
         <section style={{ marginBottom: 28 }}>
           <h2 style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 12 }}>
@@ -321,7 +386,7 @@ function Page1({ onNext, service }) {
         {/* CTA */}
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
           <button
-            onClick={() => canContinue && onNext({ doctor: selectedDoc, forOther, otherName, otherPhone })}
+            onClick={() => canContinue && onNext({ doctor: selectedDoc, service: selectedService, forOther, otherName, otherPhone })}
             disabled={!canContinue}
             style={{
               padding: "12px 32px", borderRadius: 10, border: "none", cursor: canContinue ? "pointer" : "not-allowed",
@@ -338,16 +403,27 @@ function Page1({ onNext, service }) {
   );
 }
 
+// Tất cả khung giờ có thể đặt (cố định theo ca)
+const ALL_SLOTS = {
+  morning:   ["07:30","08:00","08:30","09:00","09:30","10:00","10:30","11:00"],
+  afternoon: ["13:30","14:00","14:30","15:00","15:30","16:00","16:30"],
+};
+
+const toDateParam = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+
 /**
  * Trang 2: chọn ngày và giờ khám bệnh
- * @returns 
+ * @returns
  */
 function Page2({ data, onNext, onBack, submitting, submitError }) {
   const today = new Date();
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [calOffset, setCalOffset] = useState(0); // week offset
-  const { isAuthenticated, user } = useSelector((s) => s.auth)
+  const [bookedSlots, setBookedSlots] = useState([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const { user } = useSelector((s) => s.auth)
 
   const startDate = new Date(today);
   startDate.setDate(today.getDate() - today.getDay() + 1 + calOffset * 7); // Monday
@@ -361,18 +437,34 @@ function Page2({ data, onNext, onBack, submitting, submitError }) {
   const maxDate = new Date(today);
   maxDate.setDate(today.getDate() + 30);
 
-  const slots = selectedDate ? generateSlots(selectedDate) : [];
-  const morningSlots = slots.filter(s => s.session === "morning");
-  const afternoonSlots = slots.filter(s => s.session === "afternoon");
-  // const isToday = (d) => d.toDateString() === today.toDateString();
-  // const isPast = (d) => d < today && !isToday(d);
+  // Tải slot đã đặt từ DB mỗi khi chọn ngày hoặc bác sĩ thay đổi
+  useEffect(() => {
+    if (!selectedDate || !data.doctor?.id) return;
+    setSlotsLoading(true);
+    setBookedSlots([]);
+    appointmentService.getBookedSlots(data.doctor.id, toDateParam(selectedDate))
+      .then(res => setBookedSlots(res.data ?? []))
+      .catch(() => setBookedSlots([]))
+      .finally(() => setSlotsLoading(false));
+  }, [selectedDate, data.doctor?.id]);
 
-  const isToday = (d) => false;
-  const isTodayTest = (d) => d.toDateString() === today.toDateString();
-  const isPast = (d) => d < today && !isTodayTest(d);
-
-  const isFuture30 = (d) => d > maxDate;
   const isSunday = (d) => d.getDay() === 0;
+  const buildSlots = (times, session) =>
+    times.map(time => ({
+      time,
+      session,
+      available: !bookedSlots.includes(time),
+    }));
+
+  const morningSlots   = buildSlots(ALL_SLOTS.morning,   "morning");
+  const afternoonSlots = buildSlots(ALL_SLOTS.afternoon,  "afternoon");
+  const isTodayMark = (d) => d.toDateString() === today.toDateString();
+  const isPast = (d) => {
+    const copy = new Date(d); copy.setHours(0,0,0,0);
+    const t = new Date(today); t.setHours(0,0,0,0);
+    return copy < t;
+  };
+  const isFuture30 = (d) => d > maxDate;
   const isDisabled = (d) => isPast(d) || isFuture30(d) || isSunday(d);
   const isSelected = (d) => selectedDate?.toDateString() === d.toDateString();
 
@@ -463,17 +555,16 @@ function Page2({ data, onNext, onBack, submitting, submitError }) {
               {calDays.map((d, i) => {
                 const disabled = isDisabled(d);
                 const selected = isSelected(d);
-                const todayMark = isToday(d);
                 return (
                   <button key={i}
                     onClick={() => !disabled && (setSelectedDate(d), setSelectedSlot(null))}
                     disabled={disabled}
                     style={{
                       aspectRatio: "1", borderRadius: 8, border: selected ? `2px solid ${C.primary}` : "2px solid transparent",
-                      background: selected ? C.primary : todayMark ? C.primaryLight : "transparent",
-                      color: disabled ? C.textMuted : selected ? "#fff" : todayMark ? C.primary : C.text,
+                      background: selected ? C.primary : isTodayMark(d) ? C.primaryLight : "transparent",
+                      color: disabled ? C.textMuted : selected ? "#fff" : isTodayMark(d) ? C.primary : C.text,
                       cursor: disabled ? "not-allowed" : "pointer",
-                      fontSize: 12, fontWeight: selected || todayMark ? 600 : 400, fontFamily: font,
+                      fontSize: 12, fontWeight: selected || isTodayMark(d) ? 600 : 400, fontFamily: font,
                       transition: "all .15s",
                       opacity: disabled ? 0.4 : 1,
                     }}
@@ -505,26 +596,28 @@ function Page2({ data, onNext, onBack, submitting, submitError }) {
                 <div style={{ fontSize: 32, marginBottom: 8 }}>📅</div>
                 <p style={{ margin: 0, fontSize: 13 }}>Chọn ngày để xem các khung giờ trống</p>
               </div>
-            ) : slots.length === 0 ? (
+            ) : slotsLoading ? (
               <div style={{
-                background: C.warningLight, border: `1px solid ${C.warning}`, borderRadius: 14,
-                padding: 24, textAlign: "center",
+                background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14,
+                padding: 40, textAlign: "center", color: C.textMuted, fontSize: 13,
               }}>
-                <div style={{ fontSize: 28, marginBottom: 8 }}>😔</div>
-                <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#92400e" }}>
-                  Không có khung giờ nào cho ngày này
-                </p>
-                <p style={{ margin: "4px 0 0", fontSize: 12, color: "#b45309" }}>
-                  Vui lòng chọn ngày khác hoặc bác sĩ khác
-                </p>
+                Đang tải khung giờ...
               </div>
             ) : (
               <div style={{
                 background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: 18,
               }}>
-                <p style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 600, color: C.text }}>
-                  Ngày {fmtDate(selectedDate)} — {slots.filter(s => s.available).length} slot trống
-                </p>
+                {(() => {
+                  const totalFree = [...morningSlots, ...afternoonSlots].filter(s => s.available).length;
+                  return (
+                    <p style={{ margin: "0 0 14px", fontSize: 13, fontWeight: 600, color: C.text }}>
+                      Ngày {fmtDate(selectedDate)}&nbsp;—&nbsp;
+                      <span style={{ color: totalFree > 0 ? '#059669' : C.error }}>
+                        {totalFree} slot trống
+                      </span>
+                    </p>
+                  );
+                })()}
 
                 {[{ label: "☀️ Buổi sáng", list: morningSlots }, { label: "🌤 Buổi chiều", list: afternoonSlots }].map(({ label, list }) => (
                   <div key={label} style={{ marginBottom: 16 }}>
@@ -533,22 +626,20 @@ function Page2({ data, onNext, onBack, submitting, submitError }) {
                     </p>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
                       {list.map(slot => {
-                        const tooSoon = isTooSoon(slot);
-                        const unavailable = !slot.available || tooSoon;
                         const isChosen = selectedSlot?.time === slot.time;
                         return (
                           <button key={slot.time}
-                            onClick={() => !unavailable && setSelectedSlot(slot)}
-                            disabled={unavailable}
-                            title={tooSoon ? "Cần đặt trước ít nhất 24 giờ" : !slot.available ? "Đã được đặt" : ""}
+                            onClick={() => slot.available && setSelectedSlot(slot)}
+                            disabled={!slot.available}
+                            title={!slot.available ? "Khung giờ này đã được đặt" : ""}
                             style={{
                               padding: "7px 0", borderRadius: 8, fontSize: 12, fontFamily: font, fontWeight: isChosen ? 600 : 400,
-                              border: `1.5px solid ${isChosen ? C.primary : unavailable ? C.border : C.border}`,
-                              background: isChosen ? C.primary : unavailable ? C.bg : "#fff",
-                              color: isChosen ? "#fff" : unavailable ? C.textMuted : C.text,
-                              cursor: unavailable ? "not-allowed" : "pointer",
+                              border: `1.5px solid ${isChosen ? C.primary : C.border}`,
+                              background: isChosen ? C.primary : !slot.available ? C.bg : "#fff",
+                              color: isChosen ? "#fff" : !slot.available ? C.textMuted : C.text,
+                              cursor: !slot.available ? "not-allowed" : "pointer",
                               transition: "all .15s",
-                              textDecoration: unavailable && !tooSoon ? "line-through" : "none",
+                              textDecoration: !slot.available ? "line-through" : "none",
                             }}
                           >
                             {slot.time}
@@ -558,15 +649,6 @@ function Page2({ data, onNext, onBack, submitting, submitError }) {
                     </div>
                   </div>
                 ))}
-
-                {selectedDate && isToday(selectedDate) && (
-                  <div style={{
-                    background: C.warningLight, border: `1px solid #fcd34d`, borderRadius: 8,
-                    padding: "8px 12px", fontSize: 12, color: "#92400e", marginTop: 8,
-                  }}>
-                    ⚠️ Slot bị mờ: Cần đặt trước ít nhất 24 giờ
-                  </div>
-                )}
               </div>
             )}
 
@@ -582,6 +664,7 @@ function Page2({ data, onNext, onBack, submitting, submitError }) {
                 {[
                   ...(data.service ? [["Dịch vụ", data.service.serviceName]] : []),
                   ["Bác sĩ", data.doctor.name],
+                  ...(data.service ? [["Dịch vụ", data.service.serviceName]] : []),
                   ["Ngày", fmtDate(selectedDate)],
                   ["Giờ", selectedSlot.time],
                   ["Bệnh nhân", data.forOther ? data.otherName : user.fullName],
@@ -695,6 +778,7 @@ function Page3({ data, onReset, bookingResult }) {
             {[
               ...(data.service ? [{ icon: "🩺", label: "Dịch vụ", value: data.service.serviceName }] : []),
               { icon: "👨‍⚕️", label: "Bác sĩ", value: data.doctor.name },
+              ...(data.service ? [{ icon: "🏥", label: "Dịch vụ", value: data.service.serviceName }] : []),
               { icon: "📅", label: "Ngày khám", value: fmtDate(data.date) },
               { icon: "⏰", label: "Giờ khám", value: data.slot.time },
               { icon: "👤", label: "Bệnh nhân", value: data.forOther ? data.otherName : user.fullName },
@@ -802,6 +886,7 @@ export default function BookingPage() {
 
       const res = await appointmentService.bookAppointment({
         doctorId: d.doctor.id,
+        serviceId: d.service?.id ?? null,
         appointmentTime,
         notes: d.forOther ? `Đặt cho người thân: ${d.otherName} - ${d.otherPhone}` : null,
         serviceId: d.service?.id || null,
