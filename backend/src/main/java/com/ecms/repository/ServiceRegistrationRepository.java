@@ -10,4 +10,8 @@ import java.util.List;
 public interface ServiceRegistrationRepository extends JpaRepository<ServiceRegistration, Long> {
     List<ServiceRegistration> findByPatient_User_EmailOrderByCreatedAtDesc(String email);
     List<ServiceRegistration> findAllByOrderByCreatedAtDesc();
+
+    // Kiểm tra bệnh nhân đã có đăng ký cho dịch vụ này ở trạng thái nhất định chưa
+    // (dùng để chặn đăng ký trùng khi đang chờ tư vấn — status = PENDING)
+    boolean existsByPatient_IdAndService_IdAndStatus(Long patientId, Long serviceId, String status);
 }

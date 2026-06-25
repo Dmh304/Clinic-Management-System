@@ -17,4 +17,7 @@ public class BookAppointmentRequest {
     private LocalDateTime appointmentTime;
 
     private String notes;
+
+    // Dịch vụ khám gắn kèm (UC-46) — tuỳ chọn, null nếu đặt lịch khám thường
+    private Long serviceId;
 }

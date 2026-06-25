@@ -19,6 +19,7 @@ public class AppointmentResponse {
     private String patientPhone;
     private Long doctorId;
     private String doctorName;
+    private Long serviceId;
     private String serviceName;
     private BigDecimal servicePrice;
     private LocalDateTime appointmentTime;

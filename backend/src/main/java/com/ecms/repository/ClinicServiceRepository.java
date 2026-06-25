@@ -14,4 +14,7 @@ public interface ClinicServiceRepository extends JpaRepository<ClinicService, Lo
     List<ClinicService> findByIsActiveTrueOrderByDisplayOrderAsc();
     List<ClinicService> findByCategory_IdAndIsActiveTrueOrderByDisplayOrderAsc(Long categoryId);
     List<ClinicService> findByServiceTypeAndIsActiveTrueOrderByDisplayOrderAsc(String serviceType);
+
+    // Tất cả gói (kể cả đã ẩn) — dùng cho màn Quản lý gói dịch vụ để khôi phục gói đã ẩn
+    List<ClinicService> findAllByOrderByDisplayOrderAsc();
 }

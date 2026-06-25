@@ -1,7 +1,10 @@
 package com.ecms.controller;
 
 import com.ecms.dto.request.BookAppointmentRequest;
+import com.ecms.dto.request.CancelAppointmentRequest;
 import com.ecms.dto.request.ReassignAppointmentRequest;
+import com.ecms.dto.request.RescheduleAppointmentRequest;
+import com.ecms.dto.request.UpdateAppointmentNotesRequest;
 import com.ecms.dto.request.WalkInAppointmentRequest;
 import com.ecms.dto.response.ApiResponse;
 import com.ecms.dto.response.AppointmentDashboardResponse;
@@ -9,8 +12,10 @@ import com.ecms.dto.response.AppointmentResponse;
 import com.ecms.entity.AppointmentStatus;
 import com.ecms.entity.Doctor;
 import com.ecms.entity.Patient;
+import com.ecms.entity.User;
 import com.ecms.repository.DoctorRepository;
 import com.ecms.repository.PatientRepository;
+import com.ecms.repository.UserRepository;
 import com.ecms.service.AppointmentService;
 import jakarta.validation.Valid;
 import lombok.Data;
@@ -32,6 +37,7 @@ public class AppointmentController {
         private final AppointmentService appointmentService;
         private final DoctorRepository doctorRepository;
         private final PatientRepository patientRepository;
+        private final UserRepository userRepository;
 
         /* Lấy danh sách tất cả các lịch hẹn có trong hệ thống */
         @GetMapping
@@ -98,9 +104,14 @@ public class AppointmentController {
 
         @PatchMapping("/{id}/check-in")
         public ResponseEntity<ApiResponse<AppointmentResponse>> checkInAppointment(
-                        @PathVariable Long id) {
+                        @PathVariable Long id,
+                        @AuthenticationPrincipal UserDetails userDetails) {
+                // UC-15: lấy id của nhân viên (Lễ tân) đang đăng nhập để lưu vào check_in_by
+                Long checkInByUserId = userDetails != null
+                                ? userRepository.findByEmail(userDetails.getUsername()).map(User::getId).orElse(null)
+                                : null;
                 return ResponseEntity.ok(
-                                ApiResponse.success(appointmentService.checkInAppointment(id)));
+                                ApiResponse.success(appointmentService.checkInAppointment(id, checkInByUserId)));
         }
 
         @PostMapping("/book")
@@ -147,6 +158,51 @@ public class AppointmentController {
                 return ResponseEntity.ok(ApiResponse.success(appointmentService.getDailySchedule(targetDate)));
         }
 
+        /** Huỷ lịch hẹn — PATIENT (chỉ lịch của mình, áp BR-05) hoặc RECEPTIONIST/MANAGER/ADMIN */
+        @PatchMapping("/{id}/cancel")
+        public ResponseEntity<ApiResponse<AppointmentResponse>> cancelAppointment(
+                        @PathVariable Long id,
+                        @RequestBody(required = false) CancelAppointmentRequest request,
+                        @AuthenticationPrincipal UserDetails userDetails) {
+                boolean isPatientSelf = patientRepository.findByEmail(userDetails.getUsername()).isPresent();
+                return ResponseEntity.ok(ApiResponse.success(
+                                appointmentService.cancelAppointment(id, request, userDetails.getUsername(),
+                                                isPatientSelf)));
+        }
+
+        /** Bệnh nhân tự đổi giờ khám lịch hẹn của mình (trong policy) */
+        @PatchMapping("/{id}/reschedule")
+        public ResponseEntity<ApiResponse<AppointmentResponse>> reschedule(
+                        @PathVariable Long id,
+                        @RequestBody RescheduleAppointmentRequest request,
+                        @AuthenticationPrincipal UserDetails userDetails) {
+                return ResponseEntity.ok(ApiResponse.success(
+                                appointmentService.reschedulePatientAppointment(id, request,
+                                                userDetails.getUsername())));
+        }
+
+        /** Lễ tân ghi chú thêm cho lịch hẹn */
+        @PatchMapping("/{id}/notes")
+        public ResponseEntity<ApiResponse<AppointmentResponse>> updateNotes(
+                        @PathVariable Long id,
+                        @RequestBody UpdateAppointmentNotesRequest request) {
+                return ResponseEntity.ok(ApiResponse.success(
+                                appointmentService.updateAppointmentNotes(id, request)));
+        }
+
+        /** Chi tiết 1 lịch hẹn theo id — dùng cho modal chi tiết (vd mở từ thông báo) */
+        @GetMapping("/{id:[0-9]+}")
+        public ResponseEntity<ApiResponse<AppointmentResponse>> getById(@PathVariable Long id) {
+                return ResponseEntity.ok(ApiResponse.success(appointmentService.getAppointmentById(id)));
+        }
+
+        /** UC-13: Gửi nhắc lịch thủ công cho 1 lịch hẹn (bỏ qua cửa sổ 24h) — RECEPTIONIST/ADMIN */
+        @PostMapping("/{id}/send-reminder")
+        public ResponseEntity<ApiResponse<AppointmentResponse>> sendReminder(@PathVariable Long id) {
+                return ResponseEntity.ok(
+                                ApiResponse.success("Đã gửi nhắc lịch", appointmentService.sendReminder(id)));
+        }
+
         /** Lịch hẹn trong khoảng ngày — dùng cho calendar view tuần/tháng */
         @GetMapping("/schedule-range")
         public ResponseEntity<ApiResponse<List<AppointmentResponse>>> getScheduleRange(
@@ -167,11 +223,10 @@ public class AppointmentController {
                 return doctorRepository.findByEmail(userDetails.getUsername()).map(Doctor::getId).orElse(null);
         }
 
-        /* Tìm kiếm và trả về id của bác sĩ dựa trên thông tin tài khoản đăng nhập */
         private Long resolvePatientId(UserDetails userDetails) {
                 if (userDetails == null) {
                         return null;
                 }
-                return patientRepository.findByEmail(userDetails.getUsername()).map(Patient::getId).orElse(null);
+                return patientRepository.findByUser_Email(userDetails.getUsername()).map(Patient::getId).orElse(null);
         }
 }

@@ -5,7 +5,7 @@
  * @description Hiển thị và chọn bác sĩ và lịch khám bởi bệnh nhân.
  */
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import Header from '../../components/layout/Header'
 import { useSelector } from 'react-redux'
 import logoImg from '../../assets/ECMS_Logo.png'
@@ -125,12 +125,13 @@ const StepBar = ({ current }) => (
  * Trang 1: Chọn bác sĩ khám
  * @returns 
  */
+
 const fmtVND = (amount) =>
   amount != null
     ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount)
     : '—';
 
-function Page1({ onNext }) {
+function Page1({ onNext, service }) {
   const [selectedDoc, setSelectedDoc] = useState(null);
   const [selectedService, setSelectedService] = useState(null);
   const [forOther, setForOther] = useState(false);
@@ -176,6 +177,19 @@ function Page1({ onNext }) {
             Chọn chuyên khoa và bác sĩ phù hợp với nhu cầu của bạn
           </p>
         </div>
+
+        {/* Dịch vụ đã chọn (UC-46) */}
+        {service && (
+          <div style={{
+            background: C.accentLight, border: `1.5px solid ${C.accent}`, borderRadius: 12,
+            padding: "12px 18px", marginBottom: 24, display: "flex", alignItems: "center", gap: 10,
+          }}>
+            <span style={{ fontSize: 18 }}>🩺</span>
+            <span style={{ fontSize: 13, color: "#166534" }}>
+              Dịch vụ: <strong>{service.serviceName}</strong>
+            </span>
+          </div>
+        )}
 
         {/* For someone else toggle */}
         <div style={{
@@ -648,6 +662,7 @@ function Page2({ data, onNext, onBack, submitting, submitError }) {
                   Tóm Tắt Lịch Hẹn
                 </p>
                 {[
+                  ...(data.service ? [["Dịch vụ", data.service.serviceName]] : []),
                   ["Bác sĩ", data.doctor.name],
                   ...(data.service ? [["Dịch vụ", data.service.serviceName]] : []),
                   ["Ngày", fmtDate(selectedDate)],
@@ -761,6 +776,7 @@ function Page3({ data, onReset, bookingResult }) {
           <h3 style={{ fontSize: 14, fontWeight: 700, color: C.text, margin: "0 0 16px" }}>Chi Tiết Lịch Hẹn</h3>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             {[
+              ...(data.service ? [{ icon: "🩺", label: "Dịch vụ", value: data.service.serviceName }] : []),
               { icon: "👨‍⚕️", label: "Bác sĩ", value: data.doctor.name },
               ...(data.service ? [{ icon: "🏥", label: "Dịch vụ", value: data.service.serviceName }] : []),
               { icon: "📅", label: "Ngày khám", value: fmtDate(data.date) },
@@ -817,7 +833,7 @@ function Page3({ data, onReset, bookingResult }) {
         {/* Actions */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 8 }}>
           <button
-            onClick={() => navigate('/patient/dashboard')}
+            onClick={() => navigate('/patient/appointments')}
             style={{
               padding: "12px", borderRadius: 10, border: `1.5px solid ${C.primary}`,
               background: C.surface, cursor: "pointer", fontSize: 13, fontFamily: font,
@@ -851,8 +867,10 @@ function Page3({ data, onReset, bookingResult }) {
  * - Hiển thị kết quả đặt lịch thành công
  */
 export default function BookingPage() {
+  // UC-46: dịch vụ được pre-fill khi đến từ trang "Dịch vụ khám mắt" (có thể null)
+  const preselectedService = useLocation().state?.service || null;
   const [page, setPage] = useState(1);
-  const [bookingData, setBookingData] = useState({});
+  const [bookingData, setBookingData] = useState({ service: preselectedService });
   const [bookingResult, setBookingResult] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
@@ -871,6 +889,7 @@ export default function BookingPage() {
         serviceId: d.service?.id ?? null,
         appointmentTime,
         notes: d.forOther ? `Đặt cho người thân: ${d.otherName} - ${d.otherPhone}` : null,
+        serviceId: d.service?.id || null,
       });
       setBookingResult(res.data);
       setBookingData(d);
@@ -887,7 +906,10 @@ export default function BookingPage() {
       <Header />
       <StepBar current={page - 1} />
       {page === 1 && (
-        <Page1 onNext={(d) => { setBookingData(d); setPage(2); }} />
+        <Page1
+          service={bookingData.service}
+          onNext={(d) => { setBookingData(prev => ({ ...prev, ...d })); setPage(2); }}
+        />
       )}
       {page === 2 && (
         <Page2
@@ -901,7 +923,7 @@ export default function BookingPage() {
       {page === 3 && (
         <Page3
           data={bookingData}
-          onReset={() => { setBookingData({}); setBookingResult(null); setPage(1); }}
+          onReset={() => { setBookingData({ service: preselectedService }); setBookingResult(null); setPage(1); }}
           bookingResult={bookingResult}
         />
       )}
