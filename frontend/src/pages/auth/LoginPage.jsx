@@ -18,7 +18,7 @@ const ROLE_REDIRECT = {
   LAB_TECHNICIAN: '/lab/queue',
   PHARMACIST: '/pharmacy/dispensing',
   MANAGER: '/manager/dashboard',
-  ADMIN: '/admin/users',
+  ADMIN: '/admin/dashboard',
 }
 
 /* ─── Inline style constants ─── */

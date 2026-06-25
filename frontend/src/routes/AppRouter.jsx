@@ -68,9 +68,12 @@ import ManageDiscountCampaignsPage from '../pages/manager/ManageDiscountCampaign
 import AssignNursePage from '../pages/manager/AssignNursePage'
 import ReassignAppointmentPage from '../pages/manager/ReassignAppointmentPage'
 
+import AdminDashboardPage from '../pages/admin/AdminDashboardPage'
 import UserManagementPage from '../pages/admin/UserManagementPage'
+import PatientAccountPage from '../pages/admin/PatientAccountPage'
 import SystemConfigPage from '../pages/admin/SystemConfigPage'
 import AuditLogPage from '../pages/admin/AuditLogPage'
+import AdminLayout from '../components/layout/AdminLayout'
 
 // Bọc nội dung trang với Header để các trang công khai hiển thị thanh điều hướng
 function WithHeader({ children }) {
@@ -186,9 +189,13 @@ export default function AppRouter() {
 
       {/* ── Admin ── */}
       <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
-        <Route path="/admin/users" element={<UserManagementPage />} />
-        <Route path="/admin/config" element={<SystemConfigPage />} />
-        <Route path="/admin/audit" element={<AuditLogPage />} />
+        <Route element={<AdminLayout />}>
+          <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+          <Route path="/admin/users" element={<UserManagementPage />} />
+          <Route path="/admin/patients" element={<PatientAccountPage />} />
+          <Route path="/admin/config" element={<SystemConfigPage />} />
+          <Route path="/admin/audit" element={<AuditLogPage />} />
+        </Route>
       </Route>
 
       {/* ── Fallback: về trang chủ ── */}

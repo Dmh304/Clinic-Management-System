@@ -16,4 +16,11 @@ public interface EmailService {
 
     // Gửi email chứa mã OTP xác nhận đổi mật khẩu
     void sendChangePasswordOtp(String toEmail, String fullName, String otp);
+
+    // UC-55: gửi email chào mừng kèm mật khẩu tạm khi admin activate tài khoản nhân viên mới
+    void sendNewStaffAccountEmail(String toEmail, String fullName, String tempPassword);
+
+    // UC-55: gửi email báo mật khẩu mới khi admin đặt lại mật khẩu cho một tài khoản
+    // (dùng cho cả nhân viên và patient — khác sendNewStaffAccountEmail vốn chỉ dành cho lần activate đầu tiên)
+    void sendAdminPasswordResetEmail(String toEmail, String fullName, String tempPassword);
 }

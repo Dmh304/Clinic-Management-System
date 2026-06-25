@@ -35,6 +35,10 @@ public class User {
     @Column(name = "phone_number")
     private String phone;
 
+    // Phòng/bộ phận công tác — chỉ áp dụng cho tài khoản nhân viên (UC-55), null với PATIENT
+    @Column(name = "department")
+    private String department;
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;
@@ -56,7 +60,19 @@ public class User {
     @Column(name = "lock_until")
     private LocalDateTime lockUntil;
 
+    // Tăng lên mỗi lần admin deactivate tài khoản (UC-55) — JwtAuthFilter so sánh giá trị này
+    // với claim trong token để vô hiệu hoá các JWT đã cấp trước đó (JWT vốn stateless, không có session).
+    @Column(name = "token_version", nullable = false)
+    @Builder.Default
+    private int tokenVersion = 0;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    // Soft delete (UC-55): tài khoản nhân viên đã DISABLED có thể bị admin "xóa" khỏi danh sách —
+    // chỉ ẩn đi (deletedAt khác NULL), không xóa cứng bản ghi để giữ liên kết với appointment/
+    // prescription/audit log cũ (BR-09).
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 }

@@ -168,12 +168,16 @@ public class AuthServiceImpl implements AuthService {
             userRepository.save(user);
         }
 
-        if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new UnauthorizedException("Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên");
-        }
-
         if (user.getRole() == null) {
             throw new UnauthorizedException("Tài khoản chưa được gán vai trò");
+        }
+
+        if (!"PATIENT".equals(user.getRole().getName())) {
+            throw new UnauthorizedException("Tài khoản này là nhân viên hệ thống. Vui lòng đăng nhập qua cổng nhân viên");
+        }
+
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new UnauthorizedException("Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên");
         }
 
         return buildAuthResponse(user);
@@ -371,7 +375,7 @@ public class AuthServiceImpl implements AuthService {
             doctorId = doctorRepository.findByUserId(user.getId()).map(Doctor::getId).orElse(null);
         }
 
-        String token = jwtUtil.generateToken(user.getEmail(), roleName, doctorId);
+        String token = jwtUtil.generateToken(user.getEmail(), roleName, doctorId, user.getTokenVersion());
 
         return AuthResponse.builder()
                 .token(token)

@@ -4,7 +4,12 @@
 package com.ecms.repository;
 
 import com.ecms.entity.User;
+import com.ecms.entity.UserStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -21,4 +26,46 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     // Tìm người dùng theo số điện thoại; dùng khi đăng nhập bệnh nhân bằng số điện thoại
     Optional<User> findByPhone(String phone);
+
+    // UC-55: tìm kiếm tài khoản nhân viên (luôn loại trừ PATIENT và tài khoản đã soft-delete)
+    // theo role/status/từ khoá tên-hoặc-email
+    @Query(value = """
+            SELECT u FROM User u
+            WHERE u.role.name <> 'PATIENT'
+              AND u.deletedAt IS NULL
+              AND (:role IS NULL OR u.role.name = :role)
+              AND (:status IS NULL OR u.status = :status)
+              AND (:keyword IS NULL OR LOWER(u.fullName) LIKE :keyword OR LOWER(u.email) LIKE :keyword)
+            """,
+            countQuery = """
+            SELECT COUNT(u) FROM User u
+            WHERE u.role.name <> 'PATIENT'
+              AND u.deletedAt IS NULL
+              AND (:role IS NULL OR u.role.name = :role)
+              AND (:status IS NULL OR u.status = :status)
+              AND (:keyword IS NULL OR LOWER(u.fullName) LIKE :keyword OR LOWER(u.email) LIKE :keyword)
+            """)
+    Page<User> searchStaffUsers(
+            @Param("role") String role,
+            @Param("status") UserStatus status,
+            @Param("keyword") String keyword,
+            Pageable pageable);
+
+    // Quản lý tài khoản Patient (mở khóa / reset mật khẩu): tìm theo trạng thái/từ khoá tên-hoặc-email
+    @Query(value = """
+            SELECT u FROM User u
+            WHERE u.role.name = 'PATIENT'
+              AND (:status IS NULL OR u.status = :status)
+              AND (:keyword IS NULL OR LOWER(u.fullName) LIKE :keyword OR LOWER(u.email) LIKE :keyword)
+            """,
+            countQuery = """
+            SELECT COUNT(u) FROM User u
+            WHERE u.role.name = 'PATIENT'
+              AND (:status IS NULL OR u.status = :status)
+              AND (:keyword IS NULL OR LOWER(u.fullName) LIKE :keyword OR LOWER(u.email) LIKE :keyword)
+            """)
+    Page<User> searchPatientUsers(
+            @Param("status") UserStatus status,
+            @Param("keyword") String keyword,
+            Pageable pageable);
 }

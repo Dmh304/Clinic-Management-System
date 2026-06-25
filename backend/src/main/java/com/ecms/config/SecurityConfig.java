@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -39,6 +40,10 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // Token thiếu/sai/hết hạn → 401 (để frontend tự xoá session và chuyển về /login).
+                // Đã xác thực nhưng sai quyền (role) vẫn giữ 403 mặc định của Spring Security.
+                .exceptionHandling(handling -> handling.authenticationEntryPoint(
+                        (request, response, authException) -> response.sendError(HttpStatus.UNAUTHORIZED.value())))
                 .authorizeHttpRequests(auth -> auth
                         // ── Auth ──────────────────────────────────────────────────────────
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/register",
@@ -130,6 +135,10 @@ public class SecurityConfig {
                         // ── Patients ───────────────────────────────────────────────────
                         .requestMatchers("/api/v1/patients/**")
                         .hasAnyRole("ADMIN", "DOCTOR", "RECEPTIONIST", "MANAGER")
+
+                        // ── Admin: audit log (UC-57) ────────────────────────────────────
+                        .requestMatchers("/api/v1/admin/**")
+                        .hasRole("ADMIN")
 
                         // ── Everything else requires authentication ────────────────────
                         .anyRequest().authenticated()

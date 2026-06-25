@@ -86,6 +86,34 @@ public class EmailServiceImpl implements EmailService {
         send(toEmail, "Mã xác nhận đổi mật khẩu ECMS", html);
     }
 
+    @Override
+    public void sendNewStaffAccountEmail(String toEmail, String fullName, String tempPassword) {
+        String html = """
+                <div style="font-family:Segoe UI,Arial,sans-serif;max-width:480px;margin:auto">
+                  <h2 style="color:#1d4ed8">Chào mừng bạn đến với ECMS</h2>
+                  <p>Xin chào %s,</p>
+                  <p>Tài khoản nhân viên của bạn đã được quản trị viên kích hoạt. Vui lòng đăng nhập bằng email này và mật khẩu tạm dưới đây, sau đó đổi mật khẩu ngay lần đăng nhập đầu tiên:</p>
+                  <p style="font-size:22px;font-weight:700;letter-spacing:2px;color:#1d4ed8">%s</p>
+                  <p style="color:#6b7280;font-size:13px">Không chia sẻ mật khẩu này với bất kỳ ai. Nếu bạn không yêu cầu tài khoản này, vui lòng liên hệ quản trị viên hệ thống.</p>
+                </div>
+                """.formatted(fullName, tempPassword);
+        send(toEmail, "Tài khoản nhân viên ECMS của bạn đã được kích hoạt", html);
+    }
+
+    @Override
+    public void sendAdminPasswordResetEmail(String toEmail, String fullName, String tempPassword) {
+        String html = """
+                <div style="font-family:Segoe UI,Arial,sans-serif;max-width:480px;margin:auto">
+                  <h2 style="color:#1d4ed8">Mật khẩu của bạn đã được đặt lại</h2>
+                  <p>Xin chào %s,</p>
+                  <p>Quản trị viên đã đặt lại mật khẩu cho tài khoản của bạn. Mật khẩu tạm mới:</p>
+                  <p style="font-size:22px;font-weight:700;letter-spacing:2px;color:#1d4ed8">%s</p>
+                  <p style="color:#6b7280;font-size:13px">Vui lòng đăng nhập bằng mật khẩu này và đổi mật khẩu ngay sau đó. Nếu bạn không yêu cầu việc này, vui lòng liên hệ quản trị viên hệ thống.</p>
+                </div>
+                """.formatted(fullName, tempPassword);
+        send(toEmail, "Mật khẩu ECMS của bạn đã được đặt lại", html);
+    }
+
     private void send(String toEmail, String subject, String html) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
