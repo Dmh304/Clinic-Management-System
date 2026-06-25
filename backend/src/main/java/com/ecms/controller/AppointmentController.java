@@ -193,7 +193,10 @@ public class AppointmentController {
                 return ResponseEntity.ok(ApiResponse.success(appointmentService.getDailySchedule(targetDate)));
         }
 
-        /** Huỷ lịch hẹn — PATIENT (chỉ lịch của mình, áp BR-05) hoặc RECEPTIONIST/MANAGER/ADMIN */
+        /**
+         * Huỷ lịch hẹn — PATIENT (chỉ lịch của mình, áp BR-05) hoặc
+         * RECEPTIONIST/MANAGER/ADMIN
+         */
         @PatchMapping("/{id}/cancel")
         public ResponseEntity<ApiResponse<AppointmentResponse>> cancelAppointment(
                         @PathVariable Long id,
@@ -225,13 +228,18 @@ public class AppointmentController {
                                 appointmentService.updateAppointmentNotes(id, request)));
         }
 
-        /** Chi tiết 1 lịch hẹn theo id — dùng cho modal chi tiết (vd mở từ thông báo) */
+        /**
+         * Chi tiết 1 lịch hẹn theo id — dùng cho modal chi tiết (vd mở từ thông báo)
+         */
         @GetMapping("/{id:[0-9]+}")
         public ResponseEntity<ApiResponse<AppointmentResponse>> getById(@PathVariable Long id) {
                 return ResponseEntity.ok(ApiResponse.success(appointmentService.getAppointmentById(id)));
         }
 
-        /** UC-13: Gửi nhắc lịch thủ công cho 1 lịch hẹn (bỏ qua cửa sổ 24h) — RECEPTIONIST/ADMIN */
+        /**
+         * UC-13: Gửi nhắc lịch thủ công cho 1 lịch hẹn (bỏ qua cửa sổ 24h) —
+         * RECEPTIONIST/ADMIN
+         */
         @PostMapping("/{id}/send-reminder")
         public ResponseEntity<ApiResponse<AppointmentResponse>> sendReminder(@PathVariable Long id) {
                 return ResponseEntity.ok(
@@ -282,6 +290,5 @@ public class AppointmentController {
                                 patientRepository.findByEmail(userDetails.getUsername())
                                                 .map(Patient::getId)
                                                 .orElse(null));
-                return patientRepository.findByUser_Email(userDetails.getUsername()).map(Patient::getId).orElse(null);
         }
 }

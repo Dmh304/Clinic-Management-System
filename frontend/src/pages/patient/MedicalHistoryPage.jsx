@@ -655,7 +655,6 @@ export default function MedicalHistoryPage() {
             }
         `}</style>
         </div>
-      </div>
     </>
   )
 }

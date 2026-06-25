@@ -250,7 +250,9 @@ public class AppointmentServiceImpl implements AppointmentService {
                                                 ? saved.getAppointmentTime().toLocalDate().toString()
                                                 : "";
                                 notificationService.createForUser(patientUserId,
-                                                "Lịch hẹn khám của bạn vào lúc " + timeStr + " ngày " + dateStr + " đã được xác nhận.", saved.getId());
+                                                "Lịch hẹn khám của bạn vào lúc " + timeStr + " ngày " + dateStr
+                                                                + " đã được xác nhận.",
+                                                saved.getId());
                         }
                 } catch (Exception e) {
                         log.error("Lỗi khi gửi thông báo xác nhận lịch hẹn: {}", e.getMessage());
@@ -429,7 +431,8 @@ public class AppointmentServiceImpl implements AppointmentService {
                         appointment.setTimeSlot(request.getNewAppointmentTime().toLocalTime().toString());
                 }
 
-                // UC-18: fix bug overwrite notes — append lý do chuyển lịch, giữ nguyên note gốc
+                // UC-18: fix bug overwrite notes — append lý do chuyển lịch, giữ nguyên note
+                // gốc
                 if (request.getReason() != null) {
                         String original = appointment.getNotes();
                         appointment.setNotes(
@@ -626,7 +629,8 @@ public class AppointmentServiceImpl implements AppointmentService {
 
                 if (isPatientSelf) {
                         Patient patient = patientRepository.findByEmail(actingUserEmail)
-                                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin bệnh nhân"));
+                                        .orElseThrow(() -> new ResourceNotFoundException(
+                                                        "Không tìm thấy thông tin bệnh nhân"));
                         if (appointment.getPatient() == null
                                         || !appointment.getPatient().getId().equals(patient.getId())) {
                                 throw new ResourceNotFoundException("Lịch hẹn không tồn tại: " + id);
@@ -728,7 +732,8 @@ public class AppointmentServiceImpl implements AppointmentService {
                 appointment.setReminderSent(true);
                 Appointment saved = appointmentRepository.save(appointment);
 
-                // Thông báo in-app cho bệnh nhân (kiểu Facebook) — chỉ tạo nếu bệnh nhân có tài khoản.
+                // Thông báo in-app cho bệnh nhân (kiểu Facebook) — chỉ tạo nếu bệnh nhân có tài
+                // khoản.
                 // Bệnh nhân bấm thông báo để xem chi tiết lịch hẹn của mình.
                 Long patientUserId = patient.getUser() != null ? patient.getUser().getId() : null;
                 notificationService.createForUser(patientUserId,
@@ -754,7 +759,8 @@ public class AppointmentServiceImpl implements AppointmentService {
                                 .serviceId(a.getClinicService() != null ? a.getClinicService().getId() : null)
                                 .serviceName(a.getClinicService() != null ? a.getClinicService().getServiceName()
                                                 : null)
-                                .serviceName(a.getClinicService() != null ? a.getClinicService().getServiceName() : null)
+                                .serviceName(a.getClinicService() != null ? a.getClinicService().getServiceName()
+                                                : null)
                                 .servicePrice(a.getClinicService() != null ? a.getClinicService().getPrice() : null)
                                 .appointmentTime(a.getAppointmentTime())
                                 .timeSlot(a.getTimeSlot())

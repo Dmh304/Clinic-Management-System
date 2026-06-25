@@ -29,16 +29,16 @@ import java.util.stream.Collectors;
  * ThangNBHE201024
  *
  * Triển khai toàn bộ nghiệp vụ hóa đơn của phòng khám:
- *  - Tạo hóa đơn nháp (DRAFT) với danh sách khoản phí phân loại theo nhóm
- *  - Phát hành hóa đơn (ISSUED) sau khi thu tiền mặt hoặc QR Code
- *  - Hủy hóa đơn nháp chưa phát hành
- *  - Gửi hóa đơn điện tử qua email (JavaMailSender + HTML template)
- *  - Xuất PDF hóa đơn (delegate sang InvoicePdfService)
+ * - Tạo hóa đơn nháp (DRAFT) với danh sách khoản phí phân loại theo nhóm
+ * - Phát hành hóa đơn (ISSUED) sau khi thu tiền mặt hoặc QR Code
+ * - Hủy hóa đơn nháp chưa phát hành
+ * - Gửi hóa đơn điện tử qua email (JavaMailSender + HTML template)
+ * - Xuất PDF hóa đơn (delegate sang InvoicePdfService)
  *
  * Quy tắc nghiệp vụ:
- *  - Mỗi lịch hẹn chỉ được tạo một hóa đơn (kiểm tra existsByAppointment_Id)
- *  - Chỉ hóa đơn DRAFT mới được phát hành hoặc hủy
- *  - Mã hóa đơn tự sinh theo định dạng INV-yyyyMMdd-XXXX (tăng dần trong ngày)
+ * - Mỗi lịch hẹn chỉ được tạo một hóa đơn (kiểm tra existsByAppointment_Id)
+ * - Chỉ hóa đơn DRAFT mới được phát hành hoặc hủy
+ * - Mã hóa đơn tự sinh theo định dạng INV-yyyyMMdd-XXXX (tăng dần trong ngày)
  */
 @Service
 @RequiredArgsConstructor
@@ -73,7 +73,8 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .collect(Collectors.toList());
     }
 
-    // Lấy chi tiết hóa đơn kèm danh sách khoản phí — dùng khi mở modal chi tiết hoặc in/gửi email
+    // Lấy chi tiết hóa đơn kèm danh sách khoản phí — dùng khi mở modal chi tiết
+    // hoặc in/gửi email
     @Override
     @Transactional(readOnly = true)
     public InvoiceResponse getInvoiceById(Long id) {
@@ -82,7 +83,8 @@ public class InvoiceServiceImpl implements InvoiceService {
         return toResponseWithItems(invoice);
     }
 
-    // Tìm hóa đơn theo lịch hẹn — dùng khi dashboard kiểm tra lịch hẹn đã có HĐ chưa
+    // Tìm hóa đơn theo lịch hẹn — dùng khi dashboard kiểm tra lịch hẹn đã có HĐ
+    // chưa
     @Override
     @Transactional(readOnly = true)
     public InvoiceResponse getInvoiceByAppointmentId(Long appointmentId) {
@@ -125,7 +127,7 @@ public class InvoiceServiceImpl implements InvoiceService {
                         .description(itemReq.getDescription())
                         .quantity(qty)
                         .unitPrice(price)
-                        .subtotal(subtotal)
+                        .subTotal(subtotal)
                         .build();
                 items.add(item);
 
@@ -229,7 +231,8 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .patientCode(i.getPatient() != null ? i.getPatient().getPatientCode() : null)
                 .doctorName(appt != null && appt.getDoctor() != null ? appt.getDoctor().getFullName() : null)
                 .serviceName(appt != null && appt.getClinicService() != null
-                        ? appt.getClinicService().getServiceName() : null)
+                        ? appt.getClinicService().getServiceName()
+                        : null)
                 .appointmentTime(appt != null ? appt.getAppointmentTime() : null)
                 .timeSlot(appt != null ? appt.getTimeSlot() : null)
                 .items(List.of())
@@ -286,39 +289,49 @@ public class InvoiceServiceImpl implements InvoiceService {
         StringBuilder items = new StringBuilder();
         for (InvoiceItem item : inv.getItems()) {
             items.append("<tr>")
-                 .append("<td style='padding:6px 8px;border-bottom:1px solid #e2e8f0'>").append(item.getDescription()).append("</td>")
-                 .append("<td style='padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:center'>").append(item.getQuantity()).append("</td>")
-                 .append("<td style='padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:right'>").append(vnd.format(item.getUnitPrice())).append("₫</td>")
-                 .append("<td style='padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:right'>").append(vnd.format(item.getSubtotal())).append("₫</td>")
-                 .append("</tr>");
+                    .append("<td style='padding:6px 8px;border-bottom:1px solid #e2e8f0'>")
+                    .append(item.getDescription()).append("</td>")
+                    .append("<td style='padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:center'>")
+                    .append(item.getQuantity()).append("</td>")
+                    .append("<td style='padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:right'>")
+                    .append(vnd.format(item.getUnitPrice())).append("₫</td>")
+                    .append("<td style='padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:right'>")
+                    .append(vnd.format(item.getSubTotal())).append("₫</td>")
+                    .append("</tr>");
         }
 
         return "<!DOCTYPE html><html><head><meta charset='UTF-8'></head><body style='font-family:Arial,sans-serif;color:#1e293b;margin:0;padding:0'>"
-             + "<div style='max-width:600px;margin:24px auto;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden'>"
-             + "<div style='background:#4f46e5;color:#fff;padding:24px 32px'>"
-             + "<h2 style='margin:0;font-size:20px'>Hóa đơn khám bệnh</h2>"
-             + "<p style='margin:4px 0 0;opacity:.85'>Mã hóa đơn: <strong>" + inv.getInvoiceCode() + "</strong></p></div>"
-             + "<div style='padding:24px 32px'>"
-             + "<table style='width:100%;margin-bottom:16px'><tr>"
-             + "<td><strong>Bệnh nhân:</strong> " + (inv.getPatient() != null ? inv.getPatient().getFullName() : "") + "<br>"
-             + "<strong>SĐT:</strong> " + (inv.getPatient() != null ? inv.getPatient().getPhone() : "") + "</td>"
-             + "<td style='text-align:right'><strong>Bác sĩ:</strong> " + (appt != null && appt.getDoctor() != null ? appt.getDoctor().getFullName() : "—") + "<br>"
-             + "<strong>Ngày thanh toán:</strong> " + (inv.getPaidAt() != null ? inv.getPaidAt().format(dtf) : "—") + "</td>"
-             + "</tr></table>"
-             + "<table style='width:100%;border-collapse:collapse;margin-bottom:16px'>"
-             + "<thead><tr style='background:#f8fafc'>"
-             + "<th style='padding:8px;text-align:left;border-bottom:2px solid #e2e8f0'>Dịch vụ / Thuốc</th>"
-             + "<th style='padding:8px;text-align:center;border-bottom:2px solid #e2e8f0'>SL</th>"
-             + "<th style='padding:8px;text-align:right;border-bottom:2px solid #e2e8f0'>Đơn giá</th>"
-             + "<th style='padding:8px;text-align:right;border-bottom:2px solid #e2e8f0'>Thành tiền</th>"
-             + "</tr></thead><tbody>" + items + "</tbody></table>"
-             + "<div style='text-align:right;padding:12px 0;border-top:2px solid #e2e8f0'>"
-             + "<span style='font-size:18px;font-weight:700;color:#10b981'>Tổng cộng: " + vnd.format(inv.getTotalAmount()) + "₫</span></div>"
-             + "<p style='color:#64748b;font-size:13px'>Phương thức: " + ("CASH".equals(inv.getPaymentMethod()) ? "Tiền mặt" : "QR Code") + "</p>"
-             + "</div>"
-             + "<div style='background:#f8fafc;padding:16px 32px;text-align:center;color:#64748b;font-size:13px'>"
-             + "Cảm ơn quý khách đã tin tưởng sử dụng dịch vụ của chúng tôi.</div></div>"
-             + "</body></html>";
+                + "<div style='max-width:600px;margin:24px auto;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden'>"
+                + "<div style='background:#4f46e5;color:#fff;padding:24px 32px'>"
+                + "<h2 style='margin:0;font-size:20px'>Hóa đơn khám bệnh</h2>"
+                + "<p style='margin:4px 0 0;opacity:.85'>Mã hóa đơn: <strong>" + inv.getInvoiceCode()
+                + "</strong></p></div>"
+                + "<div style='padding:24px 32px'>"
+                + "<table style='width:100%;margin-bottom:16px'><tr>"
+                + "<td><strong>Bệnh nhân:</strong> " + (inv.getPatient() != null ? inv.getPatient().getFullName() : "")
+                + "<br>"
+                + "<strong>SĐT:</strong> " + (inv.getPatient() != null ? inv.getPatient().getPhone() : "") + "</td>"
+                + "<td style='text-align:right'><strong>Bác sĩ:</strong> "
+                + (appt != null && appt.getDoctor() != null ? appt.getDoctor().getFullName() : "—") + "<br>"
+                + "<strong>Ngày thanh toán:</strong> " + (inv.getPaidAt() != null ? inv.getPaidAt().format(dtf) : "—")
+                + "</td>"
+                + "</tr></table>"
+                + "<table style='width:100%;border-collapse:collapse;margin-bottom:16px'>"
+                + "<thead><tr style='background:#f8fafc'>"
+                + "<th style='padding:8px;text-align:left;border-bottom:2px solid #e2e8f0'>Dịch vụ / Thuốc</th>"
+                + "<th style='padding:8px;text-align:center;border-bottom:2px solid #e2e8f0'>SL</th>"
+                + "<th style='padding:8px;text-align:right;border-bottom:2px solid #e2e8f0'>Đơn giá</th>"
+                + "<th style='padding:8px;text-align:right;border-bottom:2px solid #e2e8f0'>Thành tiền</th>"
+                + "</tr></thead><tbody>" + items + "</tbody></table>"
+                + "<div style='text-align:right;padding:12px 0;border-top:2px solid #e2e8f0'>"
+                + "<span style='font-size:18px;font-weight:700;color:#10b981'>Tổng cộng: "
+                + vnd.format(inv.getTotalAmount()) + "₫</span></div>"
+                + "<p style='color:#64748b;font-size:13px'>Phương thức: "
+                + ("CASH".equals(inv.getPaymentMethod()) ? "Tiền mặt" : "QR Code") + "</p>"
+                + "</div>"
+                + "<div style='background:#f8fafc;padding:16px 32px;text-align:center;color:#64748b;font-size:13px'>"
+                + "Cảm ơn quý khách đã tin tưởng sử dụng dịch vụ của chúng tôi.</div></div>"
+                + "</body></html>";
     }
 
     // Xuất hóa đơn dạng byte[] PDF — delegate sang InvoicePdfService
@@ -340,7 +353,7 @@ public class InvoiceServiceImpl implements InvoiceService {
                         .description(item.getDescription())
                         .quantity(item.getQuantity())
                         .unitPrice(item.getUnitPrice())
-                        .subtotal(item.getSubtotal())
+                        .subtotal(item.getSubTotal())
                         .build())
                 .collect(Collectors.toList());
         resp.setItems(itemResponses);
