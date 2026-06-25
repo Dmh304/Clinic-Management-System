@@ -1,3 +1,6 @@
+// DucTKH
+// Entity đại diện cho bảng prescriptions trong cơ sở dữ liệu.
+// Lưu trữ thông tin một đơn thuốc chung, được liên kết với một hồ sơ bệnh án (MedicalRecord).
 package com.ecms.entity;
 
 import jakarta.persistence.*;
@@ -48,9 +51,11 @@ public class Prescription {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
+        // Nếu trạng thái chưa được set, mặc định là PENDING (Chưa phát)
         if (status == null) status = PrescriptionStatus.PENDING;
     }
 
+    // Cập nhật lại thời gian sửa đổi
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();

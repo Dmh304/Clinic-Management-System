@@ -1,3 +1,6 @@
+// DucTKH
+// Entity đại diện cho bảng eyeglass_prescriptions trong cơ sở dữ liệu.
+// Dùng để lưu trữ thông tin đơn kính (mắt phải, mắt trái, PD, loại tròng).
 package com.ecms.entity;
 
 import jakarta.persistence.*;

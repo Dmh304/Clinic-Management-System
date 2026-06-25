@@ -1,3 +1,5 @@
+// DucTKH
+// Controller API quản lý danh mục Thuốc, cung cấp endpoint để tìm kiếm thuốc.
 package com.ecms.controller;
 
 import com.ecms.dto.response.ApiResponse;

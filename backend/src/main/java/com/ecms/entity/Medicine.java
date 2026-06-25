@@ -1,3 +1,6 @@
+// DucTKH
+// Entity đại diện cho bảng medicines trong cơ sở dữ liệu.
+// Dùng để lưu trữ thông tin về các loại thuốc có thể kê đơn.
 package com.ecms.entity;
 
 import jakarta.persistence.*;
@@ -33,12 +36,14 @@ public class Medicine {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    // Thiết lập thời gian tự động khi lần đầu lưu mới vào DB
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
     }
 
+    // Tự động cập nhật thời gian mỗi khi entity bị sửa đổi
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();

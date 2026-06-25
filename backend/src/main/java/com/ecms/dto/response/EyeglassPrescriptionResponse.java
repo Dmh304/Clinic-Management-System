@@ -1,3 +1,5 @@
+// DucTKH
+// DTO trả về thông tin chi tiết của một Đơn kính cho Frontend.
 package com.ecms.dto.response;
 
 import lombok.Builder;

@@ -1,3 +1,5 @@
+// DucTKH
+// DTO trả về thông tin chi tiết từng loại thuốc trong Đơn thuốc.
 package com.ecms.dto.response;
 
 import lombok.Builder;

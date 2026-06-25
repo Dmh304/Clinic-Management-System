@@ -1,3 +1,5 @@
+// DucTKH
+// Controller API quản lý Đơn kính. Cho phép bác sĩ kê đơn kính và bệnh nhân xem đơn kính của mình.
 package com.ecms.controller;
 
 import com.ecms.dto.request.EyeglassPrescriptionRequest;
@@ -19,6 +21,7 @@ public class EyeglassPrescriptionController {
 
     private final EyeglassPrescriptionService eyeglassPrescriptionService;
 
+    // API endpoint: Bác sĩ gửi thông tin tạo đơn kính mới
     @PostMapping
     public ResponseEntity<ApiResponse<EyeglassPrescriptionResponse>> createPrescription(
             @Valid @RequestBody EyeglassPrescriptionRequest request,
@@ -27,6 +30,7 @@ public class EyeglassPrescriptionController {
         return ResponseEntity.ok(ApiResponse.success("Kê đơn kính thành công", response));
     }
 
+    // API endpoint: Bệnh nhân hoặc Bác sĩ lấy danh sách các đơn kính của bệnh nhân
     @GetMapping("/patient/{patientId}")
     public ResponseEntity<ApiResponse<List<EyeglassPrescriptionResponse>>> getPatientPrescriptions(
             @PathVariable Long patientId) {

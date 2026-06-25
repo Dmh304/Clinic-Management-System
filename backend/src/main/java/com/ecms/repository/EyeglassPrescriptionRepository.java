@@ -1,3 +1,5 @@
+// DucTKH
+// Repository cho Entity EyeglassPrescription, truy vấn dữ liệu đơn kính.
 package com.ecms.repository;
 
 import com.ecms.entity.EyeglassPrescription;

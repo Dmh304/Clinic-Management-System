@@ -1,3 +1,5 @@
+// DucTKH
+// Service xử lý logic nghiệp vụ cho Đơn thuốc (tạo đơn, phát thuốc, lấy danh sách).
 package com.ecms.service.impl;
 
 import com.ecms.dto.request.PrescriptionItemRequest;
@@ -26,6 +28,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
     private final MedicalRecordRepository medicalRecordRepository;
     private final DoctorRepository doctorRepository;
 
+    // Tạo mới một đơn thuốc từ yêu cầu của bác sĩ 
     @Override
     @Transactional
     public PrescriptionResponse createPrescription(PrescriptionRequest request, String doctorEmail) {
@@ -35,6 +38,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         Doctor doctor = doctorRepository.findByEmail(doctorEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bác sĩ"));
 
+        // Kiểm tra quyền: Bác sĩ kê đơn phải đúng là bác sĩ phụ trách bệnh án
         if (!record.getDoctor().getId().equals(doctor.getId())) {
             throw new IllegalStateException("Bạn không có quyền kê đơn cho bệnh án này");
         }
@@ -48,6 +52,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
                 .items(new ArrayList<>())
                 .build();
 
+        // Duyệt qua danh sách từng loại thuốc trong yêu cầu để thêm vào đơn
         for (PrescriptionItemRequest itemReq : request.getItems()) {
             Medicine medicine = medicineRepository.findById(itemReq.getMedicineId())
                     .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thuốc: " + itemReq.getMedicineId()));
@@ -69,6 +74,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         return toResponse(prescriptionRepository.save(prescription));
     }
 
+    // Lấy danh sách các đơn thuốc của một bệnh nhân cụ thể 
     @Override
     @Transactional(readOnly = true)
     public List<PrescriptionResponse> getPatientPrescriptions(Long patientId) {
@@ -77,6 +83,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
                 .collect(Collectors.toList());
     }
 
+    // Lấy các đơn thuốc đang chờ (PENDING) để dược sĩ phát thuốc
     @Override
     @Transactional(readOnly = true)
     public List<PrescriptionResponse> getPendingPrescriptions() {
@@ -85,12 +92,14 @@ public class PrescriptionServiceImpl implements PrescriptionService {
                 .collect(Collectors.toList());
     }
 
+    // Xử lý logic khi dược sĩ ấn nút "Phát thuốc" 
     @Override
     @Transactional
     public PrescriptionResponse dispensePrescription(Long id) {
         Prescription p = prescriptionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn thuốc"));
         
+        // Kiểm tra trạng thái, chỉ cho phép phát nếu đơn đang chờ
         if (p.getStatus() != PrescriptionStatus.PENDING) {
             throw new IllegalStateException("Chỉ có thể phát đơn thuốc ở trạng thái PENDING");
         }
@@ -101,12 +110,14 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         return toResponse(prescriptionRepository.save(p));
     }
 
+    // Xử lý logic khi dược sĩ bỏ qua (hủy) không phát đơn thuốc này
     @Override
     @Transactional
     public PrescriptionResponse skipPrescription(Long id) {
         Prescription p = prescriptionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn thuốc"));
         
+        //Kiểm tra trạng thái giống như khi phát thuốc
         if (p.getStatus() != PrescriptionStatus.PENDING) {
             throw new IllegalStateException("Chỉ có thể hủy đơn thuốc ở trạng thái PENDING");
         }
@@ -115,6 +126,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         return toResponse(prescriptionRepository.save(p));
     }
 
+    // Hàm bổ trợ chuyển đổi từ Prescription sang PrescriptionResponse
     private PrescriptionResponse toResponse(Prescription p) {
         return PrescriptionResponse.builder()
                 .id(p.getId())
@@ -130,6 +142,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
                 .build();
     }
 
+    // Hàm bổ trợ chuyển đổi từ PrescriptionItem sang PrescriptionItemResponse
     private PrescriptionItemResponse toItemResponse(PrescriptionItem i) {
         BigDecimal total = i.getUnitPrice() != null ? i.getUnitPrice().multiply(new BigDecimal(i.getQuantity())) : BigDecimal.ZERO;
         return PrescriptionItemResponse.builder()

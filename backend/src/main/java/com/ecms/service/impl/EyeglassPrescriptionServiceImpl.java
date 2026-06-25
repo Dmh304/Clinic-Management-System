@@ -1,3 +1,5 @@
+// DucTKH
+// Service xử lý logic nghiệp vụ cho Đơn kính (tạo mới và lấy danh sách đơn kính của bệnh nhân).
 package com.ecms.service.impl;
 
 import com.ecms.dto.request.EyeglassPrescriptionRequest;
@@ -25,6 +27,7 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
     private final MedicalRecordRepository medicalRecordRepository;
     private final DoctorRepository doctorRepository;
 
+    // Tạo mới một đơn kính từ dữ liệu nhập của bác sĩ 
     @Override
     @Transactional
     public EyeglassPrescriptionResponse createPrescription(EyeglassPrescriptionRequest request, String doctorEmail) {
@@ -34,6 +37,7 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
         Doctor doctor = doctorRepository.findByEmail(doctorEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bác sĩ"));
 
+        // Kiểm tra xem bác sĩ hiện tại có đúng là người phụ trách hồ sơ bệnh án này không
         if (!record.getDoctor().getId().equals(doctor.getId())) {
             throw new IllegalStateException("Bạn không có quyền kê đơn cho bệnh án này");
         }
@@ -59,6 +63,7 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
         return toResponse(eyeglassPrescriptionRepository.save(prescription));
     }
 
+    // Lấy danh sách toàn bộ đơn kính đã được kê cho một bệnh nhân
     @Override
     @Transactional(readOnly = true)
     public List<EyeglassPrescriptionResponse> getPatientPrescriptions(Long patientId) {
@@ -67,6 +72,7 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
                 .collect(Collectors.toList());
     }
 
+    // Hàm bổ trợ để chuyển đổi từ Entity sang DTO để trả về cho Frontend
     private EyeglassPrescriptionResponse toResponse(EyeglassPrescription p) {
         return EyeglassPrescriptionResponse.builder()
                 .id(p.getId())

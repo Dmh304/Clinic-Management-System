@@ -1,3 +1,5 @@
+// DucTKH
+// DTO (Data Transfer Object) nhận dữ liệu tạo Đơn kính từ phía Frontend gửi lên.
 package com.ecms.dto.request;
 
 import jakarta.validation.constraints.NotNull;

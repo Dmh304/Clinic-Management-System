@@ -1,3 +1,6 @@
+// DucTKH
+// Entity đại diện cho bảng prescription_items trong cơ sở dữ liệu.
+// Lưu chi tiết từng loại thuốc trong một đơn thuốc cụ thể.
 package com.ecms.entity;
 
 import jakarta.persistence.*;

@@ -1,3 +1,5 @@
+// DucTKH
+// DTO trả về thông tin chung và danh sách thuốc của một Đơn thuốc.
 package com.ecms.dto.response;
 
 import com.ecms.entity.PrescriptionStatus;

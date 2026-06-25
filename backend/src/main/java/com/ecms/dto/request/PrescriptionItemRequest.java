@@ -1,3 +1,5 @@
+// DucTKH
+// DTO chứa thông tin chi tiết của một loại thuốc trong Đơn thuốc do Frontend gửi lên.
 package com.ecms.dto.request;
 
 import jakarta.validation.constraints.Min;

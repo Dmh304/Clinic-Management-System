@@ -1,3 +1,5 @@
+// DucTKH
+// Repository cho Entity Medicine, thực hiện các truy vấn cơ sở dữ liệu liên quan đến Thuốc.
 package com.ecms.repository;
 
 import com.ecms.entity.Medicine;
