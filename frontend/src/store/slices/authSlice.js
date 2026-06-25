@@ -44,13 +44,13 @@ const authSlice = createSlice({
   reducers: {
     // Lưu thông tin đăng nhập (token, user, role) vào state và localStorage sau khi xác thực thành công
     loginSuccess(state, action) {
-      const { token, userId, email, fullName, role, doctorId } = action.payload
+      const { token, userId, email, fullName, role, doctorId, patientId } = action.payload
       state.token = token
-      state.user = { userId, email, fullName, role, doctorId }
+      state.user = { userId, email, fullName, role, doctorId, patientId }
       state.role = role
       state.isAuthenticated = true
       localStorage.setItem(TOKEN_KEY, token)
-      localStorage.setItem(USER_KEY, JSON.stringify({ userId, email, fullName, role, doctorId }))
+      localStorage.setItem(USER_KEY, JSON.stringify({ userId, email, fullName, role, doctorId, patientId }))
     },
     // Cập nhật một phần thông tin user (vd: sau khi lưu hồ sơ cá nhân) và đồng bộ lại localStorage
     // để Header và các nơi khác hiển thị đúng dữ liệu mới nhất mà không cần đăng nhập lại

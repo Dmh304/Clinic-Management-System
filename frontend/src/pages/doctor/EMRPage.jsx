@@ -11,6 +11,8 @@ import { useSelector } from 'react-redux'
 import { Form, Input, InputNumber, Tabs, Button, message, Tag, Spin, Collapse, Divider, Modal, Select } from 'antd'
 import { emrService } from '../../services/emrService'
 import { labService } from '../../services/labService'
+import DrugPrescriptionForm from './components/DrugPrescriptionForm'
+import EyeglassPrescriptionForm from './components/EyeglassPrescriptionForm'
 
 const { TextArea } = Input
 const { Panel } = Collapse
@@ -318,11 +320,15 @@ const handleCreateLabOrder = async () => {
       const res = await emrService.saveEMR(buildPayload(values, status))
       setEmr(res.data)
       message.success(status === 'COMPLETED' ? 'Đã hoàn thành hồ sơ bệnh án' : 'Đã lưu nháp')
+      if (status === 'COMPLETED') {
         navigate('/doctor/dashboard')
+      }
+      return res.data
     } catch (err) {
       console.log('>>> Save error: ', err)
-      if (err?.errorFields) return
+      if (err?.errorFields) return null
       message.error('Lưu thất bại, vui lòng thử lại')
+      return null
     } finally {
       setSaving(false)
     }
@@ -666,6 +672,20 @@ const handleCreateLabOrder = async () => {
                           <TextArea rows={3} placeholder="Lưu ý đặc biệt..." />
                         </Form.Item>
                       </div>
+                    ),
+                  },
+                  {
+                    key: 'drug_prescription',
+                    label: 'Kê đơn thuốc',
+                    children: (
+                      <DrugPrescriptionForm emr={emr} isReadOnly={isReadOnly} onAutoSaveEMR={() => handleSave('IN_PROGRESS')} />
+                    ),
+                  },
+                  {
+                    key: 'eyeglass_prescription',
+                    label: 'Kê đơn kính',
+                    children: (
+                      <EyeglassPrescriptionForm emr={emr} isReadOnly={isReadOnly} onAutoSaveEMR={() => handleSave('IN_PROGRESS')} />
                     ),
                   },
                 ]}
