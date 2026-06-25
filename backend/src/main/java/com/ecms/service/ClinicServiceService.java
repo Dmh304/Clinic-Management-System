@@ -15,8 +15,11 @@ public interface ClinicServiceService {
     ServiceRegistrationResponse register(ServiceRegistrationRequest request, String currentUserEmail);
     List<ServiceRegistrationResponse> getAllRegistrations();
     List<ServiceRegistrationResponse> getMyRegistrations(String currentUserEmail);
+    // Lễ tân cập nhật trạng thái đăng ký (vd: đã liên hệ tư vấn -> CONFIRMED)
+    ServiceRegistrationResponse updateRegistrationStatus(Long id, String status);
 
     // Manager CRUD
+    List<ClinicServiceResponse> getAllPackages(); // tất cả gói kể cả đã ẩn
     ClinicServiceResponse createPackage(ServicePackageRequest request);
     ClinicServiceResponse updatePackage(Long id, ServicePackageRequest request);
     void deletePackage(Long id);

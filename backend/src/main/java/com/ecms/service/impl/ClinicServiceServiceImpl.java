@@ -6,6 +6,7 @@ import com.ecms.dto.response.ClinicServiceResponse;
 import com.ecms.dto.response.ServiceCategoryResponse;
 import com.ecms.dto.response.ServiceRegistrationResponse;
 import com.ecms.entity.*;
+import com.ecms.exception.ConflictException;
 import com.ecms.exception.ResourceNotFoundException;
 import com.ecms.repository.*;
 import com.ecms.service.ClinicServiceService;
@@ -26,6 +27,7 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
     private final ServiceRegistrationRepository serviceRegistrationRepository;
     private final UserRepository userRepository;
     private final PatientRepository patientRepository;
+    private final PatientServiceSubscriptionRepository subscriptionRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -89,6 +91,13 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
                     .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ bệnh nhân"));
         }
 
+        // Chặn đăng ký trùng: nếu bệnh nhân đã có đăng ký dịch vụ này đang chờ tư vấn
+        if (serviceRegistrationRepository.existsByPatient_IdAndService_IdAndStatus(
+                patient.getId(), service.getId(), "PENDING")) {
+            throw new ConflictException(
+                    "Bệnh nhân đã đăng ký dịch vụ này và đang chờ tư vấn. Vui lòng chờ phòng khám liên hệ.");
+        }
+
         ServiceRegistration registration = ServiceRegistration.builder()
                 .service(service)
                 .patient(patient)
@@ -117,7 +126,31 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    @Transactional
+    public ServiceRegistrationResponse updateRegistrationStatus(Long id, String status) {
+        ServiceRegistration registration = serviceRegistrationRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đăng ký dịch vụ: " + id));
+
+        String normalized = status == null ? "" : status.trim().toUpperCase();
+        if (!List.of("PENDING", "CONFIRMED", "COMPLETED", "CANCELLED").contains(normalized)) {
+            throw new IllegalArgumentException("Trạng thái không hợp lệ: " + status);
+        }
+
+        registration.setStatus(normalized);
+        return toRegistrationResponse(serviceRegistrationRepository.save(registration));
+    }
+
     // ── Manager CRUD ───────────────────────────────────────────────
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ClinicServiceResponse> getAllPackages() {
+        return clinicServiceRepository.findAllByOrderByDisplayOrderAsc()
+                .stream()
+                .map(this::toServiceResponse)
+                .collect(Collectors.toList());
+    }
 
     @Override
     @Transactional
@@ -136,6 +169,7 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
                 .sessionsIncluded(request.getSessionsIncluded())
                 .validityDays(request.getValidityDays())
                 .category(category)
+                .serviceType(request.getServiceType() != null ? request.getServiceType() : "CARE")
                 .slug(request.getSlug())
                 .thumbnailUrl(request.getThumbnailUrl())
                 .content(request.getContent())
@@ -164,6 +198,7 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
         service.setSessionsIncluded(request.getSessionsIncluded());
         service.setValidityDays(request.getValidityDays());
         service.setCategory(category);
+        if (request.getServiceType() != null) service.setServiceType(request.getServiceType());
         service.setSlug(request.getSlug());
         service.setThumbnailUrl(request.getThumbnailUrl());
         service.setContent(request.getContent());
@@ -213,6 +248,8 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
                 .categoryName(s.getCategory() != null ? s.getCategory().getName() : null)
                 .serviceType(s.getServiceType())
                 .createdAt(s.getCreatedAt())
+                // Số người đăng ký gói — catalogue nhỏ nên N+1 chấp nhận được
+                .subscriberCount(subscriptionRepository.countByService_Id(s.getId()))
                 .build();
     }
 
@@ -223,6 +260,8 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
                 .serviceName(r.getService().getServiceName())
                 .patientId(r.getPatient().getId())
                 .patientName(r.getPatient().getFullName())
+                .patientPhone(r.getPatient().getPhone())
+                .patientEmail(r.getPatient().getEmail())
                 .registeredByName(r.getRegisteredBy().getFullName())
                 .registeredByRole(r.getRegisteredBy().getRole().getName())
                 .registrationDate(r.getRegistrationDate())

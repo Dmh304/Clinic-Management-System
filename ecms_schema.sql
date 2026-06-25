@@ -484,7 +484,7 @@ CREATE TABLE lab_orders (
     CONSTRAINT FK_lab_orders_ordered_by FOREIGN KEY (ordered_by) REFERENCES users(id),
     CONSTRAINT FK_lab_orders_assigned_to FOREIGN KEY (assigned_to) REFERENCES users(id),
     CONSTRAINT CK_lab_orders_priority CHECK (priority IN ('NORMAL', 'URGENT')),
-    CONSTRAINT CK_lab_orders_status CHECK (status IN ('PENDING', 'IN_PROGRESS', 'SUBMITTED', 'APPROVED', 'REJECTED', 'COMPLETED', 'CANCELLED'))
+    CONSTRAINT CK_lab_orders_status CHECK (status IN ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'REJECTED'))
 );
 GO
 
@@ -615,26 +615,26 @@ CREATE TABLE invoice_details (
 GO
 
 -- ============================================================
--- 24. notifications
+-- 24. notifications (UC-13: thông báo kiểu Facebook ở chuông thông báo)
+--     Tách biệt với audit_logs (log hành động).
+--     target_user_id: nhắm riêng 1 user (vd 1 bệnh nhân);
+--     target_role: broadcast theo vai trò (vd 'RECEPTIONIST');
+--     related_appointment_id: lịch hẹn liên quan để bấm xem chi tiết.
 -- ============================================================
 CREATE TABLE notifications (
-    id          BIGINT          NOT NULL IDENTITY(1,1),
-    user_id     BIGINT          NOT NULL,
-    channel     NVARCHAR(20)    NOT NULL,
-    subject     NVARCHAR(255)   NULL,
-    body        NVARCHAR(MAX)   NOT NULL,
-    ref_type    NVARCHAR(100)   NULL,
-    ref_id      BIGINT          NULL,
-    sent_status NVARCHAR(20)    NOT NULL DEFAULT 'PENDING',
-    sent_at     DATETIME2       NULL,
-    is_read     BIT             NOT NULL DEFAULT 0,
-    read_at     DATETIME2       NULL,
-    created_at  DATETIME2       NOT NULL DEFAULT GETDATE(),
-    CONSTRAINT PK_notifications PRIMARY KEY (id),
-    CONSTRAINT FK_notifications_user FOREIGN KEY (user_id) REFERENCES users(id),
-    CONSTRAINT CK_notifications_channel CHECK (channel IN ('EMAIL', 'IN_APP', 'SMS')),
-    CONSTRAINT CK_notifications_sent_status CHECK (sent_status IN ('PENDING', 'SENT', 'FAILED'))
+    id                     BIGINT          NOT NULL IDENTITY(1,1),
+    message                NVARCHAR(500)   NULL,
+    target_role            NVARCHAR(50)    NULL,
+    target_user_id         BIGINT          NULL,
+    related_appointment_id BIGINT          NULL,
+    is_read                BIT             NOT NULL DEFAULT 0,
+    created_at             DATETIME2       NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT PK_notifications PRIMARY KEY (id)
 );
+GO
+
+CREATE INDEX IX_notifications_role_read ON notifications (target_role, is_read);
+CREATE INDEX IX_notifications_user_read ON notifications (target_user_id, is_read);
 GO
 
 -- ============================================================

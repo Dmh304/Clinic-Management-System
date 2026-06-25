@@ -237,3 +237,34 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
       @Param("status") AppointmentStatus status,
       @Param("doctorId") Long doctorId);
 }
+
+        /**
+         * UC-15 (BR-13): số thứ tự hàng đợi là duy nhất theo TỪNG BÁC SĨ trong NGÀY
+         * làm việc. Query này lọc thêm theo doctorId để mỗi bác sĩ có dải số thứ tự
+         * độc lập, tránh 2 bác sĩ cùng ngày tranh/đụng số của nhau.
+         */
+        @Query("""
+                        SELECT COALESCE(MAX(a.queueNumber), 0)
+                        FROM Appointment a
+                        WHERE a.doctor.id = :doctorId
+                          AND a.appointmentTime >= :start
+                          AND a.appointmentTime < :end
+                          AND a.status IN :statuses
+                        """)
+        Integer findMaxQueueNumberByDoctorAndDate(
+                        @Param("doctorId") Long doctorId,
+                        @Param("start") LocalDateTime start,
+                        @Param("end") LocalDateTime end,
+                        @Param("statuses") Collection<AppointmentStatus> statuses);
+
+
+        /**
+         * UC-13: lịch hẹn cần nhắc — đúng trạng thái, nằm trong khoảng thời gian
+         * [start, end] và chưa gửi nhắc (reminder_sent = false). Dùng cho cron job
+         * nhắc lịch 24h trước giờ khám.
+         */
+        List<Appointment> findByStatusAndAppointmentTimeBetweenAndReminderSentFalse(
+                        AppointmentStatus status,
+                        LocalDateTime start,
+                        LocalDateTime end);
+}
