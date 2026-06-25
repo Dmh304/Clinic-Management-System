@@ -25,15 +25,32 @@ import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
 
+/**
+ * ThangNBHE201024
+ *
+ * Triển khai toàn bộ nghiệp vụ hóa đơn của phòng khám:
+ *  - Tạo hóa đơn nháp (DRAFT) với danh sách khoản phí phân loại theo nhóm
+ *  - Phát hành hóa đơn (ISSUED) sau khi thu tiền mặt hoặc QR Code
+ *  - Hủy hóa đơn nháp chưa phát hành
+ *  - Gửi hóa đơn điện tử qua email (JavaMailSender + HTML template)
+ *  - Xuất PDF hóa đơn (delegate sang InvoicePdfService)
+ *
+ * Quy tắc nghiệp vụ:
+ *  - Mỗi lịch hẹn chỉ được tạo một hóa đơn (kiểm tra existsByAppointment_Id)
+ *  - Chỉ hóa đơn DRAFT mới được phát hành hoặc hủy
+ *  - Mã hóa đơn tự sinh theo định dạng INV-yyyyMMdd-XXXX (tăng dần trong ngày)
+ */
 @Service
 @RequiredArgsConstructor
 public class InvoiceServiceImpl implements InvoiceService {
 
     private final InvoiceRepository invoiceRepository;
     private final AppointmentRepository appointmentRepository;
+    // Dùng để gửi email HTML khi lễ tân hoặc bệnh nhân yêu cầu gửi hóa đơn
     private final JavaMailSender mailSender;
     private final InvoicePdfService invoicePdfService;
 
+    // Lấy tất cả hóa đơn (không kèm items) — dùng cho bảng lịch sử hóa đơn
     @Override
     @Transactional(readOnly = true)
     public List<InvoiceResponse> getAllInvoices() {
@@ -43,6 +60,7 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .collect(Collectors.toList());
     }
 
+    // Tìm kiếm hóa đơn theo từ khóa; trả về toàn bộ nếu keyword rỗng
     @Override
     @Transactional(readOnly = true)
     public List<InvoiceResponse> searchInvoices(String keyword) {
@@ -55,6 +73,7 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .collect(Collectors.toList());
     }
 
+    // Lấy chi tiết hóa đơn kèm danh sách khoản phí — dùng khi mở modal chi tiết hoặc in/gửi email
     @Override
     @Transactional(readOnly = true)
     public InvoiceResponse getInvoiceById(Long id) {
@@ -63,6 +82,7 @@ public class InvoiceServiceImpl implements InvoiceService {
         return toResponseWithItems(invoice);
     }
 
+    // Tìm hóa đơn theo lịch hẹn — dùng khi dashboard kiểm tra lịch hẹn đã có HĐ chưa
     @Override
     @Transactional(readOnly = true)
     public InvoiceResponse getInvoiceByAppointmentId(Long appointmentId) {
@@ -196,6 +216,7 @@ public class InvoiceServiceImpl implements InvoiceService {
         return String.format("INV-%s-%04d", dateStr, count + 1);
     }
 
+    // Chuyển Invoice entity → DTO (không kèm items) — dùng cho danh sách
     private InvoiceResponse toResponse(Invoice i) {
         Appointment appt = i.getAppointment();
         return InvoiceResponse.builder()
@@ -228,6 +249,11 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .build();
     }
 
+    /**
+     * Gửi hóa đơn điện tử qua email đến bệnh nhân (UC-17).
+     * Tạo MimeMessage với nội dung HTML được sinh bởi buildEmailHtml().
+     * Ném IllegalStateException nếu bệnh nhân chưa có email trong hồ sơ.
+     */
     @Override
     @Transactional(readOnly = true)
     public void sendInvoiceEmail(Long id) {
@@ -251,6 +277,7 @@ public class InvoiceServiceImpl implements InvoiceService {
         }
     }
 
+    // Tạo nội dung email HTML với bảng chi tiết khoản phí và tổng tiền
     private String buildEmailHtml(Invoice inv) {
         NumberFormat vnd = NumberFormat.getInstance(new Locale("vi", "VN"));
         DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
@@ -294,6 +321,7 @@ public class InvoiceServiceImpl implements InvoiceService {
              + "</body></html>";
     }
 
+    // Xuất hóa đơn dạng byte[] PDF — delegate sang InvoicePdfService
     @Override
     @Transactional(readOnly = true)
     public byte[] generateInvoicePdf(Long id) {
@@ -301,6 +329,7 @@ public class InvoiceServiceImpl implements InvoiceService {
         return invoicePdfService.generate(inv);
     }
 
+    // Chuyển Invoice entity → DTO kèm đầy đủ items — dùng cho chi tiết, in, email
     private InvoiceResponse toResponseWithItems(Invoice i) {
         InvoiceResponse resp = toResponse(i);
         List<InvoiceResponse.InvoiceItemResponse> itemResponses = i.getItems().stream()

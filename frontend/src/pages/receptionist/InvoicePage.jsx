@@ -1,11 +1,22 @@
 /**
- * InvoicePage — Trang thu phí & phát hành hóa đơn cho Lễ tân (UC-16)
+ * InvoicePage — Trang thu phí & phát hành hóa đơn cho Lễ tân
+ * ThangNBHE201024 - HE187030
  *
- * Gồm 2 tab:
- *  1. "Tạo hóa đơn" — liệt kê lịch hẹn COMPLETED chưa có hóa đơn
- *  2. "Lịch sử hóa đơn" — liệt kê tất cả hóa đơn đã tạo
+ * Luồng nghiệp vụ:
+ *  1. Lễ tân chọn lịch hẹn COMPLETED chưa có hóa đơn từ tab "Tạo hóa đơn"
+ *  2. Nhập các khoản phí (dịch vụ, xét nghiệm, thuốc, kính...)
+ *  3. Chọn phương thức thanh toán: Tiền mặt hoặc QR Code (VietQR)
+ *     - Nếu chọn QR Code: hiển thị mã QR để bệnh nhân quét và chuyển khoản
+ *  4. Xác nhận thu tiền → hóa đơn được tạo (DRAFT) và phát hành ngay (ISSUED)
+ *  5. Tab "Lịch sử hóa đơn": xem chi tiết, in hoặc gửi email hóa đơn (UC-17)
  *
- * Thang - HE187030
+ * State quản lý qua Redux (invoiceSlice):
+ *  - list: danh sách hóa đơn, loading: trạng thái tải
+ *
+ * Tích hợp:
+ *  - VietQR Image API: sinh mã QR chuyển khoản theo thông tin ngân hàng từ .env
+ *  - JavaMailSender (backend): gửi email HTML hóa đơn đến bệnh nhân
+ *  - window.print(): in hóa đơn trực tiếp từ trình duyệt
  */
 
 import { useEffect, useState, useCallback } from 'react'
@@ -28,11 +39,13 @@ import { invoiceService } from '../../services/invoiceService'
 
 const { Title, Text } = Typography
 
-// ─── Cấu hình ngân hàng phòng khám ───────────────────────────────────────────
+// ─── Cấu hình ngân hàng phòng khám (ThangNBHE201024) ─────────────────────────
+// Giá trị lấy từ biến môi trường .env; fallback về Vietcombank mẫu nếu chưa cấu hình
 const BANK_ID      = import.meta.env.VITE_BANK_ID      || '970436'   // Vietcombank
 const BANK_ACCOUNT = import.meta.env.VITE_BANK_ACCOUNT || '1234567890'
 const BANK_NAME    = import.meta.env.VITE_BANK_NAME    || 'PHONG KHAM MAT'
 
+// Tạo URL mã QR VietQR theo chuẩn Napas — bệnh nhân quét bằng app ngân hàng để chuyển khoản
 const buildVietQrUrl = (amount, description) =>
   `https://img.vietqr.io/image/${BANK_ID}-${BANK_ACCOUNT}-compact2.png` +
   `?amount=${Math.round(amount)}` +
@@ -221,8 +234,9 @@ export default function InvoicePage() {
     }
   }
 
-  // ─── Print invoice (PDF) ─────────────────────────────────────────────────────
-
+  // ─── In hóa đơn PDF (ThangNBHE201024) ───────────────────────────────────────
+  // Gọi API GET /{id}/pdf để lấy file PDF từ backend, tạo Blob URL rồi mở tab mới.
+  // Trình duyệt tự hiển thị PDF viewer và cho phép người dùng in hoặc tải về.
   const handlePrint = async (inv) => {
     setPrintLoading(true)
     try {
@@ -255,8 +269,9 @@ export default function InvoicePage() {
     }
   }
 
-  // ─── Send email ───────────────────────────────────────────────────────────────
-
+  // ─── Gửi hóa đơn điện tử qua email (ThangNBHE201024) ────────────────────────
+  // Gọi API POST /{id}/send-email, backend dùng JavaMailSender gửi HTML email đến bệnh nhân.
+  // Kiểm tra patientEmail trước khi gọi — nếu không có email thì hiện cảnh báo.
   const handleSendEmail = async (inv) => {
     if (!inv.patientEmail) {
       message.warning('Bệnh nhân chưa có địa chỉ email trong hồ sơ')
