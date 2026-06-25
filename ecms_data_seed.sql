@@ -1,4 +1,4 @@
-﻿-- ============================================================
+-- ============================================================
 -- ECMS — Seed Data for CRUD Testing
 -- Chạy SAU ecms_schema.sql (roles & system_configs đã có sẵn)
 -- Mật khẩu mặc định tất cả tài khoản: Password@123
@@ -6,24 +6,14 @@
 
 USE ecms_db;
 GO
-
--- ============================================================
--- FIX: UQ_users_google_id không cho phép nhiều NULL trong SQL Server.
--- Đổi thành filtered unique index (chỉ enforce khi google_id NOT NULL).
--- Đây cũng là thiết kế đúng cho production.
--- ============================================================
-ALTER TABLE users DROP CONSTRAINT UQ_users_google_id;
-GO
-CREATE UNIQUE INDEX UX_users_google_id
-    ON users(google_id)
-    WHERE google_id IS NOT NULL;
+SET QUOTED_IDENTIFIER ON;
 GO
 
 -- ============================================================
 -- 1. users
--- 14 users: 1 admin, 1 manager, 3 doctor, 2 receptionist,
---           1 pharmacist, 1 lab_tech, 5 patient
--- Không insert google_id → NULL (filtered index cho phép nhiều NULL)
+-- 15 users: 1 admin, 1 manager, 3 doctor, 2 receptionist,
+--           1 pharmacist, 1 lab_tech, 1 nurse, 5 patient
+-- Không insert google_id → NULL (filtered index ở schema.sql cho phép nhiều NULL)
 -- ============================================================
 SET IDENTITY_INSERT users ON;
 
@@ -85,32 +75,21 @@ VALUES
 
 (14, N'patient5@gmail.com',     N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Tô Văn Dũng',          N'0912000005', '1975-07-07', 'MALE',
-     N'14 Hùng Vương, Q6, TP.HCM',          GETDATE(), 'ACTIVE', 1, 7, GETDATE());
+     N'14 Hùng Vương, Q6, TP.HCM',          GETDATE(), 'ACTIVE', 1, 7, GETDATE()),
+
+(15, N'nurse.le@ecms.vn',       N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
+     N'Lê Thị Điều Dưỡng',    N'0901000099', '1992-04-10', 'FEMALE',
+     N'15 Lê Văn Sỹ, Q3, TP.HCM',           GETDATE(), 'ACTIVE', 1, 7, GETDATE());
 
 SET IDENTITY_INSERT users OFF;
 GO
 
 -- ============================================================
--- 2. user_roles
--- roles seed từ schema: ADMIN=1, MANAGER=2, DOCTOR=3,
--- RECEPTIONIST=4, PHARMACIST=5, LAB_TECHNICIAN=6, PATIENT=7
+-- (Đã loại bỏ seed cho user_roles — vai trò của mỗi user đã được
+--  gán trực tiếp qua cột users.role_id ở bước insert "users" trên.
+--  roles: ADMIN=1, MANAGER=2, DOCTOR=3, RECEPTIONIST=4,
+--         PHARMACIST=5, LAB_TECHNICIAN=6, NURSE=7, PATIENT=8)
 -- ============================================================
-INSERT INTO user_roles (user_id, role_id, assigned_by) VALUES
-(1,  1, NULL),   -- admin        → ADMIN
-(2,  2, 1),      -- manager      → MANAGER
-(3,  3, 1),      -- doctor 1     → DOCTOR
-(4,  3, 1),      -- doctor 2     → DOCTOR
-(5,  3, 1),      -- doctor 3     → DOCTOR
-(6,  4, 2),      -- reception 1  → RECEPTIONIST
-(7,  4, 2),      -- reception 2  → RECEPTIONIST
-(8,  5, 2),      -- pharmacist   → PHARMACIST
-(9,  6, 2),      -- lab tech     → LAB_TECHNICIAN
-(10, 7, NULL),   -- patient 1-5  → PATIENT
-(11, 7, NULL),
-(12, 7, NULL),
-(13, 7, NULL),
-(14, 7, NULL);
-GO
 
 -- ============================================================
 -- 3. doctors  (user_id 3, 4, 5)
@@ -190,29 +169,63 @@ SET IDENTITY_INSERT patients OFF;
 GO
 
 -- ============================================================
+-- 5.5 service_categories
+-- ============================================================
+SET IDENTITY_INSERT service_categories ON;
+INSERT INTO service_categories (id, name, slug, display_order) VALUES
+(1, N'Thư giãn mắt', 'thu-gian-mat', 1),
+(2, N'Trị liệu mắt', 'tri-lieu-mat', 2),
+(3, N'Chăm sóc toàn diện', 'cham-soc-toan-dien', 3),
+(4, N'Phục hồi thị lực', 'phuc-hoi-thi-luc', 4);
+SET IDENTITY_INSERT service_categories OFF;
+GO
+
+-- ============================================================
 -- 6. services
+-- service_type: CARE (id 1-5, chăm sóc/thư giãn — hiện ở trang dịch vụ công khai)
+--               CLINICAL (id 6-14, khám/chẩn đoán/phẫu thuật — hiện ở lịch khám vãng lai)
 -- ============================================================
 SET IDENTITY_INSERT services ON;
 
 INSERT INTO services
-    (id, name, category, price, duration_minutes, is_lab_service, description, status, created_at)
+    (id, name, price, duration_minutes, thumbnail_url, description, status,
+     badge, price_label, sessions_included, validity_days, service_type, is_active, display_order, category_id, slug, content, created_at)
 VALUES
-(1, N'Khám mắt tổng quát',              N'Khám lâm sàng',     150000,   30, 0,
-    N'Khám sức khỏe mắt toàn diện, kiểm tra thị lực và áp suất nhãn cầu.',   'ACTIVE', GETDATE()),
-(2, N'Đo khúc xạ máy',                  N'Khúc xạ',            80000,   15, 0,
-    N'Đo độ cận viễn loạn bằng máy tự động.',                                 'ACTIVE', GETDATE()),
-(3, N'Soi đáy mắt',                     N'Chẩn đoán hình ảnh', 200000,  20, 1,
-    N'Kiểm tra võng mạc và dây thần kinh thị giác.',                          'ACTIVE', GETDATE()),
-(4, N'Chụp OCT võng mạc',               N'Chẩn đoán hình ảnh', 350000,  25, 1,
-    N'Chụp cắt lớp kết hợp quang học để đánh giá võng mạc.',                 'ACTIVE', GETDATE()),
-(5, N'Đo nhãn áp',                      N'Chẩn đoán',           60000,  10, 0,
-    N'Đo áp suất trong mắt để sàng lọc tăng nhãn áp.',                       'ACTIVE', GETDATE()),
-(6, N'Chụp bản đồ giác mạc (Topo)',     N'Chẩn đoán hình ảnh', 250000,  20, 1,
-    N'Phân tích hình thái giác mạc bằng máy Topographer.',                    'ACTIVE', GETDATE()),
-(7, N'Xét nghiệm sinh hóa máu cơ bản', N'Xét nghiệm',         180000,  60, 1,
-    N'Xét nghiệm đường huyết, mỡ máu phục vụ tiền phẫu.',                    'ACTIVE', GETDATE()),
-(8, N'Phẫu thuật đục thủy tinh thể',   N'Phẫu thuật',       15000000,  90, 0,
-    N'Phẫu thuật Phaco thay thể thủy tinh nhân tạo.',                        'ACTIVE', GETDATE());
+(1, N'Gói Thiền Mắt', 350000, 45,
+    'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=600&h=360&fit=crop&auto=format',
+    N'Liệu trình thiền và thư giãn cho mắt, giảm căng thẳng thị giác sau thời gian dài sử dụng màn hình. Kết hợp bài tập yoga mắt và kỹ thuật hít thở.',
+    'ACTIVE', N'Mới', N'Giá chỉ từ', 5, 30, 'CARE', 1, 1, 1, 'goi-thien-mat', N'Chi tiết gói thiền mắt...', GETDATE()),
+
+(2, N'Gói Massage Mắt', 250000, 30,
+    'https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?w=600&h=360&fit=crop&auto=format',
+    N'Massage vùng mắt chuyên nghiệp bằng tay kết hợp tinh dầu thiên nhiên, giúp lưu thông máu và giảm quầng thâm mắt.',
+    'ACTIVE', N'Phổ biến', N'Giá chỉ từ', 8, 45, 'CARE', 1, 2, 2, 'goi-massage-mat', N'Chi tiết gói massage mắt...', GETDATE()),
+
+(3, N'Gói Chăm Sóc Mắt Toàn Diện', 1500000, 60,
+    'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=600&h=360&fit=crop&auto=format',
+    N'Gói chăm sóc mắt toàn diện gồm kiểm tra thị lực, massage mắt, chiếu đèn hồng ngoại, và tư vấn chế độ dinh dưỡng cho mắt.',
+    'ACTIVE', N'Best Seller', N'Giá trọn gói', 10, 60, 'CARE', 1, 3, 3, 'goi-cham-soc-mat-toan-dien', N'Chi tiết gói chăm sóc mắt toàn diện...', GETDATE()),
+
+(4, N'Gói Thư Giãn Mắt Công Nghệ Cao', 500000, 40,
+    'https://images.unsplash.com/photo-1573497491765-dccce02b29df?w=600&h=360&fit=crop&auto=format',
+    N'Sử dụng thiết bị công nghệ cao: máy massage mắt áp suất khí, rung, nhiệt hồng ngoại và nhạc thư giãn để phục hồi mắt mệt mỏi.',
+    'ACTIVE', N'Premium', N'Giá chỉ từ', 6, 30, 'CARE', 1, 4, 1, 'goi-thu-gian-mat-cong-nghe-cao', N'Chi tiết gói thư giãn mắt công nghệ cao...', GETDATE()),
+
+(5, N'Liệu Trình Phục Hồi Thị Lực', 2800000, 90,
+    'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=600&h=360&fit=crop&auto=format',
+    N'Liệu trình chuyên sâu kết hợp các bài tập điều tiết mắt đặc biệt và thiền định sâu để phục hồi thị lực tự nhiên.',
+    'ACTIVE', N'Cao cấp', N'Giá trọn gói', 12, 90, 'CARE', 1, 5, 4, 'lieu-trinh-phuc-hoi-thi-luc', N'Chi tiết liệu trình phục hồi thị lực...', GETDATE()),
+
+-- Dịch vụ khám/chẩn đoán/phẫu thuật — dùng cho lịch khám vãng lai (RECEPTIONIST)
+(6, N'Chụp bản đồ giác mạc (Topo)', 250000, 20, NULL, N'Phân tích hình thái giác mạc bằng máy Topographer.', 'ACTIVE', NULL, NULL, NULL, NULL, 'CLINICAL', 1, 6, NULL, NULL, NULL, GETDATE()),
+(7, N'Xét nghiệm sinh hóa máu cơ bản', 180000, 60, NULL, N'Xét nghiệm đường huyết, mỡ máu phục vụ tiền phẫu.', 'ACTIVE', NULL, NULL, NULL, NULL, 'CLINICAL', 1, 7, NULL, NULL, NULL, GETDATE()),
+(8, N'Phẫu thuật đục thủy tinh thể', 15000000, 90, NULL, N'Phẫu thuật Phaco thay thể thủy tinh nhân tạo.', 'ACTIVE', NULL, NULL, NULL, NULL, 'CLINICAL', 1, 8, NULL, NULL, NULL, GETDATE()),
+(9, N'Khám tổng quát mắt', 200000, 30, NULL, N'Khám đánh giá tổng thể sức khỏe mắt.', 'ACTIVE', NULL, NULL, NULL, NULL, 'CLINICAL', 1, 9, NULL, NULL, NULL, GETDATE()),
+(10, N'Đo thị lực (VA/BCVA)', 80000, 10, NULL, N'Đo thị lực không kính và có kính chỉnh tốt nhất.', 'ACTIVE', NULL, NULL, NULL, NULL, 'CLINICAL', 1, 10, NULL, NULL, NULL, GETDATE()),
+(11, N'Đo khúc xạ tự động', 100000, 15, NULL, N'Đo khúc xạ bằng máy Auto-Refractor.', 'ACTIVE', NULL, NULL, NULL, NULL, 'CLINICAL', 1, 11, NULL, NULL, NULL, GETDATE()),
+(12, N'Đo nhãn áp (IOP)', 100000, 10, NULL, N'Đo áp lực nội nhãn bằng Tonometry.', 'ACTIVE', NULL, NULL, NULL, NULL, 'CLINICAL', 1, 12, NULL, NULL, NULL, GETDATE()),
+(13, N'Soi đáy mắt', 150000, 20, NULL, N'Soi đáy mắt (Fundoscopy) đánh giá võng mạc.', 'ACTIVE', NULL, NULL, NULL, NULL, 'CLINICAL', 1, 13, NULL, NULL, NULL, GETDATE()),
+(14, N'Chụp OCT', 350000, 20, NULL, N'Chụp cắt lớp quang học OCT võng mạc/thần kinh thị.', 'ACTIVE', NULL, NULL, NULL, NULL, 'CLINICAL', 1, 14, NULL, NULL, NULL, GETDATE());
 
 SET IDENTITY_INSERT services OFF;
 GO
@@ -296,15 +309,15 @@ INSERT INTO appointments
 VALUES
 -- Đã hoàn thành → có medical_records, invoices
 (1, 1, 1, 1, DATEADD(MINUTE,  7*60+45, @base_m3), 'ONLINE',
-    N'Khám định kỳ - mờ mắt',      1, DATEADD(MINUTE,  7*60+40, @base_m3), 6,
+    N'Tập thiền mắt',      1, DATEADD(MINUTE,  7*60+40, @base_m3), 6,
     NULL, NULL, NULL, 'COMPLETED', DATEADD(DAY,-4,GETDATE())),
 
 (2, 2, 1, 1, DATEADD(MINUTE,  8*60+30, @base_m3), 'WALK_IN',
-    N'Mắt đỏ kéo dài 3 ngày',      2, DATEADD(MINUTE,  8*60+25, @base_m3), 6,
+    N'Thiền thư giãn mắt',      2, DATEADD(MINUTE,  8*60+25, @base_m3), 6,
     NULL, NULL, NULL, 'COMPLETED', DATEADD(DAY,-3,GETDATE())),
 
 (3, 3, 2, 2, DATEADD(MINUTE,  9*60+0,  @base_m3), 'ONLINE',
-    N'Đo lại kính',                 3, DATEADD(MINUTE,  8*60+55, @base_m3), 7,
+    N'Massage mắt thảo dược',                 3, DATEADD(MINUTE,  8*60+55, @base_m3), 7,
     NULL, NULL, NULL, 'COMPLETED', DATEADD(DAY,-5,GETDATE())),
 
 (4, 4, 3, 8, DATEADD(MINUTE,  7*60+30, @base_m2), 'ONLINE',
@@ -313,7 +326,7 @@ VALUES
 
 -- Đang xử lý
 (5, 5, 1, 5, DATEADD(MINUTE, 13*60+0,  @base_m1), 'WALK_IN',
-    N'Kiểm tra nhãn áp định kỳ',   1, DATEADD(MINUTE, 12*60+55, @base_m1), 6,
+    N'Liệu trình phục hồi thị lực',   1, DATEADD(MINUTE, 12*60+55, @base_m1), 6,
     NULL, NULL, NULL, 'IN_PROGRESS', DATEADD(DAY,-1,GETDATE())),
 
 -- Đã xác nhận - ngày mai
@@ -812,11 +825,11 @@ GO
 PRINT N'';
 PRINT N'✅ ECMS Seed Data hoàn tất!';
 PRINT N'';
-PRINT N'  users              : 14 (1 admin, 1 manager, 3 doctor, 2 receptionist, 1 pharmacist, 1 labtech, 5 patient)';
+PRINT N'  users              : 15 (1 admin, 1 manager, 3 doctor, 2 receptionist, 1 pharmacist, 1 labtech, 1 nurse, 5 patient)';
 PRINT N'  doctors            : 3';
 PRINT N'  staffs             : 4';
 PRINT N'  patients           : 5';
-PRINT N'  services           : 8';
+PRINT N'  services           : 14 (5 CARE, 9 CLINICAL)';
 PRINT N'  doctor_schedules   : 11 (quá khứ FULL + tương lai AVAILABLE)';
 PRINT N'  appointments       : 8 (COMPLETED/IN_PROGRESS/CONFIRMED/PENDING/CANCELLED)';
 PRINT N'  medical_records    : 4';

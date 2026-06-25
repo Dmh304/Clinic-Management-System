@@ -73,8 +73,14 @@ public class UserServiceImpl implements UserService {
 
         // Self-registered patients without a Patient record → create one
         if ("PATIENT".equals(user.getRole().getName())) {
+            // Sinh mã bệnh nhân theo cùng quy tắc với bệnh nhân vãng lai (PT0001, PT0002,...)
+            // để mọi Patient đều có patient_code ngay từ khi tạo, tránh giá trị NULL
+            long count = patientRepository.count();
+            String patientCode = String.format("PT%04d", count + 1);
+
             Patient patient = Patient.builder()
                     .user(user)
+                    .patientCode(patientCode)
                     .fullName(user.getFullName())
                     .phone(user.getPhone())
                     .email(user.getEmail())

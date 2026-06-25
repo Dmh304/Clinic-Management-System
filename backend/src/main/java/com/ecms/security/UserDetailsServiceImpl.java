@@ -29,9 +29,13 @@ public class UserDetailsServiceImpl implements UserDetailsService {
                 ? "ROLE_" + user.getRole().getName()
                 : "ROLE_PATIENT";
 
+        // Tài khoản đăng nhập bằng Google có thể chưa có passwordHash (null) — Spring Security's User
+        // không chấp nhận password null, nên dùng chuỗi rỗng làm giá trị thay thế (không dùng để xác thực)
+        String passwordForUserDetails = user.getPasswordHash() != null ? user.getPasswordHash() : "";
+
         return new org.springframework.security.core.userdetails.User(
                 user.getEmail(),
-                user.getPasswordHash(),
+                passwordForUserDetails,
                 "ACTIVE".equals(user.getStatus()),
                 true, true, true,
                 List.of(new SimpleGrantedAuthority(roleName)));

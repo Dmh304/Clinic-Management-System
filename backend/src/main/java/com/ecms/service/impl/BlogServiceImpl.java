@@ -4,7 +4,7 @@
 package com.ecms.service.impl;
 
 import com.ecms.dto.response.BlogResponse;
-import com.ecms.entity.Blog;
+import com.ecms.entity.BlogPost;
 import com.ecms.exception.ResourceNotFoundException;
 import com.ecms.repository.BlogRepository;
 import com.ecms.service.BlogService;
@@ -31,8 +31,8 @@ public class BlogServiceImpl implements BlogService {
     // Tìm bài blog theo ID và chuyển sang DTO; ném ResourceNotFoundException nếu không tìm thấy
     @Override
     public BlogResponse getBlogById(Long id) {
-        Blog blog = blogRepository.findById(id)
+        BlogPost post = blogRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Blog not found with id: " + id));
-        return BlogResponse.fromEntity(blog);
+        return BlogResponse.fromEntity(post);
     }
 }

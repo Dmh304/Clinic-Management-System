@@ -4,6 +4,7 @@
 package com.ecms.controller;
 
 import com.ecms.dto.request.ChangePasswordRequest;
+import com.ecms.dto.request.GoogleLoginRequest;
 import com.ecms.dto.request.LoginRequest;
 import com.ecms.dto.request.RegisterRequest;
 import com.ecms.dto.response.ApiResponse;
@@ -27,6 +28,13 @@ public class AuthController {
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
         AuthResponse data = authService.login(request);
         return ResponseEntity.ok(ApiResponse.success("Đăng nhập thành công", data));
+    }
+
+    // Đăng nhập bằng tài khoản Google: xác minh ID token, tự động tạo tài khoản PATIENT nếu email chưa tồn tại
+    @PostMapping("/google")
+    public ResponseEntity<ApiResponse<AuthResponse>> loginWithGoogle(@Valid @RequestBody GoogleLoginRequest request) {
+        AuthResponse data = authService.loginWithGoogle(request);
+        return ResponseEntity.ok(ApiResponse.success("Đăng nhập bằng Google thành công", data));
     }
 
     // Xử lý đăng ký tài khoản bệnh nhân mới và tự động trả về token để đăng nhập ngay

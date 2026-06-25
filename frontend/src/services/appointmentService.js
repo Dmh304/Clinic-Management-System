@@ -49,7 +49,6 @@ export const appointmentService = {
   bookAppointment: (data) =>
     axiosClient.post('/v1/appointments/book', data),
 
-  /* Lấy danh sách khung giờ đã được đặt của bác sĩ trong một ngày */
-  getBookedSlots: (doctorId, date) =>
-    axiosClient.get('/v1/appointments/available-slots', { params: { doctorId, date } }),
+  getMyAppointments: () =>
+    axiosClient.get('/v1/appointments/my'),
 }

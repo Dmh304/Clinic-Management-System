@@ -4,6 +4,7 @@
 package com.ecms.service;
 
 import com.ecms.dto.request.ChangePasswordRequest;
+import com.ecms.dto.request.GoogleLoginRequest;
 import com.ecms.dto.request.LoginRequest;
 import com.ecms.dto.request.RegisterRequest;
 import com.ecms.dto.response.AuthResponse;
@@ -14,6 +15,9 @@ public interface AuthService {
 
     // Tạo tài khoản bệnh nhân mới và trả về token để tự động đăng nhập
     AuthResponse register(RegisterRequest request);
+
+    // Đăng nhập/đăng ký bằng tài khoản Google: xác minh ID token, tìm hoặc tạo tài khoản với vai trò PATIENT
+    AuthResponse loginWithGoogle(GoogleLoginRequest request);
 
     // Thay đổi mật khẩu cho người dùng có email tương ứng sau khi xác minh mật khẩu hiện tại
     void changePassword(String email, ChangePasswordRequest request);

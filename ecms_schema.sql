@@ -1,11 +1,13 @@
 -- ============================================================
 -- ECMS — Eyes Clinic Management System
--- SQL Server Schema Script
+-- SQL Server Schema Script (đã gộp toàn bộ migration/fix)
 -- Chạy script này trong SSMS sau khi đã tạo database ecms_db
 -- Thứ tự tạo bảng đã được sắp xếp đúng theo FK dependency
 -- ============================================================
 
 USE ecms_db;
+GO
+SET QUOTED_IDENTIFIER ON;
 GO
 
 -- ============================================================
@@ -49,27 +51,30 @@ CREATE TABLE users (
     updated_at          DATETIME2       NULL,
     CONSTRAINT PK_users PRIMARY KEY (id),
     CONSTRAINT UQ_users_email UNIQUE (email),
-    CONSTRAINT UQ_users_google_id UNIQUE (google_id),
     CONSTRAINT FK_users_role FOREIGN KEY (role_id) REFERENCES roles(id),
     CONSTRAINT CK_users_gender CHECK (gender IN ('MALE', 'FEMALE', 'OTHER')),
     CONSTRAINT CK_users_status CHECK (status IN ('ACTIVE', 'INACTIVE', 'LOCKED'))
 );
 GO
+-- Filtered index: SQL Server chỉ cho phép 1 NULL với UNIQUE constraint thường,
+-- dùng filtered index để cho phép nhiều user không có google_id (đăng nhập thường).
+CREATE UNIQUE INDEX UX_users_google_id ON users(google_id) WHERE google_id IS NOT NULL;
+GO
 
 -- ============================================================
--- 3. user_roles
+-- 3. service_registrations
+-- (Thay cho bảng user_roles đã loại bỏ — phân quyền của mỗi user
+--  dùng MỘT role/user qua cột users.role_id ở mục 2, không dùng
+--  mô hình N-N. Không có entity/repository nào trong backend tham
+--  chiếu tới user_roles; giữ cả hai sẽ tạo ra hai nguồn sự thật
+--  mâu thuẫn nhau về quyền của user.)
+--
+-- service_registrations cần FK tới services và patients, nên CREATE
+-- TABLE thật được đặt ở dưới — ngay sau mục 11 "services" (xem mục
+-- "3 (tiếp)" trước mục 12 "appointments") để giữ đúng thứ tự FK
+-- dependency của toàn script. Mục số vẫn giữ là 3 để dễ theo dõi,
+-- không đánh số lại các mục phía sau.
 -- ============================================================
-CREATE TABLE user_roles (
-    user_id     BIGINT      NOT NULL,
-    role_id     BIGINT      NOT NULL,
-    assigned_at DATETIME2   NOT NULL DEFAULT GETDATE(),
-    assigned_by BIGINT      NULL,
-    CONSTRAINT PK_user_roles PRIMARY KEY (user_id, role_id),
-    CONSTRAINT FK_user_roles_user FOREIGN KEY (user_id) REFERENCES users(id),
-    CONSTRAINT FK_user_roles_role FOREIGN KEY (role_id) REFERENCES roles(id),
-    CONSTRAINT FK_user_roles_assigned_by FOREIGN KEY (assigned_by) REFERENCES users(id)
-);
-GO
 
 -- ============================================================
 -- 4. refresh_tokens
@@ -111,8 +116,8 @@ GO
 -- ============================================================
 CREATE TABLE patients (
     id                      BIGINT          NOT NULL IDENTITY(1,1),
-    user_id                 BIGINT          NOT NULL,
-    patient_code            NVARCHAR(20)    NOT NULL,
+    user_id                 BIGINT          NULL,
+    patient_code            NVARCHAR(20)    NULL,
     full_name               NVARCHAR(255)   NOT NULL,
     date_of_birth           DATE            NULL,
     gender                  NVARCHAR(20)    NULL,
@@ -128,15 +133,17 @@ CREATE TABLE patients (
     created_at              DATETIME2       NOT NULL DEFAULT GETDATE(),
     updated_at              DATETIME2       NULL,
     CONSTRAINT PK_patients PRIMARY KEY (id),
-    CONSTRAINT UQ_patients_user_id UNIQUE (user_id),
-    CONSTRAINT UQ_patients_patient_code UNIQUE (patient_code),
     CONSTRAINT FK_patients_user FOREIGN KEY (user_id) REFERENCES users(id),
     CONSTRAINT CK_patients_gender CHECK (gender IN ('MALE', 'FEMALE', 'OTHER')),
     CONSTRAINT CK_patients_blood_type CHECK (blood_type IN ('A', 'B', 'AB', 'O', 'UNKNOWN')),
     CONSTRAINT CK_patients_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
 );
 GO
--- Filtered index: cho phep nhieu NULL (khong ap dung unique cho cccd trong truong hop chua co CCCD)
+-- Filtered index: cho phép nhiều NULL (chưa có user account / patient_code / CCCD)
+CREATE UNIQUE INDEX UQ_patients_user_id ON patients(user_id) WHERE user_id IS NOT NULL;
+GO
+CREATE UNIQUE INDEX UQ_patients_patient_code ON patients(patient_code) WHERE patient_code IS NOT NULL;
+GO
 CREATE UNIQUE INDEX UQ_patients_cccd ON patients(cccd) WHERE cccd IS NOT NULL;
 GO
 
@@ -212,27 +219,82 @@ CREATE TABLE doctor_schedules (
 GO
 
 -- ============================================================
--- 10. services
+-- 10. service_categories
 -- ============================================================
-CREATE TABLE services (
-    id               BIGINT          NOT NULL IDENTITY(1,1),
-    name             NVARCHAR(255)   NOT NULL,
-    category         NVARCHAR(100)   NOT NULL,
-    price            DECIMAL(10,2)   NOT NULL,
-    duration_minutes INT             NULL,
-    image_url        NVARCHAR(500)   NULL,
-    is_lab_service   BIT             NOT NULL DEFAULT 0,
-    description      NVARCHAR(MAX)   NULL,
-    status           NVARCHAR(20)    NOT NULL DEFAULT 'ACTIVE',
-    created_at       DATETIME2       NOT NULL DEFAULT GETDATE(),
-    updated_at       DATETIME2       NULL,
-    CONSTRAINT PK_services PRIMARY KEY (id),
-    CONSTRAINT CK_services_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
+CREATE TABLE service_categories (
+    id            BIGINT          NOT NULL IDENTITY(1,1),
+    name          NVARCHAR(300)   NOT NULL,
+    slug          NVARCHAR(200)   NULL,
+    display_order INT             NOT NULL DEFAULT 0,
+    CONSTRAINT PK_service_categories PRIMARY KEY (id),
+    CONSTRAINT UQ_service_categories_slug UNIQUE (slug)
 );
 GO
 
 -- ============================================================
--- 11. appointments
+-- 11. services
+-- service_type: CLINICAL (khám/chẩn đoán — chỉ hiện ở lịch khám vãng lai)
+--               CARE     (chăm sóc/thư giãn mắt — chỉ hiện ở trang dịch vụ công khai)
+-- ============================================================
+CREATE TABLE services (
+    id                BIGINT          NOT NULL IDENTITY(1,1),
+    name              NVARCHAR(255)   NOT NULL,
+    category          NVARCHAR(100)   NULL,
+    price             DECIMAL(10,2)   NOT NULL,
+    duration_minutes  INT             NULL,
+    thumbnail_url     NVARCHAR(500)   NULL,
+    description       NVARCHAR(MAX)   NULL,
+    status            NVARCHAR(20)    NOT NULL DEFAULT 'ACTIVE',
+    badge             NVARCHAR(50)    NULL,
+    price_label       NVARCHAR(100)   NULL,
+    sessions_included INT             NULL,
+    validity_days     INT             NULL,
+    service_type      NVARCHAR(20)    NOT NULL DEFAULT 'CARE',
+    is_active         BIT             NOT NULL DEFAULT 1,
+    display_order     INT             NOT NULL DEFAULT 0,
+    category_id       BIGINT          NULL,
+    slug              NVARCHAR(200)   NULL,
+    content           NVARCHAR(MAX)   NULL,
+    created_at        DATETIME2       NOT NULL DEFAULT GETDATE(),
+    updated_at        DATETIME2       NULL,
+    CONSTRAINT PK_services PRIMARY KEY (id),
+    CONSTRAINT FK_services_category FOREIGN KEY (category_id) REFERENCES service_categories(id),
+    CONSTRAINT CK_services_status CHECK (status IN ('ACTIVE', 'INACTIVE')),
+    CONSTRAINT CK_services_service_type CHECK (service_type IN ('CLINICAL', 'CARE'))
+);
+GO
+-- Filtered index: cho phép nhiều dịch vụ không có slug (chỉ enforce unique khi có slug)
+CREATE UNIQUE INDEX UQ_services_slug ON services(slug) WHERE slug IS NOT NULL;
+GO
+
+-- ============================================================
+-- 3 (tiếp) — service_registrations
+-- Đặt ở đây (sau patients + services) để đúng thứ tự FK dependency;
+-- xem ghi chú ở mục 3 phía trên.
+--
+-- service_registrations: bệnh nhân đăng ký 1 dịch vụ chăm sóc mắt
+-- (UC-46 Register for Eye Care Services) — khác với
+-- patient_service_subscriptions (mua nguyên gói nhiều buổi).
+-- ============================================================
+CREATE TABLE service_registrations (
+    id                BIGINT          NOT NULL IDENTITY(1,1),
+    service_id        BIGINT          NOT NULL,
+    patient_id        BIGINT          NOT NULL,
+    registered_by     BIGINT          NOT NULL,
+    registration_date DATE            NULL,
+    status            NVARCHAR(20)    NOT NULL DEFAULT 'PENDING',
+    notes             NVARCHAR(500)   NULL,
+    created_at        DATETIME2       NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT PK_service_registrations PRIMARY KEY (id),
+    CONSTRAINT FK_service_registrations_service FOREIGN KEY (service_id) REFERENCES services(id),
+    CONSTRAINT FK_service_registrations_patient FOREIGN KEY (patient_id) REFERENCES patients(id),
+    CONSTRAINT FK_service_registrations_registered_by FOREIGN KEY (registered_by) REFERENCES users(id),
+    CONSTRAINT CK_service_registrations_status CHECK (status IN ('PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'))
+);
+GO
+
+-- ============================================================
+-- 12. appointments
 -- ============================================================
 CREATE TABLE appointments (
     id               BIGINT          NOT NULL IDENTITY(1,1),
@@ -261,12 +323,12 @@ CREATE TABLE appointments (
     CONSTRAINT FK_appointments_check_in_by FOREIGN KEY (check_in_by) REFERENCES users(id),
     CONSTRAINT FK_appointments_cancelled_by FOREIGN KEY (cancelled_by) REFERENCES users(id),
     CONSTRAINT CK_appointments_type CHECK (type IN ('ONLINE', 'WALK_IN')),
-    CONSTRAINT CK_appointments_status CHECK (status IN ('PENDING', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'))
+    CONSTRAINT CK_appointments_status CHECK (status IN ('PENDING', 'CONFIRMED', 'WAITING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'))
 );
 GO
 
 -- ============================================================
--- 12. medical_records
+-- 13. medical_records
 -- ============================================================
 CREATE TABLE medical_records (
     id               BIGINT          NOT NULL IDENTITY(1,1),
@@ -290,6 +352,7 @@ CREATE TABLE medical_records (
     cyl_r            DECIMAL(5,2)    NULL,
     axis_r           SMALLINT        NULL,
     iop_r            DECIMAL(4,1)    NULL,
+    image_url        NVARCHAR(500)   NULL,
     total_amount     DECIMAL(10,2)   NULL,
     locked_at        DATETIME2       NULL,
     locked_by        BIGINT          NULL,
@@ -307,7 +370,7 @@ CREATE TABLE medical_records (
 GO
 
 -- ============================================================
--- 13. prescriptions
+-- 14. prescriptions
 -- ============================================================
 CREATE TABLE prescriptions (
     id                BIGINT          NOT NULL IDENTITY(1,1),
@@ -330,7 +393,7 @@ CREATE TABLE prescriptions (
 GO
 
 -- ============================================================
--- 14. medicines
+-- 15. medicines
 -- ============================================================
 CREATE TABLE medicines (
     id                   BIGINT          NOT NULL IDENTITY(1,1),
@@ -351,7 +414,7 @@ CREATE TABLE medicines (
 GO
 
 -- ============================================================
--- 15. prescription_items
+-- 16. prescription_items
 -- ============================================================
 CREATE TABLE prescription_items (
     id                   BIGINT          NOT NULL IDENTITY(1,1),
@@ -371,7 +434,7 @@ CREATE TABLE prescription_items (
 GO
 
 -- ============================================================
--- 16. glasses_orders
+-- 17. glasses_orders
 -- ============================================================
 CREATE TABLE glasses_orders (
     id                BIGINT          NOT NULL IDENTITY(1,1),
@@ -401,7 +464,7 @@ CREATE TABLE glasses_orders (
 GO
 
 -- ============================================================
--- 17. lab_orders
+-- 18. lab_orders
 -- ============================================================
 CREATE TABLE lab_orders (
     id                BIGINT          NOT NULL IDENTITY(1,1),
@@ -411,6 +474,8 @@ CREATE TABLE lab_orders (
     notes             NVARCHAR(MAX)   NULL,
     priority          NVARCHAR(20)    NOT NULL DEFAULT 'NORMAL',
     completed_at      DATETIME2       NULL,
+    rejection_reason  NVARCHAR(MAX)   NULL,
+    rejected_at       DATETIME2       NULL,
     status            NVARCHAR(20)    NOT NULL DEFAULT 'PENDING',
     created_at        DATETIME2       NOT NULL DEFAULT GETDATE(),
     updated_at        DATETIME2       NULL,
@@ -419,12 +484,12 @@ CREATE TABLE lab_orders (
     CONSTRAINT FK_lab_orders_ordered_by FOREIGN KEY (ordered_by) REFERENCES users(id),
     CONSTRAINT FK_lab_orders_assigned_to FOREIGN KEY (assigned_to) REFERENCES users(id),
     CONSTRAINT CK_lab_orders_priority CHECK (priority IN ('NORMAL', 'URGENT')),
-    CONSTRAINT CK_lab_orders_status CHECK (status IN ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'))
+    CONSTRAINT CK_lab_orders_status CHECK (status IN ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'REJECTED'))
 );
 GO
 
 -- ============================================================
--- 18. lab_order_items
+-- 19. lab_order_items
 -- ============================================================
 CREATE TABLE lab_order_items (
     id          BIGINT          NOT NULL IDENTITY(1,1),
@@ -441,30 +506,48 @@ CREATE TABLE lab_order_items (
 GO
 
 -- ============================================================
--- 19. lab_results
+-- 20. lab_results
 -- ============================================================
+-- result_data: vẫn giữ làm cột dữ liệu mở (JSON tự do) cho các xét nghiệm
+-- không theo khuôn mắt trái/phải (xét nghiệm máu, OCT, Topo...). Các cột
+-- va_*/bcva_*/sph_*/cyl_*/axis_*/iop_* dùng cho nhóm xét nghiệm khúc xạ/
+-- thị lực/nhãn áp — cùng cấu trúc với medical_records để Doctor đối chiếu
+-- dễ dàng giữa kết quả khám và kết quả lab.
+-- status: đã bỏ — trạng thái "đã review hay chưa" suy ra từ reviewed_at
+-- (NULL = chưa review). lab_order_items.status mới là nơi theo dõi vòng
+-- đời PENDING/IN_PROGRESS/COMPLETED của từng xét nghiệm trong đơn.
 CREATE TABLE lab_results (
     id           BIGINT          NOT NULL IDENTITY(1,1),
     lab_order_id BIGINT          NOT NULL,
     result_data  NVARCHAR(MAX)   NULL,
+    va_l         DECIMAL(4,2)    NULL,
+    va_r         DECIMAL(4,2)    NULL,
+    bcva_l       DECIMAL(4,2)    NULL,
+    bcva_r       DECIMAL(4,2)    NULL,
+    sph_l        DECIMAL(5,2)    NULL,
+    cyl_l        DECIMAL(5,2)    NULL,
+    axis_l       SMALLINT        NULL,
+    iop_l        DECIMAL(4,1)    NULL,
+    sph_r        DECIMAL(5,2)    NULL,
+    cyl_r        DECIMAL(5,2)    NULL,
+    axis_r       SMALLINT        NULL,
+    iop_r        DECIMAL(4,1)    NULL,
     image_url    NVARCHAR(500)   NULL,
     doctor_notes NVARCHAR(MAX)   NULL,
     uploaded_by  BIGINT          NOT NULL,
     reviewed_by  BIGINT          NULL,
     reviewed_at  DATETIME2       NULL,
-    status       NVARCHAR(20)    NOT NULL DEFAULT 'PENDING',
     created_at   DATETIME2       NOT NULL DEFAULT GETDATE(),
     updated_at   DATETIME2       NULL,
     CONSTRAINT PK_lab_results PRIMARY KEY (id),
     CONSTRAINT FK_lab_results_lab_order FOREIGN KEY (lab_order_id) REFERENCES lab_orders(id),
     CONSTRAINT FK_lab_results_uploaded_by FOREIGN KEY (uploaded_by) REFERENCES users(id),
-    CONSTRAINT FK_lab_results_reviewed_by FOREIGN KEY (reviewed_by) REFERENCES users(id),
-    CONSTRAINT CK_lab_results_status CHECK (status IN ('PENDING', 'COMPLETED', 'REVIEWED'))
+    CONSTRAINT FK_lab_results_reviewed_by FOREIGN KEY (reviewed_by) REFERENCES users(id)
 );
 GO
 
 -- ============================================================
--- 20. service_assignments
+-- 21. service_assignments
 -- ============================================================
 CREATE TABLE service_assignments (
     id            BIGINT          NOT NULL IDENTITY(1,1),
@@ -480,7 +563,7 @@ CREATE TABLE service_assignments (
 GO
 
 -- ============================================================
--- 21. invoices
+-- 22. invoices
 -- ============================================================
 CREATE TABLE invoices (
     id                 BIGINT          NOT NULL IDENTITY(1,1),
@@ -511,7 +594,7 @@ CREATE TABLE invoices (
 GO
 
 -- ============================================================
--- 22. invoice_details
+-- 23. invoice_details
 -- ============================================================
 CREATE TABLE invoice_details (
     id          BIGINT          NOT NULL IDENTITY(1,1),
@@ -532,7 +615,7 @@ CREATE TABLE invoice_details (
 GO
 
 -- ============================================================
--- 23. notifications
+-- 24. notifications
 -- ============================================================
 CREATE TABLE notifications (
     id          BIGINT          NOT NULL IDENTITY(1,1),
@@ -555,7 +638,7 @@ CREATE TABLE notifications (
 GO
 
 -- ============================================================
--- 24. feedbacks
+-- 25. feedbacks
 -- ============================================================
 CREATE TABLE feedbacks (
     id             BIGINT          NOT NULL IDENTITY(1,1),
@@ -577,7 +660,7 @@ CREATE TABLE feedbacks (
 GO
 
 -- ============================================================
--- 25. blog_posts
+-- 26. blog_posts
 -- ============================================================
 CREATE TABLE blog_posts (
     id            BIGINT          NOT NULL IDENTITY(1,1),
@@ -598,7 +681,7 @@ CREATE TABLE blog_posts (
 GO
 
 -- ============================================================
--- 26. audit_logs
+-- 27. audit_logs
 -- ============================================================
 CREATE TABLE audit_logs (
     id          BIGINT          NOT NULL IDENTITY(1,1),
@@ -616,7 +699,7 @@ CREATE TABLE audit_logs (
 GO
 
 -- ============================================================
--- 27. system_configs
+-- 28. system_configs
 -- ============================================================
 CREATE TABLE system_configs (
     id           BIGINT          NOT NULL IDENTITY(1,1),
@@ -634,7 +717,7 @@ CREATE TABLE system_configs (
 GO
 
 -- ============================================================
--- 28. backup_logs
+-- 29. backup_logs
 -- ============================================================
 CREATE TABLE backup_logs (
     id           BIGINT          NOT NULL IDENTITY(1,1),
@@ -652,6 +735,105 @@ CREATE TABLE backup_logs (
     CONSTRAINT FK_backup_logs_restored_by FOREIGN KEY (restored_by) REFERENCES users(id),
     CONSTRAINT CK_backup_logs_type CHECK (type IN ('MANUAL', 'SCHEDULED')),
     CONSTRAINT CK_backup_logs_status CHECK (status IN ('IN_PROGRESS', 'SUCCESS', 'FAILED'))
+);
+GO
+
+-- ============================================================
+-- 30. discount_campaigns
+-- ============================================================
+CREATE TABLE discount_campaigns (
+    id                  BIGINT          NOT NULL IDENTITY(1,1),
+    name                NVARCHAR(200)   NOT NULL,
+    description         NVARCHAR(500)   NULL,
+    type                VARCHAR(20)     NOT NULL,
+    value               DECIMAL(18,2)   NOT NULL,
+    voucher_code        VARCHAR(50)     NULL,
+    valid_from          DATE            NOT NULL,
+    valid_to            DATE            NOT NULL,
+    min_purchase_amount DECIMAL(18,2)   NULL,
+    max_usage_count     INT             NULL,
+    used_count          INT             NOT NULL DEFAULT 0,
+    is_active           BIT             NOT NULL DEFAULT 1,
+    created_at          DATETIME2       NULL,
+    updated_at          DATETIME2       NULL,
+    CONSTRAINT PK_discount_campaigns PRIMARY KEY (id),
+    CONSTRAINT UQ_discount_campaigns_voucher_code UNIQUE (voucher_code),
+    CONSTRAINT CK_discount_campaigns_type CHECK (type IN ('PERCENTAGE', 'FIXED_AMOUNT', 'VOUCHER'))
+);
+GO
+
+-- ============================================================
+-- 31. patient_service_subscriptions — gói dịch vụ nhiều buổi đã mua
+-- ============================================================
+CREATE TABLE patient_service_subscriptions (
+    id              BIGINT          NOT NULL IDENTITY(1,1),
+    patient_id      BIGINT          NOT NULL,
+    service_id      BIGINT          NOT NULL,
+    total_sessions  INT             NOT NULL,
+    used_sessions   INT             NOT NULL DEFAULT 0,
+    purchase_date   DATE            NOT NULL,
+    expiry_date     DATE            NULL,
+    status          VARCHAR(20)     NOT NULL DEFAULT 'ACTIVE',
+    discount_id     BIGINT          NULL,
+    final_price     DECIMAL(18,2)   NULL,
+    notes           NVARCHAR(500)   NULL,
+    created_at      DATETIME2       NULL,
+    updated_at      DATETIME2       NULL,
+    CONSTRAINT PK_patient_service_subscriptions PRIMARY KEY (id),
+    CONSTRAINT FK_pat_sub_patient FOREIGN KEY (patient_id) REFERENCES patients(id),
+    CONSTRAINT FK_pat_sub_service FOREIGN KEY (service_id) REFERENCES services(id),
+    CONSTRAINT FK_pat_sub_discount FOREIGN KEY (discount_id) REFERENCES discount_campaigns(id),
+    CONSTRAINT CK_pat_sub_status CHECK (status IN ('ACTIVE', 'EXPIRED', 'DEPLETED', 'CANCELLED'))
+);
+GO
+
+-- ============================================================
+-- 32. care_sessions — từng buổi chăm sóc trong 1 gói dịch vụ
+-- ============================================================
+CREATE TABLE care_sessions (
+    id                  BIGINT          NOT NULL IDENTITY(1,1),
+    subscription_id     BIGINT          NOT NULL,
+    patient_id          BIGINT          NOT NULL,
+    nurse_id            BIGINT          NULL,
+    scheduled_date_time DATETIME2       NOT NULL,
+    status              VARCHAR(20)     NOT NULL DEFAULT 'BOOKED',
+    session_number      INT             NULL,
+    notes               NVARCHAR(500)   NULL,
+    nurse_notes         NVARCHAR(1000)  NULL,
+    completed_at        DATETIME2       NULL,
+    assigned_at         DATETIME2       NULL,
+    created_at          DATETIME2       NULL,
+    updated_at          DATETIME2       NULL,
+    CONSTRAINT PK_care_sessions PRIMARY KEY (id),
+    CONSTRAINT FK_care_sessions_subscription FOREIGN KEY (subscription_id) REFERENCES patient_service_subscriptions(id),
+    CONSTRAINT FK_care_sessions_patient FOREIGN KEY (patient_id) REFERENCES patients(id),
+    CONSTRAINT FK_care_sessions_nurse FOREIGN KEY (nurse_id) REFERENCES users(id),
+    CONSTRAINT CK_care_sessions_status CHECK (status IN ('BOOKED', 'IN_PROGRESS', 'COMPLETED', 'CHECKED_OUT', 'CANCELLED'))
+);
+GO
+
+-- ============================================================
+-- 33. lab_technicians — hồ sơ riêng cho Kỹ thuật viên xét nghiệm
+-- (giống doctors); trước đây chỉ là 1 user gắn role LAB_TECHNICIAN
+-- + 1 dòng staffs chung, không có license/chuyên môn thiết bị riêng.
+-- ============================================================
+CREATE TABLE lab_technicians (
+    id              BIGINT          NOT NULL IDENTITY(1,1),
+    user_id         BIGINT          NOT NULL,
+    lab_tech_code   NVARCHAR(20)    NOT NULL,
+    full_name       NVARCHAR(255)   NOT NULL,
+    license_number  NVARCHAR(100)   NULL,
+    specialization  NVARCHAR(255)   NULL,
+    phone_number    NVARCHAR(15)    NULL,
+    email           NVARCHAR(255)   NULL,
+    status          NVARCHAR(20)    NOT NULL DEFAULT 'ACTIVE',
+    created_at      DATETIME2       NOT NULL DEFAULT GETDATE(),
+    updated_at      DATETIME2       NULL,
+    CONSTRAINT PK_lab_technicians PRIMARY KEY (id),
+    CONSTRAINT UQ_lab_technicians_user_id UNIQUE (user_id),
+    CONSTRAINT UQ_lab_technicians_lab_tech_code UNIQUE (lab_tech_code),
+    CONSTRAINT FK_lab_technicians_user FOREIGN KEY (user_id) REFERENCES users(id),
+    CONSTRAINT CK_lab_technicians_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
 );
 GO
 
@@ -674,6 +856,7 @@ INSERT INTO roles (role_name, description) VALUES
     ('RECEPTIONIST',    N'Lễ tân'),
     ('PHARMACIST',      N'Dược sĩ'),
     ('LAB_TECHNICIAN',  N'Kỹ thuật viên xét nghiệm'),
+    ('NURSE',           N'Điều dưỡng'),
     ('PATIENT',         N'Bệnh nhân');
 GO
 
@@ -690,12 +873,5 @@ INSERT INTO system_configs (config_key, config_value, data_type, description) VA
     ('JWT_REFRESH_EXPIRY_MS',       '604800000', 'INTEGER', N'JWT Refresh Token hết hạn sau (ms)');
 GO
 
-PRINT N'✅ Tạo database ECMS thành công — 28 bảng + seed data hoàn tất.';
+PRINT N'✅ Tạo database ECMS thành công — 33 bảng + seed data hoàn tất.';
 GO
-
-
--- ============================================================
--- Sửa lỗi: Cho phép walk-in patient không có user account
--- ============================================================
-ALTER TABLE patients ALTER COLUMN user_id BIGINT NULL;
-ALTER TABLE patients ALTER COLUMN patient_code NVARCHAR(20) NULL;

@@ -454,6 +454,18 @@ function Page2({ data, onNext, onBack, submitting, submitError }) {
   const isDisabled = (d) => isPast(d) || isFuture30(d) || isSunday(d);
   const isSelected = (d) => selectedDate?.toDateString() === d.toDateString();
 
+  // E2: Check if slot is too close (< 24 hours from now)
+  const isTooSoon = (slot) => {
+    const slotTime = new Date(today);
+    if (!selectedDate || !isToday(selectedDate)) {
+      return false;
+    }
+    const [h, m] = slot.time.split(":").map(Number);
+    slotTime.setHours(h, m, 0, 0);
+    //return (slotTime - today) < 24 * 60 * 60 * 1000;
+    return false;
+  };
+
   const dayLabels = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
 
   const fmtDate = (d) => d

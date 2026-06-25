@@ -15,6 +15,8 @@ public interface EMRService {
     // Lưu thông tin hồ sơ bệnh án (tạo mới hoặc cập nhật bệnh án hiện có)
     EMRResponse saveEMR(EMRRequest request);
 
+    EMRResponse getById(Long id);
+
     // Lấy chi tiết hồ sơ bệnh án thông qua ID của lịch hẹn
     EMRResponse getByAppointmentId(Long appointmentId);
 
@@ -22,5 +24,8 @@ public interface EMRService {
     List<EMRResponse> getPatientHistory(Long patientId);
 
     // Lấy danh sách tất cả lịch sử bệnh án đã hoàn thành
-    List<EMRResponse> getCompletedList();
+    List<EMRResponse> getCompletedList(Long doctorId);
+
+    // Lấy toàn bộ hồ sơ bệnh án trong hệ thống (mọi trạng thái)
+    List<EMRResponse> getAllList();
 }

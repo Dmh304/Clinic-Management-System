@@ -120,8 +120,9 @@ public class EMRServiceImpl implements EMRService {
 
         @Override
         @Transactional(readOnly = true)
-        public List<EMRResponse> getCompletedList() {
-                return medicalRecordRepository.findByStatusOrderByCreatedAtDesc(MedicalRecordStatus.COMPLETED)
+        public List<EMRResponse> getCompletedList(Long doctorId) {
+                return medicalRecordRepository
+                                .findByStatusAndDoctorIdOrderByCreatedAtDesc(MedicalRecordStatus.COMPLETED, doctorId)
                                 .stream()
                                 .map(this::toResponse)
                                 .collect(Collectors.toList());
@@ -138,6 +139,9 @@ public class EMRServiceImpl implements EMRService {
                                 .patientId(m.getPatient() != null ? m.getPatient().getId() : null)
                                 .patientName(m.getPatient() != null ? m.getPatient().getFullName() : null)
                                 .patientPhone(m.getPatient() != null ? m.getPatient().getPhone() : null)
+                                .patientDob(m.getPatient() != null ? m.getPatient().getDateOfBirth() : null)
+                                .patientGender(m.getPatient() != null ? m.getPatient().getGender() : null)
+                                .patientAddress(m.getPatient() != null ? m.getPatient().getAddress() : null)
                                 .doctorId(m.getDoctor() != null ? m.getDoctor().getId() : null)
                                 .doctorName(m.getDoctor() != null ? m.getDoctor().getFullName() : null)
                                 .chiefComplaint(m.getChiefComplaint())
@@ -153,5 +157,23 @@ public class EMRServiceImpl implements EMRService {
                                 .createdAt(m.getCreatedAt())
                                 .updatedAt(m.getUpdatedAt())
                                 .build();
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public EMRResponse getById(Long id) {
+                return medicalRecordRepository.findById(id)
+                                .map(this::toResponse)
+                                .orElse(null);
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public List<EMRResponse> getAllList() {
+                return medicalRecordRepository
+                                .findAllByOrderByCreatedAtDesc()
+                                .stream()
+                                .map(this::toResponse)
+                                .collect(Collectors.toList());
         }
 }
