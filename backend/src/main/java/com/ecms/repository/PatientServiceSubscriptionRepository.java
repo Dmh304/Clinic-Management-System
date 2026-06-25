@@ -21,4 +21,7 @@ public interface PatientServiceSubscriptionRepository extends JpaRepository<Pati
     List<PatientServiceSubscription> findActiveByPatientAndService(@Param("patientId") Long patientId, @Param("serviceId") Long serviceId);
 
     List<PatientServiceSubscription> findAllByOrderByCreatedAtDesc();
+
+    // Đếm số người đăng ký (subscription) của một gói dịch vụ — phục vụ cột "Người đăng ký" ở màn Quản lý gói dịch vụ
+    long countByService_Id(Long serviceId);
 }
