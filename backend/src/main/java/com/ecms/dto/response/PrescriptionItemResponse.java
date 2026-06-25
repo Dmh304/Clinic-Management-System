@@ -15,6 +15,7 @@ public class PrescriptionItemResponse {
     private String dosageForm;
     private String unit;
     private Integer quantity;
+    private Integer actualQuantity;
     private String dosage;
     private String frequency;
     private Integer duration;

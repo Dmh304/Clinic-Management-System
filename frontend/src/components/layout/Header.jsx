@@ -1,3 +1,6 @@
+// DucTKH
+// Component Layout Header chứa thanh điều hướng chính (Navbar) của ứng dụng.
+// Đã cấu hình hiển thị theo vai trò người dùng (Bệnh nhân, Lễ tân, Bác sĩ...).
 import { useState, useRef, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
@@ -15,7 +18,6 @@ const SERVICE_GROUPS = [
 const PROTECTED_GUEST_ROUTES = {
   'Đặt lịch': '/patient/booking',
   'Hồ sơ bệnh án': '/patient/history',
-  'Đơn thuốc của tôi': '/patient/prescription',
 }
 
 const PUBLIC_LINKS = [

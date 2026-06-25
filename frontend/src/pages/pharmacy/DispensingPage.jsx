@@ -1,17 +1,27 @@
+// DucTKH
+// Màn hình quản lý Cấp phát thuốc dành cho Dược sĩ.
+// Cho phép xem danh sách đơn thuốc chờ phát, xem chi tiết và xác nhận phát thuốc.
 import React, { useState, useEffect } from 'react';
-import { Table, Button, message, Modal, Tag, Spin, Space, Popconfirm } from 'antd';
+import { Table, Button, message, Modal, Tag, Spin, Space, Popconfirm, InputNumber } from 'antd';
 import { prescriptionService } from '../../services/prescriptionService';
 
 export default function DispensingPage() {
     const [prescriptions, setPrescriptions] = useState([]);
     const [loading, setLoading] = useState(false);
     const [selectedPrescription, setSelectedPrescription] = useState(null);
+    const [editableItems, setEditableItems] = useState([]);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
 
     useEffect(() => {
         fetchPendingPrescriptions();
     }, []);
+
+    useEffect(() => {
+        if (selectedPrescription) {
+            setEditableItems(selectedPrescription.items?.map(item => ({ ...item })) || []);
+        }
+    }, [selectedPrescription]);
 
     const fetchPendingPrescriptions = async () => {
         setLoading(true);
@@ -28,7 +38,16 @@ export default function DispensingPage() {
     const handleDispense = async (id) => {
         setActionLoading(true);
         try {
-            await prescriptionService.dispense(id);
+            // Chuẩn bị dữ liệu payload gửi lên server bao gồm số lượng thực tế dược sĩ đã chỉnh sửa
+            const payload = {
+                // Vòng lặp - Duyệt qua danh sách thuốc đang hiển thị để lấy số lượng mới nhất
+                items: editableItems.map(item => ({
+                    prescriptionItemId: item.id,
+                    actualQuantity: item.quantity
+                }))
+            };
+            // Tương tác API - Gọi hàm dispense từ prescriptionService
+            await prescriptionService.dispense(id, payload);
             message.success('Phát thuốc thành công');
             setIsModalVisible(false);
             fetchPendingPrescriptions();
@@ -51,6 +70,13 @@ export default function DispensingPage() {
         } finally {
             setActionLoading(false);
         }
+    };
+
+    const handleQuantityChange = (index, newVal) => {
+        const newItems = [...editableItems];
+        newItems[index].quantity = newVal || 0;
+        newItems[index].totalPrice = newItems[index].quantity * (newItems[index].unitPrice || 0);
+        setEditableItems(newItems);
     };
 
     const columns = [
@@ -105,8 +131,21 @@ export default function DispensingPage() {
     const itemColumns = [
         { title: 'Tên thuốc', dataIndex: 'medicineName', key: 'name', render: (text, record) => <b>{text} ({record.dosageForm})</b> },
         { title: 'ĐVT', dataIndex: 'unit', key: 'unit', width: 80 },
-        { title: 'Số lượng', dataIndex: 'quantity', key: 'quantity', width: 100, render: (val) => <span style={{ fontWeight: 600, color: '#0d9488' }}>{val}</span> },
-        { title: 'Số ngày', dataIndex: 'duration', key: 'duration' },
+        { 
+            title: 'Số lượng', 
+            dataIndex: 'quantity', 
+            key: 'quantity', 
+            width: 120, 
+            render: (val, record, index) => (
+                <InputNumber 
+                    min={0} 
+                    value={val} 
+                    onChange={(newVal) => handleQuantityChange(index, newVal)} 
+                />
+            ) 
+        },
+        { title: 'Đơn giá', dataIndex: 'unitPrice', key: 'unitPrice', render: val => val ? val.toLocaleString('vi-VN') : '0' },
+        { title: 'Thành tiền', dataIndex: 'totalPrice', key: 'totalPrice', render: (_, record) => ((record.quantity || 0) * (record.unitPrice || 0)).toLocaleString('vi-VN') + ' đ' },
         { title: 'Cách dùng', render: (_, record) => [record.dosage, record.frequency, record.instructions].filter(v => v && v !== '-').join('. ') },
     ];
 
@@ -131,7 +170,7 @@ export default function DispensingPage() {
                 title={`Chi tiết đơn thuốc DT-${selectedPrescription?.id}`}
                 open={isModalVisible}
                 onCancel={() => setIsModalVisible(false)}
-                width={800}
+                width={900}
                 footer={[
                     <Button key="cancel" onClick={() => setIsModalVisible(false)}>Đóng</Button>,
                     <Popconfirm 
@@ -158,11 +197,15 @@ export default function DispensingPage() {
                 
                 <Table 
                     columns={itemColumns} 
-                    dataSource={selectedPrescription?.items || []} 
+                    dataSource={editableItems} 
                     rowKey="id" 
                     pagination={false} 
                     size="small"
                 />
+
+                <div style={{ marginTop: 16, textAlign: 'right', fontSize: 18, fontWeight: 'bold', color: '#1677ff' }}>
+                    Tổng tiền dự kiến: {editableItems.reduce((sum, item) => sum + ((item.quantity || 0) * (item.unitPrice || 0)), 0).toLocaleString('vi-VN')} VNĐ
+                </div>
             </Modal>
         </div>
     );

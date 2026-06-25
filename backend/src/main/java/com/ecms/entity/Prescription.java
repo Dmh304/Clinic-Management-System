@@ -49,15 +49,17 @@ public class Prescription {
 
     @PrePersist
     protected void onCreate() {
+        // DucTKH: Thiết lập thời gian tạo và cập nhật mặc định
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
-        // Nếu trạng thái chưa được set, mặc định là PENDING (Chưa phát)
+        // DucTKH: Điều kiện - Nếu trạng thái chưa được set, mặc định là PENDING (Chưa phát)
         if (status == null) status = PrescriptionStatus.PENDING;
     }
 
     // Cập nhật lại thời gian sửa đổi
     @PreUpdate
     protected void onUpdate() {
+        // DucTKH: Tự động cập nhật thời gian mỗi khi thay đổi
         updatedAt = LocalDateTime.now();
     }
 }

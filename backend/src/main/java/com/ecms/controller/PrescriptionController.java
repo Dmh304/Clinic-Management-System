@@ -3,6 +3,7 @@
 package com.ecms.controller;
 
 import com.ecms.dto.request.PrescriptionRequest;
+import com.ecms.dto.request.DispenseRequest;
 import com.ecms.dto.response.ApiResponse;
 import com.ecms.dto.response.PrescriptionResponse;
 import com.ecms.service.PrescriptionService;
@@ -47,15 +48,27 @@ public class PrescriptionController {
 
     // API endpoint: Cập nhật trạng thái một đơn thuốc thành "Đã phát" 
     @PatchMapping("/{id}/dispense")
-    public ResponseEntity<ApiResponse<PrescriptionResponse>> dispensePrescription(@PathVariable Long id) {
-        PrescriptionResponse response = prescriptionService.dispensePrescription(id);
+    public ResponseEntity<ApiResponse<PrescriptionResponse>> dispensePrescription(
+            @PathVariable Long id,
+            @RequestBody(required = false) @Valid DispenseRequest request) {
+        // DucTKH: Gọi tầng Service để xử lý logic phát thuốc (kèm theo số lượng thực tế dược sĩ nhập)
+        PrescriptionResponse response = prescriptionService.dispensePrescription(id, request);
         return ResponseEntity.ok(ApiResponse.success("Phát thuốc thành công", response));
     }
 
     // API endpoint: Cập nhật trạng thái một đơn thuốc thành "Đã hủy/Bỏ qua"
     @PatchMapping("/{id}/skip")
     public ResponseEntity<ApiResponse<PrescriptionResponse>> skipPrescription(@PathVariable Long id) {
+        // DucTKH: Gọi tầng Service để đánh dấu đơn thuốc bị bỏ qua
         PrescriptionResponse response = prescriptionService.skipPrescription(id);
-        return ResponseEntity.ok(ApiResponse.success("Đã đánh dấu bệnh nhân không mua thuốc", response));
+        return ResponseEntity.ok(ApiResponse.success("Bỏ qua đơn thuốc thành công", response));
+    }
+
+    // API endpoint: Xóa đơn thuốc (chỉ xóa khi đang PENDING)
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<Void>> deletePrescription(@PathVariable Long id) {
+        // DucTKH: Gọi tầng Service để xóa đơn thuốc khỏi cơ sở dữ liệu
+        prescriptionService.deletePrescription(id);
+        return ResponseEntity.ok(ApiResponse.success("Xóa đơn thuốc thành công", null));
     }
 }

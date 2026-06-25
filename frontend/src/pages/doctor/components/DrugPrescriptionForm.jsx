@@ -1,3 +1,5 @@
+// DucTKH
+// Component form kê đơn thuốc cho bác sĩ
 import React, { useState, useEffect, useRef } from 'react';
 import { Form, Input, Button, Table, InputNumber, message, AutoComplete, Popconfirm, Modal, Tag } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
@@ -216,6 +218,21 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
         data: m
     }));
 
+    const handleDeletePrescription = async (id) => {
+        try {
+            // Tương tác API - Gọi service để xóa đơn thuốc
+            await prescriptionService.delete(id);
+            message.success('Đã xóa đơn thuốc thành công');
+            // Cập nhật lại danh sách đơn thuốc sau khi xóa
+            fetchExistingPrescriptions();
+        } catch (error) {
+            console.error('Lỗi khi xóa đơn thuốc:', error);
+            // Điều kiện - Hiển thị lỗi từ server nếu có, ngược lại dùng lỗi mặc định
+            const errMsg = error.response?.data?.message || 'Xóa thất bại';
+            message.error(errMsg);
+        }
+    };
+
     return (
         <div style={{ paddingTop: 12 }}>
             {!isReadOnly && (
@@ -305,12 +322,19 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
                     <h3 style={{ fontSize: 16, fontWeight: 600, color: '#0f172a', marginBottom: 12 }}>Các đơn thuốc đã kê trong phiên khám này:</h3>
                     {existingPrescriptions.map((p, idx) => (
                         <div key={p.id} style={{ marginBottom: 16, padding: 16, backgroundColor: '#f8fafc', borderRadius: 8 }}>
-                            <div style={{ fontWeight: 500, marginBottom: 8 }}>
-                                Đơn thuốc #{idx + 1} - Ngày kê: {new Date(p.createdAt).toLocaleString('vi-VN')}
-                                <span style={{ marginLeft: 12 }}>Trạng thái: </span>
-                                <Tag color={p.status === 'PENDING' ? 'blue' : p.status === 'DISPENSED' ? 'green' : 'red'}>
-                                    {p.status === 'PENDING' ? 'Chưa phát' : p.status === 'DISPENSED' ? 'Đã phát' : 'Hủy'}
-                                </Tag>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                <div style={{ fontWeight: 500 }}>
+                                    Đơn thuốc #{idx + 1} - Ngày kê: {new Date(p.createdAt).toLocaleString('vi-VN')}
+                                    <span style={{ marginLeft: 12 }}>Trạng thái: </span>
+                                    <Tag color={p.status === 'PENDING' ? 'blue' : p.status === 'DISPENSED' ? 'green' : 'red'}>
+                                        {p.status === 'PENDING' ? 'Chưa phát' : p.status === 'DISPENSED' ? 'Đã phát' : 'Hủy'}
+                                    </Tag>
+                                </div>
+                                {p.status === 'PENDING' && !isReadOnly && (
+                                    <Popconfirm title="Bạn có chắc chắn muốn xóa đơn thuốc này không?" onConfirm={() => handleDeletePrescription(p.id)} okText="Có" cancelText="Không">
+                                        <Button type="primary" danger size="small">Xóa đơn thuốc</Button>
+                                    </Popconfirm>
+                                )}
                             </div>
                             {p.notes && <div style={{ fontSize: 13, color: '#64748b', marginBottom: 8 }}>Ghi chú: {p.notes}</div>}
                             <Table 
@@ -320,8 +344,9 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
                                 size="small"
                                 columns={[
                                     { title: 'Tên thuốc', dataIndex: 'medicineName', render: (t, r) => <b>{t} ({r.dosageForm})</b> },
-                                    { title: 'SL', dataIndex: 'quantity' },
-                                    { title: 'ĐVT', dataIndex: 'unit' },
+                                    { title: 'Bác sĩ kê', dataIndex: 'quantity', width: 90 },
+                                    { title: 'Dược sĩ phát', render: (_, r) => r.actualQuantity != null ? r.actualQuantity : '-', width: 110 },
+                                    { title: 'ĐVT', dataIndex: 'unit', width: 70 },
                                     { title: 'Cách dùng', render: (_, r) => r.instructions }
                                 ]}
                             />

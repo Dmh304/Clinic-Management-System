@@ -1,3 +1,5 @@
+// DucTKH
+// Màn hình xem danh sách Đơn thuốc / Đơn kính tổng hợp của Bệnh nhân (hiện đã được tích hợp vào trong MedicalHistoryPage).
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Tabs, Spin, Tag, message } from 'antd';
 import { PrinterOutlined } from '@ant-design/icons';
@@ -95,10 +97,17 @@ export default function PrescriptionViewPage() {
                                                             { title: 'Tên thuốc', dataIndex: 'medicineName', render: (t, r) => <b>{t} ({r.dosageForm})</b> },
                                                             { title: 'SL', dataIndex: 'quantity' },
                                                             { title: 'ĐVT', dataIndex: 'unit' },
+                                                            { title: 'Đơn giá', dataIndex: 'unitPrice', render: val => (val || 0).toLocaleString('vi-VN') + ' đ' },
+                                                            { title: 'Thành tiền', dataIndex: 'totalPrice', render: val => (val || 0).toLocaleString('vi-VN') + ' đ' },
                                                             { title: 'Cách dùng', render: (_, r) => [r.dosage, r.frequency, r.instructions].filter(v => v && v !== '-').join('. ') }
                                                         ]}
                                                     />
                                                     
+                                                    <div style={{ marginTop: 16, textAlign: 'right', fontSize: 16 }}>
+                                                        <strong>Tổng tiền đơn thuốc: </strong>
+                                                        <span style={{ color: '#1677ff', fontSize: 18 }}>{p.items?.reduce((sum, item) => sum + (item.totalPrice || 0), 0).toLocaleString('vi-VN')} VNĐ</span>
+                                                    </div>
+
                                                     <div className="print-footer" style={{ display: 'none', marginTop: 40, textAlign: 'right' }}>
                                                         <p><strong>Chữ ký Bác sĩ</strong></p>
                                                         <div style={{ height: 60 }}></div>
