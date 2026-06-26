@@ -63,7 +63,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/appointments/my")
                         .hasRole("PATIENT")
                         .requestMatchers("/api/v1/emr/all").hasAnyRole("DOCTOR", "ADMIN")
-                        .requestMatchers("/api/v1/patients/**").hasAnyRole("ADMIN", "DOCTOR", "RECEPTIONIST")
                         .requestMatchers("/api/v1/emr/history").hasRole("PATIENT")
                         // ── Services: GET public, POST/registrations restricted ─────────
                         .requestMatchers(HttpMethod.GET, "/api/v1/services", "/api/v1/services/categories",

@@ -251,13 +251,6 @@ public class AppointmentServiceImpl implements AppointmentService {
                                 .orElseThrow(() -> new ResourceNotFoundException(
                                                 "Bác sĩ không tồn tại: " + request.getDoctorId()));
 
-                ClinicService service = null;
-                if (request.getServiceId() != null) {
-                        service = clinicServiceRepository.findById(request.getServiceId())
-                                        .orElseThrow(() -> new ResourceNotFoundException(
-                                                        "Dịch vụ không tồn tại: " + request.getServiceId()));
-                }
-
                 validateDoctorCapacity(doctor.getId(), request.getAppointmentTime().toLocalDate());
 
                 // UC-46: gắn dịch vụ khám nếu bệnh nhân chọn từ trang Dịch vụ khám mắt
@@ -649,6 +642,35 @@ public class AppointmentServiceImpl implements AppointmentService {
                 return toResponse(saved);
         }
 
+        @Override
+        @Transactional
+        public int autoCancelNoShowAppointments() {
+                // Mốc cắt: 00:00 hôm nay. Mọi lịch hẹn có giờ khám trước thời điểm này
+                // (tức thuộc các ngày đã qua) mà vẫn chưa hoàn tất được coi là no-show.
+                LocalDateTime cutoff = LocalDate.now().atStartOfDay();
+                List<Appointment> noShows = appointmentRepository.findNoShowAppointments(
+                                cutoff,
+                                List.of(AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED));
+
+                for (Appointment a : noShows) {
+                        a.setStatus(AppointmentStatus.CANCELLED);
+                        a.setCancelReason("Bệnh nhân không đến khám (hệ thống tự động huỷ)");
+                        a.setCancelledAt(LocalDateTime.now());
+                        a.setCancelledBy(null); // huỷ tự động bởi hệ thống, không có người thực hiện
+                        appointmentRepository.save(a);
+
+                        // Thông báo in-app cho bệnh nhân (nếu có tài khoản)
+                        Long patientUserId = a.getPatient() != null && a.getPatient().getUser() != null
+                                        ? a.getPatient().getUser().getId()
+                                        : null;
+                        notificationService.createForUser(patientUserId,
+                                        "Lịch hẹn của bạn đã bị huỷ tự động do không đến khám đúng hẹn.",
+                                        a.getId());
+                }
+
+                return noShows.size();
+        }
+
         private AppointmentResponse toResponse(Appointment a) {
                 return AppointmentResponse.builder()
                                 .id(a.getId())
@@ -660,7 +682,6 @@ public class AppointmentServiceImpl implements AppointmentService {
                                 .serviceId(a.getClinicService() != null ? a.getClinicService().getId() : null)
                                 .serviceName(a.getClinicService() != null ? a.getClinicService().getServiceName()
                                                 : null)
-                                .serviceName(a.getClinicService() != null ? a.getClinicService().getServiceName() : null)
                                 .servicePrice(a.getClinicService() != null ? a.getClinicService().getPrice() : null)
                                 .appointmentTime(a.getAppointmentTime())
                                 .timeSlot(a.getTimeSlot())
@@ -669,6 +690,8 @@ public class AppointmentServiceImpl implements AppointmentService {
                                 .queueNumber(a.getQueueNumber())
                                 .checkInTime(a.getCheckInTime())
                                 .notes(a.getNotes())
+                                .cancelReason(a.getCancelReason())
+                                .cancelledAt(a.getCancelledAt())
                                 .createdAt(a.getCreatedAt())
                                 .build();
         }

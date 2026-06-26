@@ -10,7 +10,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import dayjs from 'dayjs'
-import { useNavigate } from 'react-router-dom'
 import {
   Table, Tag, Select, Button, Space, Typography, Card,
   message, Modal, Form, Statistic, Row, Col, Segmented,
@@ -18,16 +17,14 @@ import {
 import {
   ReloadOutlined, CheckCircleOutlined, LoginOutlined,
   CloseCircleOutlined, BellOutlined,
-  CloseCircleOutlined, DollarOutlined,
 } from '@ant-design/icons'
 import {
-  fetchTodayAppointments,
+  fetchDayAppointments,
   fetchDashboard,
   confirmAppointment,
   checkInAppointment,
   changeAppointmentStatus,
 } from '../../store/slices/appointmentSlice'
-import { fetchAllInvoices } from '../../store/slices/invoiceSlice'
 import { doctorService } from '../../services/doctorService'
 import { appointmentService } from '../../services/appointmentService'
 import axiosClient from '../../api/axiosClient'
@@ -75,19 +72,11 @@ function formatTime(dt) {
 
 export default function AppointmentManagementPage() {
   const dispatch = useDispatch()
-  const navigate = useNavigate()
   const { list, loading, error, dashboard } = useSelector((s) => s.appointment)
 
   // ── Chế độ xem & điều hướng ──
   const [viewMode, setViewMode] = useState('day')
   const [anchorDate, setAnchorDate] = useState(dayjs().startOf('day'))
-
-  // ── Chế độ Ngày (Redux) ──
-  const { list: invoices } = useSelector((s) => s.invoice)
-
-  const billedIds = new Set(
-    invoices.filter((i) => i.status !== 'CANCELLED').map((i) => i.appointmentId)
-  )
   const [filterStatus, setFilterStatus] = useState('ALL')
   const [doctors, setDoctors] = useState([])
   const [confirmModal, setConfirmModal] = useState({ open: false, appointment: null })
@@ -101,6 +90,9 @@ export default function AppointmentManagementPage() {
 
   // ── Modal chi tiết dùng chung 3 chế độ ──
   const [detail, setDetail] = useState(null)
+
+  // Ngày đang xem ở chế độ Ngày (dạng 'YYYY-MM-DD') — cho phép xem hôm qua/hôm sau
+  const dayParam = anchorDate.format('YYYY-MM-DD')
 
   // Khoảng ngày cần tải cho lưới Tuần/Tháng
   const range = useMemo(() => {
@@ -117,13 +109,18 @@ export default function AppointmentManagementPage() {
     return { start: monthStart, end: monthEnd, gridStart, gridEnd }
   }, [viewMode, anchorDate])
 
-  // Tải dữ liệu chế độ Ngày khi mount + danh sách bác sĩ
+  // Tải danh sách bác sĩ một lần khi mount
   useEffect(() => {
-    dispatch(fetchTodayAppointments())
-    dispatch(fetchDashboard())
-    dispatch(fetchAllInvoices())
     doctorService.getAllDoctors().then((res) => setDoctors(res.data)).catch(() => {})
-  }, [dispatch])
+  }, [])
+
+  // Tải lịch hẹn + thống kê của ngày đang chọn (chế độ Ngày)
+  useEffect(() => {
+    if (viewMode === 'day') {
+      dispatch(fetchDayAppointments(dayParam))
+      dispatch(fetchDashboard(dayParam))
+    }
+  }, [dispatch, viewMode, dayParam])
 
   useEffect(() => {
     if (error) message.error(error)
@@ -153,8 +150,8 @@ export default function AppointmentManagementPage() {
   }, [viewMode, range.gridStart.format('YYYY-MM-DD'), range.gridEnd.format('YYYY-MM-DD')])
 
   const reload = () => {
-    dispatch(fetchTodayAppointments())
-    dispatch(fetchDashboard())
+    dispatch(fetchDayAppointments(dayParam))
+    dispatch(fetchDashboard(dayParam))
   }
 
   const filtered =
@@ -175,7 +172,7 @@ export default function AppointmentManagementPage() {
       })).unwrap()
       message.success('Xác nhận lịch hẹn thành công')
       setConfirmModal({ open: false, appointment: null })
-      dispatch(fetchDashboard())
+      dispatch(fetchDashboard(dayParam))
     } catch (err) {
       message.error(err)
     } finally {
@@ -188,7 +185,7 @@ export default function AppointmentManagementPage() {
       .unwrap()
       .then(() => {
         message.success('Check-in thành công')
-        dispatch(fetchDashboard())
+        dispatch(fetchDashboard(dayParam))
       })
       .catch((err) => message.error(err))
   }
@@ -198,7 +195,7 @@ export default function AppointmentManagementPage() {
       .unwrap()
       .then(() => {
         message.success('Đã hủy lịch hẹn')
-        dispatch(fetchDashboard())
+        dispatch(fetchDashboard(dayParam))
       })
       .catch((err) => message.error(err))
   }
@@ -242,10 +239,19 @@ export default function AppointmentManagementPage() {
       render: (name) => name || '—',
     },
     {
-      title: 'Trạng thái', dataIndex: 'status', key: 'status', width: 135,
-      render: (status) => {
+      title: 'Trạng thái', dataIndex: 'status', key: 'status', width: 170,
+      render: (status, record) => {
         const cfg = STATUS_CONFIG[status] || {}
-        return <Tag color={cfg.color}>{cfg.label}</Tag>
+        return (
+          <div>
+            <Tag color={cfg.color}>{cfg.label}</Tag>
+            {status === 'CANCELLED' && record.cancelReason && (
+              <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4, whiteSpace: 'normal', lineHeight: 1.3 }}>
+                Lý do: {record.cancelReason}
+              </div>
+            )}
+          </div>
+        )
       },
     },
     {
@@ -286,33 +292,19 @@ export default function AppointmentManagementPage() {
               style={{ backgroundColor: '#8b5cf6', borderColor: '#8b5cf6' }}
               onClick={() => dispatch(changeAppointmentStatus({ id: record.id, status: 'IN_PROGRESS' }))
                 .unwrap()
-                .then(() => { message.success('Bắt đầu khám'); dispatch(fetchDashboard()) })
+                .then(() => { message.success('Bắt đầu khám'); dispatch(fetchDashboard(dayParam)) })
                 .catch((err) => message.error(err))
               }>
               Bắt đầu khám
             </Button>
-          )}
-          {record.status === 'COMPLETED' && (
-            billedIds.has(record.id)
-              ? <Tag color="green" icon={<CheckCircleOutlined />}>Đã xuất HĐ</Tag>
-              : (
-                <Button
-                  size="small"
-                  type="primary"
-                  icon={<DollarOutlined />}
-                  style={{ backgroundColor: '#10b981', borderColor: '#10b981' }}
-                  onClick={() => navigate('/receptionist/invoice')}
-                >
-                  Thu phí & HĐ
-                </Button>
-              )
           )}
         </Space>
       ),
     },
   ]
 
-  const today = new Date().toLocaleDateString('vi-VN', {
+  const isAnchorToday = anchorDate.isSame(dayjs(), 'day')
+  const dayTitle = anchorDate.toDate().toLocaleDateString('vi-VN', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   })
 
@@ -344,9 +336,16 @@ export default function AppointmentManagementPage() {
     cancelled: rangeFiltered.filter((a) => a.status === 'CANCELLED').length,
   }
 
-  const goPrev = () => setAnchorDate((d) => d.subtract(1, viewMode === 'week' ? 'week' : 'month'))
-  const goNext = () => setAnchorDate((d) => d.add(1, viewMode === 'week' ? 'week' : 'month'))
+  const navUnit = viewMode === 'week' ? 'week' : viewMode === 'month' ? 'month' : 'day'
+  const goPrev = () => setAnchorDate((d) => d.subtract(1, navUnit))
+  const goNext = () => setAnchorDate((d) => d.add(1, navUnit))
   const goToday = () => setAnchorDate(dayjs().startOf('day'))
+
+  // Bấm vào một ngày trong lưới Tuần/Tháng -> mở chế độ Ngày của ngày đó
+  const handlePickDay = (d) => {
+    setAnchorDate(d.startOf('day'))
+    setViewMode('day')
+  }
 
   const rangeTitle = viewMode === 'week'
     ? `${range.start.format('DD/MM/YYYY')} – ${range.end.format('DD/MM/YYYY')}`
@@ -358,7 +357,7 @@ export default function AppointmentManagementPage() {
         <div>
           <Typography.Title level={4} style={{ marginBottom: 4 }}>Lịch khám</Typography.Title>
           <Typography.Text type="secondary">
-            {viewMode === 'day' ? today : rangeTitle}
+            {viewMode === 'day' ? dayTitle : rangeTitle}
           </Typography.Text>
         </div>
         <Segmented value={viewMode} onChange={setViewMode} options={VIEW_LABELS} />
@@ -366,7 +365,19 @@ export default function AppointmentManagementPage() {
 
       {viewMode === 'day' ? (
         <>
-          {/* Thống kê hôm nay */}
+          {/* Điều hướng ngày: xem hôm qua / hôm nay / hôm sau */}
+          <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+            <Space>
+              <Button onClick={goPrev}>‹ Ngày trước</Button>
+              <Button onClick={goToday} type="primary" ghost disabled={isAnchorToday}>Hôm nay</Button>
+              <Button onClick={goNext}>Ngày sau ›</Button>
+            </Space>
+            {!isAnchorToday && (
+              <Tag color="blue">Đang xem ngày {anchorDate.format('DD/MM/YYYY')}</Tag>
+            )}
+          </div>
+
+          {/* Thống kê của ngày đang xem */}
           {dashboard && (
             <Row gutter={12} style={{ marginBottom: 16 }}>
               {[
@@ -411,7 +422,7 @@ export default function AppointmentManagementPage() {
               rowKey="id"
               loading={loading}
               pagination={{ pageSize: 10, showSizeChanger: false }}
-              locale={{ emptyText: 'Không có lịch hẹn nào hôm nay' }}
+              locale={{ emptyText: isAnchorToday ? 'Không có lịch hẹn nào hôm nay' : 'Không có lịch hẹn nào trong ngày này' }}
               onRow={(record) => ({
                 onClick: () => setDetail(record),
                 style: { cursor: 'pointer' },
@@ -463,10 +474,10 @@ export default function AppointmentManagementPage() {
           {rangeLoading ? (
             <div style={{ padding: 40, textAlign: 'center', color: '#6b7280' }}>Đang tải...</div>
           ) : viewMode === 'week' ? (
-            <WeekGrid gridStart={range.gridStart} byDate={byDate} onSelect={setDetail} />
+            <WeekGrid gridStart={range.gridStart} byDate={byDate} onSelect={setDetail} onPickDay={handlePickDay} />
           ) : (
             <MonthGrid gridStart={range.gridStart} gridEnd={range.gridEnd}
-              currentMonth={anchorDate.month()} byDate={byDate} onSelect={setDetail} />
+              currentMonth={anchorDate.month()} byDate={byDate} onSelect={setDetail} onPickDay={handlePickDay} />
           )}
         </>
       )}
@@ -529,7 +540,7 @@ function AppointmentChip({ a, compact, onSelect }) {
 }
 
 // ─── View Tuần: 7 cột Thứ 2 → Chủ Nhật ─────────────────────────────
-function WeekGrid({ gridStart, byDate, onSelect }) {
+function WeekGrid({ gridStart, byDate, onSelect, onPickDay }) {
   const days = Array.from({ length: 7 }, (_, i) => gridStart.add(i, 'day'))
   const isToday = (d) => d.isSame(dayjs(), 'day')
 
@@ -540,7 +551,11 @@ function WeekGrid({ gridStart, byDate, onSelect }) {
         const items = byDate.get(key) || []
         return (
           <div key={key} style={{ background: '#fff', borderRadius: 12, border: isToday(d) ? '2px solid #2563eb' : '1px solid #e2e8f0', minHeight: 240, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ padding: '10px 12px', borderBottom: '1px solid #f1f5f9' }}>
+            <div
+              onClick={() => onPickDay?.(d)}
+              title="Xem chi tiết ngày này"
+              style={{ padding: '10px 12px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
+            >
               <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>{WEEKDAY_SHORT[d.day()]}</div>
               <div style={{ fontSize: 18, fontWeight: 700, color: isToday(d) ? '#2563eb' : '#1e293b' }}>{d.format('DD/MM')}</div>
             </div>
@@ -559,7 +574,7 @@ function WeekGrid({ gridStart, byDate, onSelect }) {
 }
 
 // ─── View Tháng: lưới 6 hàng x 7 cột ────────────────────────────────
-function MonthGrid({ gridStart, gridEnd, currentMonth, byDate, onSelect }) {
+function MonthGrid({ gridStart, gridEnd, currentMonth, byDate, onSelect, onPickDay }) {
   const totalDays = gridEnd.diff(gridStart, 'day') + 1
   const days = Array.from({ length: totalDays }, (_, i) => gridStart.add(i, 'day'))
   const isToday = (d) => d.isSame(dayjs(), 'day')
@@ -582,12 +597,15 @@ function MonthGrid({ gridStart, gridEnd, currentMonth, byDate, onSelect }) {
               minHeight: 110, padding: 6, borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9',
               background: inMonth ? '#fff' : '#fafafa', display: 'flex', flexDirection: 'column', gap: 4,
             }}>
-              <span style={{
-                fontSize: 13, fontWeight: 700, alignSelf: 'flex-start',
-                color: isToday(d) ? '#fff' : inMonth ? '#1e293b' : '#cbd5e1',
-                background: isToday(d) ? '#2563eb' : 'transparent',
-                borderRadius: '50%', width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
+              <span
+                onClick={() => onPickDay?.(d)}
+                title="Xem chi tiết ngày này"
+                style={{
+                  fontSize: 13, fontWeight: 700, alignSelf: 'flex-start', cursor: 'pointer',
+                  color: isToday(d) ? '#fff' : inMonth ? '#1e293b' : '#cbd5e1',
+                  background: isToday(d) ? '#2563eb' : 'transparent',
+                  borderRadius: '50%', width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
                 {d.date()}
               </span>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
