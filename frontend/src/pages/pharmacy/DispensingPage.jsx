@@ -2,11 +2,14 @@
 // Màn hình quản lý Cấp phát thuốc dành cho Dược sĩ.
 // Cho phép xem danh sách đơn thuốc chờ phát, xem chi tiết và xác nhận phát thuốc.
 import React, { useState, useEffect } from 'react';
-import { Table, Button, message, Modal, Tag, Spin, Space, Popconfirm, InputNumber } from 'antd';
+import { Table, Button, message, Modal, Tag, Spin, Space, Popconfirm, InputNumber, Tabs } from 'antd';
 import { prescriptionService } from '../../services/prescriptionService';
+import { eyeglassPrescriptionService } from '../../services/eyeglassPrescriptionService';
 
 export default function DispensingPage() {
     const [prescriptions, setPrescriptions] = useState([]);
+    const [eyePrescriptions, setEyePrescriptions] = useState([]);
+    const [activeTab, setActiveTab] = useState('1');
     const [loading, setLoading] = useState(false);
     const [selectedPrescription, setSelectedPrescription] = useState(null);
     const [editableItems, setEditableItems] = useState([]);
@@ -26,10 +29,14 @@ export default function DispensingPage() {
     const fetchPendingPrescriptions = async () => {
         setLoading(true);
         try {
-            const res = await prescriptionService.getPending();
-            setPrescriptions(res.data || []);
+            const [res1, res2] = await Promise.all([
+                prescriptionService.getPending(),
+                eyeglassPrescriptionService.getPending()
+            ]);
+            setPrescriptions(res1.data || []);
+            setEyePrescriptions(res2.data || []);
         } catch (error) {
-            message.error('Lỗi khi tải danh sách đơn thuốc');
+            message.error('Lỗi khi tải danh sách đơn thuốc/đơn kính');
         } finally {
             setLoading(false);
         }
@@ -69,6 +76,26 @@ export default function DispensingPage() {
             message.error('Cập nhật thất bại');
         } finally {
             setActionLoading(false);
+        }
+    };
+
+    const handleDispenseEye = async (id) => {
+        try {
+            await eyeglassPrescriptionService.dispense(id);
+            message.success('Phát đơn kính thành công');
+            fetchPendingPrescriptions();
+        } catch (error) {
+            message.error('Phát đơn kính thất bại');
+        }
+    };
+
+    const handleSkipEye = async (id) => {
+        try {
+            await eyeglassPrescriptionService.skip(id);
+            message.success('Đã hủy đơn kính');
+            fetchPendingPrescriptions();
+        } catch (error) {
+            message.error('Hủy đơn kính thất bại');
         }
     };
 
@@ -124,6 +151,63 @@ export default function DispensingPage() {
                 }}>
                     Xem chi tiết
                 </Button>
+            )
+        }
+    ];
+
+    const eyeColumns = [
+        {
+            title: 'Mã ĐK',
+            dataIndex: 'id',
+            key: 'id',
+            width: 80,
+            render: (id) => `DK-${id}`
+        },
+        {
+            title: 'Bệnh nhân',
+            dataIndex: 'patientName',
+            key: 'patientName',
+            render: (text) => <span style={{ fontWeight: 600 }}>{text}</span>
+        },
+        {
+            title: 'Bác sĩ đo',
+            dataIndex: 'doctorName',
+            key: 'doctorName',
+        },
+        {
+            title: 'Ngày kê',
+            dataIndex: 'createdAt',
+            key: 'createdAt',
+            render: (val) => new Date(val).toLocaleString('vi-VN')
+        },
+        {
+            title: 'Trạng thái',
+            dataIndex: 'status',
+            key: 'status',
+            render: (status) => (
+                <Tag color={status === 'PENDING' ? 'processing' : 'default'}>
+                    {status === 'PENDING' ? 'Chờ duyệt' : status}
+                </Tag>
+            )
+        },
+        {
+            title: 'Hành động',
+            key: 'action',
+            render: (_, record) => (
+                <Space>
+                    <Popconfirm 
+                        title="Xác nhận duyệt đơn kính?" 
+                        onConfirm={() => handleDispenseEye(record.id)}
+                    >
+                        <Button type="primary" size="small" style={{ backgroundColor: '#059669' }}>Duyệt</Button>
+                    </Popconfirm>
+                    <Popconfirm 
+                        title="Hủy đơn kính?" 
+                        onConfirm={() => handleSkipEye(record.id)}
+                    >
+                        <Button danger size="small">Hủy</Button>
+                    </Popconfirm>
+                </Space>
             )
         }
     ];

@@ -79,7 +79,7 @@ public class EyeglassPrescription {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
-        if (status == null) status = "ISSUED";
+        if (status == null) status = "PENDING";
     }
 
     @PreUpdate

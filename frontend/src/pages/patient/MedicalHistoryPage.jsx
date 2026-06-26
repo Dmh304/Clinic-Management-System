@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Author: TuanTD
  *  
  * * Màn hình: Quản lý và Xem Lịch sử / Chi tiết Hồ sơ bệnh án điện tử (EMR) dành cho Bệnh nhân
@@ -158,8 +158,8 @@ export default function MedicalHistoryPage() {
           prescriptionService.getByPatient(patientId),
           eyeglassPrescriptionService.getByPatient(patientId)
       ]);
-      setDrugPrescriptions((drugRes.data || []).filter(p => String(p.medicalRecordId) === String(medicalRecordId)));
-      setEyePrescriptions((eyeRes.data || []).filter(p => String(p.medicalRecordId) === String(medicalRecordId)));
+      setDrugPrescriptions((drugRes.data || []).filter(p => String(p.medicalRecordId) === String(medicalRecordId) && p.status === 'DISPENSED'));
+      setEyePrescriptions((eyeRes.data || []).filter(p => String(p.medicalRecordId) === String(medicalRecordId) && p.status === 'DISPENSED'));
     } catch (error) {
       console.log('fetch prescriptions error', error);
     }

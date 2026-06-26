@@ -9,6 +9,7 @@ import java.util.List;
 public interface PrescriptionService {
     PrescriptionResponse createPrescription(PrescriptionRequest request, String doctorUsername);
     List<PrescriptionResponse> getPatientPrescriptions(Long patientId);
+    List<PrescriptionResponse> getByMedicalRecordId(Long medicalRecordId);
     List<PrescriptionResponse> getPendingPrescriptions();
     PrescriptionResponse dispensePrescription(Long prescriptionId, DispenseRequest request);
     PrescriptionResponse skipPrescription(Long prescriptionId);

@@ -45,6 +45,8 @@ public class EMRServiceImpl implements EMRService {
         private final DoctorRepository doctorRepository;
         private final LabOrderRepository labOrderRepository;
         private final LabResultRepository labResultRepository;
+        private final com.ecms.service.PrescriptionService prescriptionService;
+        private final com.ecms.service.EyeglassPrescriptionService eyeglassPrescriptionService;
 
         /*
          * ObjectMapper: Công cụ hỗ trợ parse/convert dữ liệu chuỗi JSON (dùng cho mảng
@@ -265,6 +267,10 @@ public class EMRServiceImpl implements EMRService {
                                 .status(m.getStatus() != null ? m.getStatus().name() : null)
                                 .createdAt(m.getCreatedAt())
                                 .updatedAt(m.getUpdatedAt())
+                                .prescriptions(prescriptionService.getByMedicalRecordId(m.getId()).stream()
+                                        .filter(p -> p.getStatus() == com.ecms.entity.PrescriptionStatus.DISPENSED)
+                                        .collect(Collectors.toList()))
+                                .eyeglassPrescriptions(eyeglassPrescriptionService.getByMedicalRecordId(m.getId()))
                                 .build();
         }
 

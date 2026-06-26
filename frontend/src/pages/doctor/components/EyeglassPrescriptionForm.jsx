@@ -118,7 +118,7 @@ export default function EyeglassPrescriptionForm({ emr, isReadOnly, onPrescripti
                 {!isReadOnly && (
                     <div style={{ textAlign: 'right' }}>
                         <Button type="primary" onClick={() => form.submit()} loading={saving} style={{ backgroundColor: '#0d9488', borderColor: '#0d9488' }}>
-                            Lưu đơn kính
+                            Phát đơn kính
                         </Button>
                     </div>
                 )}

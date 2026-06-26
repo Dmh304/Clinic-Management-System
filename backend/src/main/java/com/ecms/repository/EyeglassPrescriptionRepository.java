@@ -11,4 +11,6 @@ import java.util.List;
 @Repository
 public interface EyeglassPrescriptionRepository extends JpaRepository<EyeglassPrescription, Long> {
     List<EyeglassPrescription> findByPatientIdOrderByCreatedAtDesc(Long patientId);
+    List<EyeglassPrescription> findByMedicalRecordId(Long medicalRecordId);
+    List<EyeglassPrescription> findByStatusOrderByCreatedAtAsc(String status);
 }

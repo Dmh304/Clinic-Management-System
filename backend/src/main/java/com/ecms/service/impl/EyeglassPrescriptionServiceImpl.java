@@ -58,7 +58,7 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
                 .pd(request.getPd())
                 .lensType(request.getLensType())
                 .notes(request.getNotes())
-                .status("ISSUED")
+                .status("DISPENSED")
                 .build();
 
         return toResponse(eyeglassPrescriptionRepository.save(prescription));
@@ -71,6 +71,50 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
         return eyeglassPrescriptionRepository.findByPatientIdOrderByCreatedAtDesc(patientId).stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<EyeglassPrescriptionResponse> getByMedicalRecordId(Long medicalRecordId) {
+        return eyeglassPrescriptionRepository.findByMedicalRecordId(medicalRecordId).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<EyeglassPrescriptionResponse> getPendingPrescriptions() {
+        return eyeglassPrescriptionRepository.findByStatusOrderByCreatedAtAsc("PENDING").stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public EyeglassPrescriptionResponse dispensePrescription(Long id) {
+        EyeglassPrescription p = eyeglassPrescriptionRepository.findById(id)
+                .orElseThrow(() -> new com.ecms.exception.ResourceNotFoundException("Không tìm thấy đơn kính"));
+        
+        if (!"PENDING".equals(p.getStatus())) {
+            throw new IllegalStateException("Chỉ có thể phát đơn kính ở trạng thái PENDING");
+        }
+        
+        p.setStatus("DISPENSED");
+        return toResponse(eyeglassPrescriptionRepository.save(p));
+    }
+
+    @Override
+    @Transactional
+    public EyeglassPrescriptionResponse skipPrescription(Long id) {
+        EyeglassPrescription p = eyeglassPrescriptionRepository.findById(id)
+                .orElseThrow(() -> new com.ecms.exception.ResourceNotFoundException("Không tìm thấy đơn kính"));
+        
+        if (!"PENDING".equals(p.getStatus())) {
+            throw new IllegalStateException("Chỉ có thể hủy đơn kính ở trạng thái PENDING");
+        }
+        
+        p.setStatus("SKIPPED");
+        return toResponse(eyeglassPrescriptionRepository.save(p));
     }
 
     // Hàm bổ trợ để chuyển đổi từ Entity sang DTO để trả về cho Frontend

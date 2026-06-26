@@ -100,6 +100,14 @@ public class PrescriptionServiceImpl implements PrescriptionService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<PrescriptionResponse> getByMedicalRecordId(Long medicalRecordId) {
+        return prescriptionRepository.findByMedicalRecordId(medicalRecordId).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
     // Lấy các đơn thuốc đang chờ (PENDING) để dược sĩ phát thuốc
     @Override
     @Transactional(readOnly = true)

@@ -124,4 +124,10 @@ public class EMRResponse {
 
     /* Thời gian sửa đổi hồ sơ bệnh án */
     private LocalDateTime updatedAt;
+
+    /* Đơn thuốc đã cấp/phát */
+    private List<PrescriptionResponse> prescriptions;
+
+    /* Đơn kính đã cấp */
+    private List<EyeglassPrescriptionResponse> eyeglassPrescriptions;
 }

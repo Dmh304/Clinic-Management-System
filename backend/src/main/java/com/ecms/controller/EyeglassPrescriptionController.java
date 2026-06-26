@@ -37,4 +37,26 @@ public class EyeglassPrescriptionController {
         List<EyeglassPrescriptionResponse> responses = eyeglassPrescriptionService.getPatientPrescriptions(patientId);
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách đơn kính thành công", responses));
     }
+
+    // API endpoint: Dược sĩ lấy danh sách các đơn kính đang chờ để phát
+    @GetMapping("/pending")
+    public ResponseEntity<ApiResponse<List<EyeglassPrescriptionResponse>>> getPendingPrescriptions() {
+        List<EyeglassPrescriptionResponse> responses = eyeglassPrescriptionService.getPendingPrescriptions();
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách đơn kính chờ phát thành công", responses));
+    }
+
+    // API endpoint: Cập nhật trạng thái một đơn kính thành "Đã phát" 
+    @PatchMapping("/{id}/dispense")
+    public ResponseEntity<ApiResponse<EyeglassPrescriptionResponse>> dispensePrescription(
+            @PathVariable Long id) {
+        EyeglassPrescriptionResponse response = eyeglassPrescriptionService.dispensePrescription(id);
+        return ResponseEntity.ok(ApiResponse.success("Phát đơn kính thành công", response));
+    }
+
+    // API endpoint: Cập nhật trạng thái một đơn kính thành "Đã hủy/Bỏ qua"
+    @PatchMapping("/{id}/skip")
+    public ResponseEntity<ApiResponse<EyeglassPrescriptionResponse>> skipPrescription(@PathVariable Long id) {
+        EyeglassPrescriptionResponse response = eyeglassPrescriptionService.skipPrescription(id);
+        return ResponseEntity.ok(ApiResponse.success("Bỏ qua đơn kính thành công", response));
+    }
 }
