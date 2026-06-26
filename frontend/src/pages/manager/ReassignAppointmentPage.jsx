@@ -18,8 +18,8 @@ export default function ReassignAppointmentPage() {
       axiosClient.get('/v1/appointments/daily-schedule', { params: { date } }),
       axiosClient.get('/v1/doctors'),
     ]).then(([apptRes, docRes]) => {
-      setAppointments((apptRes.data.data || []).filter(a => STATUS_ACTIVE.includes(a.status)))
-      setDoctors(docRes.data.data || [])
+      setAppointments((apptRes.data || []).filter(a => STATUS_ACTIVE.includes(a.status)))
+      setDoctors(docRes.data || [])
     }).finally(() => setLoading(false))
   }, [date])
 
@@ -44,7 +44,7 @@ export default function ReassignAppointmentPage() {
       setModal(null)
       // Refresh
       const res = await axiosClient.get('/v1/appointments/daily-schedule', { params: { date } })
-      setAppointments((res.data.data || []).filter(a => STATUS_ACTIVE.includes(a.status)))
+      setAppointments((res.data || []).filter(a => STATUS_ACTIVE.includes(a.status)))
     } catch (err) {
       setError(err.response?.data?.message || 'Lỗi khi chuyển lịch')
     } finally {

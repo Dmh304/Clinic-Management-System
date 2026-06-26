@@ -74,6 +74,8 @@ public class SecurityConfig {
                         .hasAnyRole("RECEPTIONIST", "ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/services/registrations/**")
                         .hasAnyRole("RECEPTIONIST", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/services/registrations/**")
+                        .hasAnyRole("RECEPTIONIST", "ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/v1/services/my-registrations")
                         .hasRole("PATIENT")
                         .requestMatchers(HttpMethod.GET, "/api/v1/services/packages")

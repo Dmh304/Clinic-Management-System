@@ -46,6 +46,14 @@ export default function AppointmentDetailModal({ appointment, onClose }) {
           <Descriptions.Item label="Loại">{typeLabel(a.type)}</Descriptions.Item>
           <Descriptions.Item label="Giờ check-in">{fmt(a.checkInTime)}</Descriptions.Item>
           <Descriptions.Item label="Ghi chú">{a.notes || '—'}</Descriptions.Item>
+          {a.status === 'CANCELLED' && (
+            <Descriptions.Item label="Lý do hủy">
+              <span style={{ color: '#dc2626' }}>{a.cancelReason || '—'}</span>
+            </Descriptions.Item>
+          )}
+          {a.status === 'CANCELLED' && a.cancelledAt && (
+            <Descriptions.Item label="Thời điểm hủy">{fmt(a.cancelledAt)}</Descriptions.Item>
+          )}
         </Descriptions>
       )}
     </Modal>

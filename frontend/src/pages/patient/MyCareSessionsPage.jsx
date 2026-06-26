@@ -16,7 +16,7 @@ export default function MyCareSessionsPage() {
   const [cancelling, setCancelling] = useState(null)
 
   useEffect(() => {
-    careSessionService.getMy().then(res => setSessions(res.data.data || [])).finally(() => setLoading(false))
+    careSessionService.getMy().then(res => setSessions(res.data || [])).finally(() => setLoading(false))
   }, [])
 
   const handleCancel = async (id) => {

@@ -1,15 +1,22 @@
 package com.ecms.service.impl;
 
+import com.ecms.dto.request.BookCareSessionRequest;
+import com.ecms.dto.request.PurchaseServiceRequest;
+import com.ecms.dto.request.ScheduleClinicVisitRequest;
 import com.ecms.dto.request.ServicePackageRequest;
 import com.ecms.dto.request.ServiceRegistrationRequest;
+import com.ecms.dto.response.CareSessionResponse;
 import com.ecms.dto.response.ClinicServiceResponse;
 import com.ecms.dto.response.ServiceCategoryResponse;
 import com.ecms.dto.response.ServiceRegistrationResponse;
+import com.ecms.dto.response.ServiceSubscriptionResponse;
 import com.ecms.entity.*;
 import com.ecms.exception.ConflictException;
 import com.ecms.exception.ResourceNotFoundException;
 import com.ecms.repository.*;
+import com.ecms.service.CareSessionService;
 import com.ecms.service.ClinicServiceService;
+import com.ecms.service.ServiceSubscriptionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +35,8 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
     private final UserRepository userRepository;
     private final PatientRepository patientRepository;
     private final PatientServiceSubscriptionRepository subscriptionRepository;
+    private final ServiceSubscriptionService subscriptionService;
+    private final CareSessionService careSessionService;
 
     @Override
     @Transactional(readOnly = true)
@@ -139,6 +148,40 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
 
         registration.setStatus(normalized);
         return toRegistrationResponse(serviceRegistrationRepository.save(registration));
+    }
+
+    @Override
+    @Transactional
+    public CareSessionResponse scheduleClinicVisit(Long registrationId, ScheduleClinicVisitRequest request,
+            String currentUserEmail) {
+        ServiceRegistration registration = serviceRegistrationRepository.findById(registrationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đăng ký dịch vụ: " + registrationId));
+
+        if ("COMPLETED".equals(registration.getStatus()) || "CANCELLED".equals(registration.getStatus())) {
+            throw new IllegalStateException("Đăng ký này đã được xử lý, không thể đặt buổi.");
+        }
+
+        // 1) Tạo gói (subscription) — lễ tân mua hộ bệnh nhân của đăng ký này
+        PurchaseServiceRequest purchaseRequest = PurchaseServiceRequest.builder()
+                .serviceId(registration.getService().getId())
+                .patientId(registration.getPatient().getId())
+                .notes(registration.getNotes())
+                .build();
+        ServiceSubscriptionResponse subscription = subscriptionService.purchase(purchaseRequest, currentUserEmail);
+
+        // 2) Đặt buổi care-session đầu tiên vào thời điểm đã chọn (book() hỗ trợ lễ tân đặt hộ)
+        BookCareSessionRequest bookRequest = BookCareSessionRequest.builder()
+                .subscriptionId(subscription.getId())
+                .scheduledDateTime(request.getScheduledDateTime())
+                .notes(request.getNotes())
+                .build();
+        CareSessionResponse session = careSessionService.book(bookRequest, currentUserEmail);
+
+        // 3) Đánh dấu đăng ký đã hoàn tất xử lý
+        registration.setStatus("COMPLETED");
+        serviceRegistrationRepository.save(registration);
+
+        return session;
     }
 
     // ── Manager CRUD ───────────────────────────────────────────────

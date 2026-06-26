@@ -195,4 +195,19 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
                         AppointmentStatus status,
                         LocalDateTime start,
                         LocalDateTime end);
+
+        /**
+         * Các lịch hẹn quá hạn (giờ khám đã trôi qua) nhưng vẫn ở trạng thái chưa
+         * hoàn tất — bệnh nhân không đến khám. Dùng cho cron tự động huỷ no-show.
+         */
+        @Query("""
+                        SELECT a
+                        FROM Appointment a
+                        LEFT JOIN FETCH a.patient
+                        WHERE a.appointmentTime < :cutoff
+                          AND a.status IN :statuses
+                        """)
+        List<Appointment> findNoShowAppointments(
+                        @Param("cutoff") LocalDateTime cutoff,
+                        @Param("statuses") Collection<AppointmentStatus> statuses);
 }

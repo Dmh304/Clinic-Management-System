@@ -79,4 +79,11 @@ public interface AppointmentService {
      * lẫn endpoint nhắc thủ công (bỏ qua điều kiện cửa sổ 24h).
      */
     AppointmentResponse sendReminder(Long id);
+
+    /**
+     * Tự động huỷ các lịch hẹn quá hạn mà bệnh nhân không đến khám (no-show):
+     * các lịch còn ở trạng thái PENDING/CONFIRMED nhưng giờ khám đã trôi qua
+     * (thuộc ngày trước đó). Trả về số lịch hẹn đã huỷ. Dùng cho cron job.
+     */
+    int autoCancelNoShowAppointments();
 }
