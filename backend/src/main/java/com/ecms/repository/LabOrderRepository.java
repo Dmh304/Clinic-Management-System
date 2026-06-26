@@ -9,6 +9,8 @@ package com.ecms.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import com.ecms.entity.LabOrder;
+import com.ecms.entity.LabOrderStatus;
+
 import java.util.List;
 
 public interface LabOrderRepository extends JpaRepository<LabOrder, Long> {
@@ -18,31 +20,33 @@ public interface LabOrderRepository extends JpaRepository<LabOrder, Long> {
      * sơ bệnh án)
      * Kết quả trả về được sắp xếp theo thời gian tạo giảm dần (Mới nhất xếp trước)
      */
-    List<LabOrder> findByMedicalRecord_PatientIdOrderByCreatedAtDesc(Long patientId);
+    List<LabOrder> findByMedicalRecord_PatientIdOrderByCreatedAt(Long patientId);
 
     /**
      * Tìm kiếm danh sách các đơn xét nghiệm dựa trên ID của bác sĩ chịu trách nhiệm
      * trong hồ sơ bệnh án
      * Kết quả trả về được sắp xếp theo thời gian tạo giảm dần (Mới nhất xếp trước)
      */
-    List<LabOrder> findByMedicalRecord_DoctorIdOrderByCreatedAtDesc(Long doctorId);
+    List<LabOrder> findByMedicalRecord_DoctorIdOrderByCreatedAt(Long doctorId);
 
     /**
      * Tìm kiếm danh sách các đơn xét nghiệm do một bác sĩ trực tiếp chỉ định/tạo ra
      * Kết quả trả về được sắp xếp theo thời gian tạo giảm dần (Mới nhất xếp trước)
      */
-    List<LabOrder> findByDoctorIdOrderByCreatedAtDesc(Long doctorId);
+    List<LabOrder> findByDoctorIdOrderByCreatedAt(Long doctorId);
 
     /**
      * Tìm kiếm danh sách các đơn xét nghiệm thuộc về một hồ sơ bệnh án cụ thể
      * Kết quả trả về được sắp xếp theo thời gian tạo giảm dần (Mới nhất xếp trước)
      */
-    List<LabOrder> findByMedicalRecordIdOrderByCreatedAtDesc(Long medicalRecordId);
+    List<LabOrder> findByMedicalRecordIdOrderByCreatedAt(Long medicalRecordId);
 
     /**
      * Tìm kiếm danh sách các đơn xét nghiệm được phân công cho một kỹ thuật viên cụ
      * thể thực hiện
      * Kết quả trả về được sắp xếp theo thời gian tạo giảm dần (Mới nhất xếp trước)
      */
-    List<LabOrder> findByLabTechnicianIdOrderByCreatedAtDesc(Long labTechnicianId);
+    List<LabOrder> findByLabTechnicianIdOrderByCreatedAt(Long labTechnicianId);
+
+    boolean existsByMedicalRecordIdAndStatusIn(Long medicalRecordId, List<LabOrderStatus> statuses);
 }

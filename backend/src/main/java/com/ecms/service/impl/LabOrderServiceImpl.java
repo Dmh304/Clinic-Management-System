@@ -75,6 +75,25 @@ public class LabOrderServiceImpl implements LabOrderService {
     @Override
     @Transactional
     public LabOrderResponse createLabOrder(LabOrderRequest request, Long doctorId) {
+        // ── Chặn tạo mới nếu đang có LabOrder chưa hoàn tất ─────────────
+        boolean hasActiveOrder = labOrderRepository.existsByMedicalRecordIdAndStatusIn(
+                request.getMedicalRecordId(),
+                List.of(LabOrderStatus.PENDING, LabOrderStatus.IN_PROGRESS));
+
+        boolean hasUnreviewedOrder = labOrderRepository.existsByMedicalRecordIdAndStatusIn(request.getMedicalRecordId(),
+                List.of(LabOrderStatus.SUBMITTED));
+        if (hasActiveOrder) {
+            throw new IllegalStateException(
+                    "Hồ sơ bệnh án này đang có phiếu xét nghiệm chưa hoàn tất (PENDING hoặc IN_PROGRESS). " +
+                            "Vui lòng chờ kỹ thuật viên hoàn thành trước khi tạo phiếu mới.");
+        }
+
+        if (hasUnreviewedOrder) {
+            throw new IllegalStateException(
+                    "Hồ sơ bệnh án này đang có phiếu xét nghiệm cần được duyệt. Vui lòng kiểm tra danh sách phiếu xét nghiệm cần duyệt");
+        }
+        // ─────────────────────────────────────────────────────────────────
+
         LabOrder labOrder = LabOrder.builder()
                 .medicalRecord(medicalRecordRepository.getReferenceById(request.getMedicalRecordId()))
                 .doctor(doctorRepository.getReferenceById(doctorId))
@@ -97,7 +116,7 @@ public class LabOrderServiceImpl implements LabOrderService {
     @Transactional
     public List<LabOrderResponse> getLabQueue(Long labTechnicianId) {
         return labOrderRepository
-                .findByLabTechnicianIdOrderByCreatedAtDesc(labTechnicianId)
+                .findByLabTechnicianIdOrderByCreatedAt(labTechnicianId)
                 .stream()
                 .map(this::toOrderResponse)
                 .collect(Collectors.toList());
@@ -154,7 +173,7 @@ public class LabOrderServiceImpl implements LabOrderService {
     @Transactional
     public List<LabOrderResponse> getLabOrdersForMedicalRecord(Long medicalRecordId) {
         return labOrderRepository
-                .findByMedicalRecordIdOrderByCreatedAtDesc(medicalRecordId)
+                .findByMedicalRecordIdOrderByCreatedAt(medicalRecordId)
                 .stream()
                 .map(this::toOrderResponse)
                 .collect(Collectors.toList());
@@ -427,7 +446,7 @@ public class LabOrderServiceImpl implements LabOrderService {
     @Override
     @Transactional
     public List<LabOrderResponse> getLabOrdersForDoctor(Long doctorId) {
-        return labOrderRepository.findByDoctorIdOrderByCreatedAtDesc(doctorId)
+        return labOrderRepository.findByDoctorIdOrderByCreatedAt(doctorId)
                 .stream()
                 .map(this::toOrderResponse)
                 .collect(Collectors.toList());

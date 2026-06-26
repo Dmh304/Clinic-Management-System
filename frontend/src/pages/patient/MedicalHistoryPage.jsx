@@ -128,6 +128,7 @@ export default function MedicalHistoryPage() {
   //const [completedList, setCompletedList] = useState([])           // Danh sách các bệnh án đã hoàn thành
   const [listLoading, setListLoading] = useState(false)            // trạng thái chờ tải danh sách bệnh án đã hoàn thành
   const [searchText, setSearchText] = useState('')                 // từ khóa tìm kiếm theo bệnh án tại màn hình danh sách tổng
+  const [statusFilter, setStatusFilter] = useState('ALL')
   const [appointmentList, setAppointmentList] = useState([])       // Danh sách TOÀN BỘ lịch hẹn của bệnh nhân (mọi trạng thái)
   const [drugPrescriptions, setDrugPrescriptions] = useState([])
   const [eyePrescriptions, setEyePrescriptions] = useState([])
@@ -261,13 +262,19 @@ export default function MedicalHistoryPage() {
 
   /* Logic lọc tìm kiếm tại chỗ dựa trên từ khóa bác sĩ hoặc dịch vụ đã nhập */
   const filteredList = appointmentList.filter((r) => {
-    if(!searchText) return true
+    if (statusFilter !== 'ALL' && r.status !== statusFilter) return false
+    if (!searchText) return true
     const keyword = searchText.toLowerCase()
     return (
       r.doctorName?.toLowerCase().includes(keyword) ||
       r.serviceName?.toLowerCase().includes(keyword)
     )
   })
+
+  const statusCounts = appointmentList.reduce((acc, r) => {
+    acc[r.status] = (acc[r.status] || 0) + 1
+    return acc
+  }, {})
 
   /* ================= GIAO DIỆN DANH SÁCH LỊCH SỬ KHÁM TỔNG HỢP ================= */
   if(!medicalRecordId){
@@ -283,7 +290,20 @@ export default function MedicalHistoryPage() {
           </div>
           
           <div style={{ backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
-            
+            {/* Tabs lọc theo trạng thái lịch hẹn - đồng bộ cách làm với LabOrder */}
+            <div style={{ padding: '0 16px', borderBottom: '1px solid #f1f5f9' }}>
+              <Tabs
+                activeKey={statusFilter}
+                onChange={setStatusFilter}
+                items={[
+                  { key: 'ALL', label: `Tất cả (${appointmentList.length})` },
+                    ...Object.entries(APPOINTMENT_STATUS_MAP).map(([key, cfg]) => ({
+                    key,
+                    label: `${cfg.label} (${statusCounts[key] || 0})`,
+                  })),
+                ]}
+              />
+            </div>
             {/* Thanh công cụ tìm kiếm trên danh sách */}
             <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9' }}>
               <Input.Search
