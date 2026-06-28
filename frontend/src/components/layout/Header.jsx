@@ -266,14 +266,18 @@ export default function Header() {
 
           {Object.entries(PROTECTED_GUEST_ROUTES).map(([label, path]) => {
             const active = pathname.startsWith(path)
+            // Nhân viên (mọi role khác PATIENT) không được dùng các tính năng dành cho bệnh nhân này
+            const isLockedForStaff = isAuthenticated && user?.role !== 'PATIENT'
             return (
               <button
                 key={label}
-                onClick={() => handleProtectedLink(path)}
+                disabled={isLockedForStaff}
+                onClick={isLockedForStaff ? undefined : () => handleProtectedLink(path)}
                 style={{
-                  background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                  background: 'none', border: 'none',
+                  cursor: isLockedForStaff ? 'not-allowed' : 'pointer', padding: 0,
                   fontSize: 14,
-                  color: active ? '#1d4ed8' : '#64748b',
+                  color: isLockedForStaff ? '#cbd5e1' : (active ? '#1d4ed8' : '#64748b'),
                   fontWeight: active ? 600 : 400,
                   borderBottom: active ? '2px solid #1d4ed8' : '2px solid transparent',
                   paddingBottom: 2,
@@ -282,7 +286,7 @@ export default function Header() {
                 }}
               >
                 {label}
-                {!isAuthenticated && (
+                {(!isAuthenticated || isLockedForStaff) && (
                   <span style={{ fontSize: 10, color: '#94a3b8' }}>🔒</span>
                 )}
               </button>

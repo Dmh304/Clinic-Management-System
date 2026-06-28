@@ -7,7 +7,7 @@ import { Form, Input, Button, Checkbox, Divider, Tabs, message } from 'antd'
 import { MailOutlined, LockOutlined, EyeInvisibleOutlined, EyeTwoTone, QuestionCircleOutlined, SafetyOutlined } from '@ant-design/icons'
 import { GoogleLogin } from '@react-oauth/google'
 import { useDispatch } from 'react-redux'
-import { useNavigate, useLocation, Link } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { loginSuccess } from '../../store/slices/authSlice'
 import authService from '../../services/authService'
 import Header from '../../components/layout/Header'
@@ -15,6 +15,8 @@ import Header from '../../components/layout/Header'
 const ROLE_REDIRECT = {
   PATIENT: '/patient/dashboard',
   DOCTOR: '/doctor/dashboard',
+  NURSE: '/nurse/queue',
+  RECEPTIONIST: '/receptionist/appointments',
   LAB_TECHNICIAN: '/lab/queue',
   PHARMACIST: '/pharmacy/dispensing',
   MANAGER: '/manager/dashboard',
@@ -208,7 +210,6 @@ function ClinicEyeSvg() {
 export default function LoginPage() {
   const dispatch = useDispatch()
   const navigate = useNavigate()
-  const location = useLocation()
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [form] = Form.useForm()
@@ -232,7 +233,7 @@ export default function LoginPage() {
       const { token, userId, email, fullName, role, doctorId } = res.data
       dispatch(loginSuccess({ token, userId, email, fullName, role, doctorId }))
       message.success('Đăng nhập thành công!')
-      navigate(location.state?.from ?? '/', { replace: true })
+      navigate('/', { replace: true })
     } catch (err) {
       if (!err.response) {
         // Không có phản hồi — backend chưa khởi động hoặc mạng lỗi
@@ -256,7 +257,7 @@ export default function LoginPage() {
       const { token, userId, email, fullName, role, doctorId } = res.data
       dispatch(loginSuccess({ token, userId, email, fullName, role, doctorId }))
       message.success('Đăng nhập bằng Google thành công!')
-      navigate(location.state?.from ?? '/', { replace: true })
+      navigate('/', { replace: true })
     } catch (err) {
       if (!err.response) {
         setErrorMsg('Không thể kết nối đến máy chủ. Hãy kiểm tra backend đang chạy tại cổng 8080.')
