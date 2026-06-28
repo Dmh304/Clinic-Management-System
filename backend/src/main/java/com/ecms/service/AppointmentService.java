@@ -18,6 +18,9 @@ public interface AppointmentService {
 
     List<AppointmentResponse> getAllAppointments();
 
+    List<AppointmentResponse> getMyAppointments(Long patientId);
+
+    // Xác nhận lịch hẹn và phân công bác sĩ phụ trách (nếu có)
     AppointmentResponse confirmAppointment(Long id, Long doctorId);
 
     AppointmentResponse checkInAppointment(Long id);
@@ -40,6 +43,9 @@ public interface AppointmentService {
 
     List<AppointmentResponse> getDailySchedule(LocalDate date);
 
-    /** Lịch hẹn trong khoảng ngày [startDate, endDate] — dùng cho calendar view tuần/tháng */
+    /**
+     * Lịch hẹn trong khoảng ngày [startDate, endDate] — dùng cho calendar view
+     * tuần/tháng
+     */
     List<AppointmentResponse> getScheduleRange(LocalDate startDate, LocalDate endDate);
 }

@@ -9,6 +9,7 @@ package com.ecms.dto.response;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Getter
@@ -38,6 +39,15 @@ public class EMRResponse {
 
     /** Số điện thoại liên hệ của bệnh nhân */
     private String patientPhone;
+
+    /** Ngày sinh của bệnh nhân */
+    private LocalDate patientDob;
+
+    /** Giới tính của bệnh nhân */
+    private String patientGender;
+
+    /** Địa chỉ thường trú của bệnh nhân */
+    private String patientAddress;
 
     /** Mã định danh của bác sĩ chịu trách nhiệm khám và lập bệnh án */
     private Long doctorId;

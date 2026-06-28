@@ -21,6 +21,27 @@ const STATUS_MAP = {
   COMPLETED:   { color: 'success',    label: 'Hoàn thành' },
 }
 
+const calculateAge = (dobString) => {
+  if (!dobString) return '—';
+  const today = new Date();
+  const birthDate = new Date(dobString);
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+};
+
+const textEllipsisStyle = {
+  display: '-webkit-box',
+  WebkitLineClamp: 1, // Số dòng muốn hiển thị trước khi cắt (ở đây là 1 dòng)
+  WebkitBoxOrient: 'vertical',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  wordBreak: 'break-all' // Giúp cắt từ chuẩn xác theo độ rộng cột
+};
+
 // Component hiển thị các trường nhập liệu dành cho khám lâm sàng Mắt (thị lực, nhãn áp, khúc xạ...)
 function EyeFields({ prefix, label }) {
   return (
@@ -78,13 +99,21 @@ function HistoryCard({ record, onClick }) {
       {record.chiefComplaint && (
         <div style={{ marginBottom: 4 }}>
           <span style={{ fontSize: 12, color: '#64748b', fontWeight: 500 }}>Lý do khám: </span>
-          <span style={{ fontSize: 12, color: '#334155' }}>{record.chiefComplaint}</span>
+          <span style={{ fontSize: 12, color: '#334155' }}>
+            <div title={record.chiefComplaint} style={{ ...textEllipsisStyle, fontSize: 12, color: '#334155' }}>
+              {record.chiefComplaint}
+            </div>
+          </span>
         </div>
       )}
       {record.diagnosis && (
         <div style={{ marginBottom: 4 }}>
           <span style={{ fontSize: 12, color: '#64748b', fontWeight: 500 }}>Chẩn đoán: </span>
-          <span style={{ fontSize: 12, color: '#334155' }}>{record.diagnosis}</span>
+          <span style={{ fontSize: 12, color: '#334155' }}>
+            <div title={record.diagnosis} style={{ ...textEllipsisStyle, fontSize: 12, color: '#334155' }}>
+              {record.diagnosis}
+            </div>
+          </span>
         </div>
       )}
       {record.treatmentPlan && (
@@ -118,9 +147,10 @@ export default function EMRPage() {
   const [history, setHistory] = useState([])                       // mảng lưu danh sách các lần khám trước đó của bệnh nhân
   const [loading, setLoading] = useState(!!appointmentId)          // trạng thái chờ tải thông tin bệnh án chi tiết
   const [saving, setSaving] = useState(false)                      // trạng thái chờ khi bấm nút lưu
-  const [completedList, setCompletedList] = useState([])           // Danh sách các bệnh án đã hoàn thành
+  const [allList, setAllList] = useState([])           // Danh sách các bệnh án đã hoàn thành
   const [listLoading, setListLoading] = useState(false)            // trạng thái chờ tải danh sách bệnh án đã hoàn thành
   const [searchText, setSearchText] = useState('')                 // từ khóa tìm kiếm theo bệnh án tại màn hình danh sách tổng
+  const [statusFilter, setStatusFilter] = useState('ALL')  // 'ALL' | 'DRAFT' | 'IN_PROGRESS' | 'COMPLETED'
 
   // Hàm tiện ích: chuyển đổi object dữ liệu thô từ server (API trả về)
   // sang định dạng object có cấu trúc tương thích với tên các trường (name) khai báo trong Form của Ant Design.
@@ -173,11 +203,11 @@ export default function EMRPage() {
   }, [patientId, appointmentId])
 
   /* Gọi API tải danh sách toàn bộ các bệnh án đã hoàn thành */
-  const fetchCompletedList = useCallback(async () => {
+  const fetchAllList = useCallback(async () => {
     setListLoading(true)
     try{
-      const res = await emrService.getCompletedList()
-      setCompletedList(res.data ?? [])
+      const res = await emrService.getAllList()
+      setAllList(res.data ?? [])
     } catch {
       message.error('Không thể tải danh sách bệnh án')
     } finally {
@@ -187,8 +217,8 @@ export default function EMRPage() {
 
   /* Hook khởi chạy: tải danh sách tổng nếu url không có appointmentId */
   useEffect(() => {
-    if(!appointmentId) fetchCompletedList()
-  }, [appointmentId, fetchCompletedList])
+    if(!appointmentId) fetchAllList()
+  }, [appointmentId, fetchAllList])
 
   /* Reset toàn bộ form và state khi id lịch hẹn thay đổi */
   useEffect(() => {
@@ -247,9 +277,11 @@ export default function EMRPage() {
     }
   }
 
-  /* Xử lí bộ lọc tìm kiếm tại chỗ trên danh sách các bệnh án đã hoàn thành */
-  const filteredList = completedList.filter((r) => {
-    if(!searchText) return true
+  /* Lọc danh sách theo từ khóa tìm kiếm và tab trạng thái */
+  const filteredList = allList.filter((r) => {
+    const matchStatus = statusFilter === 'ALL' || r.status === statusFilter
+    if (!matchStatus) return false
+    if (!searchText) return true
     const keyword = searchText.toLowerCase()
     return (
       r.patientName?.toLowerCase().includes(keyword) ||
@@ -258,7 +290,22 @@ export default function EMRPage() {
   })
 
   /* Biến cờ kiểm tra xem hồ sơ này đã được chốt hoàn thành chưa */
-  const isCompleted = emr?.status === 'COMPLETED'
+  //const isCompleted = emr?.status === 'COMPLETED'
+
+    /* Đếm số lượng theo từng trạng thái để hiển thị trên tab */
+  const countByStatus = (status) =>
+    status === 'ALL'
+      ? allList.length
+      : allList.filter((r) => r.status === status).length
+
+    /*
+   * isReadOnly: readonly nếu thoả 1 trong 2 điều kiện:
+   * 1. Hồ sơ đã COMPLETED (đã khoá, không ai chỉnh sửa được)
+   * 2. Hồ sơ thuộc bác sĩ khác (không phải bác sĩ đang đăng nhập)
+   */
+  const currentDoctorId = user?.doctorId ?? user?.id
+  const isOwner = emr?.doctorId != null && emr.doctorId === currentDoctorId
+  const isReadOnly = !!emr && (emr.status === 'COMPLETED' || !isOwner)
 
   // Render khi Bác sĩ CHƯA CHỌN bệnh nhân nào
   // Hiển thị một giao diện hướng dẫn người dùng quay lại Dashboard để chọn lịch hẹn.
@@ -283,6 +330,46 @@ export default function EMRPage() {
             style={{ maxWidth: 400 }}
           />
         </div>
+                  {/* Tabs filter theo trạng thái */}
+          <div style={{ padding: '0 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: 4 }}>
+            {[
+              { key: 'ALL',        label: 'Tất cả' },
+              { key: 'DRAFT',      label: 'Nháp' },
+              { key: 'IN_PROGRESS',label: 'Đang khám' },
+              { key: 'COMPLETED',  label: 'Hoàn thành' },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setStatusFilter(tab.key)}
+                style={{
+                  padding: '10px 14px',
+                  border: 'none',
+                  borderBottom: statusFilter === tab.key ? '2px solid #0d9488' : '2px solid transparent',
+                  background: 'none',
+                  cursor: 'pointer',
+                  fontSize: 13,
+                  fontWeight: statusFilter === tab.key ? 600 : 400,
+                  color: statusFilter === tab.key ? '#0d9488' : '#64748b',
+                  transition: 'all 0.15s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                {tab.label}
+                <span style={{
+                  backgroundColor: statusFilter === tab.key ? '#0d9488' : '#e2e8f0',
+                  color: statusFilter === tab.key ? '#fff' : '#64748b',
+                  borderRadius: 10,
+                  padding: '1px 7px',
+                  fontSize: 11,
+                  fontWeight: 600,
+                }}>
+                  {countByStatus(tab.key)}
+                </span>
+              </button>
+            ))}
+          </div>
         <Spin spinning={listLoading}>
           {filteredList.length === 0 && !listLoading ? (
             <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8', fontSize: 14 }}>
@@ -314,10 +401,34 @@ export default function EMRPage() {
                       {r.createdAt ? new Date(r.createdAt).toLocaleDateString('vi-VN') : '—'}
                     </td>
                     <td style={{ padding: '12px 16px', fontSize: 13, color: '#475569', maxWidth: 200 }}>
+                      <div 
+                            title={r.chiefComplaint ?? '—'} 
+                            style={{
+                              display: '-webkit-box',
+                              WebkitLineClamp: 1,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              wordBreak: 'break-all'
+                            }}
+                      >
                       {r.chiefComplaint ?? '—'}
+                      </div>
                     </td>
                     <td style={{ padding: '12px 16px', fontSize: 13, color: '#475569', maxWidth: 200 }}>
+                      <div 
+                          title={r.diagnosis ?? '—'} 
+                          style={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: 1,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            wordBreak: 'break-all'
+                          }}
+                      >
                       {r.diagnosis ?? '—'}
+                      </div>
                     </td>
                     <td style={{ padding: '12px 16px', fontSize: 12, color: '#64748b' }}>
                       {r.doctorName ?? '—'}
@@ -360,6 +471,11 @@ export default function EMRPage() {
                 {STATUS_MAP[emr.status]?.label ?? emr.status}
               </Tag>
             )}
+            {/* Nhãn cảnh báo readonly khi xem hồ sơ của bác sĩ khác */}
+            {!!emr && !isOwner && emr.status !== 'COMPLETED' && (
+              <Tag color="orange">Chỉ xem — hồ sơ của bác sĩ khác</Tag>
+            )}
+
           </div>
         </div>
 
@@ -379,11 +495,49 @@ export default function EMRPage() {
 
       <Spin spinning={loading}>
         {!loading && (
+          <div>
+          {/* ================= THẺ THÔNG TIN CHI TIẾT BỆNH NHÂN (MỚI THÊM) ================= */}
+      <div style={{ 
+        backgroundColor: '#fff', 
+        borderRadius: 12, 
+        boxShadow: '0 1px 4px rgba(0,0,0,0.06)', 
+        padding: '16px 24px', 
+        marginBottom: 16,
+        borderLeft: '4px solid #0d9488' // Tạo điểm nhấn màu Teal đồng bộ với nút của bạn
+      }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+          <div>
+            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Họ và tên</div>
+            <div style={{ fontWeight: 600, color: '#1e293b', fontSize: 14 }}>{emr?.patientName ?? '—'}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Ngày sinh / Tuổi</div>
+            <div style={{ fontWeight: 500, color: '#334155' }}>
+              {emr?.patientDob ? new Date(emr.patientDob).toLocaleDateString('vi-VN') : '—'} 
+              {emr?.patientDob && ` (${calculateAge(emr.patientDob)} tuổi)`}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Giới tính</div>
+            <div style={{ fontWeight: 500, color: '#334155' }}>{emr?.patientGender === 'FEMALE' ? 'Nữ' : 
+     emr?.patientGender === 'MALE' ? 'Nam' : (emr?.patientGender ?? '—')}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Số điện thoại</div>
+            <div style={{ fontWeight: 500, color: '#334155' }}>{emr?.patientPhone ?? '—'}</div>
+          </div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Địa chỉ thường trú</div>
+            <div style={{ fontWeight: 500, color: '#334155' }}>{emr?.patientAddress ?? '—'}</div>
+          </div>
+        </div>
+      </div>
+      {/* ========================================================================= */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 16, alignItems: 'start' }}>
           
           {/* form nhập liệu bệnh án hiện tại */}
           <div style={{ backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
-            <Form form={form} layout="vertical" disabled={isCompleted} style={{ padding: '20px 24px' }}>
+            <Form form={form} layout="vertical" disabled={isReadOnly} style={{ padding: '20px 24px' }}>
               <Tabs
                 size="small"
                 items={[
@@ -433,7 +587,7 @@ export default function EMRPage() {
             </Form>
 
             {/* Khu vực Actions (Thao tác lưu): Chỉ hiện khi hồ sơ chưa HOÀN THÀNH */}
-            {!isCompleted && !loading && (
+            {!isReadOnly && !loading && (
               <div style={{
                 borderTop: '1px solid #f1f5f9', padding: '14px 24px',
                 display: 'flex', gap: 10, justifyContent: 'flex-end',
@@ -475,6 +629,7 @@ export default function EMRPage() {
               />
             ))
             }
+            </div>
           </div>
         </div>
         )}
