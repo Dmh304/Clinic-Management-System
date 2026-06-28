@@ -4,17 +4,25 @@
 // xem BR-09).
 package com.ecms.controller;
 
+import com.ecms.dto.request.CreateNotificationTemplateRequest;
 import com.ecms.dto.request.CreateStaffUserRequest;
+import com.ecms.dto.request.UpdateClinicInfoRequest;
+import com.ecms.dto.request.UpdateNotificationTemplateRequest;
 import com.ecms.dto.request.UpdateStaffUserRequest;
 import com.ecms.dto.response.ApiResponse;
 import com.ecms.dto.response.AuditLogResponse;
+import com.ecms.dto.response.ClinicInfoResponse;
+import com.ecms.dto.response.NotificationTemplateResponse;
 import com.ecms.dto.response.PageResponse;
 import com.ecms.dto.response.PatientAccountResponse;
+import com.ecms.dto.response.RolePermissionResponse;
 import com.ecms.dto.response.StaffUserResponse;
 import com.ecms.entity.UserStatus;
 import com.ecms.service.AdminPatientService;
 import com.ecms.service.AdminUserService;
 import com.ecms.service.AuditLogService;
+import com.ecms.service.NotificationTemplateService;
+import com.ecms.service.SystemConfigService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -26,6 +34,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/admin")
@@ -35,6 +44,8 @@ public class AdminController {
     private final AuditLogService auditLogService;
     private final AdminUserService adminUserService;
     private final AdminPatientService adminPatientService;
+    private final SystemConfigService systemConfigService;
+    private final NotificationTemplateService notificationTemplateService;
 
     // ───────────────────────── UC-55: Manage User Account ─────────────────────────
 
@@ -141,6 +152,68 @@ public class AdminController {
             @PathVariable Long id, Authentication authentication, HttpServletRequest httpRequest) {
         var data = adminPatientService.resetPatientPassword(id, authentication.getName(), clientIp(httpRequest));
         return ResponseEntity.ok(ApiResponse.success("Đặt lại mật khẩu thành công, email đã được gửi", data));
+    }
+
+    // ───────────────────────── UC-56: Configure System and Data ─────────────────────────
+
+    // Đọc thông tin chung của clinic (tên, địa chỉ, số điện thoại, giờ làm việc)
+    @GetMapping("/config/clinic-info")
+    public ResponseEntity<ApiResponse<ClinicInfoResponse>> getClinicInfo() {
+        return ResponseEntity.ok(ApiResponse.success(systemConfigService.getClinicInfo()));
+    }
+
+    // Cập nhật thông tin chung của clinic
+    @PutMapping("/config/clinic-info")
+    public ResponseEntity<ApiResponse<ClinicInfoResponse>> updateClinicInfo(
+            @Valid @RequestBody UpdateClinicInfoRequest request,
+            Authentication authentication, HttpServletRequest httpRequest) {
+        var data = systemConfigService.updateClinicInfo(request, authentication.getName(), clientIp(httpRequest));
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật thông tin phòng khám thành công", data));
+    }
+
+    // Danh sách mẫu thông báo (email/SMS/in-app)
+    @GetMapping("/config/notification-templates")
+    public ResponseEntity<ApiResponse<List<NotificationTemplateResponse>>> getNotificationTemplates() {
+        return ResponseEntity.ok(ApiResponse.success(notificationTemplateService.getAll()));
+    }
+
+    // Tạo mẫu thông báo mới
+    @PostMapping("/config/notification-templates")
+    public ResponseEntity<ApiResponse<NotificationTemplateResponse>> createNotificationTemplate(
+            @Valid @RequestBody CreateNotificationTemplateRequest request,
+            Authentication authentication, HttpServletRequest httpRequest) {
+        var data = notificationTemplateService.create(request, authentication.getName(), clientIp(httpRequest));
+        return ResponseEntity.ok(ApiResponse.success("Tạo template thành công", data));
+    }
+
+    // Sửa subject/body/variablesHint của một mẫu thông báo (không đổi templateKey/channel)
+    @PutMapping("/config/notification-templates/{id}")
+    public ResponseEntity<ApiResponse<NotificationTemplateResponse>> updateNotificationTemplate(
+            @PathVariable Long id, @Valid @RequestBody UpdateNotificationTemplateRequest request,
+            Authentication authentication, HttpServletRequest httpRequest) {
+        var data = notificationTemplateService.update(id, request, authentication.getName(), clientIp(httpRequest));
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật template thành công", data));
+    }
+
+    // Soft "delete": vô hiệu hoá template (BR-09, không hard delete)
+    @PatchMapping("/config/notification-templates/{id}/deactivate")
+    public ResponseEntity<ApiResponse<NotificationTemplateResponse>> deactivateNotificationTemplate(
+            @PathVariable Long id, Authentication authentication, HttpServletRequest httpRequest) {
+        var data = notificationTemplateService.deactivate(id, authentication.getName(), clientIp(httpRequest));
+        return ResponseEntity.ok(ApiResponse.success("Đã vô hiệu hoá template", data));
+    }
+
+    // Hard-delete bị chặn tuyệt đối cho config/template (BR-09) — dùng deactivate ở trên
+    @DeleteMapping("/config/notification-templates/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteNotificationTemplate(@PathVariable Long id) {
+        return ResponseEntity.badRequest().body(ApiResponse.error(
+                "This item is in use. Deactivate instead of deleting."));
+    }
+
+    // Danh sách role + quyền tương ứng — read-only, lấy từ bảng tra cứu tĩnh trong code
+    @GetMapping("/config/roles-permissions")
+    public ResponseEntity<ApiResponse<List<RolePermissionResponse>>> getRolesPermissions() {
+        return ResponseEntity.ok(ApiResponse.success(systemConfigService.getRolesPermissions()));
     }
 
     // Lấy IP thật của client, ưu tiên header X-Forwarded-For nếu request đi qua proxy/load balancer
