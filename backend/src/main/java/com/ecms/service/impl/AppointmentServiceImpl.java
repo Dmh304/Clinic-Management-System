@@ -21,6 +21,7 @@ import com.ecms.exception.ResourceNotFoundException;
 import com.ecms.repository.AppointmentRepository;
 import com.ecms.repository.ClinicServiceRepository;
 import com.ecms.repository.DoctorRepository;
+import com.ecms.repository.MedicalRecordRepository;
 import com.ecms.repository.PatientRepository;
 import com.ecms.repository.UserRepository;
 import com.ecms.service.AppointmentService;
@@ -28,6 +29,8 @@ import com.ecms.service.EmailService;
 import com.ecms.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import org.apache.coyote.BadRequestException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -54,6 +57,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         private final UserRepository userRepository;
         private final NotificationService notificationService;
         private final EmailService emailService;
+        private final MedicalRecordRepository medicalRecordRepository;
 
         /* Lấy danh sách toàn bộ lịch hẹn trong ngày hôm nay */
         @Override
@@ -744,6 +748,42 @@ public class AppointmentServiceImpl implements AppointmentService {
                                 "Đã gửi nhắc lịch cho " + patientName, saved.getId());
 
                 return toResponse(saved);
+        }
+
+        /**
+         * Dừng ca khám giữa chừng:
+         * 1. Validate: appointment phải đang IN_PROGRESS
+         * 2. Chuyển appointment → CANCELLED
+         * 3. Nếu tồn tại MedicalRecord gắn với appointment này → đưa về DRAFT
+         */
+        @Override
+        @Transactional
+        public AppointmentResponse abandonExam(Long appointmentId) {
+                Appointment appointment = appointmentRepository.findById(appointmentId)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "Không tìm thấy lịch hẹn #" + appointmentId));
+
+                if (appointment.getStatus() != AppointmentStatus.IN_PROGRESS) {
+                        throw new IllegalStateException(
+                                        "Chỉ có thể dừng ca khám đang ở trạng thái IN_PROGRESS. " +
+                                                        "Trạng thái hiện tại: " + appointment.getStatus());
+                }
+
+                // Chuyển appointment về CANCELLED
+                appointment.setStatus(AppointmentStatus.CANCELLED);
+                appointment.setCancelReason("Bác sĩ dừng khám giữa chừng");
+                appointmentRepository.save(appointment);
+
+                // Nếu đã tạo Medical Record cho appointment này → đưa về DRAFT
+                medicalRecordRepository.findByAppointmentId(appointmentId).ifPresent(record -> {
+                        // Chỉ revert nếu record chưa COMPLETED (tránh mất dữ liệu đã hoàn tất)
+                        if (record.getStatus() != MedicalRecordStatus.COMPLETED) {
+                                record.setStatus(MedicalRecordStatus.DRAFT);
+                                medicalRecordRepository.save(record);
+                        }
+                });
+
+                return toResponse(appointment);
         }
 
         private AppointmentResponse toResponse(Appointment a) {

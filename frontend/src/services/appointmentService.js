@@ -38,8 +38,8 @@ export const appointmentService = {
     axiosClient.post('/v1/appointments/walk-in', data),
 
   /* Hàm lấy thông tin thống kê số liệu lịch hẹn cho Dashboard (tổng số ca, ca chờ, ca hoàn thành...) */
-  getDashboard: () =>
-    axiosClient.get('/v1/appointments/dashboard'),
+  getDashboard: (date) =>
+    axiosClient.get('/v1/appointments/dashboard', { params: { date }}),
 
   /* Hàm lấy danh sách hàng đợi bệnh nhân dành riêng cho tài khoản Bác sĩ đang đăng nhập */
   getDoctorQueue: (date) =>
@@ -67,4 +67,7 @@ export const appointmentService = {
   /* UC-13: gửi nhắc lịch thủ công cho 1 lịch hẹn (bỏ qua cửa sổ 24h) */
   sendReminder: (id) =>
     axiosClient.post(`/v1/appointments/${id}/send-reminder`),
+
+  abandonExam: (appointmentId) =>
+    axiosClient.post(`/v1/appointments/${appointmentId}/abandon`),
 }

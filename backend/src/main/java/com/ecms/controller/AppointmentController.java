@@ -254,6 +254,21 @@ public class AppointmentController {
                 return ResponseEntity.ok(ApiResponse.success(appointmentService.getScheduleRange(startDate, endDate)));
         }
 
+        /**
+         * Bác sĩ dừng ca khám giữa chừng (bệnh nhân bỏ về).
+         * - Appointment → CANCELLED
+         * - MedicalRecord (nếu có, thuộc appointment này) → DRAFT
+         *
+         * Chỉ cho phép khi appointment đang ở trạng thái IN_PROGRESS.
+         */
+        @PostMapping("/{id}/abandon")
+        public ResponseEntity<ApiResponse<AppointmentResponse>> abandonExam(
+                        @PathVariable Long id,
+                        @AuthenticationPrincipal UserDetails userDetails) {
+                return ResponseEntity.ok(
+                                ApiResponse.success("Đã dừng ca khám", appointmentService.abandonExam(id)));
+        }
+
         /*
          * DTO nội bộ (Inner Static Class) nhận thông tin bổ sung khi xác nhận lịch hẹn
          */

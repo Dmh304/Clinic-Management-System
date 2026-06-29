@@ -102,4 +102,6 @@ public interface AppointmentService {
          * lẫn endpoint nhắc thủ công (bỏ qua điều kiện cửa sổ 24h).
          */
         AppointmentResponse sendReminder(Long id);
+
+        AppointmentResponse abandonExam(Long appointmentId);
 }

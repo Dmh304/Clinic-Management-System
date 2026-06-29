@@ -15,6 +15,7 @@ import Header from '../../components/layout/Header'
 import { Form, Input, InputNumber, Button, message, Tag, Spin, Row, Col, Divider, Card } from 'antd'
 import { labService } from '../../services/labService'
 import { uploadImageToCloudinary } from '../../utils/uploadImage'
+import useConfirmAction from '../../hooks/useConfirmAction'
 
 const { TextArea } = Input
 
@@ -199,6 +200,8 @@ export default function LabResultEntryPage() {
   const [orderInfo, setOrderInfo] = useState(null)           // Thông tin hành chính và chỉ định của phiếu xét nghiệm
   const [imageUrls, setImageUrls] = useState([])             // Mảng lưu trữ danh sách URL ảnh phục vụ cho upload
 
+  const { confirmAction, contextHolder } = useConfirmAction()
+  
   /**
    * Luồng Effect: Chịu trách nhiệm khởi tạo trang
    * Kiểm tra tính hợp lệ của tham số orderId, tải dữ liệu hành chính của phiếu và lấy thông tin kết quả đo khám cũ nếu có
@@ -262,37 +265,55 @@ export default function LabResultEntryPage() {
   }, [orderId, readonly, form, navigate])
 
   /**
-   * Xử lý gửi kết quả xét nghiệm chính thức lên Server (Chuyển trạng thái đơn sang SUBMITTED)
+   * Logic gửi kết quả thực sự — được gọi sau khi user xác nhận trong dialog
    */
-  const handleSubmit = async (values) => {          // values - Các giá trị thu thập được từ cấu trúc Form của Ant Design
+  const executeSubmit = async (values) => {
     setSubmitting(true)
     try {
-      // Chuẩn hóa cấu trúc dữ liệu trước khi gửi đi
       const payload = {
         labOrderId: Number(orderId),
         ...values,
-        imageUrls: imageUrls,   // Đưa mảng URL ảnh thu được từ state vào payload
-        imageUrl: undefined,    // Loại bỏ trường dữ liệu đơn lẻ cũ (nếu có hệ thống cũ lưu 1 ảnh) để đồng bộ API mới
+        imageUrls: imageUrls,
+        imageUrl: undefined,
       }
-      // Gửi dữ liệu cập nhật chính thức lên server
       await labService.submitResult(orderId, payload)
       message.success('Đã gửi kết quả xét nghiệm thành công!')
-      navigate('/lab/queue') // Quay trở lại màn hình hàng đợi sau khi xử lý thành công
+      navigate('/lab/queue')
     } catch (err) {
       message.error(err.response?.data?.message || 'Gửi kết quả thất bại')
     } finally {
       setSubmitting(false)
     }
   }
+  
+  /**
+   * Xử lý gửi kết quả xét nghiệm chính thức:
+   * Form validate xong → mở dialog xác nhận → nếu đồng ý thì mới gọi API
+   */
+  const handleSubmit = async (values) => {
+    const priorityLabel = PRIORITY_MAP[orderInfo?.priority]?.label ?? orderInfo?.priority ?? '—'
+    confirmAction({
+      type: 'warning',
+      title: 'Xác nhận gửi kết quả xét nghiệm',
+      description: 'Kết quả sẽ được gửi đến bác sĩ để xem xét. Vui lòng kiểm tra lại trước khi xác nhận.',
+      details: [
+        { label: 'Bệnh nhân',      value: orderInfo?.patientFullName ?? '—' },
+        { label: 'Bác sĩ chỉ định', value: orderInfo?.doctorFullName ?? '—' },
+        { label: 'Độ ưu tiên',     value: priorityLabel },
+        { label: 'Số ảnh đính kèm', value: `${imageUrls.length} ảnh` },
+      ],
+      confirmText: 'Gửi kết quả',
+      onConfirm: () => executeSubmit(values),
+    })
+  }
 
   /**
-   * Thu thập dữ liệu hiện tại trên Form để lưu trạng thái nháp (Chuyển trạng thái đơn sang IN_PROGRESS)
-   * Giúp kỹ thuật viên giữ lại tiến trình làm việc nếu chưa đo xong hoặc cần bổ sung ảnh sau
+   * Logic lưu nháp thực sự — được gọi sau khi user xác nhận trong dialog
    */
-  const handleSaveDraft = async () => {
+  const executeSaveDraft = async () => {
     setSavingDraft(true)
     try {
-      const values = form.getFieldsValue() // Lấy dữ liệu tạm thời trên Form bất kể có thỏa mãn luật Validate hay không
+      const values = form.getFieldsValue()
       const payload = {
         vaL: values.vaL, vaR: values.vaR,
         bcvaL: values.bcvaL, bcvaR: values.bcvaR,
@@ -310,6 +331,24 @@ export default function LabResultEntryPage() {
     } finally {
       setSavingDraft(false)
     }
+  }
+
+  /**
+   * Thu thập dữ liệu hiện tại trên Form để lưu trạng thái nháp (Chuyển trạng thái đơn sang IN_PROGRESS)
+   * Giúp kỹ thuật viên giữ lại tiến trình làm việc nếu chưa đo xong hoặc cần bổ sung ảnh sau
+   */
+  const handleSaveDraft = () => {
+    confirmAction({
+      type: 'info',
+      title: 'Lưu nháp kết quả xét nghiệm',
+      description: 'Dữ liệu hiện tại sẽ được lưu tạm. Bạn có thể tiếp tục chỉnh sửa sau.',
+      details: [
+        { label: 'Bệnh nhân', value: orderInfo?.patientFullName ?? '—' },
+        { label: 'Số ảnh đính kèm', value: `${imageUrls.length} ảnh` },
+      ],
+      confirmText: 'Lưu nháp',
+      onConfirm: executeSaveDraft,
+    })
   }
 
   // Bản đồ cấu hình nhãn màu sắc phục vụ hiển thị mức độ ưu tiên của ca bệnh
@@ -333,6 +372,8 @@ export default function LabResultEntryPage() {
 
   return (
     <>
+      {/* REQUIRED: contextHolder phải được mount để dialog hoạt động */}
+      {contextHolder}
       <Header />
       <div style={{ padding: 24, backgroundColor: '#f8fafc', minHeight: 'calc(100vh - 64px)' }}>
         <div style={{ maxWidth: 1000, margin: '0 auto' }}>

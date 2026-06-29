@@ -13,6 +13,7 @@ import { emrService } from '../../services/emrService'
 import { labService } from '../../services/labService'
 import DrugPrescriptionForm from './components/DrugPrescriptionForm'
 import EyeglassPrescriptionForm from './components/EyeglassPrescriptionForm'
+import useConfirmAction from '../../hooks/useConfirmAction'
 
 const { TextArea } = Input
 const { Panel } = Collapse
@@ -140,6 +141,8 @@ export default function EMRPage() {
   const { user } = useSelector((s) => s.auth)        // lấy thông tin tài khoản bác sĩ đang đăng nhập
   const [form] = Form.useForm()
 
+  const { confirmAction, contextHolder } = useConfirmAction()
+
    /* Trích xuất các tham số điều hướng từ url */
   const appointmentId = searchParams.get('appointmentId')                                  // id của lịch khám
   const patientId = searchParams.get('patientId')                                          // id của bệnh nhân
@@ -180,31 +183,58 @@ const openLabModal = async () => {
   }
 }
 
-// Tạo lab order
-const handleCreateLabOrder = async () => {
-  if (!labTechnicianId) {
-    message.warning('Vui lòng chọn kỹ thuật viên')
-    return
+/**
+   * Logic tạo lab order thực sự — được gọi sau khi user xác nhận trong dialog
+   */
+  const executeCreateLabOrder = async () => {
+    setCreatingOrder(true)
+    try {
+      await labService.createLabOrder({
+        medicalRecordId:  emr?.id,
+        labTechnicianId:  labTechnicianId,
+        priority:         labPriority,
+        notes:            labNotes,
+      })
+      message.success('Đã tạo phiếu chỉ định xét nghiệm thành công!')
+      setLabModal(false)
+      setLabTechnicianId(null)
+      setLabPriority('NORMAL')
+      setLabNotes('')
+    } catch (e) {
+      message.error(e?.response?.data?.message || 'Tạo phiếu xét nghiệm thất bại')
+    } finally {
+      setCreatingOrder(false)
+    }
   }
-  setCreatingOrder(true)
-  try {
-    await labService.createLabOrder({
-      medicalRecordId:  emr?.id,
-      labTechnicianId:  labTechnicianId,
-      priority:         labPriority,
-      notes:            labNotes,
+
+
+  /**
+   * Tạo lab order: kiểm tra đầu vào → mở dialog xác nhận → gọi API nếu đồng ý
+   */
+  const handleCreateLabOrder = () => {
+    if (!labTechnicianId) {
+      message.warning('Vui lòng chọn kỹ thuật viên')
+      return
+    }
+
+    const selectedTech = labTechnicians.find((lt) => lt.id === labTechnicianId)
+    const PRIORITY_LABEL = { PRIMARY: '🟢 Thường', WARNING: '🟠 Nghiêm trọng', EMERGENCY: '🔴 Khẩn cấp' }
+
+    confirmAction({
+      type: 'warning',
+      title: 'Xác nhận tạo phiếu chỉ định xét nghiệm',
+      description: 'Phiếu sẽ được gửi đến kỹ thuật viên ngay sau khi xác nhận.',
+      details: [
+        { label: 'Bệnh nhân',      value: emr?.patientName ?? '—' },
+        { label: 'Kỹ thuật viên',  value: selectedTech?.fullName ?? '—' },
+        { label: 'Mức độ ưu tiên', value: PRIORITY_LABEL[labPriority] ?? labPriority },
+        ...(labNotes ? [{ label: 'Ghi chú', value: labNotes }] : []),
+      ],
+      confirmText: 'Tạo phiếu',
+      onConfirm: executeCreateLabOrder,
     })
-    message.success('Đã tạo phiếu chỉ định xét nghiệm thành công!')
-    setLabModal(false)
-    setLabTechnicianId(null)
-    setLabPriority('NORMAL')
-    setLabNotes('')
-  } catch (e) {
-    message.error(e?.response?.data?.message || 'Tạo phiếu xét nghiệm thất bại')
-  } finally {
-    setCreatingOrder(false)
   }
-}
+
 
   // Hàm tiện ích: chuyển đổi object dữ liệu thô từ server (API trả về)
   // sang định dạng object có cấu trúc tương thích với tên các trường (name) khai báo trong Form của Ant Design.
@@ -305,14 +335,15 @@ const handleCreateLabOrder = async () => {
     status,
   })
 
-  // Hàm xử lý việc gọi API lưu trữ bệnh án điện tử
-  const handleSave = async (status) => {
+  /**
+   * Logic lưu EMR thực sự — được gọi sau khi user xác nhận hoặc từ auto-save
+   */
+  const executeSave = async (status) => {
     try {
       let values
-      if(status === 'COMPLETED'){
+      if (status === 'COMPLETED') {
         values = await form.validateFields()
-      }
-      else{
+      } else {
         values = form.getFieldsValue()
       }
       setSaving(true)
@@ -333,6 +364,58 @@ const handleCreateLabOrder = async () => {
       setSaving(false)
     }
   }
+
+  /**
+   * Lưu nháp: mở dialog xác nhận → gọi executeSave('IN_PROGRESS') nếu đồng ý
+   */
+  const handleSaveDraft = () => {
+    const values = form.getFieldsValue()
+    confirmAction({
+      type: 'info',
+      title: 'Lưu nháp hồ sơ bệnh án',
+      description: 'Thông tin hiện tại sẽ được lưu tạm. Hồ sơ chưa được hoàn tất.',
+      details: [
+        { label: 'Bệnh nhân',  value: emr?.patientName ?? '—' },
+        ...(values.chiefComplaint ? [{ label: 'Lý do khám', value: values.chiefComplaint }] : []),
+      ],
+      confirmText: 'Lưu nháp',
+      onConfirm: () => executeSave('IN_PROGRESS'),
+    })
+  }
+
+  /**
+   * Hoàn thành khám: validate form → mở dialog xác nhận → gọi executeSave('COMPLETED') nếu đồng ý
+   * Hồ sơ sẽ bị khóa sau khi hoàn thành nên dùng type 'danger' để nhấn mạnh
+   */
+  const handleComplete = async () => {
+    // Validate trước để báo lỗi ngay, không cần mở dialog rồi mới biết thiếu trường
+    try {
+      await form.validateFields()
+    } catch {
+      return // Form còn lỗi, dừng lại để user sửa
+    }
+
+    const values = form.getFieldsValue()
+    confirmAction({
+      type: 'success',
+      title: 'Hoàn thành hồ sơ bệnh án',
+      description: 'Sau khi hoàn thành, hồ sơ sẽ bị khóa và không thể chỉnh sửa thêm.',
+      details: [
+        { label: 'Bệnh nhân',   value: emr?.patientName ?? '—' },
+        { label: 'Lý do khám',  value: values.chiefComplaint ?? '—' },
+        { label: 'Chẩn đoán',   value: values.diagnosis ?? '—' },
+      ],
+      confirmText: 'Hoàn thành & Khóa hồ sơ',
+      onConfirm: () => executeSave('COMPLETED'),
+    })
+  }
+
+  /**
+   * Hàm dùng nội bộ cho auto-save từ DrugPrescriptionForm / EyeglassPrescriptionForm
+   * Không cần dialog xác nhận vì đây là auto-save ngầm
+   */
+  const handleAutoSave = () => executeSave('IN_PROGRESS')
+
 
   /* Lọc danh sách theo từ khóa tìm kiếm và tab trạng thái */
   const filteredList = allList.filter((r) => {
@@ -365,10 +448,11 @@ const handleCreateLabOrder = async () => {
   const isReadOnly = !!emr && (emr.status === 'COMPLETED' || !isOwner)
 
   // Render khi Bác sĩ CHƯA CHỌN bệnh nhân nào
-  // Hiển thị một giao diện hướng dẫn người dùng quay lại Dashboard để chọn lịch hẹn
   if (!appointmentId) {
     return (
       <div style={{ padding: 24 }}>
+        {/* REQUIRED: contextHolder phải được mount để dialog hoạt động */}
+        {contextHolder}
         <div style={{ marginBottom: 20 }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Hồ sơ bệnh án</h2>
           <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b'}}>
@@ -513,6 +597,8 @@ const handleCreateLabOrder = async () => {
   // Render giao diện CHÍNH của trang Hồ sơ bệnh án điện tử
   return (
     <div style={{ padding: 24 }}>
+      {/* REQUIRED: contextHolder phải được mount để dialog hoạt động */}
+      {contextHolder}
 
       {/* khối header thông tin bệnh nhân đang tiếp đón */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
@@ -532,7 +618,6 @@ const handleCreateLabOrder = async () => {
             {!!emr && !isOwner && emr.status !== 'COMPLETED' && (
               <Tag color="orange">Chỉ xem — hồ sơ của bác sĩ khác</Tag>
             )}
-
           </div>
         </div>
 
@@ -560,7 +645,7 @@ const handleCreateLabOrder = async () => {
         boxShadow: '0 1px 4px rgba(0,0,0,0.06)', 
         padding: '16px 24px', 
         marginBottom: 16,
-        borderLeft: '4px solid #0d9488' // Tạo điểm nhấn màu Teal đồng bộ với nút của bạn
+        borderLeft: '4px solid #0d9488'
       }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
           <div>
@@ -678,27 +763,27 @@ const handleCreateLabOrder = async () => {
                     key: 'drug_prescription',
                     label: 'Kê đơn thuốc',
                     children: (
-                      <DrugPrescriptionForm emr={emr} isReadOnly={isReadOnly} onAutoSaveEMR={() => handleSave('IN_PROGRESS')} />
+                      <DrugPrescriptionForm emr={emr} isReadOnly={isReadOnly} onAutoSaveEMR={handleAutoSave} />
                     ),
                   },
                   {
                     key: 'eyeglass_prescription',
                     label: 'Kê đơn kính',
                     children: (
-                      <EyeglassPrescriptionForm emr={emr} isReadOnly={isReadOnly} onAutoSaveEMR={() => handleSave('IN_PROGRESS')} />
+                      <EyeglassPrescriptionForm emr={emr} isReadOnly={isReadOnly} onAutoSaveEMR={handleAutoSave} />
                     ),
                   },
                 ]}
               />
             </Form>
 
-            {/* Khu vực Actions (Thao tác lưu): Chỉ hiện khi hồ sơ chưa HOÀN THÀNH */}
+            {/* Khu vực Actions: Chỉ hiện khi hồ sơ chưa HOÀN THÀNH */}
             {!isReadOnly && !loading && (
               <div style={{
                 borderTop: '1px solid #f1f5f9', padding: '14px 24px',
                 display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'center',
               }}>
-                {/* Nút chỉ định XN — chỉ hiện khi EMR đang IN_PROGRESS (đã lưu nháp ít nhất 1 lần) */}
+                {/* Nút chỉ định XN — chỉ hiện khi EMR đang IN_PROGRESS */}
                 {emr?.status === 'IN_PROGRESS' ? (
                   <Button
                     onClick={openLabModal}
@@ -711,12 +796,12 @@ const handleCreateLabOrder = async () => {
                 )}
 
                 <div style={{ display: 'flex', gap: 10 }}>
-                  <Button onClick={() => handleSave('IN_PROGRESS')} loading={saving} style={{ fontSize: 13 }}>
+                  <Button onClick={handleSaveDraft} loading={saving} style={{ fontSize: 13 }}>
                     Lưu nháp
                   </Button>
                   <Button
                     type="primary"
-                    onClick={() => handleSave('COMPLETED')}
+                    onClick={handleComplete}
                     loading={saving}
                     style={{ backgroundColor: '#0d9488', borderColor: '#0d9488', fontSize: 13 }}
                   >
@@ -754,6 +839,7 @@ const handleCreateLabOrder = async () => {
         </div>
         )}
       </Spin>
+
       {/* Modal tạo Lab Order */}
       <Modal
         open={labModal}
