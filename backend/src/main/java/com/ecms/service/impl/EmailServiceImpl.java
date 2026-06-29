@@ -55,7 +55,7 @@ public class EmailServiceImpl implements EmailService {
                 + "Nếu cần thay đổi lịch, vui lòng liên hệ phòng khám.\n\n"
                 + "Trân trọng,\nPhòng khám Mắt ECMS";
 
-        send(toEmail, "[ECMS] Nhắc lịch khám", body);
+        sendText(toEmail, "[ECMS] Nhắc lịch khám", body);
     }
 
     @Override
@@ -77,7 +77,7 @@ public class EmailServiceImpl implements EmailService {
                 + "\nNếu cần đặt lại lịch, vui lòng truy cập hệ thống hoặc liên hệ phòng khám.\n\n"
                 + "Trân trọng,\nPhòng khám Mắt ECMS";
 
-        send(toEmail, "[ECMS] Thông báo huỷ lịch khám", body);
+        sendText(toEmail, "[ECMS] Thông báo huỷ lịch khám", body);
     }
 
     @Override
@@ -100,11 +100,11 @@ public class EmailServiceImpl implements EmailService {
                 + "\nVui lòng kiểm tra lại lịch khám trên hệ thống.\n\n"
                 + "Trân trọng,\nPhòng khám Mắt ECMS";
 
-        send(toEmail, "[ECMS] Thông báo chuyển lịch khám", body);
+        sendText(toEmail, "[ECMS] Thông báo chuyển lịch khám", body);
     }
 
     // Gửi email text/plain, bọc try-catch để lỗi SMTP không lan ra ngoài
-    private void send(String toEmail, String subject, String body) {
+    private void sendText(String toEmail, String subject, String body) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(fromAddress);
@@ -122,11 +122,6 @@ public class EmailServiceImpl implements EmailService {
         return s != null ? s : "";
     }
 
-    private final JavaMailSender mailSender;
-
-    @Value("${spring.mail.username}")
-    private String fromAddress;
-
     @Override
     public void sendVerifyEmail(String toEmail, String fullName, String verifyLink) {
         String html = """
@@ -138,7 +133,7 @@ public class EmailServiceImpl implements EmailService {
                   <p style="color:#6b7280;font-size:13px">Nếu bạn không tạo tài khoản này, vui lòng bỏ qua email này.</p>
                 </div>
                 """.formatted(fullName, verifyLink);
-        send(toEmail, "Xác minh tài khoản ECMS", html);
+        sendHtml(toEmail, "Xác minh tài khoản ECMS", html);
     }
 
     @Override
@@ -152,7 +147,7 @@ public class EmailServiceImpl implements EmailService {
                   <p style="color:#6b7280;font-size:13px">Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.</p>
                 </div>
                 """.formatted(fullName, resetLink);
-        send(toEmail, "Đặt lại mật khẩu ECMS", html);
+        sendHtml(toEmail, "Đặt lại mật khẩu ECMS", html);
     }
 
     @Override
@@ -164,7 +159,7 @@ public class EmailServiceImpl implements EmailService {
                   <p>Tài khoản của bạn đăng nhập bằng Google nên không có mật khẩu để đặt lại. Vui lòng dùng nút "Đăng nhập với Google" để truy cập hệ thống.</p>
                 </div>
                 """.formatted(fullName);
-        send(toEmail, "Yêu cầu đặt lại mật khẩu ECMS", html);
+        sendHtml(toEmail, "Yêu cầu đặt lại mật khẩu ECMS", html);
     }
 
     @Override
@@ -178,7 +173,7 @@ public class EmailServiceImpl implements EmailService {
                   <p style="color:#6b7280;font-size:13px">Mã có hiệu lực trong 5 phút. Không chia sẻ mã này với bất kỳ ai.</p>
                 </div>
                 """.formatted(fullName, otp);
-        send(toEmail, "Mã xác thực đăng nhập ECMS", html);
+        sendHtml(toEmail, "Mã xác thực đăng nhập ECMS", html);
     }
 
     @Override
@@ -192,7 +187,7 @@ public class EmailServiceImpl implements EmailService {
                   <p style="color:#6b7280;font-size:13px">Mã có hiệu lực trong 5 phút. Không chia sẻ mã này với bất kỳ ai.</p>
                 </div>
                 """.formatted(fullName, otp);
-        send(toEmail, "Mã xác nhận đổi mật khẩu ECMS", html);
+        sendHtml(toEmail, "Mã xác nhận đổi mật khẩu ECMS", html);
     }
 
     @Override
@@ -206,7 +201,7 @@ public class EmailServiceImpl implements EmailService {
                   <p style="color:#6b7280;font-size:13px">Không chia sẻ mật khẩu này với bất kỳ ai. Nếu bạn không yêu cầu tài khoản này, vui lòng liên hệ quản trị viên hệ thống.</p>
                 </div>
                 """.formatted(fullName, tempPassword);
-        send(toEmail, "Tài khoản nhân viên ECMS của bạn đã được kích hoạt", html);
+        sendHtml(toEmail, "Tài khoản nhân viên ECMS của bạn đã được kích hoạt", html);
     }
 
     @Override
@@ -220,10 +215,10 @@ public class EmailServiceImpl implements EmailService {
                   <p style="color:#6b7280;font-size:13px">Vui lòng đăng nhập bằng mật khẩu này và đổi mật khẩu ngay sau đó. Nếu bạn không yêu cầu việc này, vui lòng liên hệ quản trị viên hệ thống.</p>
                 </div>
                 """.formatted(fullName, tempPassword);
-        send(toEmail, "Mật khẩu ECMS của bạn đã được đặt lại", html);
+        sendHtml(toEmail, "Mật khẩu ECMS của bạn đã được đặt lại", html);
     }
 
-    private void send(String toEmail, String subject, String html) {
+    private void sendHtml(String toEmail, String subject, String html) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, "UTF-8");
