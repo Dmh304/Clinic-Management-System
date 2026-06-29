@@ -228,20 +228,7 @@ export default function AppointmentManagementPage() {
               </Button>
             </>
           )}
-          {record.status === 'WAITING' && (
-            <Button
-              size="small"
-              type="primary"
-              style={{ backgroundColor: '#8b5cf6', borderColor: '#8b5cf6' }}
-              onClick={() => dispatch(changeAppointmentStatus({ id: record.id, status: 'IN_PROGRESS' }))
-                .unwrap()
-                .then(() => { message.success('Bắt đầu khám'); dispatch(fetchDashboard()) })
-                .catch((err) => message.error(err))
-              }
-            >
-              Bắt đầu khám
-            </Button>
-          )}
+
         </Space>
       ),
     },
