@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -39,24 +40,41 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // Token thiếu/sai/hết hạn → 401 (để frontend tự xoá session và chuyển về /login).
+                // Đã xác thực nhưng sai quyền (role) vẫn giữ 403 mặc định của Spring Security.
+                .exceptionHandling(handling -> handling.authenticationEntryPoint(
+                        (request, response, authException) -> response.sendError(HttpStatus.UNAUTHORIZED.value())))
                 .authorizeHttpRequests(auth -> auth
                         // ── Auth ──────────────────────────────────────────────────────────
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/register")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/register",
+                                "/api/v1/auth/google", "/api/v1/auth/resend-verification",
+                                "/api/v1/auth/staff/login", "/api/v1/auth/staff/verify-otp",
+                                "/api/v1/auth/forgot-password", "/api/v1/auth/reset-password")
                         .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auth/verify-email")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/admin/unlock-user")
+                        .hasRole("ADMIN")
 
                         // ── Swagger / Docs ─────────────────────────────────────────────
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
                         .permitAll()
+
+                        // ── Ảnh đã upload: cho phép xem công khai ───────────────────────
+                        .requestMatchers(HttpMethod.GET, "/api/uploads/**")
+                        .permitAll()
+                        // Upload ảnh: chỉ MANAGER/ADMIN
+                        .requestMatchers(HttpMethod.POST, "/api/v1/files/upload")
+                        .hasAnyRole("MANAGER", "ADMIN")
+
+                        // ── Available slots ────────────────────────────────────────────
                         .requestMatchers(HttpMethod.GET, "/api/v1/appointments/available-slots")
                         .hasAnyRole("PATIENT", "ADMIN", "RECEPTIONIST", "DOCTOR")
                         .requestMatchers(HttpMethod.POST, "/api/v1/appointments/book")
                         .hasAnyRole("PATIENT", "ADMIN", "RECEPTIONIST")
                         .requestMatchers(HttpMethod.GET, "/api/v1/appointments/my")
                         .hasRole("PATIENT")
-                        .requestMatchers("/api/v1/appointments/**")
-                        .hasAnyRole("ADMIN", "DOCTOR", "RECEPTIONIST")
                         .requestMatchers("/api/v1/emr/all").hasAnyRole("DOCTOR", "ADMIN")
-                        .requestMatchers("/api/v1/patients/**").hasAnyRole("ADMIN", "DOCTOR", "RECEPTIONIST")
                         .requestMatchers("/api/v1/emr/history").hasRole("PATIENT")
                         // ── Services: GET public, POST/registrations restricted ─────────
                         .requestMatchers(HttpMethod.GET, "/api/v1/services", "/api/v1/services/categories",
@@ -66,8 +84,14 @@ public class SecurityConfig {
                         .hasAnyRole("PATIENT", "RECEPTIONIST")
                         .requestMatchers(HttpMethod.GET, "/api/v1/services/registrations")
                         .hasAnyRole("RECEPTIONIST", "ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/services/registrations/**")
+                        .hasAnyRole("RECEPTIONIST", "ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/services/registrations/**")
+                        .hasAnyRole("RECEPTIONIST", "ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/v1/services/my-registrations")
                         .hasRole("PATIENT")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/services/packages")
+                        .hasAnyRole("MANAGER", "ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/v1/services/packages")
                         .hasAnyRole("MANAGER", "ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/v1/services/packages/**")
@@ -101,7 +125,7 @@ public class SecurityConfig {
 
                         // ── Care sessions ─────────────────────────────────────────────
                         .requestMatchers(HttpMethod.POST, "/api/v1/care-sessions")
-                        .hasRole("PATIENT")
+                        .hasAnyRole("PATIENT", "RECEPTIONIST")
                         .requestMatchers(HttpMethod.GET, "/api/v1/care-sessions/my")
                         .hasRole("PATIENT")
                         .requestMatchers(HttpMethod.GET, "/api/v1/care-sessions/queue")
@@ -122,18 +146,35 @@ public class SecurityConfig {
                         // ── Doctors list: public ───────────────────────────────────────
                         .requestMatchers(HttpMethod.GET, "/api/v1/doctors")
                         .permitAll()
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/doctors/*/avatar")
+                        .hasAnyRole("MANAGER", "ADMIN")
 
                         // ── Appointments ───────────────────────────────────────────────
                         .requestMatchers(HttpMethod.GET, "/api/v1/appointments/daily-schedule")
                         .hasAnyRole("ADMIN", "DOCTOR", "RECEPTIONIST", "MANAGER")
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/appointments/*/reassign")
                         .hasAnyRole("MANAGER", "ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/appointments/*/cancel")
+                        .hasAnyRole("PATIENT", "RECEPTIONIST", "ADMIN", "MANAGER")
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/appointments/*/reschedule")
+                        .hasAnyRole("PATIENT", "RECEPTIONIST", "ADMIN", "MANAGER")
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/appointments/*/notes")
+                        .hasAnyRole("RECEPTIONIST", "ADMIN", "MANAGER")
                         .requestMatchers("/api/v1/appointments/**")
                         .hasAnyRole("ADMIN", "DOCTOR", "RECEPTIONIST", "MANAGER")
 
                         // ── Patients ───────────────────────────────────────────────────
                         .requestMatchers("/api/v1/patients/**")
                         .hasAnyRole("ADMIN", "DOCTOR", "RECEPTIONIST", "MANAGER")
+
+                        // ── Notifications (UC-13) ──────────────────────────────────────
+                        // Chuông thông báo hiển thị cho mọi người dùng đã đăng nhập;
+                        // vai trò nhận thông báo được suy ra server-side từ tài khoản.
+                        .requestMatchers("/api/v1/notifications/**")
+                        .authenticated()
+                        // ── Admin: audit log (UC-57) ────────────────────────────────────
+                        .requestMatchers("/api/v1/admin/**")
+                        .hasRole("ADMIN")
 
                         // ── Everything else requires authentication ────────────────────
                         .anyRequest().authenticated());

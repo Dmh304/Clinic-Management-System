@@ -8,9 +8,7 @@ import {
   MailOutlined, LockOutlined, UserOutlined, PhoneOutlined,
   EyeInvisibleOutlined, EyeTwoTone, QuestionCircleOutlined,
 } from '@ant-design/icons'
-import { useDispatch } from 'react-redux'
-import { useNavigate, Link } from 'react-router-dom'
-import { loginSuccess } from '../../store/slices/authSlice'
+import { Link } from 'react-router-dom'
 import authService from '../../services/authService'
 import Header from '../../components/layout/Header'
 
@@ -63,27 +61,25 @@ function BenefitItem({ text }) {
 }
 
 export default function RegisterPage() {
-  const dispatch = useDispatch()
-  const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  const [registeredEmail, setRegisteredEmail] = useState('')
+  const [resendLoading, setResendLoading] = useState(false)
   const [form] = Form.useForm()
 
-  // Xử lý submit form đăng ký: gọi API tạo tài khoản, tự động đăng nhập và điều hướng về trang chủ
+  // Xử lý submit form đăng ký: tạo tài khoản (PENDING_VERIFICATION) và yêu cầu xác minh email trước khi đăng nhập
   const onFinish = async (values) => {
     setLoading(true)
     setErrorMsg('')
     try {
-      const res = await authService.register({
+      await authService.register({
         fullName: values.fullName,
         email: values.email,
         phone: values.phone,
         password: values.password,
       })
-      const { token, userId, email, fullName, role } = res.data
-      dispatch(loginSuccess({ token, userId, email, fullName, role }))
-      message.success('Đăng ký thành công! Chào mừng bạn.')
-      navigate('/', { replace: true })
+      setRegisteredEmail(values.email)
+      message.success('Đăng ký thành công! Vui lòng kiểm tra email để xác minh tài khoản.')
     } catch (err) {
       if (!err.response) {
         setErrorMsg('Không thể kết nối đến máy chủ. Hãy kiểm tra backend đang chạy tại cổng 8080.')
@@ -93,6 +89,19 @@ export default function RegisterPage() {
       }
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Gửi lại email xác minh nếu người dùng chưa nhận được hoặc liên kết đã hết hạn
+  const handleResend = async () => {
+    setResendLoading(true)
+    try {
+      await authService.resendVerification(registeredEmail)
+      message.success('Email xác minh đã được gửi lại.')
+    } catch (err) {
+      message.error(err.response?.data?.message ?? 'Gửi lại email xác minh thất bại.')
+    } finally {
+      setResendLoading(false)
     }
   }
 
@@ -134,6 +143,17 @@ export default function RegisterPage() {
             <p style={S.cardTitle}>Tạo Tài Khoản Mới</p>
             <p style={S.cardSub}>Điền thông tin bên dưới để bắt đầu.</p>
 
+            {registeredEmail ? (
+              <div>
+                <p style={{ fontSize: 14, color: '#374151', lineHeight: 1.6 }}>
+                  Chúng tôi đã gửi một liên kết xác minh đến <strong>{registeredEmail}</strong>.
+                  Vui lòng kiểm tra hộp thư và nhấn vào liên kết để kích hoạt tài khoản trước khi đăng nhập.
+                </p>
+                <Button onClick={handleResend} loading={resendLoading} style={{ marginTop: 8 }}>
+                  Gửi lại email xác minh
+                </Button>
+              </div>
+            ) : (
             <Form form={form} onFinish={onFinish} layout="vertical" requiredMark={false} size="large">
               <Form.Item
                 name="fullName"
@@ -249,6 +269,7 @@ export default function RegisterPage() {
                 </Button>
               </Form.Item>
             </Form>
+            )}
 
             <Divider style={{ margin: '20px 0' }} />
 

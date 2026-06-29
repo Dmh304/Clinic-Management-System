@@ -18,7 +18,7 @@ export default function BookCareSessionPage() {
 
   useEffect(() => {
     subscriptionService.getMy().then(res => {
-      const active = (res.data.data || []).filter(s => s.status === 'ACTIVE' && s.remainingSessions > 0)
+      const active = (res.data || []).filter(s => s.status === 'ACTIVE' && s.remainingSessions > 0)
       setSubscriptions(active)
     }).catch(() => setError('Không thể tải danh sách gói')).finally(() => setLoading(false))
   }, [])

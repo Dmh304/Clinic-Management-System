@@ -1,6 +1,7 @@
 import { useDispatch, useSelector } from 'react-redux'
 import { NavLink, Outlet, Link } from 'react-router-dom'
 import { logout } from '../../store/slices/authSlice'
+import NotificationBell from './NotificationBell'
 import logoImg from '../../assets/ECMS_Logo.png'
 
 const NAV_ITEMS = [
@@ -38,11 +39,12 @@ const NAV_ITEMS = [
     ),
   },
   {
-    label: 'Lịch khám (Calendar)',
-    to: '/receptionist/daily-schedule',
+    label: 'Thông báo',
+    to: '/receptionist/notifications',
     icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
       </svg>
     ),
   },
@@ -159,9 +161,11 @@ export default function ReceptionistLayout() {
             }}>
               {user?.fullName?.[0]?.toUpperCase() ?? 'U'}
             </div>
-            <span style={{ fontSize: 12, color: '#374151', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span style={{ flex: 1, fontSize: 12, color: '#374151', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {user?.fullName ?? user?.email}
             </span>
+            {/* UC-13: chuông thông báo cạnh tên người dùng */}
+            <NotificationBell viewAllPath="/receptionist/notifications" />
           </div>
 
           <button

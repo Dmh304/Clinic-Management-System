@@ -3,15 +3,14 @@
 // Có validation tự động: email đúng định dạng, cả hai trường đều không được để trống.
 package com.ecms.dto.request;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 @Data
 public class LoginRequest {
 
-    @NotBlank(message = "Email không được để trống")
-    @Email(message = "Email không hợp lệ")
+    // Có thể là email hoặc số điện thoại
+    @NotBlank(message = "Email hoặc số điện thoại không được để trống")
     private String email;
 
     @NotBlank(message = "Mật khẩu không được để trống")

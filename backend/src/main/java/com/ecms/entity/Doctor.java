@@ -31,4 +31,16 @@ public class Doctor {
 
     @Column(name = "email")
     private String email;
+
+    @Column(name = "department")
+    private String department;
+
+    @Column(name = "experience_years")
+    private Integer experienceYears;
+
+    @Column(name = "bio")
+    private String bio;
+
+    @Column(name = "avatar_url")
+    private String avatarUrl;
 }

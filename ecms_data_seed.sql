@@ -59,23 +59,23 @@ VALUES
 
 (10, N'patient1@gmail.com',     N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Bùi Văn Bệnh Nhân',    N'0912000001', '1990-03-10', 'MALE',
-     N'10 Lý Thường Kiệt, Q10, TP.HCM',    GETDATE(), 'ACTIVE', 1, 7, GETDATE()),
+     N'10 Lý Thường Kiệt, Q10, TP.HCM',    GETDATE(), 'ACTIVE', 1, 8, GETDATE()),
 
 (11, N'patient2@gmail.com',     N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Đinh Thị Hoa',         N'0912000002', '1995-08-15', 'FEMALE',
-     N'11 Trần Hưng Đạo, Q5, TP.HCM',      GETDATE(), 'ACTIVE', 1, 7, GETDATE()),
+     N'11 Trần Hưng Đạo, Q5, TP.HCM',      GETDATE(), 'ACTIVE', 1, 8, GETDATE()),
 
 (12, N'patient3@gmail.com',     N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Lý Văn Minh',          N'0912000003', '1982-12-05', 'MALE',
-     N'12 An Dương Vương, Q5, TP.HCM',      GETDATE(), 'ACTIVE', 1, 7, GETDATE()),
+     N'12 An Dương Vương, Q5, TP.HCM',      GETDATE(), 'ACTIVE', 1, 8, GETDATE()),
 
 (13, N'patient4@gmail.com',     N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Ngô Thị Lan',          N'0912000004', '2000-05-20', 'FEMALE',
-     N'13 Nguyễn Văn Cừ, Q5, TP.HCM',      GETDATE(), 'ACTIVE', 1, 7, GETDATE()),
+     N'13 Nguyễn Văn Cừ, Q5, TP.HCM',      GETDATE(), 'ACTIVE', 1, 8, GETDATE()),
 
 (14, N'patient5@gmail.com',     N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Tô Văn Dũng',          N'0912000005', '1975-07-07', 'MALE',
-     N'14 Hùng Vương, Q6, TP.HCM',          GETDATE(), 'ACTIVE', 1, 7, GETDATE()),
+     N'14 Hùng Vương, Q6, TP.HCM',          GETDATE(), 'ACTIVE', 1, 8, GETDATE()),
 
 (15, N'nurse.le@ecms.vn',       N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Lê Thị Điều Dưỡng',    N'0901000099', '1992-04-10', 'FEMALE',
@@ -639,33 +639,19 @@ SET IDENTITY_INSERT invoice_details OFF;
 GO
 
 -- ============================================================
--- 20. notifications  (user_id → users)
+-- 20. notifications  (UC-13: thông báo kiểu Facebook — nhắm user/vai trò)
+--     id 1-3: broadcast cho Lễ tân; id 4-5: nhắm riêng bệnh nhân (user 10, 11)
 -- ============================================================
 SET IDENTITY_INSERT notifications ON;
 
 INSERT INTO notifications
-    (id, user_id, channel, subject, body,
-     ref_type, ref_id, sent_status, sent_at, is_read, read_at, created_at)
+    (id, message, target_role, target_user_id, related_appointment_id, is_read, created_at)
 VALUES
-(1, 10, 'EMAIL',  N'Xác nhận lịch hẹn #6',
-    N'Lịch hẹn ngày mai lúc 09:00 với BS. Trần Thị Bình đã được xác nhận. Vui lòng đến đúng giờ.',
-    N'appointment', 6, 'SENT', GETDATE(), 1, GETDATE(), GETDATE()),
-
-(2, 11, 'IN_APP', NULL,
-    N'Lịch hẹn #7 của bạn đang chờ xác nhận từ phòng khám.',
-    N'appointment', 7, 'SENT', GETDATE(), 0, NULL, GETDATE()),
-
-(3, 10, 'IN_APP', NULL,
-    N'Hóa đơn #1 đã được thanh toán thành công (500,000 đ). Cảm ơn bạn!',
-    N'invoice', 1, 'SENT', GETDATE(), 1, GETDATE(), GETDATE()),
-
-(4, 14, 'SMS',    N'Nhắc lịch hẹn',
-    N'[ECMS] Nhắc nhở: Bạn có lịch hẹn vào hôm qua lúc 13:00. Vui lòng liên hệ nếu cần đặt lại.',
-    N'appointment', 5, 'SENT', GETDATE(), 0, NULL, GETDATE()),
-
-(5, 13, 'EMAIL',  N'Kết quả phẫu thuật đục thủy tinh thể',
-    N'Hồ sơ bệnh án sau phẫu thuật của bạn đã được cập nhật. Vui lòng tái khám sau 1 tuần.',
-    N'medical_record', 4, 'SENT', GETDATE(), 0, NULL, GETDATE());
+(1, N'Đã gửi nhắc lịch cho bệnh nhân Nguyễn Văn An', N'RECEPTIONIST', NULL, 6, 0, GETDATE()),
+(2, N'Đã gửi nhắc lịch cho bệnh nhân Trần Thị Mai',   N'RECEPTIONIST', NULL, 7, 0, GETDATE()),
+(3, N'Đã gửi nhắc lịch cho bệnh nhân Lê Văn Cường',   N'RECEPTIONIST', NULL, 5, 1, GETDATE()),
+(4, N'Bạn có lịch khám sắp tới. Nhấn để xem chi tiết lịch hẹn.', NULL, 10, 6, 0, GETDATE()),
+(5, N'Bạn có lịch khám sắp tới. Nhấn để xem chi tiết lịch hẹn.', NULL, 11, 7, 0, GETDATE());
 
 SET IDENTITY_INSERT notifications OFF;
 GO
@@ -843,7 +829,7 @@ PRINT N'  lab_order_items    : 3';
 PRINT N'  service_assignments: 2';
 PRINT N'  invoices           : 4 (tổng 15,958,000 đ, tất cả PAID)';
 PRINT N'  invoice_details    : 8';
-PRINT N'  notifications      : 5 (EMAIL/IN_APP/SMS)';
+PRINT N'  notifications      : 5 (3 broadcast RECEPTIONIST + 2 nhắm bệnh nhân)';
 PRINT N'  feedbacks          : 3 (rating 4-5 sao)';
 PRINT N'  blog_posts         : 3 (2 PUBLISHED, 1 DRAFT)';
 PRINT N'  refresh_tokens     : 3';

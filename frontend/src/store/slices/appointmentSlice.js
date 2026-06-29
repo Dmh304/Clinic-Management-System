@@ -14,24 +14,16 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 import { appointmentService } from '../../services/appointmentService'
 
-// Tải danh sách lịch hẹn trong ngày hôm nay từ API để hiển thị lên bảng dashboard
-export const fetchTodayAppointments = createAsyncThunk(
-  'appointment/fetchToday',
-  async (_, { rejectWithValue }) => {
-    // Retry 1 lần sau 2 giây chỉ khi lỗi mạng hoặc server 5xx (bỏ qua 4xx)
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const res = await appointmentService.getTodayAppointments()
-        return res.data
-      } catch (err) {
-        const status = err.response?.status
-        const isRetryable = !status || status >= 500
-        if (attempt === 0 && isRetryable) {
-          await new Promise((r) => setTimeout(r, 2000))
-          continue
-        }
-        return rejectWithValue(err.response?.data?.message || 'Không thể tải danh sách lịch hẹn')
-      }
+// Tải danh sách lịch hẹn của một ngày (mặc định hôm nay) để hiển thị lên bảng.
+// Truyền date dạng 'YYYY-MM-DD' để xem lịch của ngày hôm qua / hôm sau / bất kỳ.
+export const fetchDayAppointments = createAsyncThunk(
+  'appointment/fetchDay',
+  async (date, { rejectWithValue }) => {
+    try {
+      const res = await appointmentService.getDailySchedule(date)
+      return res.data
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || 'Không thể tải danh sách lịch hẹn')
     }
   }
 )
@@ -57,9 +49,9 @@ export const changeAppointmentStatus = createAsyncThunk(
  */
 export const confirmAppointment = createAsyncThunk(
   'appointment/confirm',
-  async ({ id, doctorId }, { rejectWithValue }) => {
+  async ({ id, doctorId, reason }, { rejectWithValue }) => {
     try {
-      const res = await appointmentService.confirmAppointment(id, doctorId)
+      const res = await appointmentService.confirmAppointment(id, doctorId, reason)
       return res.data
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || 'Không thể xác nhận lịch hẹn')
@@ -88,9 +80,9 @@ export const checkInAppointment = createAsyncThunk(
 // Tải thống kê lịch hẹn theo từng trạng thái để hiển thị các card số liệu trên dashboard
 export const fetchDashboard = createAsyncThunk(
   'appointment/fetchDashboard',
-  async (_, { rejectWithValue }) => {
+  async (date, { rejectWithValue }) => {
     try {
-      const res = await appointmentService.getDashboard()
+      const res = await appointmentService.getDashboard(date)
       return res.data
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || 'Không thể tải thống kê')
@@ -119,15 +111,15 @@ const appointmentSlice = createSlice({
   /* extraReducers: nơi xử lý kết quả của các async thunk (pending, fulfilled, rejected). */
   extraReducers: (builder) => {
     /* Xử lý khi gọi API lấy danh sách lịch hẹn thành công/thất bại */
-    builder.addCase(fetchTodayAppointments.pending, (state) => {
+    builder.addCase(fetchDayAppointments.pending, (state) => {
       state.loading = true
       state.error = null
     })
-      .addCase(fetchTodayAppointments.fulfilled, (state, action) => {
+      .addCase(fetchDayAppointments.fulfilled, (state, action) => {
         state.loading = false
         state.list = action.payload
       })
-      .addCase(fetchTodayAppointments.rejected, (state, action) => {
+      .addCase(fetchDayAppointments.rejected, (state, action) => {
         state.loading = false
         state.error = action.payload
       })
