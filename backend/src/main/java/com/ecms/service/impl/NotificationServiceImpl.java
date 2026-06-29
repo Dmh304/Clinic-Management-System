@@ -13,7 +13,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * UC-13: Triển khai quản lý thông báo (kiểu Facebook) — nhắm riêng user hoặc broadcast theo vai trò.
+ * UC-13: Triển khai quản lý thông báo (kiểu Facebook) — nhắm riêng user hoặc
+ * broadcast theo vai trò.
  */
 @Service
 @RequiredArgsConstructor

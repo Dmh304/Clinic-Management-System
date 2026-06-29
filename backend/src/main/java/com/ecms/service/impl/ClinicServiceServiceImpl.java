@@ -103,8 +103,7 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
         // Chặn đăng ký trùng: nếu bệnh nhân đã có đăng ký dịch vụ này đang chờ tư vấn
         if (serviceRegistrationRepository.existsByPatient_IdAndService_IdAndStatus(
                 patient.getId(), service.getId(), "PENDING")) {
-            throw new ConflictException(
-                    "Bệnh nhân đã đăng ký dịch vụ này và đang chờ tư vấn. Vui lòng chờ phòng khám liên hệ.");
+            throw new ConflictException("Bệnh nhân đã đăng ký dịch vụ này và đang chờ tư vấn. Vui lòng chờ phòng khám liên hệ.");
         }
 
         ServiceRegistration registration = ServiceRegistration.builder()
@@ -203,10 +202,12 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
             category = serviceCategoryRepository.findById(request.getCategoryId())
                     .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy danh mục"));
         }
+        
         Integer displayOrder = request.getDisplayOrder();
         if (displayOrder == null) {
             displayOrder = clinicServiceRepository.findMaxDisplayOrder().orElse(0) + 1;
         }
+        
         ClinicService service = ClinicService.builder()
                 .serviceName(request.getServiceName())
                 .description(request.getDescription())
@@ -275,7 +276,7 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
         return toServiceResponse(clinicServiceRepository.save(service));
     }
 
-    // ── Mappers ────────────────────────────────────────────────────
+    // ── Mappers ────────────────────────────────────────────────────────
 
     private ClinicServiceResponse toServiceResponse(ClinicService s) {
         return ClinicServiceResponse.builder()
