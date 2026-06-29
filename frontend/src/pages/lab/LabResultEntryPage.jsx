@@ -19,6 +19,8 @@ import useConfirmAction from '../../hooks/useConfirmAction'
 
 const { TextArea } = Input
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024
+
 /* ------------------------------------------------------------------ */
 /* Component Con: Tải Lên Nhiều Ảnh (LabMultiImageUploader)             */
 /* ------------------------------------------------------------------ */
@@ -46,6 +48,13 @@ function LabMultiImageUploader({ values = [], onChange, disabled }) {
     const nonImages = files.filter(f => !f.type.startsWith('image/'))
     if (nonImages.length > 0) {
       message.error('Vui lòng chọn file ảnh (JPG, PNG, WEBP ...)')
+      return
+    }
+
+    const oversizedFiles = files.filter(f => f.size > MAX_FILE_SIZE)
+    if (oversizedFiles.length > 0) {
+      const names = oversizedFiles.map(f => f.name).join(', ')
+      message.error(`Ảnh vượt quá 5MB, vui lòng chọn ảnh nhỏ hơn: ${names}`)
       return
     }
 
