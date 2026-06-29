@@ -26,11 +26,13 @@ public class JwtUtil {
         return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
-    // Tạo JWT chứa email (subject), role và doctorId (nếu có) với thời hạn được cấu hình sẵn
-    public String generateToken(String email, String role, Long doctorId) {
+    // Tạo JWT chứa email (subject), role, doctorId (nếu có) và tokenVersion với thời hạn được cấu hình sẵn.
+    // tokenVersion dùng để vô hiệu hoá token cũ khi admin deactivate tài khoản (UC-55).
+    public String generateToken(String email, String role, Long doctorId, int tokenVersion) {
         JwtBuilder builder = Jwts.builder()
                 .subject(email)
                 .claim("role", role)
+                .claim("tokenVersion", tokenVersion)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(signingKey());
@@ -77,5 +79,14 @@ public class JwtUtil {
             return null;
         }
         return ((Number) doctorId).longValue();
+    }
+
+    // Trích xuất tokenVersion từ JWT; token cấp trước khi có cơ chế này thì coi như version 0
+    public int extractTokenVersion(String token) {
+        Object tokenVersion = parseClaims(token).get("tokenVersion");
+        if (tokenVersion == null) {
+            return 0;
+        }
+        return ((Number) tokenVersion).intValue();
     }
 }

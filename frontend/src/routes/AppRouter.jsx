@@ -14,6 +14,8 @@ import BlogDetailPage from '../pages/BlogDetailPage'
 import LoginPage from '../pages/auth/LoginPage'
 import RegisterPage from '../pages/auth/RegisterPage'
 import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage'
+import ResetPasswordPage from '../pages/auth/ResetPasswordPage'
+import VerifyEmailPage from '../pages/auth/VerifyEmailPage'
 
 // Layout
 import Header from '../components/layout/Header'
@@ -66,9 +68,12 @@ import ManageDiscountCampaignsPage from '../pages/manager/ManageDiscountCampaign
 import AssignNursePage from '../pages/manager/AssignNursePage'
 import ReassignAppointmentPage from '../pages/manager/ReassignAppointmentPage'
 
+import AdminDashboardPage from '../pages/admin/AdminDashboardPage'
 import UserManagementPage from '../pages/admin/UserManagementPage'
+import PatientAccountPage from '../pages/admin/PatientAccountPage'
 import SystemConfigPage from '../pages/admin/SystemConfigPage'
 import AuditLogPage from '../pages/admin/AuditLogPage'
+import AdminLayout from '../components/layout/AdminLayout'
 
 // Bọc nội dung trang với Header để các trang công khai hiển thị thanh điều hướng
 function WithHeader({ children }) {
@@ -106,6 +111,8 @@ export default function AppRouter() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
 
       {/* ── Utility ── */}
       <Route path="/unauthorized" element={<UnauthorizedPage />} />
@@ -182,9 +189,13 @@ export default function AppRouter() {
 
       {/* ── Admin ── */}
       <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
-        <Route path="/admin/users" element={<UserManagementPage />} />
-        <Route path="/admin/config" element={<SystemConfigPage />} />
-        <Route path="/admin/audit" element={<AuditLogPage />} />
+        <Route element={<AdminLayout />}>
+          <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+          <Route path="/admin/users" element={<UserManagementPage />} />
+          <Route path="/admin/patients" element={<PatientAccountPage />} />
+          <Route path="/admin/config" element={<SystemConfigPage />} />
+          <Route path="/admin/audit" element={<AuditLogPage />} />
+        </Route>
       </Route>
 
       {/* ── Fallback: về trang chủ ── */}

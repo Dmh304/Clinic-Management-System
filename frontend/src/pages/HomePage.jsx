@@ -181,7 +181,7 @@ export default function HomePage() {
         const data = res.data ?? []
         if (data.length > 0) setClinicalServices(data.slice(0, 3))
       })
-      .catch(() => {})
+      .catch(() => { })
   }, [])
 
   const [featured, small1, small2] = clinicalServices
@@ -318,7 +318,7 @@ export default function HomePage() {
           <div>
             <div style={s.footerLogo}>
               <img src={logoImg} alt="Anh Sao Eye Clinic" style={{ height: 44, width: 'auto' }} />
-              ANH SAO EYE CLINIC
+              NHÃN KHOA ÁNH SAO
             </div>
             <div style={s.footerCopy}>© 2024 Eyes Clinic Management System. All rights reserved.</div>
             <div style={{ ...s.footerCopy, marginTop: 2 }}>Chuyên nghiệp – Tin cậy – Tận tâm.</div>

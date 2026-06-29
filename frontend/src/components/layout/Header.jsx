@@ -266,14 +266,18 @@ export default function Header() {
 
           {Object.entries(PROTECTED_GUEST_ROUTES).map(([label, path]) => {
             const active = pathname.startsWith(path)
+            // Nhân viên (mọi role khác PATIENT) không được dùng các tính năng dành cho bệnh nhân này
+            const isLockedForStaff = isAuthenticated && user?.role !== 'PATIENT'
             return (
               <button
                 key={label}
-                onClick={() => handleProtectedLink(path)}
+                disabled={isLockedForStaff}
+                onClick={isLockedForStaff ? undefined : () => handleProtectedLink(path)}
                 style={{
-                  background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                  background: 'none', border: 'none',
+                  cursor: isLockedForStaff ? 'not-allowed' : 'pointer', padding: 0,
                   fontSize: 14,
-                  color: active ? '#1d4ed8' : '#64748b',
+                  color: isLockedForStaff ? '#cbd5e1' : (active ? '#1d4ed8' : '#64748b'),
                   fontWeight: active ? 600 : 400,
                   borderBottom: active ? '2px solid #1d4ed8' : '2px solid transparent',
                   paddingBottom: 2,
@@ -282,7 +286,7 @@ export default function Header() {
                 }}
               >
                 {label}
-                {!isAuthenticated && (
+                {(!isAuthenticated || isLockedForStaff) && (
                   <span style={{ fontSize: 10, color: '#94a3b8' }}>🔒</span>
                 )}
               </button>
@@ -363,6 +367,26 @@ export default function Header() {
                   }}
                 >
                   Quản lý
+                </button>
+              )}
+
+              {user?.role === 'ADMIN' && (
+                <button
+                  onClick={() => navigate('/admin/dashboard')}
+                  style={{
+                    backgroundColor: '#2563eb', color: '#fff',
+                    border: 'none', cursor: 'pointer',
+                    padding: '6px 14px', borderRadius: 8, fontSize: 13, fontWeight: 500,
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    transition: 'background-color 0.15s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#1d4ed8' }}
+                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#2563eb' }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                  </svg>
+                  Quản Lý Hệ Thống
                 </button>
               )}
 
