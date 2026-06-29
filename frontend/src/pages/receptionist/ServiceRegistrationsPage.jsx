@@ -2,8 +2,9 @@
 // đang chờ được liên hệ tư vấn. Lễ tân đánh dấu "Đã liên hệ" sau khi gọi điện tư vấn
 // để tránh liên hệ trùng và để bệnh nhân thấy trạng thái cập nhật trong "Dịch vụ của tôi".
 import { useEffect, useState } from 'react'
-import { Table, Tag, Button, Input, message, Typography, Space, Modal } from 'antd'
-import { SearchOutlined, PhoneOutlined, MailOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons'
+import { Table, Tag, Button, Input, message, Typography, Space, Modal, DatePicker, Form } from 'antd'
+import { SearchOutlined, PhoneOutlined, MailOutlined, CheckCircleOutlined, CloseCircleOutlined, CalendarOutlined } from '@ant-design/icons'
+import dayjs from 'dayjs'
 import { serviceService } from '../../services/serviceService'
 
 const { Title, Text } = Typography
@@ -21,6 +22,11 @@ export default function ServiceRegistrationsPage() {
   const [updatingId, setUpdatingId] = useState(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('PENDING')
+
+  // Modal đặt buổi đến phòng khám
+  const [scheduleModal, setScheduleModal] = useState({ open: false, reg: null })
+  const [scheduling, setScheduling] = useState(false)
+  const [scheduleForm] = Form.useForm()
 
   const fetchRegistrations = async () => {
     setLoading(true)
@@ -71,6 +77,37 @@ export default function ServiceRegistrationsPage() {
         }
       },
     })
+  }
+
+  // Mở modal đặt buổi đến phòng khám cho đăng ký đã đồng ý
+  const openScheduleModal = (reg) => {
+    scheduleForm.resetFields()
+    setScheduleModal({ open: true, reg })
+  }
+
+  const handleSchedule = async () => {
+    const reg = scheduleModal.reg
+    if (!reg) return
+    let values
+    try {
+      values = await scheduleForm.validateFields()
+    } catch {
+      return
+    }
+    setScheduling(true)
+    try {
+      await serviceService.scheduleClinicVisit(reg.id, {
+        scheduledDateTime: values.scheduledDateTime.format('YYYY-MM-DDTHH:mm:ss'),
+        notes: values.notes || null,
+      })
+      message.success(`Đã đặt buổi đến phòng khám cho ${reg.patientName}`)
+      setScheduleModal({ open: false, reg: null })
+      fetchRegistrations()
+    } catch (err) {
+      message.error(err?.response?.data?.message || 'Đặt buổi thất bại')
+    } finally {
+      setScheduling(false)
+    }
   }
 
   const kw = search.trim().toLowerCase()
@@ -128,6 +165,16 @@ export default function ServiceRegistrationsPage() {
                 Đã liên hệ
               </Button>
             )}
+            {r.status === 'CONFIRMED' && (
+              <Button
+                size="small"
+                type="primary"
+                icon={<CalendarOutlined />}
+                onClick={() => openScheduleModal(r)}
+              >
+                Đặt buổi đến khám
+              </Button>
+            )}
             <Button
               size="small"
               danger
@@ -181,6 +228,49 @@ export default function ServiceRegistrationsPage() {
         loading={loading}
         pagination={{ pageSize: 10 }}
       />
+
+      <Modal
+        title="Đặt buổi đến phòng khám"
+        open={scheduleModal.open}
+        onOk={handleSchedule}
+        onCancel={() => setScheduleModal({ open: false, reg: null })}
+        okText="Xác nhận đặt buổi"
+        cancelText="Đóng"
+        confirmLoading={scheduling}
+        destroyOnHidden
+      >
+        {scheduleModal.reg && (
+          <div style={{ marginBottom: 16 }}>
+            <p style={{ margin: '0 0 4px' }}>
+              <strong>Bệnh nhân:</strong> {scheduleModal.reg.patientName}
+            </p>
+            <p style={{ margin: 0 }}>
+              <strong>Gói dịch vụ:</strong> {scheduleModal.reg.serviceName}
+            </p>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              Hệ thống sẽ tạo gói cho bệnh nhân và đặt buổi đầu tiên vào thời gian bạn chọn.
+            </Text>
+          </div>
+        )}
+        <Form form={scheduleForm} layout="vertical">
+          <Form.Item
+            label="Thời gian đến phòng khám"
+            name="scheduledDateTime"
+            rules={[{ required: true, message: 'Vui lòng chọn ngày giờ' }]}
+          >
+            <DatePicker
+              showTime={{ format: 'HH:mm' }}
+              format="DD/MM/YYYY HH:mm"
+              style={{ width: '100%' }}
+              placeholder="Chọn ngày và giờ"
+              disabledDate={(current) => current && current < dayjs().startOf('day')}
+            />
+          </Form.Item>
+          <Form.Item label="Ghi chú" name="notes">
+            <Input.TextArea rows={2} placeholder="Ghi chú cho buổi khám (không bắt buộc)" />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   )
 }

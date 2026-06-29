@@ -70,8 +70,7 @@ export default function ProfilePage() {
   // Tải thông tin hồ sơ từ server khi component được mount lần đầu
   useEffect(() => {
     userService.getProfile()
-      .then(res => {
-        const data = res.data ?? res
+      .then(data => {
         setProfile(data)
         setForm({
           fullName: data.fullName || '',
@@ -98,14 +97,13 @@ export default function ProfilePage() {
     setSaving(true)
     setError('')
     try {
-      const res = await userService.updateProfile({
+      const updated = await userService.updateProfile({
         fullName: form.fullName || undefined,
         phone: form.phone || undefined,
         dateOfBirth: form.dateOfBirth || undefined,
         gender: form.gender || undefined,
         address: form.address || undefined,
       })
-      const updated = res.data ?? res
       setProfile(updated)
       // Đồng bộ lại tên/SĐT trong Redux + localStorage để Header và các nơi khác
       // hiển thị đúng dữ liệu mới mà không cần đăng nhập lại

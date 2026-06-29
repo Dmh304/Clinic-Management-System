@@ -1,0 +1,68 @@
+
+# ============================================================
+# Server
+# ============================================================
+server.port=8080
+
+# ============================================================
+# Database (SQL Server)
+# ============================================================
+spring.datasource.url=jdbc:sqlserver://MSI-HDUC;databaseName=ecms_db;encrypt=false;trustServerCertificate=true
+spring.datasource.username=sa
+spring.datasource.password=0864213579
+
+spring.datasource.driver-class-name=com.microsoft.sqlserver.jdbc.SQLServerDriver
+
+# HikariCP connection pool
+spring.datasource.hikari.connection-timeout=30000
+spring.datasource.hikari.maximum-pool-size=10
+spring.datasource.hikari.minimum-idle=2
+spring.datasource.hikari.idle-timeout=600000
+spring.datasource.hikari.max-lifetime=1800000
+
+# ============================================================
+# JPA / Hibernate
+# ============================================================
+spring.jpa.database-platform=org.hibernate.dialect.SQLServerDialect
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=false
+spring.jpa.open-in-view=false
+
+# ============================================================
+# Upload file (ảnh đại diện gói dịch vụ)
+# ============================================================
+spring.servlet.multipart.max-file-size=5MB
+spring.servlet.multipart.max-request-size=10MB
+
+# ============================================================
+# JWT
+# ============================================================
+jwt.secret=YOUR_JWT_SECRET
+jwt.access-token-expiration=3600000
+jwt.refresh-token-expiration=604800000
+
+# ============================================================
+# Google OAuth (đăng nhập bằng tài khoản Google)
+# ============================================================
+google.oauth.client-id=YOUR_GOOGLE_OAUTH_CLIENT_ID
+
+# ============================================================
+# Mail (Gmail SMTP)
+# ============================================================
+spring.mail.host=smtp.gmail.com
+spring.mail.port=587
+spring.mail.username=${MAIL_USERNAME:}
+spring.mail.password=${MAIL_APP_PASSWORD:}
+spring.mail.properties.mail.smtp.auth=true
+spring.mail.properties.mail.smtp.starttls.enable=true
+
+# ============================================================
+# Frontend base URL (used to build verification/reset links in emails)
+# ============================================================
+app.frontend-base-url=${FRONTEND_BASE_URL:http://localhost:5173}
+
+# ============================================================
+# Swagger / OpenAPI
+# ============================================================
+springdoc.swagger-ui.path=/swagger-ui.html
+springdoc.api-docs.path=/v3/api-docs

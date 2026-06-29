@@ -18,6 +18,7 @@ import com.ecms.dto.request.WalkInAppointmentRequest;
 import com.ecms.dto.response.ApiResponse;
 import com.ecms.dto.response.AppointmentDashboardResponse;
 import com.ecms.dto.response.AppointmentResponse;
+import com.ecms.dto.response.SlotAvailabilityResponse;
 import com.ecms.entity.AppointmentStatus;
 import com.ecms.entity.Doctor;
 import com.ecms.entity.Patient;
@@ -125,9 +126,10 @@ public class AppointmentController {
                         @PathVariable Long id,
                         @RequestBody(required = false) ConfirmAppointmentRequest request) {
                 Long doctorId = request != null ? request.getDoctorId() : null;
+                String reason = request != null ? request.getReason() : null;
 
                 return ResponseEntity.ok(
-                                ApiResponse.success(appointmentService.confirmAppointment(id, doctorId)));
+                                ApiResponse.success(appointmentService.confirmAppointment(id, doctorId, reason)));
         }
 
         /* Đánh dấu bệnh nhân đã đến phòng khám và check-in vào hàng đợi */
@@ -153,6 +155,15 @@ public class AppointmentController {
                                                 userDetails.getUsername())));
         }
 
+        /** Khung giờ còn trống của 1 bác sĩ trong 1 ngày — bệnh nhân chọn khi đặt lịch */
+        @GetMapping("/available-slots")
+        public ResponseEntity<ApiResponse<List<SlotAvailabilityResponse>>> getAvailableSlots(
+                        @RequestParam Long doctorId,
+                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+                return ResponseEntity.ok(
+                                ApiResponse.success(appointmentService.getAvailableSlots(doctorId, date)));
+        }
+
         /*
          * Tạo lịch hẹn trực tiếp tại quầy (Walk-in) - Dành cho Tiếp tân (RECEPTIONIST)
          */
@@ -167,9 +178,12 @@ public class AppointmentController {
         @GetMapping("/my")
         public ResponseEntity<ApiResponse<List<AppointmentResponse>>> getMyAppointments(
                         @AuthenticationPrincipal UserDetails userDetails) {
-                Long patientId = resolvePatientId(userDetails);
+                // Theo USER (không phải patientId) để gồm cả lịch đặt hộ người thân
+                Long userId = userDetails != null
+                                ? userRepository.findByEmail(userDetails.getUsername()).map(User::getId).orElse(null)
+                                : null;
                 return ResponseEntity.ok(
-                                ApiResponse.success(appointmentService.getMyAppointments(patientId)));
+                                ApiResponse.success(appointmentService.getMyAppointments(userId)));
         }
 
         /*
@@ -260,6 +274,8 @@ public class AppointmentController {
         @Data
         public static class ConfirmAppointmentRequest {
                 private Long doctorId; // ID Bác sĩ được chỉ định phụ trách ca khám
+                /** Bắt buộc khi lễ tân đổi sang bác sĩ khác với bác sĩ bệnh nhân đã đặt */
+                private String reason;
         }
 
         /* Tìm kiếm và trả về ID của Bác sĩ dựa trên Email tài khoản đăng nhập */

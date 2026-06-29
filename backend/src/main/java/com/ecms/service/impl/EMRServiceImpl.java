@@ -245,7 +245,7 @@ public class EMRServiceImpl implements EMRService {
                                 // Bóc tách thông tin Bác sĩ (Doctor) thực hiện khám
                                 .doctorId(m.getDoctor() != null ? m.getDoctor().getId() : null)
                                 .doctorName(m.getDoctor() != null ? m.getDoctor().getFullName() : null)
-                                .doctorPhone(m.getDoctor() != null ? m.getDoctor().getPhoneNumber() : null)
+                                .doctorPhone(m.getDoctor() != null ? m.getDoctor().getPhone() : null)
                                 .serviceName(m.getAppointment() != null
                                                 && m.getAppointment().getClinicService() != null
                                                                 ? m.getAppointment().getClinicService().getServiceName()
@@ -319,3 +319,4 @@ public class EMRServiceImpl implements EMRService {
                 }
         }
 }
+

@@ -3,7 +3,7 @@ import { serviceService } from '../../services/serviceService'
 
 const INITIAL_FORM = {
   serviceName: '', description: '', price: '', priceLabel: '', sessionsIncluded: '', validityDays: '',
-  durationMinutes: '', badge: '', thumbnailUrl: '', content: '', serviceType: 'CARE', isActive: true, displayOrder: 0,
+  durationMinutes: '', badge: '', thumbnailUrl: '', content: '', serviceType: 'CARE', isActive: true, displayOrder: '', isPopular: false,
 }
 
 export default function ManageServicePackagesPage() {
@@ -36,7 +36,15 @@ export default function ManageServicePackagesPage() {
 
   const openCreate = () => { setForm(INITIAL_FORM); setEditingId(null); setModal('edit'); setError(''); setFieldErrors({}) }
   const openEdit = (pkg) => {
-    setForm({ ...INITIAL_FORM, ...pkg, price: pkg.price || '', sessionsIncluded: pkg.sessionsIncluded || '', validityDays: pkg.validityDays || '' })
+    setForm({ 
+      ...INITIAL_FORM, 
+      ...pkg, 
+      price: pkg.price || '', 
+      sessionsIncluded: pkg.sessionsIncluded || '', 
+      validityDays: pkg.validityDays || '',
+      displayOrder: pkg.displayOrder ?? '',
+      isPopular: pkg.isPopular ?? false
+    })
     setEditingId(pkg.id)
     setModal('edit')
     setError('')
@@ -87,11 +95,15 @@ export default function ManageServicePackagesPage() {
     setFieldErrors({})
     setSaving(true)
     setError('')
+    const payload = {
+      ...form,
+      displayOrder: (form.displayOrder === '' || form.displayOrder === null || form.displayOrder === undefined) ? null : Number(form.displayOrder)
+    }
     try {
       if (editingId) {
-        await serviceService.updatePackage(editingId, form)
+        await serviceService.updatePackage(editingId, payload)
       } else {
-        await serviceService.createPackage(form)
+        await serviceService.createPackage(payload)
       }
       setModal(null)
       fetchPackages()
@@ -149,14 +161,14 @@ export default function ManageServicePackagesPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
-                {['Tên gói', 'Loại', 'Giá', 'Số buổi', 'Hiệu lực', 'Người đăng ký', 'Trạng thái', 'Thao tác'].map(h => (
+                {['Tên gói', 'Loại', 'Giá', 'Thứ tự', 'Nổi bật', 'Số buổi', 'Hiệu lực', 'Người đăng ký', 'Trạng thái', 'Thao tác'].map(h => (
                   <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={8} style={{ padding: 28, textAlign: 'center', color: '#94a3b8', fontSize: 14 }}>Không có gói nào</td></tr>
+                <tr><td colSpan={10} style={{ padding: 28, textAlign: 'center', color: '#94a3b8', fontSize: 14 }}>Không có gói nào</td></tr>
               )}
               {filtered.map((pkg, i) => (
                 <tr key={pkg.id} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
@@ -175,6 +187,18 @@ export default function ManageServicePackagesPage() {
                   </td>
                   <td style={{ padding: '12px 14px', fontWeight: 600, color: '#2563eb' }}>
                     {pkg.price ? Number(pkg.price).toLocaleString('vi-VN') + '₫' : '—'}
+                  </td>
+                  <td style={{ padding: '12px 14px', fontWeight: 600, color: '#475569' }}>
+                    {pkg.displayOrder ?? '—'}
+                  </td>
+                  <td style={{ padding: '12px 14px' }}>
+                    {pkg.isPopular ? (
+                      <span style={{ background: '#fef3c7', color: '#d97706', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
+                        ★ Nổi bật
+                      </span>
+                    ) : (
+                      <span style={{ color: '#94a3b8' }}>—</span>
+                    )}
                   </td>
                   <td style={{ padding: '12px 14px', textAlign: 'center' }}>
                     <span style={{ background: '#dbeafe', color: '#2563eb', padding: '2px 10px', borderRadius: 10, fontWeight: 700 }}>
@@ -248,9 +272,16 @@ export default function ManageServicePackagesPage() {
                     <textarea value={form[field.key] || ''} onChange={e => handleFieldChange(field.key, e.target.value)} rows={field.rows || 2}
                       style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: `1px solid ${fieldErrors[field.key] ? '#ef4444' : '#d1d5db'}`, fontSize: 13, outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} />
                   ) : (
-                    <input type={field.type} value={form[field.key] ?? ''} onChange={e => handleFieldChange(field.key, e.target.value)}
-                      required={field.required} min={field.min}
-                      style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: `1px solid ${fieldErrors[field.key] ? '#ef4444' : '#d1d5db'}`, fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+                    <>
+                      <input type={field.type} value={form[field.key] ?? ''} onChange={e => handleFieldChange(field.key, e.target.value)}
+                        required={field.required} min={field.min}
+                        style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: `1px solid ${fieldErrors[field.key] ? '#ef4444' : '#d1d5db'}`, fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
+                      {field.key === 'displayOrder' && (
+                        <span style={{ fontSize: 11, color: '#64748b', marginTop: 4, display: 'block' }}>
+                          Để trống để tự động hiển thị ở cuối danh sách.
+                        </span>
+                      )}
+                    </>
                   )}
                 </div>
               ))}
@@ -284,6 +315,10 @@ export default function ManageServicePackagesPage() {
                 )}
               </div>
 
+              <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input type="checkbox" id="isPopular" checked={form.isPopular || false} onChange={e => setForm(f => ({ ...f, isPopular: e.target.checked }))} />
+                <label htmlFor="isPopular" style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Đánh dấu là gói dịch vụ Nổi bật/Phổ biến (luôn đẩy lên đầu trang)</label>
+              </div>
               <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <input type="checkbox" id="isActive" checked={form.isActive} onChange={e => setForm(f => ({ ...f, isActive: e.target.checked }))} />
                 <label htmlFor="isActive" style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>Hiển thị (đang bán)</label>

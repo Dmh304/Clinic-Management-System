@@ -14,7 +14,7 @@ export default function DeliverCareSessionPage() {
   useEffect(() => {
     // Get sessions and find the one by id
     Promise.all([careSessionService.getQueue(), careSessionService.getMy()]).then(([queueRes, myRes]) => {
-      const all = [...(queueRes.data.data || []), ...(myRes.data.data || [])]
+      const all = [...(queueRes.data || []), ...(myRes.data || [])]
       const found = all.find(s => String(s.id) === String(id))
       if (found) setSession(found)
       else setError('Không tìm thấy buổi khám')
@@ -26,7 +26,7 @@ export default function DeliverCareSessionPage() {
     setError('')
     try {
       const res = await careSessionService.start(id)
-      setSession(res.data.data)
+      setSession(res.data)
     } catch (err) {
       setError(err.response?.data?.message || 'Không thể bắt đầu buổi khám')
     } finally {

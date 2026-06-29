@@ -59,23 +59,23 @@ VALUES
 
 (10, N'patient1@gmail.com',     N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Bùi Văn Bệnh Nhân',    N'0912000001', '1990-03-10', 'MALE',
-     N'10 Lý Thường Kiệt, Q10, TP.HCM',    GETDATE(), 'ACTIVE', 1, 7, GETDATE()),
+     N'10 Lý Thường Kiệt, Q10, TP.HCM',    GETDATE(), 'ACTIVE', 1, 8, GETDATE()),
 
 (11, N'patient2@gmail.com',     N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Đinh Thị Hoa',         N'0912000002', '1995-08-15', 'FEMALE',
-     N'11 Trần Hưng Đạo, Q5, TP.HCM',      GETDATE(), 'ACTIVE', 1, 7, GETDATE()),
+     N'11 Trần Hưng Đạo, Q5, TP.HCM',      GETDATE(), 'ACTIVE', 1, 8, GETDATE()),
 
 (12, N'patient3@gmail.com',     N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Lý Văn Minh',          N'0912000003', '1982-12-05', 'MALE',
-     N'12 An Dương Vương, Q5, TP.HCM',      GETDATE(), 'ACTIVE', 1, 7, GETDATE()),
+     N'12 An Dương Vương, Q5, TP.HCM',      GETDATE(), 'ACTIVE', 1, 8, GETDATE()),
 
 (13, N'patient4@gmail.com',     N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Ngô Thị Lan',          N'0912000004', '2000-05-20', 'FEMALE',
-     N'13 Nguyễn Văn Cừ, Q5, TP.HCM',      GETDATE(), 'ACTIVE', 1, 7, GETDATE()),
+     N'13 Nguyễn Văn Cừ, Q5, TP.HCM',      GETDATE(), 'ACTIVE', 1, 8, GETDATE()),
 
 (14, N'patient5@gmail.com',     N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Tô Văn Dũng',          N'0912000005', '1975-07-07', 'MALE',
-     N'14 Hùng Vương, Q6, TP.HCM',          GETDATE(), 'ACTIVE', 1, 7, GETDATE()),
+     N'14 Hùng Vương, Q6, TP.HCM',          GETDATE(), 'ACTIVE', 1, 8, GETDATE()),
 
 (15, N'nurse.le@ecms.vn',       N'$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL536lW',
      N'Lê Thị Điều Dưỡng',    N'0901000099', '1992-04-10', 'FEMALE',

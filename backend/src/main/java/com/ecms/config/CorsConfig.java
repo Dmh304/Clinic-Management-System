@@ -12,7 +12,12 @@ public class CorsConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:5174"));
+        // Dùng allowedOriginPatterns (hỗ trợ wildcard) để cho phép truy cập
+        // từ IP LAN khi test trên nhiều máy cùng mạng, không chỉ localhost.
+        config.setAllowedOriginPatterns(List.of(
+                "http://localhost:5173", "http://localhost:5174",
+                "http://192.168.*.*:5173", "http://192.168.*.*:5174",
+                "http://10.*.*.*:5173", "http://10.*.*.*:5174"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

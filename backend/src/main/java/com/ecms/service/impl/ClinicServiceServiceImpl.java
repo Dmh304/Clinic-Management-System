@@ -1,7 +1,9 @@
 package com.ecms.service.impl;
 
+import com.ecms.dto.request.ScheduleClinicVisitRequest;
 import com.ecms.dto.request.ServicePackageRequest;
 import com.ecms.dto.request.ServiceRegistrationRequest;
+import com.ecms.dto.response.CareSessionResponse;
 import com.ecms.dto.response.ClinicServiceResponse;
 import com.ecms.dto.response.ServiceCategoryResponse;
 import com.ecms.dto.response.ServiceRegistrationResponse;
@@ -9,6 +11,7 @@ import com.ecms.entity.*;
 import com.ecms.exception.ConflictException;
 import com.ecms.exception.ResourceNotFoundException;
 import com.ecms.repository.*;
+import com.ecms.service.CareSessionService;
 import com.ecms.service.ClinicServiceService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,13 +31,14 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
         private final UserRepository userRepository;
         private final PatientRepository patientRepository;
         private final PatientServiceSubscriptionRepository subscriptionRepository;
+        private final CareSessionService careSessionService;
 
         @Override
         @Transactional(readOnly = true)
         public List<ClinicServiceResponse> getAllServices(String type) {
                 List<ClinicService> services = (type == null || type.isBlank())
-                                ? clinicServiceRepository.findByIsActiveTrueOrderByDisplayOrderAsc()
-                                : clinicServiceRepository.findByServiceTypeAndIsActiveTrueOrderByDisplayOrderAsc(type);
+                                ? clinicServiceRepository.findByIsActiveTrueOrderByIsPopularDescDisplayOrderAsc()
+                                : clinicServiceRepository.findByServiceTypeAndIsActiveTrueOrderByIsPopularDescDisplayOrderAsc(type);
                 return services.stream()
                                 .map(this::toServiceResponse)
                                 .collect(Collectors.toList());
@@ -66,7 +70,7 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
         public ClinicServiceResponse getServiceById(Long id) {
                 ClinicService service = clinicServiceRepository.findById(id)
                                 .orElseThrow(() -> new ResourceNotFoundException(
-                                                "Không tìm thấy dịch vụ với ID: " + id));
+                                                "KhÃ´ng tÃ¬m tháº¥y dá»‹ch vá»¥ vá»›i ID: " + id));
                 return toServiceResponse(service);
         }
 
@@ -74,10 +78,10 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
         @Transactional
         public ServiceRegistrationResponse register(ServiceRegistrationRequest request, String currentUserEmail) {
                 User currentUser = userRepository.findByEmail(currentUserEmail)
-                                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
+                                .orElseThrow(() -> new ResourceNotFoundException("KhÃ´ng tÃ¬m tháº¥y ngÆ°á»i dÃ¹ng"));
 
                 ClinicService service = clinicServiceRepository.findById(request.getServiceId())
-                                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy dịch vụ"));
+                                .orElseThrow(() -> new ResourceNotFoundException("KhÃ´ng tÃ¬m tháº¥y dá»‹ch vá»¥"));
 
                 String roleName = currentUser.getRole().getName();
                 Patient patient;
@@ -85,21 +89,21 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
                 if ("RECEPTIONIST".equals(roleName)) {
                         if (request.getPatientId() == null) {
                                 throw new IllegalArgumentException(
-                                                "Lễ tân phải chỉ định bệnh nhân khi đăng ký dịch vụ");
+                                                "Lá»… tÃ¢n pháº£i chá»‰ Ä‘á»‹nh bá»‡nh nhÃ¢n khi Ä‘Äƒng kÃ½ dá»‹ch vá»¥");
                         }
                         patient = patientRepository.findById(request.getPatientId())
-                                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bệnh nhân"));
+                                        .orElseThrow(() -> new ResourceNotFoundException("KhÃ´ng tÃ¬m tháº¥y bá»‡nh nhÃ¢n"));
                 } else {
                         patient = patientRepository.findByUser_Email(currentUserEmail)
                                         .orElseThrow(() -> new ResourceNotFoundException(
-                                                        "Không tìm thấy hồ sơ bệnh nhân"));
+                                                        "KhÃ´ng tÃ¬m tháº¥y há»“ sÆ¡ bá»‡nh nhÃ¢n"));
                 }
 
-                // Chặn đăng ký trùng: nếu bệnh nhân đã có đăng ký dịch vụ này đang chờ tư vấn
+                // Cháº·n Ä‘Äƒng kÃ½ trÃ¹ng: náº¿u bá»‡nh nhÃ¢n Ä‘Ã£ cÃ³ Ä‘Äƒng kÃ½ dá»‹ch vá»¥ nÃ y Ä‘ang chá» tÆ° váº¥n
                 if (serviceRegistrationRepository.existsByPatient_IdAndService_IdAndStatus(
                                 patient.getId(), service.getId(), "PENDING")) {
                         throw new ConflictException(
-                                        "Bệnh nhân đã đăng ký dịch vụ này và đang chờ tư vấn. Vui lòng chờ phòng khám liên hệ.");
+                                        "Bá»‡nh nhÃ¢n Ä‘Ã£ Ä‘Äƒng kÃ½ dá»‹ch vá»¥ nÃ y vÃ  Ä‘ang chá» tÆ° váº¥n. Vui lÃ²ng chá» phÃ²ng khÃ¡m liÃªn há»‡.");
                 }
 
                 ServiceRegistration registration = ServiceRegistration.builder()
@@ -135,23 +139,23 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
         public ServiceRegistrationResponse updateRegistrationStatus(Long id, String status) {
                 ServiceRegistration registration = serviceRegistrationRepository.findById(id)
                                 .orElseThrow(() -> new ResourceNotFoundException(
-                                                "Không tìm thấy đăng ký dịch vụ: " + id));
+                                                "KhÃ´ng tÃ¬m tháº¥y Ä‘Äƒng kÃ½ dá»‹ch vá»¥: " + id));
 
                 String normalized = status == null ? "" : status.trim().toUpperCase();
                 if (!List.of("PENDING", "CONFIRMED", "COMPLETED", "CANCELLED").contains(normalized)) {
-                        throw new IllegalArgumentException("Trạng thái không hợp lệ: " + status);
+                        throw new IllegalArgumentException("Tráº¡ng thÃ¡i khÃ´ng há»£p lá»‡: " + status);
                 }
 
                 registration.setStatus(normalized);
                 return toRegistrationResponse(serviceRegistrationRepository.save(registration));
         }
 
-        // ── Manager CRUD ───────────────────────────────────────────────
+        // â”€â”€ Manager CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
         @Override
         @Transactional(readOnly = true)
         public List<ClinicServiceResponse> getAllPackages() {
-                return clinicServiceRepository.findAllByOrderByDisplayOrderAsc()
+                return clinicServiceRepository.findAllByOrderByIsPopularDescDisplayOrderAsc()
                                 .stream()
                                 .map(this::toServiceResponse)
                                 .collect(Collectors.toList());
@@ -163,7 +167,7 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
                 ServiceCategory category = null;
                 if (request.getCategoryId() != null) {
                         category = serviceCategoryRepository.findById(request.getCategoryId())
-                                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy danh mục"));
+                                        .orElseThrow(() -> new ResourceNotFoundException("KhÃ´ng tÃ¬m tháº¥y danh má»¥c"));
                 }
                 ClinicService service = ClinicService.builder()
                                 .serviceName(request.getServiceName())
@@ -189,11 +193,11 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
         @Transactional
         public ClinicServiceResponse updatePackage(Long id, ServicePackageRequest request) {
                 ClinicService service = clinicServiceRepository.findById(id)
-                                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy gói dịch vụ"));
+                                .orElseThrow(() -> new ResourceNotFoundException("KhÃ´ng tÃ¬m tháº¥y gÃ³i dá»‹ch vá»¥"));
                 ServiceCategory category = null;
                 if (request.getCategoryId() != null) {
                         category = serviceCategoryRepository.findById(request.getCategoryId())
-                                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy danh mục"));
+                                        .orElseThrow(() -> new ResourceNotFoundException("KhÃ´ng tÃ¬m tháº¥y danh má»¥c"));
                 }
                 service.setServiceName(request.getServiceName());
                 service.setDescription(request.getDescription());
@@ -220,7 +224,7 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
         @Transactional
         public void deletePackage(Long id) {
                 ClinicService service = clinicServiceRepository.findById(id)
-                                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy gói dịch vụ"));
+                                .orElseThrow(() -> new ResourceNotFoundException("KhÃ´ng tÃ¬m tháº¥y gÃ³i dá»‹ch vá»¥"));
                 service.setIsActive(false);
                 clinicServiceRepository.save(service);
         }
@@ -229,12 +233,12 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
         @Transactional
         public ClinicServiceResponse toggleActive(Long id) {
                 ClinicService service = clinicServiceRepository.findById(id)
-                                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy gói dịch vụ"));
+                                .orElseThrow(() -> new ResourceNotFoundException("KhÃ´ng tÃ¬m tháº¥y gÃ³i dá»‹ch vá»¥"));
                 service.setIsActive(!Boolean.TRUE.equals(service.getIsActive()));
                 return toServiceResponse(clinicServiceRepository.save(service));
         }
 
-        // ── Mappers ────────────────────────────────────────────────────
+        // â”€â”€ Mappers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
         private ClinicServiceResponse toServiceResponse(ClinicService s) {
                 return ClinicServiceResponse.builder()
@@ -256,7 +260,7 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
                                 .categoryName(s.getCategory() != null ? s.getCategory().getName() : null)
                                 .serviceType(s.getServiceType())
                                 .createdAt(s.getCreatedAt())
-                                // Số người đăng ký gói — catalogue nhỏ nên N+1 chấp nhận được
+                                // Sá»‘ ngÆ°á»i Ä‘Äƒng kÃ½ gÃ³i â€” catalogue nhá» nÃªn N+1 cháº¥p nháº­n Ä‘Æ°á»£c
                                 .subscriberCount(subscriptionRepository.countByService_Id(s.getId()))
                                 .build();
         }
@@ -278,4 +282,14 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
                                 .createdAt(r.getCreatedAt())
                                 .build();
         }
+
+        
+        @Override
+        @org.springframework.transaction.annotation.Transactional
+        public CareSessionResponse scheduleClinicVisit(Long registrationId, ScheduleClinicVisitRequest request,
+                        String currentUserEmail) {
+                // TODO: Implement the scheduling logic for clinic visits.
+                throw new UnsupportedOperationException("Not implemented yet");
+        }
 }
+

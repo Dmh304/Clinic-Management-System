@@ -1,20 +1,22 @@
-// Mạnh Hùng - HE200743
-// Repository cung cấp các thao tác CRUD cho danh sách dịch vụ khám chữa bệnh của phòng khám.
-// Kế thừa toàn bộ các phương thức từ JpaRepository (findAll, save, deleteById, v.v.).
 package com.ecms.repository;
 
 import com.ecms.entity.ClinicService;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ClinicServiceRepository extends JpaRepository<ClinicService, Long> {
-    List<ClinicService> findByIsActiveTrueOrderByDisplayOrderAsc();
-    List<ClinicService> findByCategory_IdAndIsActiveTrueOrderByDisplayOrderAsc(Long categoryId);
-    List<ClinicService> findByServiceTypeAndIsActiveTrueOrderByDisplayOrderAsc(String serviceType);
+    List<ClinicService> findByIsActiveTrueOrderByIsPopularDescDisplayOrderAsc();
+    List<ClinicService> findByCategory_IdAndIsActiveTrueOrderByIsPopularDescDisplayOrderAsc(Long categoryId);
+    List<ClinicService> findByServiceTypeAndIsActiveTrueOrderByIsPopularDescDisplayOrderAsc(String serviceType);
 
     // Tất cả gói (kể cả đã ẩn) — dùng cho màn Quản lý gói dịch vụ để khôi phục gói đã ẩn
-    List<ClinicService> findAllByOrderByDisplayOrderAsc();
+    List<ClinicService> findAllByOrderByIsPopularDescDisplayOrderAsc();
+
+    @Query("SELECT MAX(s.displayOrder) FROM ClinicService s")
+    Optional<Integer> findMaxDisplayOrder();
 }

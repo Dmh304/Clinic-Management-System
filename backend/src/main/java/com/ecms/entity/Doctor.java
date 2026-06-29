@@ -34,17 +34,19 @@ public class Doctor {
     @Column(name = "specialty")
     private String specialization;
 
-    @Column(name = "department")
-    private String department;
-
+    // Cột thật chứa SĐT là "phone_number" — cột "phone" trong DB là cột legacy
+    // rỗng, không dùng (giống lỗi drift đã gặp ở bảng services/category).
     @Column(name = "phone_number")
-    private String phoneNumber;
+    private String phone;
 
     @Column(name = "email")
     private String email;
 
+    @Column(name = "department")
+    private String department;
+
     @Column(name = "experience_years")
-    private int experienceYears;
+    private Integer experienceYears;
 
     @Column(name = "bio")
     private String bio;

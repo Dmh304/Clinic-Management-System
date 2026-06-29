@@ -25,7 +25,7 @@ public class ServiceCategory {
     private Integer displayOrder;
 
     @OneToMany(mappedBy = "category", fetch = FetchType.LAZY)
-    @OrderBy("displayOrder ASC")
+    @OrderBy("isPopular DESC, displayOrder ASC")
     private List<ClinicService> services = new ArrayList<>();
 
     @PrePersist

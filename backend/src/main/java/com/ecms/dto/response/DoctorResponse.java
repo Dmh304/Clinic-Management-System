@@ -9,4 +9,8 @@ public class DoctorResponse {
     private String specialization;
     private String phone;
     private String email;
+    private String department;
+    private Integer experienceYears;
+    private String bio;
+    private String avatarUrl;
 }

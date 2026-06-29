@@ -14,14 +14,14 @@ DECLARE @hash NVARCHAR(255) = N'$2a$10$gfSU.mS4YQd7cICUyobl/en..jS9epCm4YpeYiRbl
 
 INSERT INTO users (email, password, full_name, phone_number, date_of_birth, gender, address, status, enabled, role_id, created_at)
 VALUES
-(N'patient10@gmail.com', @hash, N'Vương Thị Thu',      N'0913000010', '1992-02-14', 'FEMALE', N'20 Lê Văn Sỹ, Q3',     'ACTIVE', 1, 7, GETDATE()),
-(N'patient11@gmail.com', @hash, N'Phan Văn Hùng',      N'0913000011', '1988-11-03', 'MALE',   N'21 Cách Mạng Tháng 8', 'ACTIVE', 1, 7, GETDATE()),
-(N'patient12@gmail.com', @hash, N'Trương Thị Mai',     N'0913000012', '1999-06-22', 'FEMALE', N'22 Nguyễn Trãi, Q5',   'ACTIVE', 1, 7, GETDATE()),
-(N'patient13@gmail.com', @hash, N'Đặng Văn Khoa',      N'0913000013', '1975-09-30', 'MALE',   N'23 Hai Bà Trưng, Q1',  'ACTIVE', 1, 7, GETDATE()),
-(N'patient14@gmail.com', @hash, N'Bé Nguyễn An Nhiên', N'0913000010', '2018-05-01', 'FEMALE', N'20 Lê Văn Sỹ, Q3',     'ACTIVE', 1, 7, GETDATE()), -- con của patient10, dùng chung SĐT
-(N'patient15@gmail.com', @hash, N'Lâm Thị Hồng',       N'0913000015', '1965-12-12', 'FEMALE', N'25 Điện Biên Phủ',    'ACTIVE', 1, 7, GETDATE()),
-(N'patient16@gmail.com', @hash, N'Võ Văn Sơn',         N'0913000016', '2001-03-18', 'MALE',   N'26 Trường Chinh',     'ACTIVE', 1, 7, GETDATE()),
-(N'patient17@gmail.com', @hash, N'Bé Trần Gia Bảo',    N'0913000017', '2020-08-09', 'MALE',   N'27 Phan Xích Long',   'ACTIVE', 1, 7, GETDATE());
+(N'patient10@gmail.com', @hash, N'Vương Thị Thu',      N'0913000010', '1992-02-14', 'FEMALE', N'20 Lê Văn Sỹ, Q3',     'ACTIVE', 1, 8, GETDATE()),
+(N'patient11@gmail.com', @hash, N'Phan Văn Hùng',      N'0913000011', '1988-11-03', 'MALE',   N'21 Cách Mạng Tháng 8', 'ACTIVE', 1, 8, GETDATE()),
+(N'patient12@gmail.com', @hash, N'Trương Thị Mai',     N'0913000012', '1999-06-22', 'FEMALE', N'22 Nguyễn Trãi, Q5',   'ACTIVE', 1, 8, GETDATE()),
+(N'patient13@gmail.com', @hash, N'Đặng Văn Khoa',      N'0913000013', '1975-09-30', 'MALE',   N'23 Hai Bà Trưng, Q1',  'ACTIVE', 1, 8, GETDATE()),
+(N'patient14@gmail.com', @hash, N'Bé Nguyễn An Nhiên', N'0913000010', '2018-05-01', 'FEMALE', N'20 Lê Văn Sỹ, Q3',     'ACTIVE', 1, 8, GETDATE()), -- con của patient10, dùng chung SĐT
+(N'patient15@gmail.com', @hash, N'Lâm Thị Hồng',       N'0913000015', '1965-12-12', 'FEMALE', N'25 Điện Biên Phủ',    'ACTIVE', 1, 8, GETDATE()),
+(N'patient16@gmail.com', @hash, N'Võ Văn Sơn',         N'0913000016', '2001-03-18', 'MALE',   N'26 Trường Chinh',     'ACTIVE', 1, 8, GETDATE()),
+(N'patient17@gmail.com', @hash, N'Bé Trần Gia Bảo',    N'0913000017', '2020-08-09', 'MALE',   N'27 Phan Xích Long',   'ACTIVE', 1, 8, GETDATE());
 GO
 
 INSERT INTO patients (user_id, patient_code, full_name, date_of_birth, gender, address, phone, email, cccd, blood_type, emergency_contact_name, emergency_contact_phone, status, created_at)
