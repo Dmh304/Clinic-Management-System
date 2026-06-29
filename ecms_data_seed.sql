@@ -639,33 +639,19 @@ SET IDENTITY_INSERT invoice_details OFF;
 GO
 
 -- ============================================================
--- 20. notifications  (user_id → users)
+-- 20. notifications  (UC-13: thông báo kiểu Facebook — nhắm user/vai trò)
+--     id 1-3: broadcast cho Lễ tân; id 4-5: nhắm riêng bệnh nhân (user 10, 11)
 -- ============================================================
 SET IDENTITY_INSERT notifications ON;
 
 INSERT INTO notifications
-    (id, user_id, channel, subject, body,
-     ref_type, ref_id, sent_status, sent_at, is_read, read_at, created_at)
+    (id, message, target_role, target_user_id, related_appointment_id, is_read, created_at)
 VALUES
-(1, 10, 'EMAIL',  N'Xác nhận lịch hẹn #6',
-    N'Lịch hẹn ngày mai lúc 09:00 với BS. Trần Thị Bình đã được xác nhận. Vui lòng đến đúng giờ.',
-    N'appointment', 6, 'SENT', GETDATE(), 1, GETDATE(), GETDATE()),
-
-(2, 11, 'IN_APP', NULL,
-    N'Lịch hẹn #7 của bạn đang chờ xác nhận từ phòng khám.',
-    N'appointment', 7, 'SENT', GETDATE(), 0, NULL, GETDATE()),
-
-(3, 10, 'IN_APP', NULL,
-    N'Hóa đơn #1 đã được thanh toán thành công (500,000 đ). Cảm ơn bạn!',
-    N'invoice', 1, 'SENT', GETDATE(), 1, GETDATE(), GETDATE()),
-
-(4, 14, 'SMS',    N'Nhắc lịch hẹn',
-    N'[ECMS] Nhắc nhở: Bạn có lịch hẹn vào hôm qua lúc 13:00. Vui lòng liên hệ nếu cần đặt lại.',
-    N'appointment', 5, 'SENT', GETDATE(), 0, NULL, GETDATE()),
-
-(5, 13, 'EMAIL',  N'Kết quả phẫu thuật đục thủy tinh thể',
-    N'Hồ sơ bệnh án sau phẫu thuật của bạn đã được cập nhật. Vui lòng tái khám sau 1 tuần.',
-    N'medical_record', 4, 'SENT', GETDATE(), 0, NULL, GETDATE());
+(1, N'Đã gửi nhắc lịch cho bệnh nhân Nguyễn Văn An', N'RECEPTIONIST', NULL, 6, 0, GETDATE()),
+(2, N'Đã gửi nhắc lịch cho bệnh nhân Trần Thị Mai',   N'RECEPTIONIST', NULL, 7, 0, GETDATE()),
+(3, N'Đã gửi nhắc lịch cho bệnh nhân Lê Văn Cường',   N'RECEPTIONIST', NULL, 5, 1, GETDATE()),
+(4, N'Bạn có lịch khám sắp tới. Nhấn để xem chi tiết lịch hẹn.', NULL, 10, 6, 0, GETDATE()),
+(5, N'Bạn có lịch khám sắp tới. Nhấn để xem chi tiết lịch hẹn.', NULL, 11, 7, 0, GETDATE());
 
 SET IDENTITY_INSERT notifications OFF;
 GO
@@ -843,7 +829,7 @@ PRINT N'  lab_order_items    : 3';
 PRINT N'  service_assignments: 2';
 PRINT N'  invoices           : 4 (tổng 15,958,000 đ, tất cả PAID)';
 PRINT N'  invoice_details    : 8';
-PRINT N'  notifications      : 5 (EMAIL/IN_APP/SMS)';
+PRINT N'  notifications      : 5 (3 broadcast RECEPTIONIST + 2 nhắm bệnh nhân)';
 PRINT N'  feedbacks          : 3 (rating 4-5 sao)';
 PRINT N'  blog_posts         : 3 (2 PUBLISHED, 1 DRAFT)';
 PRINT N'  refresh_tokens     : 3';

@@ -12,6 +12,8 @@ public class ServiceRegistrationResponse {
     private String serviceName;
     private Long patientId;
     private String patientName;
+    private String patientPhone;
+    private String patientEmail;
     private String registeredByName;
     private String registeredByRole;
     private LocalDate registrationDate;

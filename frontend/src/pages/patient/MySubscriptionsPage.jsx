@@ -8,8 +8,8 @@ const STATUS_LABEL = {
   EXPIRED: { label: 'Hết hạn', color: '#dc2626', bg: '#fee2e2' },
   DEPLETED: { label: 'Đã dùng hết', color: '#6b7280', bg: '#f3f4f6' },
   CANCELLED: { label: 'Đã huỷ', color: '#d97706', bg: '#fef3c7' },
-  PENDING: { label: 'Chờ xác nhận', color: '#d97706', bg: '#fef3c7' },
-  CONFIRMED: { label: 'Đã xác nhận', color: '#16a34a', bg: '#dcfce7' },
+  PENDING: { label: '⏳ Chờ liên hệ tư vấn', color: '#d97706', bg: '#fef3c7' },
+  CONFIRMED: { label: '✓ Đã liên hệ tư vấn', color: '#16a34a', bg: '#dcfce7' },
   COMPLETED: { label: 'Hoàn tất', color: '#6b7280', bg: '#f3f4f6' },
 }
 
@@ -33,7 +33,7 @@ export default function MySubscriptionsPage() {
     setLoading(true)
     try {
       const res = await subscriptionService.getMy()
-      setSubscriptions(res.data.data || [])
+      setSubscriptions(res.data || [])
     } catch {
       setError('Không thể tải danh sách gói dịch vụ')
     } finally {
@@ -44,7 +44,7 @@ export default function MySubscriptionsPage() {
   const fetchRegistrations = async () => {
     try {
       const res = await serviceService.getMyRegistrations()
-      setRegistrations(res.data.data || [])
+      setRegistrations(res.data || [])
     } catch {
       // Bỏ qua — danh sách đăng ký không quan trọng bằng gói dịch vụ chính
     }
@@ -70,6 +70,12 @@ export default function MySubscriptionsPage() {
 
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#6b7280' }}>Đang tải...</div>
 
+  // Chỉ hiển thị các đăng ký đang chờ/đã liên hệ tư vấn; đăng ký đã xử lý (COMPLETED)
+  // hoặc đã huỷ (CANCELLED) không còn cần theo dõi ở mục này.
+  const pendingRegistrations = registrations.filter(
+    (r) => r.status === 'PENDING' || r.status === 'CONFIRMED'
+  )
+
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc', padding: '32px 16px' }}>
       <div style={{ maxWidth: 900, margin: '0 auto' }}>
@@ -85,12 +91,20 @@ export default function MySubscriptionsPage() {
 
         {error && <div style={{ background: '#fee2e2', color: '#dc2626', padding: '12px 16px', borderRadius: 8, marginBottom: 16 }}>{error}</div>}
 
-        {registrations.length > 0 && (
+        {pendingRegistrations.length > 0 && (
           <div style={{ marginBottom: 28 }}>
-            <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1e293b', margin: '0 0 12px' }}>Dịch vụ đã đăng ký</h2>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1e293b', margin: '0 0 4px' }}>Dịch vụ đã đăng ký tư vấn</h2>
+            <p style={{ fontSize: 13, color: '#64748b', margin: '0 0 12px' }}>
+              Các gói bạn đã đăng ký online — phòng khám sẽ liên hệ để tư vấn và xác nhận trước khi thanh toán.
+            </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {registrations.map(reg => (
-                <div key={reg.id} style={{ background: '#fff', borderRadius: 12, padding: '14px 18px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+              {pendingRegistrations.map(reg => (
+                <div key={reg.id} style={{
+                  background: reg.status === 'PENDING' ? '#fffbeb' : '#fff',
+                  borderRadius: 12, padding: '14px 18px',
+                  border: `1px solid ${reg.status === 'PENDING' ? '#fde68a' : '#e2e8f0'}`,
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8,
+                }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ fontWeight: 600, fontSize: 14, color: '#1e293b' }}>{reg.serviceName}</span>
@@ -98,6 +112,11 @@ export default function MySubscriptionsPage() {
                     </div>
                     {reg.registrationDate && (
                       <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Ngày đăng ký: {reg.registrationDate}</div>
+                    )}
+                    {reg.status === 'PENDING' && (
+                      <div style={{ fontSize: 12, color: '#92400e', marginTop: 4 }}>
+                        Bạn đã đăng ký dịch vụ này — không cần đăng ký lại, phòng khám sẽ chủ động liên hệ.
+                      </div>
                     )}
                   </div>
                 </div>
@@ -117,7 +136,7 @@ export default function MySubscriptionsPage() {
           </div>
         ) : (
           <div>
-            {registrations.length > 0 && (
+            {pendingRegistrations.length > 0 && (
               <h2 style={{ fontSize: 16, fontWeight: 700, color: '#1e293b', margin: '0 0 12px' }}>Gói dịch vụ đã mua</h2>
             )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

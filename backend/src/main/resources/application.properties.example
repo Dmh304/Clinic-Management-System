@@ -9,7 +9,8 @@ server.port=8080
 # ============================================================
 spring.datasource.url=jdbc:sqlserver://localhost:1433;databaseName=ecms_db;encrypt=false
 spring.datasource.username=sa
-spring.datasource.password=YOUR_DB_PASSWORD
+spring.datasource.password=0864213579
+
 spring.datasource.driver-class-name=com.microsoft.sqlserver.jdbc.SQLServerDriver
 
 # HikariCP connection pool
@@ -26,6 +27,12 @@ spring.jpa.database-platform=org.hibernate.dialect.SQLServerDialect
 spring.jpa.hibernate.ddl-auto=none
 spring.jpa.show-sql=false
 spring.jpa.open-in-view=false
+
+# ============================================================
+# Upload file (ảnh đại diện gói dịch vụ)
+# ============================================================
+spring.servlet.multipart.max-file-size=5MB
+spring.servlet.multipart.max-request-size=10MB
 
 # ============================================================
 # JWT

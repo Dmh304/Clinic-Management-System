@@ -18,8 +18,8 @@ export default function ReassignAppointmentPage() {
       axiosClient.get('/v1/appointments/daily-schedule', { params: { date } }),
       axiosClient.get('/v1/doctors'),
     ]).then(([apptRes, docRes]) => {
-      setAppointments((apptRes.data.data || []).filter(a => STATUS_ACTIVE.includes(a.status)))
-      setDoctors(docRes.data.data || [])
+      setAppointments((apptRes.data || []).filter(a => STATUS_ACTIVE.includes(a.status)))
+      setDoctors(docRes.data || [])
     }).finally(() => setLoading(false))
   }, [date])
 
@@ -44,7 +44,7 @@ export default function ReassignAppointmentPage() {
       setModal(null)
       // Refresh
       const res = await axiosClient.get('/v1/appointments/daily-schedule', { params: { date } })
-      setAppointments((res.data.data || []).filter(a => STATUS_ACTIVE.includes(a.status)))
+      setAppointments((res.data || []).filter(a => STATUS_ACTIVE.includes(a.status)))
     } catch (err) {
       setError(err.response?.data?.message || 'Lỗi khi chuyển lịch')
     } finally {
@@ -109,7 +109,11 @@ export default function ReassignAppointmentPage() {
                 <select value={form.doctorId} onChange={e => setForm(f => ({ ...f, doctorId: e.target.value }))}
                   style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid #d1d5db', fontSize: 13, outline: 'none' }}>
                   <option value="">-- Giữ nguyên bác sĩ --</option>
-                  {doctors.map(d => <option key={d.id} value={d.id}>{d.fullName} — {d.specialization}</option>)}
+                  {doctors.map(d => (
+                    <option key={d.id} value={d.id}>
+                      {d.fullName} — {d.specialization}{d.experienceYears != null ? ` (${d.experienceYears} năm KN)` : ''}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div style={{ marginBottom: 16 }}>

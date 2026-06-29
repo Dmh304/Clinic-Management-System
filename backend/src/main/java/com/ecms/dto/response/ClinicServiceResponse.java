@@ -1,4 +1,4 @@
-// Mạnh Hùng - HE200743
+// Bich Ngan
 // DTO trả về thông tin một dịch vụ khám chữa bệnh: ID, tên dịch vụ, mô tả, giá và thời lượng (phút).
 package com.ecms.dto.response;
 
@@ -23,8 +23,10 @@ public class ClinicServiceResponse {
     private Integer validityDays;
     private Boolean isActive;
     private Integer displayOrder;
+    private Boolean isPopular;
     private Long categoryId;
     private String categoryName;
     private String serviceType;
     private LocalDateTime createdAt;
+    private Long subscriberCount; // Số người đăng ký gói dịch vụ này
 }

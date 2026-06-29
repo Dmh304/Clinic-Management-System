@@ -7,7 +7,6 @@ import {
   UnorderedListOutlined,
   ClockCircleOutlined,
   CalendarOutlined,
-  TeamOutlined,
   CheckCircleOutlined,
   LockOutlined,
   SearchOutlined,
@@ -35,59 +34,13 @@ const C = {
 };
 const font = "system-ui, -apple-system, sans-serif";
 
-// ─── Fallback khi API chưa có dữ liệu ───────────────────────────
-const DEFAULT_SERVICES = [
-  {
-    id: null,
-    badge: "Phổ biến",
-    serviceName: "Gói Massage Mắt Thư Giãn",
-    description:
-      "Giảm căng thẳng mỏi mắt kỹ thuật số với liệu pháp massage kết hợp chườm ấm thảo dược.",
-    thumbnailUrl:
-      "https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?w=600&h=360&fit=crop&auto=format",
-    features: [
-      { icon: <ClockCircleOutlined />, text: "Thời lượng: 45 phút" },
-      { icon: <CheckCircleOutlined />, text: "Massage cơ vòng mắt & Chườm ấm" },
-    ],
-    priceLabel: "Giá chỉ từ",
-    price: 450000,
-  },
-  {
-    id: null,
-    badge: null,
-    serviceName: "Thiền & Phục Hồi Thị Lực",
-    description:
-      "Liệu trình phục hồi tự nhiên thông qua các bài tập điều tiết mắt và thiền định sâu.",
-    thumbnailUrl:
-      "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=600&h=360&fit=crop&auto=format",
-    features: [
-      { icon: <CalendarOutlined />, text: "Liệu trình: 4 tuần (8 buổi)" },
-      { icon: <CheckCircleOutlined />, text: "Hướng dẫn bởi chuyên gia nhãn khoa" },
-    ],
-    priceLabel: "Giá trọn gói",
-    price: 2800000,
-  },
-  {
-    id: null,
-    badge: null,
-    serviceName: "Combo Chăm Sóc Gia Đình",
-    description:
-      "Gói khám tổng quát và thư giãn cho tối đa 4 thành viên với chi phí tối ưu nhất.",
-    thumbnailUrl:
-      "https://images.unsplash.com/photo-1573497491765-dccce02b29df?w=600&h=360&fit=crop&auto=format",
-    features: [
-      { icon: <TeamOutlined />, text: "Dành cho: 4 người" },
-      { icon: <CheckCircleOutlined />, text: "Tầm soát khúc xạ & Thư giãn mắt" },
-    ],
-    priceLabel: "Giá ưu đãi",
-    price: 5200000,
-  },
-];
-
 function formatPrice(price) {
   if (!price && price !== 0) return "—";
   return new Intl.NumberFormat("vi-VN").format(price) + "đ";
 }
+
+// Phân biệt dịch vụ khám lâm sàng (đặt lịch hẹn) và gói chăm sóc (đăng ký tư vấn)
+const isClinical = (s) => s.serviceType === "CLINICAL";
 
 // ─── Hero ────────────────────────────────────────────────────────
 function HeroSection({ onScrollToServices }) {
@@ -101,108 +54,61 @@ function HeroSection({ onScrollToServices }) {
     >
       <div
         style={{
-          maxWidth: 1280,
-          margin: "0 auto",
-          padding: "0 24px",
-          display: "flex",
-          alignItems: "center",
-          gap: 56,
+          maxWidth: 1280, margin: "0 auto", padding: "0 24px",
+          display: "flex", alignItems: "center", gap: 56,
         }}
       >
-        {/* Left */}
         <div style={{ flex: 1, maxWidth: 540 }}>
           <span
             style={{
-              display: "inline-block",
-              backgroundColor: "#0d9488",
-              color: "#fff",
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: 1,
-              padding: "4px 12px",
-              borderRadius: 999,
-              marginBottom: 20,
+              display: "inline-block", backgroundColor: "#0d9488", color: "#fff",
+              fontSize: 11, fontWeight: 700, letterSpacing: 1,
+              padding: "4px 12px", borderRadius: 999, marginBottom: 20,
             }}
           >
-            CHĂM SÓC TOÀN DIỆN
+            DỊCH VỤ PHÒNG KHÁM
           </span>
 
           <h1
             style={{
-              fontSize: 40,
-              fontWeight: 800,
-              color: "#0f172a",
-              lineHeight: 1.2,
-              margin: "0 0 18px",
-              letterSpacing: -0.5,
+              fontSize: 40, fontWeight: 800, color: "#0f172a",
+              lineHeight: 1.2, margin: "0 0 18px", letterSpacing: -0.5,
             }}
           >
-            Gói dịch vụ chăm sóc mắt
+            Tất cả dịch vụ nhãn khoa
           </h1>
 
           <p
             style={{
-              fontSize: 15,
-              color: C.textSub,
-              lineHeight: 1.75,
-              margin: "0 0 32px",
-              maxWidth: 440,
+              fontSize: 15, color: C.textSub, lineHeight: 1.75,
+              margin: "0 0 32px", maxWidth: 440,
             }}
           >
-            Khám phá các gói dịch vụ phục hồi và thư giãn được thiết kế riêng
-            biệt để giúp đôi mắt của bạn luôn sáng khỏe trong kỷ nguyên số.
-            Từ liệu pháp massage đến các khóa thiền định thị giác chuyên sâu.
+            Từ dịch vụ khám lâm sàng chuyên sâu đến các gói chăm sóc và phục hồi
+            thị lực. Chọn dịch vụ phù hợp, xem chi tiết liệu trình và đặt lịch
+            hoặc đăng ký tư vấn chỉ trong vài bước.
           </p>
 
           <div style={{ display: "flex", gap: 12 }}>
             <button
               onClick={onScrollToServices}
               style={{
-                backgroundColor: C.primary,
-                color: "#fff",
-                border: "none",
-                borderRadius: 8,
-                padding: "12px 24px",
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: "pointer",
-                fontFamily: font,
-                transition: "background-color 0.15s",
+                backgroundColor: C.primary, color: "#fff", border: "none",
+                borderRadius: 8, padding: "12px 24px", fontSize: 14, fontWeight: 600,
+                cursor: "pointer", fontFamily: font, transition: "background-color 0.15s",
               }}
               onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = C.primaryDark)}
               onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = C.primary)}
             >
-              Xem các gói dịch vụ
-            </button>
-            <button
-              style={{
-                backgroundColor: "#fff",
-                color: C.primary,
-                border: `1.5px solid ${C.primaryBorder}`,
-                borderRadius: 8,
-                padding: "12px 24px",
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: "pointer",
-                fontFamily: font,
-                transition: "background-color 0.15s",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = C.primaryLight)}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#fff")}
-            >
-              Tư vấn ngay
+              Xem tất cả dịch vụ
             </button>
           </div>
         </div>
 
-        {/* Right image */}
         <div
           style={{
-            flex: "0 0 420px",
-            height: 320,
-            borderRadius: 20,
-            overflow: "hidden",
-            boxShadow: "0 16px 48px rgba(29,78,216,.18)",
+            flex: "0 0 420px", height: 320, borderRadius: 20,
+            overflow: "hidden", boxShadow: "0 16px 48px rgba(29,78,216,.18)",
           }}
         >
           <img
@@ -216,57 +122,86 @@ function HeroSection({ onScrollToServices }) {
   );
 }
 
-// ─── Register button (role-aware) ────────────────────────────────
-function RegisterButton({ service, role, isAuthenticated, onPatientRegister, onReceptionistOpen, loading }) {
+// ─── Nút hành động (theo loại dịch vụ + vai trò) ──────────────────
+function ActionButton({
+  service, role, isAuthenticated, alreadyPending,
+  onBook, onPatientRegister, onReceptionistOpen, loading, block,
+}) {
   const navigate = useNavigate();
+  const clinical = isClinical(service);
+  const stop = (fn) => (e) => { e.stopPropagation(); fn(); };
 
+  // Khách chưa đăng nhập
   if (!isAuthenticated) {
     return (
       <button
-        onClick={() => navigate("/login")}
+        onClick={stop(() => navigate("/login"))}
         style={{
-          backgroundColor: C.primaryLight,
-          color: C.primary,
-          border: `1px solid ${C.primaryBorder}`,
-          borderRadius: 8,
-          padding: "9px 18px",
-          fontSize: 13,
-          fontWeight: 600,
-          cursor: "pointer",
-          fontFamily: font,
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          whiteSpace: "nowrap",
+          backgroundColor: C.primaryLight, color: C.primary,
+          border: `1px solid ${C.primaryBorder}`, borderRadius: 8,
+          padding: "9px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer",
+          fontFamily: font, display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
         }}
       >
         <LockOutlined style={{ fontSize: 12 }} />
-        Đăng nhập để đăng ký
+        {clinical ? "Đăng nhập để đặt lịch" : "Đăng nhập để đăng ký"}
       </button>
     );
   }
 
+  // ── Dịch vụ khám lâm sàng → đặt lịch hẹn ──
+  if (clinical) {
+    if (role === "PATIENT") {
+      return (
+        <button
+          onClick={stop(() => service.id && onBook(service))}
+          disabled={!service.id}
+          style={{
+            backgroundColor: service.id ? C.primary : "#d1d5db", color: "#fff",
+            border: "none", borderRadius: 8, padding: "9px 20px",
+            fontSize: 13, fontWeight: 600, cursor: service.id ? "pointer" : "default",
+            fontFamily: font, whiteSpace: "nowrap", transition: "background-color 0.15s",
+          }}
+          onMouseEnter={(e) => { if (service.id) e.currentTarget.style.backgroundColor = C.primaryDark; }}
+          onMouseLeave={(e) => { if (service.id) e.currentTarget.style.backgroundColor = C.primary; }}
+        >
+          Đặt lịch khám
+        </button>
+      );
+    }
+    // Lễ tân / vai trò khác: dịch vụ khám đặt qua quầy (walk-in), chỉ xem ở đây
+    return <ReadOnlyButton />;
+  }
+
+  // ── Gói chăm sóc → đăng ký tư vấn ──
   if (role === "PATIENT") {
+    if (alreadyPending) {
+      return (
+        <button
+          disabled
+          style={{
+            backgroundColor: "#fef3c7", color: "#d97706", border: "1px solid #fde68a",
+            borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 600,
+            cursor: "default", fontFamily: font, whiteSpace: "nowrap",
+          }}
+        >
+          ⏳ Đang chờ tư vấn
+        </button>
+      );
+    }
     return (
       <button
-        onClick={() => service.id && onPatientRegister(service)}
-        disabled={!service.id || loading}
+        onClick={stop(() => service.id && onPatientRegister(service))}
+        disabled={!service.id || loading || block}
         style={{
-          backgroundColor: service.id ? C.primary : "#d1d5db",
-          color: "#fff",
-          border: "none",
-          borderRadius: 8,
-          padding: "9px 20px",
-          fontSize: 13,
-          fontWeight: 600,
-          cursor: service.id && !loading ? "pointer" : "default",
-          fontFamily: font,
-          whiteSpace: "nowrap",
-          transition: "background-color 0.15s",
+          backgroundColor: service.id && !block ? C.primary : "#d1d5db", color: "#fff",
+          border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 13, fontWeight: 600,
+          cursor: service.id && !loading && !block ? "pointer" : "default",
+          fontFamily: font, whiteSpace: "nowrap", transition: "background-color 0.15s",
           opacity: loading ? 0.75 : 1,
         }}
-        onMouseEnter={(e) => { if (service.id && !loading) e.currentTarget.style.backgroundColor = C.primaryDark; }}
-        onMouseLeave={(e) => { if (service.id) e.currentTarget.style.backgroundColor = C.primary; }}
+        onMouseEnter={(e) => { if (service.id && !loading && !block) e.currentTarget.style.backgroundColor = C.primaryDark; }}
+        onMouseLeave={(e) => { if (service.id && !block) e.currentTarget.style.backgroundColor = C.primary; }}
       >
         {loading ? "Đang xử lý..." : "Đăng ký ngay"}
       </button>
@@ -276,20 +211,13 @@ function RegisterButton({ service, role, isAuthenticated, onPatientRegister, onR
   if (role === "RECEPTIONIST") {
     return (
       <button
-        onClick={() => service.id && onReceptionistOpen(service)}
+        onClick={stop(() => service.id && onReceptionistOpen(service))}
         disabled={!service.id}
         style={{
-          backgroundColor: service.id ? C.teal : "#d1d5db",
-          color: "#fff",
-          border: "none",
-          borderRadius: 8,
-          padding: "9px 20px",
-          fontSize: 13,
-          fontWeight: 600,
-          cursor: service.id ? "pointer" : "default",
-          fontFamily: font,
-          whiteSpace: "nowrap",
-          transition: "background-color 0.15s",
+          backgroundColor: service.id ? C.teal : "#d1d5db", color: "#fff",
+          border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 13, fontWeight: 600,
+          cursor: service.id ? "pointer" : "default", fontFamily: font,
+          whiteSpace: "nowrap", transition: "background-color 0.15s",
         }}
         onMouseEnter={(e) => { if (service.id) e.currentTarget.style.backgroundColor = "#0f766e"; }}
         onMouseLeave={(e) => { if (service.id) e.currentTarget.style.backgroundColor = C.teal; }}
@@ -299,21 +227,17 @@ function RegisterButton({ service, role, isAuthenticated, onPatientRegister, onR
     );
   }
 
-  // Read-only — DOCTOR, ADMIN, MANAGER...
+  return <ReadOnlyButton />;
+}
+
+function ReadOnlyButton() {
   return (
     <button
       disabled
       style={{
-        backgroundColor: "#f1f5f9",
-        color: C.textMuted,
-        border: `1px solid ${C.border}`,
-        borderRadius: 8,
-        padding: "9px 20px",
-        fontSize: 13,
-        fontWeight: 500,
-        cursor: "not-allowed",
-        fontFamily: font,
-        whiteSpace: "nowrap",
+        backgroundColor: "#f1f5f9", color: C.textMuted, border: `1px solid ${C.border}`,
+        borderRadius: 8, padding: "9px 20px", fontSize: 13, fontWeight: 500,
+        cursor: "not-allowed", fontFamily: font, whiteSpace: "nowrap",
       }}
     >
       Chỉ xem
@@ -321,42 +245,46 @@ function RegisterButton({ service, role, isAuthenticated, onPatientRegister, onR
   );
 }
 
-// ─── Service card ─────────────────────────────────────────────────
-function ServiceCard({ service, isListMode, role, isAuthenticated, onPatientRegister, onReceptionistOpen, loadingId }) {
-  const [hovered, setHovered] = useState(false);
-
-  const features = service.features ?? (
-    service.durationMinutes
-      ? [{ icon: <ClockCircleOutlined />, text: `Thời lượng: ${service.durationMinutes} phút` }]
-      : []
+// Nhãn loại dịch vụ
+function TypeTag({ service }) {
+  const clinical = isClinical(service);
+  return (
+    <span
+      style={{
+        fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 999,
+        backgroundColor: clinical ? "#e0f2fe" : C.accentLight,
+        color: clinical ? "#0369a1" : "#15803d",
+      }}
+    >
+      {clinical ? "Khám lâm sàng" : "Gói chăm sóc"}
+    </span>
   );
+}
+
+// ─── Thẻ dịch vụ ──────────────────────────────────────────────────
+function ServiceCard({ service, isListMode, onOpenDetail, actionProps }) {
+  const [hovered, setHovered] = useState(false);
 
   return (
     <div
+      onClick={() => onOpenDetail(service)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        backgroundColor: C.surface,
-        borderRadius: 20,
-        overflow: "hidden",
+        backgroundColor: C.surface, borderRadius: 20, overflow: "hidden",
         border: `1px solid ${hovered ? "#bfdbfe" : C.border}`,
         boxShadow: hovered ? C.shadowHover : C.shadow,
-        display: "flex",
-        flexDirection: isListMode ? "row" : "column",
+        display: "flex", flexDirection: isListMode ? "row" : "column",
         transform: hovered ? "translateY(-3px)" : "none",
         transition: "box-shadow 0.2s, transform 0.2s, border-color 0.2s",
-        fontFamily: font,
+        fontFamily: font, cursor: "pointer",
       }}
     >
-      {/* Image */}
       <div
         style={{
-          position: "relative",
-          flexShrink: 0,
-          height: isListMode ? "auto" : 200,
-          width: isListMode ? 240 : "100%",
-          background: "#dbeafe",
-          overflow: "hidden",
+          position: "relative", flexShrink: 0,
+          height: isListMode ? "auto" : 200, width: isListMode ? 240 : "100%",
+          background: "#dbeafe", overflow: "hidden",
         }}
       >
         <img
@@ -370,15 +298,8 @@ function ServiceCard({ service, isListMode, role, isAuthenticated, onPatientRegi
         {service.badge && (
           <span
             style={{
-              position: "absolute",
-              top: 12,
-              right: 12,
-              backgroundColor: "#0d9488",
-              color: "#fff",
-              fontSize: 11,
-              fontWeight: 700,
-              padding: "4px 10px",
-              borderRadius: 999,
+              position: "absolute", top: 12, right: 12, backgroundColor: "#0d9488",
+              color: "#fff", fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 999,
             }}
           >
             {service.badge}
@@ -386,8 +307,14 @@ function ServiceCard({ service, isListMode, role, isAuthenticated, onPatientRegi
         )}
       </div>
 
-      {/* Body */}
       <div style={{ padding: "24px 28px", flex: 1, display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+          <TypeTag service={service} />
+          {service.categoryName && (
+            <span style={{ fontSize: 11, color: C.textMuted }}>{service.categoryName}</span>
+          )}
+        </div>
+
         <h3 style={{ fontSize: 17, fontWeight: 700, color: C.text, margin: "0 0 8px" }}>
           {service.serviceName}
         </h3>
@@ -396,26 +323,25 @@ function ServiceCard({ service, isListMode, role, isAuthenticated, onPatientRegi
           {service.description}
         </p>
 
-        {features.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 18 }}>
-            {features.map((f, i) => (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: C.textSub }}>
-                <span style={{ color: "#0d9488", flexShrink: 0 }}>{f.icon}</span>
-                {f.text}
-              </div>
-            ))}
-          </div>
-        )}
+        <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 18 }}>
+          {service.durationMinutes != null && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: C.textSub }}>
+              <span style={{ color: "#0d9488", flexShrink: 0 }}><ClockCircleOutlined /></span>
+              Thời lượng: {service.durationMinutes} phút
+            </div>
+          )}
+          {!isClinical(service) && service.sessionsIncluded != null && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: C.textSub }}>
+              <span style={{ color: "#0d9488", flexShrink: 0 }}><CalendarOutlined /></span>
+              Số buổi: {service.sessionsIncluded} buổi
+            </div>
+          )}
+        </div>
 
-        {/* Price + CTA */}
         <div
           style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            borderTop: `1px solid ${C.border}`,
-            paddingTop: 18,
-            gap: 12,
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            borderTop: `1px solid ${C.border}`, paddingTop: 18, gap: 12,
           }}
         >
           <div>
@@ -426,16 +352,88 @@ function ServiceCard({ service, isListMode, role, isAuthenticated, onPatientRegi
               {formatPrice(service.price)}
             </div>
           </div>
-          <RegisterButton
-            service={service}
-            role={role}
-            isAuthenticated={isAuthenticated}
-            onPatientRegister={onPatientRegister}
-            onReceptionistOpen={onReceptionistOpen}
-            loading={service.id != null && loadingId === service.id}
-          />
+          <ActionButton service={service} {...actionProps(service)} />
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Modal chi tiết dịch vụ (content do manager nhập từ DB) ───────
+function DetailModal({ service, onClose, actionProps }) {
+  if (!service) return null;
+  return (
+    <Modal
+      open={!!service}
+      onCancel={onClose}
+      footer={null}
+      width={640}
+      title={<span style={{ fontFamily: font, fontWeight: 700 }}>{service.serviceName}</span>}
+    >
+      <div style={{ fontFamily: font }}>
+        <img
+          src={
+            service.thumbnailUrl ||
+            "https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=600&h=360&fit=crop&auto=format"
+          }
+          alt={service.serviceName}
+          style={{ width: "100%", height: 220, objectFit: "cover", borderRadius: 12, marginBottom: 16 }}
+        />
+
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+          <TypeTag service={service} />
+          {service.categoryName && (
+            <span style={{ fontSize: 12, color: C.textMuted }}>{service.categoryName}</span>
+          )}
+        </div>
+
+        <p style={{ fontSize: 14, color: C.textSub, lineHeight: 1.7, margin: "0 0 16px" }}>
+          {service.description}
+        </p>
+
+        {/* Thông số nhanh */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 10, marginBottom: 18 }}>
+          {service.durationMinutes != null && (
+            <InfoBox label="Thời lượng" value={`${service.durationMinutes} phút`} />
+          )}
+          {!isClinical(service) && service.sessionsIncluded != null && (
+            <InfoBox label="Số buổi" value={`${service.sessionsIncluded} buổi`} />
+          )}
+          {!isClinical(service) && service.validityDays != null && (
+            <InfoBox label="Hiệu lực" value={`${service.validityDays} ngày`} />
+          )}
+          <InfoBox label={service.priceLabel || "Giá"} value={formatPrice(service.price)} highlight />
+        </div>
+
+        {/* Nội dung chi tiết — quản lý nhập trong DB (không hard-code) */}
+        {service.content ? (
+          <div style={{ marginBottom: 20 }}>
+            <h4 style={{ fontSize: 14, fontWeight: 700, color: C.text, margin: "0 0 8px" }}>
+              Chi tiết liệu trình
+            </h4>
+            <div style={{ fontSize: 14, color: C.textSub, lineHeight: 1.75, whiteSpace: "pre-wrap" }}>
+              {service.content}
+            </div>
+          </div>
+        ) : (
+          <div style={{ fontSize: 13, color: C.textMuted, fontStyle: "italic", marginBottom: 20 }}>
+            Thông tin chi tiết đang được cập nhật.
+          </div>
+        )}
+
+        <div style={{ display: "flex", justifyContent: "flex-end", borderTop: `1px solid ${C.border}`, paddingTop: 16 }}>
+          <ActionButton service={service} {...actionProps(service)} />
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function InfoBox({ label, value, highlight }) {
+  return (
+    <div style={{ background: highlight ? C.primaryLight : "#f8fafc", borderRadius: 10, padding: "10px 14px" }}>
+      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 2 }}>{label}</div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: highlight ? C.primary : C.text }}>{value}</div>
     </div>
   );
 }
@@ -552,12 +550,22 @@ function ReceptionistModal({ open, service, onClose, onConfirm, loading }) {
   );
 }
 
-// ─── Service catalog ──────────────────────────────────────────────
-function ServiceCatalog({ catalogRef, services, loading, role, isAuthenticated }) {
+// ─── Catalog ──────────────────────────────────────────────────────
+function ServiceCatalog({ catalogRef, services, loading, role, isAuthenticated, pendingIds, onRegistered }) {
+  const navigate = useNavigate();
   const [isListMode, setIsListMode] = useState(false);
+  const [search, setSearch] = useState("");
   const [loadingId, setLoadingId] = useState(null);
   const [confirmModal, setConfirmModal] = useState({ open: false, service: null });
   const [receptionistModal, setReceptionistModal] = useState({ open: false, service: null });
+  const [detail, setDetail] = useState(null);
+
+  // Bệnh nhân đặt lịch khám cho dịch vụ lâm sàng → chuyển sang luồng đặt lịch hẹn
+  const handleBook = (service) => {
+    navigate("/patient/booking", {
+      state: { service: { id: service.id, serviceName: service.serviceName } },
+    });
+  };
 
   const handlePatientRegister = (service) => setConfirmModal({ open: true, service });
 
@@ -566,8 +574,10 @@ function ServiceCatalog({ catalogRef, services, loading, role, isAuthenticated }
     setLoadingId(service.id);
     try {
       await serviceService.register({ serviceId: service.id });
-      message.success(`Đăng ký "${service.serviceName}" thành công! Chúng tôi sẽ liên hệ sớm.`);
+      message.success(`Đăng ký "${service.serviceName}" thành công! Phòng khám sẽ liên hệ tư vấn sớm.`);
+      onRegistered(service.id);
       setConfirmModal({ open: false, service: null });
+      setDetail(null);
     } catch (err) {
       message.error(err?.response?.data?.message ?? "Đăng ký thất bại, vui lòng thử lại");
     } finally {
@@ -589,44 +599,70 @@ function ServiceCatalog({ catalogRef, services, loading, role, isAuthenticated }
     }
   };
 
+  // Props cho nút hành động — dùng chung cho card và modal chi tiết
+  const actionProps = (service) => ({
+    role,
+    isAuthenticated,
+    alreadyPending: pendingIds.has(service.id),
+    onBook: handleBook,
+    onPatientRegister: handlePatientRegister,
+    onReceptionistOpen: (svc) => setReceptionistModal({ open: true, service: svc }),
+    loading: service.id != null && loadingId === service.id,
+  });
+
+  // Lọc theo từ khoá: tên / mô tả / danh mục (tìm nhanh khi không nhớ rõ tên)
+  const kw = search.trim().toLowerCase();
+  const visible = kw
+    ? services.filter((s) =>
+        [s.serviceName, s.description, s.categoryName]
+          .filter(Boolean)
+          .some((v) => v.toLowerCase().includes(kw)))
+    : services;
+
   return (
     <section ref={catalogRef} style={{ backgroundColor: "#f8fafc", padding: "64px 0", fontFamily: font }}>
       <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px" }}>
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 36 }}>
+        {/* Header + search + view toggle */}
+        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 28, gap: 16, flexWrap: "wrap" }}>
           <div>
             <h2 style={{ fontSize: 28, fontWeight: 800, color: C.text, margin: "0 0 6px", letterSpacing: -0.3 }}>
               Danh mục dịch vụ
             </h2>
             <p style={{ fontSize: 14, color: C.textSub, margin: 0 }}>
-              Chọn gói giải pháp phù hợp nhất với nhu cầu của bạn
+              Tất cả dịch vụ khám và gói chăm sóc của phòng khám
             </p>
           </div>
-          <div style={{ display: "flex", border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
-            {[
-              { mode: false, Icon: AppstoreOutlined },
-              { mode: true, Icon: UnorderedListOutlined },
-            ].map(({ mode, Icon }) => (
-              <button
-                key={String(mode)}
-                onClick={() => setIsListMode(mode)}
-                style={{
-                  backgroundColor: isListMode === mode ? C.primaryLight : C.surface,
-                  color: isListMode === mode ? C.primary : C.textSub,
-                  border: "none",
-                  borderRight: mode === false ? `1px solid ${C.border}` : "none",
-                  padding: "8px 14px",
-                  cursor: "pointer",
-                  fontSize: 16,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  transition: "background-color 0.15s",
-                }}
-              >
-                <Icon />
-              </button>
-            ))}
+
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <Input
+              allowClear
+              placeholder="Tìm dịch vụ theo từ khoá..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              prefix={<SearchOutlined style={{ color: C.textMuted }} />}
+              style={{ width: 280, borderRadius: 8 }}
+            />
+            <div style={{ display: "flex", border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+              {[
+                { mode: false, Icon: AppstoreOutlined },
+                { mode: true, Icon: UnorderedListOutlined },
+              ].map(({ mode, Icon }) => (
+                <button
+                  key={String(mode)}
+                  onClick={() => setIsListMode(mode)}
+                  style={{
+                    backgroundColor: isListMode === mode ? C.primaryLight : C.surface,
+                    color: isListMode === mode ? C.primary : C.textSub,
+                    border: "none", borderRight: mode === false ? `1px solid ${C.border}` : "none",
+                    padding: "8px 14px", cursor: "pointer", fontSize: 16,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    transition: "background-color 0.15s",
+                  }}
+                >
+                  <Icon />
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -634,6 +670,10 @@ function ServiceCatalog({ catalogRef, services, loading, role, isAuthenticated }
         {loading ? (
           <div style={{ textAlign: "center", padding: "60px 0" }}>
             <Spin size="large" />
+          </div>
+        ) : visible.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "60px 0", color: C.textMuted, fontSize: 15 }}>
+            {kw ? `Không tìm thấy dịch vụ nào khớp "${search}".` : "Hiện chưa có dịch vụ nào."}
           </div>
         ) : (
           <div
@@ -643,21 +683,21 @@ function ServiceCatalog({ catalogRef, services, loading, role, isAuthenticated }
                 : { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }
             }
           >
-            {services.map((s, i) => (
+            {visible.map((s, i) => (
               <ServiceCard
                 key={s.id ?? i}
                 service={s}
                 isListMode={isListMode}
-                role={role}
-                isAuthenticated={isAuthenticated}
-                onPatientRegister={handlePatientRegister}
-                onReceptionistOpen={(svc) => setReceptionistModal({ open: true, service: svc })}
-                loadingId={loadingId}
+                onOpenDetail={setDetail}
+                actionProps={actionProps}
               />
             ))}
           </div>
         )}
       </div>
+
+      {/* Modal chi tiết */}
+      <DetailModal service={detail} onClose={() => setDetail(null)} actionProps={actionProps} />
 
       {/* Patient confirm modal */}
       <Modal
@@ -683,7 +723,8 @@ function ServiceCatalog({ catalogRef, services, loading, role, isAuthenticated }
             )}
           </div>
           <p style={{ color: C.textSub, fontSize: 13, marginTop: 14, lineHeight: 1.6 }}>
-            Sau khi đăng ký, đội ngũ phòng khám sẽ liên hệ với bạn để xác nhận và sắp xếp lịch hẹn phù hợp.
+            Sau khi đăng ký, đội ngũ phòng khám sẽ liên hệ với bạn để tư vấn và sắp xếp lịch hẹn phù hợp.
+            Đăng ký này sẽ xuất hiện trong "Dịch vụ của tôi" ở trạng thái <strong>Chờ liên hệ tư vấn</strong>.
           </p>
         </div>
       </Modal>
@@ -708,24 +749,39 @@ export default function ServicePackagesPage() {
 
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
+  // serviceId mà bệnh nhân đang có đăng ký chờ tư vấn (PENDING) — chặn đăng ký trùng
+  const [pendingIds, setPendingIds] = useState(new Set());
 
   useEffect(() => {
     serviceService
-      .getServicesByType('CARE')
-      .then((res) => {
-        const data = res.data ?? [];
-        setServices(data.length > 0 ? data : DEFAULT_SERVICES);
-      })
-      .catch(() => setServices(DEFAULT_SERVICES))
+      .getAllServices()
+      .then((res) => setServices(res.data ?? []))
+      .catch(() => setServices([]))
       .finally(() => setLoading(false));
   }, []);
+
+  // Bệnh nhân: lấy các đăng ký đang chờ tư vấn để khoá nút "Đăng ký ngay"
+  useEffect(() => {
+    if (isAuthenticated && role === "PATIENT") {
+      serviceService
+        .getMyRegistrations()
+        .then((res) => {
+          const ids = (res.data ?? [])
+            .filter((r) => r.status === "PENDING")
+            .map((r) => r.serviceId);
+          setPendingIds(new Set(ids));
+        })
+        .catch(() => {});
+    }
+  }, [isAuthenticated, role]);
+
+  const markPending = (serviceId) =>
+    setPendingIds((prev) => new Set(prev).add(serviceId));
 
   return (
     <div style={{ fontFamily: font, color: C.text }}>
       <HeroSection
-        onScrollToServices={() =>
-          catalogRef.current?.scrollIntoView({ behavior: "smooth" })
-        }
+        onScrollToServices={() => catalogRef.current?.scrollIntoView({ behavior: "smooth" })}
       />
       <ServiceCatalog
         catalogRef={catalogRef}
@@ -733,6 +789,8 @@ export default function ServicePackagesPage() {
         loading={loading}
         role={role}
         isAuthenticated={isAuthenticated}
+        pendingIds={pendingIds}
+        onRegistered={markPending}
       />
     </div>
   );

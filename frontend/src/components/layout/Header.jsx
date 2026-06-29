@@ -3,19 +3,39 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import { logout } from '../../store/slices/authSlice'
 import { clinicServiceService } from '../../services/clinicServiceService'
+import NotificationBell from './NotificationBell'
 import logoImg from '../../assets/ECMS_Logo.png'
 
 // Danh mục dịch vụ trong mega-dropdown được nhóm theo service_type (CLINICAL/CARE)
 // để đồng bộ với dữ liệu thật trong DB — tránh lệch với trang /services và trang chủ.
 const SERVICE_GROUPS = [
-  { type: 'CLINICAL', name: 'Dịch vụ khám lâm sàng', to: '/' },
+  { type: 'CLINICAL', name: 'Dịch vụ khám lâm sàng', to: '/services' },
   { type: 'CARE', name: 'Dịch vụ chăm sóc mắt', to: '/services' },
 ]
 
 const PROTECTED_GUEST_ROUTES = {
   'Đặt lịch': '/patient/booking',
-  'Hồ sơ bệnh án': '/patient/history',
 }
+
+// Các trang quản lý của Manager — gom vào dropdown tài khoản vì hiện chưa có
+// dashboard tổng hợp, để Manager không phải gõ URL từng trang. (Icon dùng chung
+// kiểu "ô quản lý" cho gọn.)
+const MGR_ICON = (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
+    <rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
+  </svg>
+)
+// Chỉ liệt kê các trang ĐÃ làm xong — bỏ /manager/revenue và /manager/staff vì
+// hai trang đó hiện vẫn là stub (return null), bấm vào sẽ ra trang trắng.
+const MANAGER_LINKS = [
+  { label: 'Lịch khám', to: '/manager/daily-schedule' },
+  { label: 'Quản lý gói dịch vụ', to: '/manager/service-packages' },
+  { label: 'Quản lý bác sĩ', to: '/manager/doctors' },
+  { label: 'Chương trình giảm giá', to: '/manager/discount-campaigns' },
+  { label: 'Phân công điều dưỡng', to: '/manager/assign-nurse' },
+  { label: 'Chuyển lịch hẹn', to: '/manager/reassign-appointment' },
+].map(x => ({ ...x, icon: MGR_ICON }))
 
 const PUBLIC_LINKS = [
   { label: 'Trang chủ', to: '/' },
@@ -358,7 +378,7 @@ export default function Header() {
 
               {user?.role === 'MANAGER' && (
                 <button
-                  onClick={() => navigate('/manager/dashboard')}
+                  onClick={() => navigate('/manager/daily-schedule')}
                   style={{
                     backgroundColor: '#1d4ed8', color: '#fff',
                     border: 'none', cursor: 'pointer',
@@ -370,6 +390,8 @@ export default function Header() {
                 </button>
               )}
 
+              {/* UC-13: chuông thông báo (badge số chưa đọc) */}
+              <NotificationBell viewAllPath={user?.role === 'RECEPTIONIST' ? '/receptionist/notifications' : undefined} />
               {user?.role === 'ADMIN' && (
                 <button
                   onClick={() => navigate('/admin/dashboard')}
@@ -425,7 +447,8 @@ export default function Header() {
                     position: 'absolute', top: 'calc(100% + 8px)', right: 0,
                     backgroundColor: '#fff', border: '1px solid #e2e8f0',
                     borderRadius: 12, boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
-                    minWidth: 200, zIndex: 100, overflow: 'hidden',
+                    minWidth: 220, zIndex: 100, overflowX: 'hidden', overflowY: 'auto',
+                    maxHeight: '80vh',
                   }}>
                     <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9' }}>
                       <p style={{ fontSize: 13, fontWeight: 600, color: '#111827', margin: 0 }}>{user?.fullName}</p>
@@ -433,10 +456,22 @@ export default function Header() {
                     </div>
                     {[
                       { label: 'Hồ sơ cá nhân', to: '/profile', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> },
-                      ...(user?.role === 'PATIENT' ? [{
-                        label: 'Dịch vụ của tôi', to: '/patient/subscriptions',
-                        icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82Z"/><circle cx="7" cy="7" r="1"/></svg>,
-                      }] : []),
+                      ...(user?.role === 'PATIENT' ? [
+                        {
+                          label: 'Lịch hẹn của tôi', to: '/patient/appointments',
+                          icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                        },
+                        {
+                          label: 'Dịch vụ của tôi', to: '/patient/subscriptions',
+                          icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82Z"/><circle cx="7" cy="7" r="1"/></svg>,
+                        },
+                        {
+                          label: 'Hồ sơ bệnh án', to: '/patient/history',
+                          icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                        }
+                      ] : []),
+                      // Manager: liệt kê thẳng các trang quản lý (chưa có dashboard tổng hợp)
+                      ...(user?.role === 'MANAGER' ? MANAGER_LINKS : []),
                       { label: 'Đổi mật khẩu', to: '/change-password', icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> },
                     ].map(item => (
                       <Link key={item.to} to={item.to}

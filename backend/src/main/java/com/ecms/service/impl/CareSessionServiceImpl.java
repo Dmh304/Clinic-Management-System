@@ -8,7 +8,9 @@ import com.ecms.entity.*;
 import com.ecms.exception.ResourceNotFoundException;
 import com.ecms.repository.*;
 import com.ecms.service.CareSessionService;
+import com.ecms.service.NotificationService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,12 +21,22 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
+// readOnly mặc định cho cả class để giữ session mở khi map entity (open-in-view=false),
+// tránh LazyInitializationException ở getMySessions/getNurseQueue/getAllSessions...
+// Các method ghi (book, assignNurse, start, complete, checkout, cancel) đã có
+// @Transactional riêng nên tự ghi đè thành read-write.
+@Transactional(readOnly = true)
 public class CareSessionServiceImpl implements CareSessionService {
+
+    /** BR-16: số buổi chăm sóc tối đa mỗi điều dưỡng trong một ngày (mirror BR-03 của bác sĩ). */
+    private static final int MAX_CARE_SESSIONS_PER_NURSE_PER_DAY = 12;
 
     private final CareSessionRepository careSessionRepository;
     private final PatientServiceSubscriptionRepository subscriptionRepository;
     private final PatientRepository patientRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -32,12 +44,22 @@ public class CareSessionServiceImpl implements CareSessionService {
         PatientServiceSubscription subscription = subscriptionRepository.findById(request.getSubscriptionId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy gói đăng ký"));
 
-        Patient currentPatient = patientRepository.findByUser_Email(currentUserEmail)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ bệnh nhân"));
+        // UC-40 ALT-1: xác định người đặt — patient tự đặt hay Receptionist đặt hộ.
+        // Receptionist không có hồ sơ bệnh nhân → findByUser_Email trả empty.
+        Patient currentPatient = patientRepository.findByUser_Email(currentUserEmail).orElse(null);
+        boolean isReceptionistBooking = currentPatient == null;
 
-        if (!subscription.getPatient().getId().equals(currentPatient.getId())) {
+        // Chỉ check ownership khi patient tự đặt (Receptionist đặt hộ thì bỏ qua)
+        if (!isReceptionistBooking
+                && !subscription.getPatient().getId().equals(currentPatient.getId())) {
             throw new IllegalArgumentException("Gói đăng ký không thuộc bệnh nhân này");
         }
+
+        // Nếu Receptionist đặt hộ → dùng patient từ subscription
+        Patient sessionPatient = isReceptionistBooking
+                ? subscription.getPatient()
+                : currentPatient;
+
         if (!"ACTIVE".equals(subscription.getStatus())) {
             throw new IllegalStateException("Gói đăng ký không còn hiệu lực");
         }
@@ -59,13 +81,37 @@ public class CareSessionServiceImpl implements CareSessionService {
 
         CareSession session = CareSession.builder()
                 .subscription(subscription)
-                .patient(currentPatient)
+                .patient(sessionPatient)
                 .scheduledDateTime(request.getScheduledDateTime())
                 .sessionNumber(sessionNumber)
                 .notes(request.getNotes())
                 .build();
 
-        return toResponse(careSessionRepository.save(session));
+        CareSessionResponse response = toResponse(careSessionRepository.save(session));
+
+        // BR-15: trừ buổi ngay khi đặt lịch, chặn overbooking
+        subscription.setUsedSessions(subscription.getUsedSessions() + 1);
+        if (subscription.getRemainingSessions() <= 0) {
+            subscription.setStatus("DEPLETED");
+        }
+        subscriptionRepository.save(subscription);
+
+        // UC-40 POST-3: thông báo xác nhận đặt lịch thành công
+        try {
+            Long patientUserId = sessionPatient.getUser() != null
+                    ? sessionPatient.getUser().getId() : null;
+            notificationService.createForUser(patientUserId,
+                    "Đặt buổi chăm sóc thành công — "
+                    + subscription.getService().getServiceName()
+                    + " (buổi " + sessionNumber + "/" + subscription.getTotalSessions() + ")"
+                    + ". Thời gian: " + request.getScheduledDateTime().toLocalDate()
+                    + " lúc " + request.getScheduledDateTime().toLocalTime(),
+                    null);
+        } catch (Exception e) {
+            log.error("UC-40: Gửi thông báo book care session thất bại: {}", e.getMessage());
+        }
+
+        return response;
     }
 
     @Override
@@ -112,6 +158,18 @@ public class CareSessionServiceImpl implements CareSessionService {
         if (!"NURSE".equals(nurse.getRole().getName())) {
             throw new IllegalArgumentException("Người dùng được chọn không phải điều dưỡng");
         }
+
+        // BR-16: chặn phân công vượt sức chứa buổi/ngày của điều dưỡng (bỏ qua chính buổi này
+        // để khi "đổi ĐD" không bị đếm trùng).
+        LocalDate sessionDate = session.getScheduledDateTime().toLocalDate();
+        long sameDayCount = careSessionRepository.countByNurseOnDateExcluding(
+                nurse.getId(), session.getId(),
+                sessionDate.atStartOfDay(), sessionDate.plusDays(1).atStartOfDay());
+        if (sameDayCount >= MAX_CARE_SESSIONS_PER_NURSE_PER_DAY) {
+            throw new IllegalStateException("Điều dưỡng đã đủ " + MAX_CARE_SESSIONS_PER_NURSE_PER_DAY
+                    + " buổi chăm sóc trong ngày, vui lòng chọn điều dưỡng khác");
+        }
+
         session.setNurse(nurse);
         session.setAssignedAt(LocalDateTime.now());
         return toResponse(careSessionRepository.save(session));
@@ -147,8 +205,13 @@ public class CareSessionServiceImpl implements CareSessionService {
         if (session.getNurse() == null || !session.getNurse().getId().equals(nurse.getId())) {
             throw new IllegalArgumentException("Bạn không được phân công buổi khám này");
         }
+        // UC-32 E-1: phải có ghi chú điều dưỡng mới được hoàn thành (chốt lại ở backend,
+        // không chỉ dựa vào validate ở frontend).
+        if (nurseNotes == null || nurseNotes.isBlank()) {
+            throw new IllegalArgumentException("Vui lòng nhập ghi chú buổi khám trước khi hoàn thành");
+        }
         session.setStatus("COMPLETED");
-        session.setNurseNotes(nurseNotes);
+        session.setNurseNotes(nurseNotes.trim());
         session.setCompletedAt(LocalDateTime.now());
         return toResponse(careSessionRepository.save(session));
     }
@@ -162,14 +225,7 @@ public class CareSessionServiceImpl implements CareSessionService {
             throw new IllegalStateException("Buổi khám chưa hoàn thành");
         }
 
-        PatientServiceSubscription subscription = session.getSubscription();
-        subscription.setUsedSessions(subscription.getUsedSessions() + 1);
-
-        if (subscription.getUsedSessions() >= subscription.getTotalSessions()) {
-            subscription.setStatus("DEPLETED");
-        }
-        subscriptionRepository.save(subscription);
-
+        // BR-15: buổi đã bị trừ lúc book(), checkout chỉ chuyển trạng thái.
         session.setStatus("CHECKED_OUT");
         return toResponse(careSessionRepository.save(session));
     }
@@ -182,6 +238,28 @@ public class CareSessionServiceImpl implements CareSessionService {
         if ("COMPLETED".equals(session.getStatus()) || "CHECKED_OUT".equals(session.getStatus())) {
             throw new IllegalStateException("Không thể huỷ buổi đã hoàn thành");
         }
+
+        // BR-05: bệnh nhân chỉ được huỷ trước giờ hẹn ≥1h.
+        // Staff (Receptionist/Manager/Admin) không bị ràng buộc.
+        Patient currentPatient = patientRepository.findByUser_Email(currentUserEmail).orElse(null);
+        boolean isPatientSelf = currentPatient != null
+                && session.getPatient().getId().equals(currentPatient.getId());
+
+        if (isPatientSelf && session.getScheduledDateTime().isBefore(LocalDateTime.now().plusHours(1))) {
+            throw new IllegalStateException(
+                    "Buổi khám chỉ có thể huỷ trước giờ hẹn ít nhất 1 giờ. "
+                    + "Vui lòng liên hệ trực tiếp phòng khám.");
+        }
+
+        // UC-40 ALT-2: hoàn lại buổi cho subscription khi huỷ (đã trừ lúc book)
+        PatientServiceSubscription subscription = session.getSubscription();
+        subscription.setUsedSessions(Math.max(0, subscription.getUsedSessions() - 1));
+        // Nếu subscription đã DEPLETED nhưng giờ có buổi hoàn → ACTIVE lại
+        if ("DEPLETED".equals(subscription.getStatus()) && subscription.getRemainingSessions() > 0) {
+            subscription.setStatus("ACTIVE");
+        }
+        subscriptionRepository.save(subscription);
+
         session.setStatus("CANCELLED");
         return toResponse(careSessionRepository.save(session));
     }
