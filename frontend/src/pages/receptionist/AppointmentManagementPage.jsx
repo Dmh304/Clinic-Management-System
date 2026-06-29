@@ -12,7 +12,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import dayjs from 'dayjs'
 import {
   Table, Tag, Select, Button, Space, Typography, Card,
-  message, Modal, Form, Statistic, Row, Col, Segmented,
+  message, Modal, Form, Statistic, Row, Col, Segmented, Input,
 } from 'antd'
 import {
   ReloadOutlined, CheckCircleOutlined, LoginOutlined,
@@ -82,6 +82,7 @@ export default function AppointmentManagementPage() {
   const [confirmModal, setConfirmModal] = useState({ open: false, appointment: null })
   const [confirmLoading, setConfirmLoading] = useState(false)
   const [selectedDoctorId, setSelectedDoctorId] = useState(null)
+  const [changeReason, setChangeReason] = useState('')
 
   // ── Chế độ Tuần/Tháng (fetch trực tiếp) ──
   const [rangeAppointments, setRangeAppointments] = useState([])
@@ -157,18 +158,60 @@ export default function AppointmentManagementPage() {
   const filtered =
     filterStatus === 'ALL' ? list : list.filter((a) => a.status === filterStatus)
 
+  // "STT hàng đợi" là độc lập theo TỪNG BÁC SĨ trong ngày (BR-13) — sắp lại để
+  // các lịch hẹn của cùng 1 bác sĩ nằm liền kề nhau, tránh trông như 1 hàng đợi
+  // chung của cả phòng khám mà bị lặp số (#1, #2, #1, #2...).
+  const sortedFiltered = useMemo(() => {
+    const arr = [...filtered]
+    arr.sort((a, b) => {
+      const da = a.doctorId ?? Number.MAX_SAFE_INTEGER
+      const db = b.doctorId ?? Number.MAX_SAFE_INTEGER
+      if (da !== db) return da - db
+      const qa = a.queueNumber ?? Number.MAX_SAFE_INTEGER
+      const qb = b.queueNumber ?? Number.MAX_SAFE_INTEGER
+      if (qa !== qb) return qa - qb
+      return (a.id ?? 0) - (b.id ?? 0)
+    })
+    return arr
+  }, [filtered])
+
+  // Map theo id (không theo index trang) để tô màu xen kẽ + kẻ vạch đầu mỗi
+  // nhóm bác sĩ — an toàn khi bảng có phân trang vì không phụ thuộc vị trí dòng
+  // trên trang hiện tại.
+  const rowGroupInfo = useMemo(() => {
+    const map = new Map()
+    let lastDoctorId
+    let tint = false
+    sortedFiltered.forEach((a, i) => {
+      const isNewGroup = i === 0 || a.doctorId !== lastDoctorId
+      if (isNewGroup && i > 0) tint = !tint
+      map.set(a.id, { tint, isGroupStart: isNewGroup && i > 0 })
+      lastDoctorId = a.doctorId
+    })
+    return map
+  }, [sortedFiltered])
+
   // ── Thao tác chế độ Ngày ──
   const handleOpenConfirm = (appointment) => {
     setSelectedDoctorId(appointment.doctorId ?? null)
+    setChangeReason('')
     setConfirmModal({ open: true, appointment })
   }
 
   const handleConfirm = async () => {
+    // Đổi sang bác sĩ KHÁC bác sĩ bệnh nhân đã đặt → bắt buộc nhập lý do
+    const originalDoctorId = confirmModal.appointment?.doctorId ?? null
+    const doctorChanged = originalDoctorId != null && selectedDoctorId !== originalDoctorId
+    if (doctorChanged && !changeReason.trim()) {
+      message.error('Vui lòng nhập lý do đổi bác sĩ')
+      return
+    }
     setConfirmLoading(true)
     try {
       await dispatch(confirmAppointment({
         id: confirmModal.appointment.id,
         doctorId: selectedDoctorId || null,
+        reason: doctorChanged ? changeReason.trim() : null,
       })).unwrap()
       message.success('Xác nhận lịch hẹn thành công')
       setConfirmModal({ open: false, appointment: null })
@@ -223,11 +266,27 @@ export default function AppointmentManagementPage() {
 
   const columns = [
     { title: 'STT', key: 'index', width: 55, render: (_, __, i) => i + 1 },
-    { title: 'Bệnh nhân', dataIndex: 'patientName', key: 'patientName' },
+    {
+      title: 'Bệnh nhân', dataIndex: 'patientName', key: 'patientName',
+      render: (name, record) => (
+        <span>
+          {name}
+          {record.bookedByName && <Tag color="purple" style={{ marginLeft: 6 }}>Đặt hộ</Tag>}
+          {record.notes && <span title="Có ghi chú triệu chứng" style={{ marginLeft: 6 }}>📝</span>}
+        </span>
+      ),
+    },
     { title: 'SĐT', dataIndex: 'patientPhone', key: 'patientPhone', width: 125 },
     { title: 'Giờ khám', dataIndex: 'timeSlot', key: 'timeSlot', width: 100 },
     {
-      title: 'STT hàng đợi', dataIndex: 'queueNumber', key: 'queueNumber', width: 110,
+      title: (
+        <span>
+          STT hàng đợi
+          <br />
+          <span style={{ fontSize: 11, fontWeight: 400, color: '#94a3b8' }}>(riêng theo từng bác sĩ)</span>
+        </span>
+      ),
+      dataIndex: 'queueNumber', key: 'queueNumber', width: 130,
       render: (q) => (q ? <Tag color="blue">#{q}</Tag> : '—'),
     },
     {
@@ -418,15 +477,23 @@ export default function AppointmentManagementPage() {
 
             <Table
               columns={columns}
-              dataSource={filtered}
+              dataSource={sortedFiltered}
               rowKey="id"
               loading={loading}
               pagination={{ pageSize: 10, showSizeChanger: false }}
               locale={{ emptyText: isAnchorToday ? 'Không có lịch hẹn nào hôm nay' : 'Không có lịch hẹn nào trong ngày này' }}
-              onRow={(record) => ({
-                onClick: () => setDetail(record),
-                style: { cursor: 'pointer' },
-              })}
+              onRow={(record) => {
+                const info = rowGroupInfo.get(record.id) || {}
+                return {
+                  onClick: () => setDetail(record),
+                  style: {
+                    cursor: 'pointer',
+                    background: info.tint ? '#f8fafc' : '#fff',
+                    // Kẻ vạch đậm hơn ngăn cách giữa nhóm lịch hẹn của 2 bác sĩ khác nhau
+                    borderTop: info.isGroupStart ? '2px solid #cbd5e1' : undefined,
+                  },
+                }
+              }}
             />
           </Card>
         </>
@@ -442,12 +509,13 @@ export default function AppointmentManagementPage() {
             <Space>
               {rangeDoctors.length > 0 && (
                 <Select
-                  value={filterDoctor || undefined}
-                  onChange={(v) => setFilterDoctor(v || '')}
-                  allowClear
-                  placeholder="Tất cả bác sĩ"
-                  style={{ width: 200 }}
-                  options={rangeDoctors.map((d) => ({ label: d.name, value: String(d.id) }))}
+                  value={filterDoctor || 'ALL'}
+                  onChange={(v) => setFilterDoctor(v === 'ALL' ? '' : v)}
+                  style={{ width: 220 }}
+                  options={[
+                    { label: '👥 Tất cả bác sĩ', value: 'ALL' },
+                    ...rangeDoctors.map((d) => ({ label: d.name, value: String(d.id) })),
+                  ]}
                 />
               )}
               <Button icon={<ReloadOutlined />} onClick={fetchRange} loading={rangeLoading}>Làm mới</Button>
@@ -496,22 +564,50 @@ export default function AppointmentManagementPage() {
           <div style={{ marginBottom: 16 }}>
             <p style={{ margin: '0 0 4px' }}><strong>Bệnh nhân:</strong> {confirmModal.appointment.patientName}</p>
             <p style={{ margin: '0 0 4px' }}><strong>Giờ khám:</strong> {confirmModal.appointment.timeSlot}</p>
+            {confirmModal.appointment.doctorName && (
+              <p style={{ margin: '0 0 4px' }}>
+                <strong>Bác sĩ bệnh nhân đã đặt:</strong> {confirmModal.appointment.doctorName}
+              </p>
+            )}
           </div>
         )}
-        <Form layout="vertical">
-          <Form.Item label="Phân công bác sĩ (không bắt buộc)">
-            <Select
-              allowClear
-              placeholder="Chọn bác sĩ"
-              value={selectedDoctorId}
-              onChange={setSelectedDoctorId}
-              options={doctors.map((d) => ({
-                label: `${d.fullName}${d.specialization ? ` — ${d.specialization}` : ''}`,
-                value: d.id,
-              }))}
-            />
-          </Form.Item>
-        </Form>
+        {(() => {
+          const originalDoctorId = confirmModal.appointment?.doctorId ?? null
+          const doctorChanged = originalDoctorId != null && selectedDoctorId !== originalDoctorId
+          return (
+            <Form layout="vertical">
+              <Form.Item label="Phân công bác sĩ (không bắt buộc)">
+                <Select
+                  allowClear
+                  placeholder="Chọn bác sĩ"
+                  value={selectedDoctorId}
+                  onChange={setSelectedDoctorId}
+                  options={doctors.map((d) => ({
+                    label: `${d.fullName}${d.specialization ? ` — ${d.specialization}` : ''}${d.experienceYears != null ? ` (${d.experienceYears} năm KN)` : ''}`,
+                    value: d.id,
+                  }))}
+                />
+              </Form.Item>
+              {doctorChanged && (
+                <Form.Item
+                  label="Lý do đổi bác sĩ"
+                  required
+                  validateStatus={changeReason.trim() ? '' : 'error'}
+                  help={changeReason.trim() ? '' : 'Bắt buộc nhập lý do khi đổi sang bác sĩ khác'}
+                >
+                  <Input.TextArea
+                    rows={3}
+                    value={changeReason}
+                    onChange={(e) => setChangeReason(e.target.value)}
+                    placeholder="VD: Bác sĩ bệnh nhân đặt bận đột xuất / chuyên môn phù hợp hơn..."
+                    maxLength={500}
+                    showCount
+                  />
+                </Form.Item>
+              )}
+            </Form>
+          )
+        })()}
       </Modal>
 
       {/* Modal chi tiết lịch hẹn (read-only, dùng chung 3 chế độ) */}

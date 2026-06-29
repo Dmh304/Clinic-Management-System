@@ -109,7 +109,11 @@ export default function ReassignAppointmentPage() {
                 <select value={form.doctorId} onChange={e => setForm(f => ({ ...f, doctorId: e.target.value }))}
                   style={{ width: '100%', padding: '8px 10px', borderRadius: 7, border: '1px solid #d1d5db', fontSize: 13, outline: 'none' }}>
                   <option value="">-- Giữ nguyên bác sĩ --</option>
-                  {doctors.map(d => <option key={d.id} value={d.id}>{d.fullName} — {d.specialization}</option>)}
+                  {doctors.map(d => (
+                    <option key={d.id} value={d.id}>
+                      {d.fullName} — {d.specialization}{d.experienceYears != null ? ` (${d.experienceYears} năm KN)` : ''}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div style={{ marginBottom: 16 }}>

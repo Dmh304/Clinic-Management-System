@@ -64,6 +64,7 @@ import ManagerDashboard from '../pages/manager/ManagerDashboard'
 import RevenueReportPage from '../pages/manager/RevenueReportPage'
 import StaffPerformancePage from '../pages/manager/StaffPerformancePage'
 import ManageServicePackagesPage from '../pages/manager/ManageServicePackagesPage'
+import ManageDoctorsPage from '../pages/manager/ManageDoctorsPage'
 import ManageDiscountCampaignsPage from '../pages/manager/ManageDiscountCampaignsPage'
 import AssignNursePage from '../pages/manager/AssignNursePage'
 import ReassignAppointmentPage from '../pages/manager/ReassignAppointmentPage'
@@ -177,6 +178,7 @@ export default function AppRouter() {
         <Route path="/manager/revenue" element={<RevenueReportPage />} />
         <Route path="/manager/staff" element={<StaffPerformancePage />} />
         <Route path="/manager/service-packages" element={<WithHeader><ManageServicePackagesPage /></WithHeader>} />
+        <Route path="/manager/doctors" element={<WithHeader><ManageDoctorsPage /></WithHeader>} />
         <Route path="/manager/discount-campaigns" element={<WithHeader><ManageDiscountCampaignsPage /></WithHeader>} />
         <Route path="/manager/assign-nurse" element={<WithHeader><AssignNursePage /></WithHeader>} />
         <Route path="/manager/reassign-appointment" element={<WithHeader><ReassignAppointmentPage /></WithHeader>} />

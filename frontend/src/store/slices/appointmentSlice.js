@@ -49,9 +49,9 @@ export const changeAppointmentStatus = createAsyncThunk(
  */
 export const confirmAppointment = createAsyncThunk(
   'appointment/confirm',
-  async ({ id, doctorId }, { rejectWithValue }) => {
+  async ({ id, doctorId, reason }, { rejectWithValue }) => {
     try {
-      const res = await appointmentService.confirmAppointment(id, doctorId)
+      const res = await appointmentService.confirmAppointment(id, doctorId, reason)
       return res.data
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || 'Không thể xác nhận lịch hẹn')

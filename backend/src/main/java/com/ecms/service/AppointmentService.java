@@ -21,10 +21,12 @@ public interface AppointmentService {
 
     List<AppointmentResponse> getAllAppointments();
 
-    List<AppointmentResponse> getMyAppointments(Long patientId);
+    // "Lịch hẹn của tôi" theo USER — gồm cả lịch đặt hộ người thân (booked_by).
+    List<AppointmentResponse> getMyAppointments(Long userId);
 
-    // Xác nhận lịch hẹn và phân công bác sĩ phụ trách (nếu có)
-    AppointmentResponse confirmAppointment(Long id, Long doctorId);
+    // Xác nhận lịch hẹn và phân công bác sĩ phụ trách (nếu có).
+    // reason bắt buộc khi đổi sang bác sĩ KHÁC với bác sĩ bệnh nhân đã đặt.
+    AppointmentResponse confirmAppointment(Long id, Long doctorId, String reason);
 
     /**
      * UC-15: Check-in bệnh nhân tại quầy. Cấp số thứ tự hàng đợi theo bác sĩ + ngày
@@ -39,6 +41,13 @@ public interface AppointmentService {
     AppointmentResponse createWalkInAppointment(WalkInAppointmentRequest request);
 
     AppointmentResponse bookOnlineAppointment(BookAppointmentRequest request, String patientEmail);
+
+    /**
+     * Danh sách khung giờ khám của 1 bác sĩ trong 1 ngày kèm tình trạng còn
+     * trống — dùng cho bệnh nhân chọn giờ khi đặt lịch (UC-46). Chủ nhật phòng
+     * khám nghỉ nên trả về danh sách rỗng.
+     */
+    List<com.ecms.dto.response.SlotAvailabilityResponse> getAvailableSlots(Long doctorId, LocalDate date);
 
     AppointmentDashboardResponse getDashboard(LocalDate date);
 

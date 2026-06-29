@@ -33,6 +33,22 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
                         """)
         List<Appointment> findAllWithDetailsAndPatientId(@Param("patientId") Long patientId);
 
+        /**
+         * "Lịch hẹn của tôi" theo USER: gồm lịch tự đặt (patient gắn tài khoản này)
+         * lẫn lịch đặt hộ người thân (booked_by = user này). Dùng cho UC-11.
+         */
+        @Query("""
+                        SELECT DISTINCT a
+                        FROM Appointment a
+                        LEFT JOIN FETCH a.patient p
+                        LEFT JOIN p.user u
+                        LEFT JOIN FETCH a.doctor
+                        LEFT JOIN FETCH a.clinicService
+                        WHERE u.id = :userId OR a.bookedBy = :userId
+                        ORDER BY a.appointmentTime DESC
+                        """)
+        List<Appointment> findMyAppointmentsByUser(@Param("userId") Long userId);
+
         @Query("""
                         SELECT DISTINCT a
                         FROM Appointment a
@@ -185,6 +201,32 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
                         @Param("end") LocalDateTime end,
                         @Param("status") AppointmentStatus status,
                         @Param("doctorId") Long doctorId);
+
+        /**
+         * Các giờ khám đã bị chiếm của 1 bác sĩ trong 1 ngày (mọi trạng thái trừ
+         * CANCELLED). Dùng để tính khung giờ còn trống cho bệnh nhân đặt lịch —
+         * gồm cả lịch PENDING (đặt online chờ xác nhận) để tránh 2 người đặt
+         * trùng giờ.
+         */
+        @Query("""
+                        SELECT a.appointmentTime
+                        FROM Appointment a
+                        WHERE a.doctor.id = :doctorId
+                          AND a.appointmentTime >= :start
+                          AND a.appointmentTime < :end
+                          AND a.status <> 'CANCELLED'
+                        """)
+        List<LocalDateTime> findBookedTimesByDoctorAndDate(
+                        @Param("doctorId") Long doctorId,
+                        @Param("start") LocalDateTime start,
+                        @Param("end") LocalDateTime end);
+
+        /**
+         * Kiểm tra một bác sĩ đã có lịch hẹn còn hiệu lực (khác CANCELLED) đúng vào
+         * một thời điểm hay chưa — dùng để chặn đặt trùng khung giờ.
+         */
+        boolean existsByDoctor_IdAndAppointmentTimeAndStatusNot(
+                        Long doctorId, LocalDateTime appointmentTime, AppointmentStatus status);
 
         /**
          * UC-13: lịch hẹn cần nhắc — đúng trạng thái, nằm trong khoảng thời gian

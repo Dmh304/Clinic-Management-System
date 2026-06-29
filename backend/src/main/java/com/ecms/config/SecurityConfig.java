@@ -134,6 +134,8 @@ public class SecurityConfig {
                         // ── Doctors list: public ───────────────────────────────────────
                         .requestMatchers(HttpMethod.GET, "/api/v1/doctors")
                         .permitAll()
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/doctors/*/avatar")
+                        .hasAnyRole("MANAGER", "ADMIN")
 
                         // ── Appointments ───────────────────────────────────────────────
                         .requestMatchers(HttpMethod.GET, "/api/v1/appointments/daily-schedule")

@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Form, Select, DatePicker, Button, Card, Typography, Space,
-  Result, Descriptions, Input, Tag, message, Modal,
+  Result, Descriptions, Input, Tag, message, Modal, Alert,
 } from 'antd'
 import { ThunderboltOutlined, CheckCircleOutlined, UserAddOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
@@ -12,6 +12,13 @@ import { clinicServiceService } from '../../services/clinicServiceService'
 import { appointmentService } from '../../services/appointmentService'
 
 const { Title, Text } = Typography
+
+/** Khung giờ làm việc của phòng khám — PHẢI khớp với MORNING_SLOTS/AFTERNOON_SLOTS
+ *  ở backend (AppointmentServiceImpl). Vãng lai chỉ áp dụng cho HÔM NAY nên không
+ *  cần đệm 90 phút như đặt lịch online (bệnh nhân đang có mặt tại quầy). */
+const MORNING_SLOTS = ['07:30', '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00']
+const AFTERNOON_SLOTS = ['13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30']
+const ALL_SLOTS = [...MORNING_SLOTS, ...AFTERNOON_SLOTS]
 
 export default function WalkInAppointmentPage() {
   const [form] = Form.useForm()
@@ -30,6 +37,14 @@ export default function WalkInAppointmentPage() {
 
   const [doctors, setDoctors] = useState([])
   const [services, setServices] = useState([])
+
+  // Khung giờ còn lại trong hôm nay (đã trôi qua thì ẩn) — vãng lai chỉ áp dụng cho hôm nay
+  const todaySlotOptions = useMemo(() => {
+    const nowHHmm = dayjs().format('HH:mm')
+    return ALL_SLOTS
+      .filter((t) => t >= nowHHmm)
+      .map((t) => ({ label: t, value: t }))
+  }, [])
 
   useEffect(() => {
     doctorService.getAllDoctors().then((r) => setDoctors(r.data)).catch(() => { })
@@ -54,13 +69,8 @@ export default function WalkInAppointmentPage() {
   }
 
   const onFinish = async (values) => {
-    if (!values.appointmentTime) {
-      message.error('Vui lòng chọn thời gian khám')
-      return
-    }
-
-    if (values.appointmentTime.isBefore(dayjs())) {
-      message.error('Không thể tạo lịch khám trong quá khứ')
+    if (!values.timeSlot) {
+      message.error('Vui lòng chọn giờ khám')
       return
     }
 
@@ -75,7 +85,8 @@ export default function WalkInAppointmentPage() {
         patientId: values.patientId,
         doctorId: values.doctorId,
         serviceId: values.serviceId ?? null,
-        appointmentTime: values.appointmentTime.format('YYYY-MM-DDTHH:mm:ss'),
+        // Vãng lai luôn là hôm nay — ghép ngày hôm nay + giờ đã chọn từ lưới slot
+        appointmentTime: `${dayjs().format('YYYY-MM-DD')}T${values.timeSlot}:00`,
         notes: values.notes ?? null,
       }
       const res = await appointmentService.createWalkInAppointment(payload)
@@ -187,7 +198,7 @@ export default function WalkInAppointmentPage() {
           layout="vertical"
           onFinish={onFinish}
           requiredMark="optional"
-          initialValues={{ appointmentTime: dayjs() }}
+          initialValues={{ timeSlot: todaySlotOptions[0]?.value }}
         >
           <Form.Item
             label="Bệnh nhân"
@@ -246,40 +257,33 @@ export default function WalkInAppointmentPage() {
             />
           </Form.Item>
 
-          <Form.Item
-            label="Thời gian khám"
-            name="appointmentTime"
-            rules={[{ required: true, message: 'Vui lòng chọn thời gian' }]}
-          >
-            <DatePicker
-              showTime={{ format: 'HH:mm' }}
-              format="DD/MM/YYYY HH:mm"
-              style={{ width: '100%' }}
-              placeholder="Chọn ngày và giờ"
-              disabledDate={(current) => {
-                return current && current < dayjs().startOf('day')
-              }}
-              disabledTime={(current) => {
-                if (!current || !current.isSame(dayjs(), 'day')) {
-                  return {}
-                }
-
-                const now = dayjs()
-
-                return {
-                  disabledHours: () =>
-                    Array.from({ length: now.hour() }, (_, i) => i),
-
-                  disabledMinutes: (selectedHour) => {
-                    if (selectedHour === now.hour()) {
-                      return Array.from({ length: now.minute() + 1 }, (_, i) => i)
-                    }
-                    return []
-                  },
-                }
-              }}
-            />
+          <Form.Item label="Ngày khám">
+            <Input value={dayjs().format('dddd, DD/MM/YYYY')} disabled />
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              Lịch vãng lai chỉ áp dụng cho hôm nay — bệnh nhân đang có mặt tại phòng khám
+            </Text>
           </Form.Item>
+
+          {todaySlotOptions.length === 0 ? (
+            <Alert
+              type="warning"
+              showIcon
+              style={{ marginBottom: 16 }}
+              message="Đã hết khung giờ làm việc hôm nay"
+              description="Vui lòng dùng chức năng Đặt lịch hẹn để đặt cho ngày khác."
+            />
+          ) : (
+            <Form.Item
+              label="Giờ khám"
+              name="timeSlot"
+              rules={[{ required: true, message: 'Vui lòng chọn giờ khám' }]}
+            >
+              <Select
+                placeholder="Chọn giờ khám"
+                options={todaySlotOptions}
+              />
+            </Form.Item>
+          )}
 
           <Form.Item
             label="Bác sĩ"
@@ -289,7 +293,7 @@ export default function WalkInAppointmentPage() {
             <Select
               placeholder="Chọn bác sĩ"
               options={doctors.map((d) => ({
-                label: `${d.fullName}${d.specialization ? ` — ${d.specialization}` : ''}`,
+                label: `${d.fullName}${d.specialization ? ` — ${d.specialization}` : ''}${d.experienceYears != null ? ` (${d.experienceYears} năm KN)` : ''}`,
                 value: d.id,
               }))}
             />
@@ -311,7 +315,13 @@ export default function WalkInAppointmentPage() {
 
           <Form.Item style={{ marginBottom: 0 }}>
             <Space>
-              <Button type="primary" htmlType="submit" loading={loading} icon={<ThunderboltOutlined />}>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={loading}
+                disabled={todaySlotOptions.length === 0}
+                icon={<ThunderboltOutlined />}
+              >
                 Tạo lịch & vào hàng đợi
               </Button>
               <Button onClick={() => form.resetFields()}>Xóa form</Button>

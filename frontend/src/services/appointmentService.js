@@ -21,9 +21,10 @@ export const appointmentService = {
   updateStatus: (id, status) =>
     axiosClient.patch(`/v1/appointments/${id}/status`, null, { params: { status } }),
 
-  /* Hàm xác nhận lịch hẹn và phân công cho một bác sĩ cụ thể (nếu có) */
-  confirmAppointment: (id, doctorId) =>
-    axiosClient.patch(`/v1/appointments/${id}/confirm`, doctorId ? { doctorId } : null),
+  /* Hàm xác nhận lịch hẹn và phân công cho một bác sĩ cụ thể (nếu có).
+     reason bắt buộc khi đổi sang bác sĩ khác bác sĩ bệnh nhân đã đặt. */
+  confirmAppointment: (id, doctorId, reason) =>
+    axiosClient.patch(`/v1/appointments/${id}/confirm`, { doctorId: doctorId || null, reason: reason || null }),
 
   /* Hàm đánh dấu bệnh nhân đã có mặt tại phòng khám (Check-in) */
   checkInAppointment: (id) =>
@@ -45,6 +46,11 @@ export const appointmentService = {
   /* Hàm lấy danh sách hàng đợi bệnh nhân dành riêng cho tài khoản Bác sĩ đang đăng nhập */
   getDoctorQueue: (date) =>
     axiosClient.get('/v1/appointments/doctor-queue', { params: date ? { date } : {} }),
+
+  /* Hàm lấy danh sách khung giờ còn trống của 1 bác sĩ trong 1 ngày (YYYY-MM-DD)
+     để bệnh nhân chọn khi đặt lịch */
+  getAvailableSlots: (doctorId, date) =>
+    axiosClient.get('/v1/appointments/available-slots', { params: { doctorId, date } }),
 
   /* Hàm đặt trước một lịch hẹn khám bệnh mới (từ phía bệnh nhân) */
   bookAppointment: (data) =>
