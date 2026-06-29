@@ -14,6 +14,8 @@ import BlogDetailPage from '../pages/BlogDetailPage'
 import LoginPage from '../pages/auth/LoginPage'
 import RegisterPage from '../pages/auth/RegisterPage'
 import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage'
+import ResetPasswordPage from '../pages/auth/ResetPasswordPage'
+import VerifyEmailPage from '../pages/auth/VerifyEmailPage'
 
 // Layout
 import Header from '../components/layout/Header'
@@ -64,13 +66,17 @@ import ManagerDashboard from '../pages/manager/ManagerDashboard'
 import RevenueReportPage from '../pages/manager/RevenueReportPage'
 import StaffPerformancePage from '../pages/manager/StaffPerformancePage'
 import ManageServicePackagesPage from '../pages/manager/ManageServicePackagesPage'
+import ManageDoctorsPage from '../pages/manager/ManageDoctorsPage'
 import ManageDiscountCampaignsPage from '../pages/manager/ManageDiscountCampaignsPage'
 import AssignNursePage from '../pages/manager/AssignNursePage'
 import ReassignAppointmentPage from '../pages/manager/ReassignAppointmentPage'
 
+import AdminDashboardPage from '../pages/admin/AdminDashboardPage'
 import UserManagementPage from '../pages/admin/UserManagementPage'
+import PatientAccountPage from '../pages/admin/PatientAccountPage'
 import SystemConfigPage from '../pages/admin/SystemConfigPage'
 import AuditLogPage from '../pages/admin/AuditLogPage'
+import AdminLayout from '../components/layout/AdminLayout'
 
 // Bọc nội dung trang với Header để các trang công khai hiển thị thanh điều hướng
 function WithHeader({ children }) {
@@ -108,6 +114,8 @@ export default function AppRouter() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
 
       {/* ── Utility ── */}
       <Route path="/unauthorized" element={<UnauthorizedPage />} />
@@ -177,6 +185,7 @@ export default function AppRouter() {
         <Route path="/manager/revenue" element={<RevenueReportPage />} />
         <Route path="/manager/staff" element={<StaffPerformancePage />} />
         <Route path="/manager/service-packages" element={<WithHeader><ManageServicePackagesPage /></WithHeader>} />
+        <Route path="/manager/doctors" element={<WithHeader><ManageDoctorsPage /></WithHeader>} />
         <Route path="/manager/discount-campaigns" element={<WithHeader><ManageDiscountCampaignsPage /></WithHeader>} />
         <Route path="/manager/assign-nurse" element={<WithHeader><AssignNursePage /></WithHeader>} />
         <Route path="/manager/reassign-appointment" element={<WithHeader><ReassignAppointmentPage /></WithHeader>} />
@@ -185,9 +194,13 @@ export default function AppRouter() {
 
       {/* ── Admin ── */}
       <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
-        <Route path="/admin/users" element={<UserManagementPage />} />
-        <Route path="/admin/config" element={<SystemConfigPage />} />
-        <Route path="/admin/audit" element={<AuditLogPage />} />
+        <Route element={<AdminLayout />}>
+          <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+          <Route path="/admin/users" element={<UserManagementPage />} />
+          <Route path="/admin/patients" element={<PatientAccountPage />} />
+          <Route path="/admin/config" element={<SystemConfigPage />} />
+          <Route path="/admin/audit" element={<AuditLogPage />} />
+        </Route>
       </Route>
 
       {/* ── Fallback: về trang chủ ── */}

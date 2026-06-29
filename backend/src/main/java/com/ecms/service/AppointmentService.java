@@ -38,6 +38,13 @@ public interface AppointmentService {
         /* Xác nhận lịch hẹn trực tuyến và phân công bác sĩ phụ trách */
         AppointmentResponse confirmAppointment(Long id, Long doctorId);
 
+        // "Lịch hẹn của tôi" theo USER — gồm cả lịch đặt hộ người thân (booked_by).
+        // List<AppointmentResponse> getMyAppointments(Long userId);
+
+        // Xác nhận lịch hẹn và phân công bác sĩ phụ trách (nếu có).
+        // reason bắt buộc khi đổi sang bác sĩ KHÁC với bác sĩ bệnh nhân đã đặt.
+        AppointmentResponse confirmAppointment(Long id, Long doctorId, String reason);
+
         /**
          * UC-15: Check-in bệnh nhân tại quầy. Cấp số thứ tự hàng đợi theo bác sĩ + ngày
          * (BR-13) và lưu lại id nhân viên thực hiện check-in.
@@ -58,7 +65,13 @@ public interface AppointmentService {
         /* Đặt lịch khám trực tuyến (Online Booking) dành cho khách hàng/bệnh nhân */
         AppointmentResponse bookOnlineAppointment(BookAppointmentRequest request, String patientEmail);
 
-        /* Lấy dữ liệu thống kê tổng hợp (Dashboard) của toàn phòng khám theo ngày */
+        /**
+         * Danh sách khung giờ khám của 1 bác sĩ trong 1 ngày kèm tình trạng còn
+         * trống — dùng cho bệnh nhân chọn giờ khi đặt lịch (UC-46). Chủ nhật phòng
+         * khám nghỉ nên trả về danh sách rỗng.
+         */
+        List<com.ecms.dto.response.SlotAvailabilityResponse> getAvailableSlots(Long doctorId, LocalDate date);
+
         AppointmentDashboardResponse getDashboard(LocalDate date);
 
         /* Lấy danh sách hàng đợi khám riêng biệt của một Bác sĩ cụ thể trong ngày */
@@ -102,4 +115,11 @@ public interface AppointmentService {
          * lẫn endpoint nhắc thủ công (bỏ qua điều kiện cửa sổ 24h).
          */
         AppointmentResponse sendReminder(Long id);
+
+        /**
+         * Tự động huỷ các lịch hẹn quá hạn mà bệnh nhân không đến khám (no-show):
+         * các lịch còn ở trạng thái PENDING/CONFIRMED nhưng giờ khám đã trôi qua
+         * (thuộc ngày trước đó). Trả về số lịch hẹn đã huỷ. Dùng cho cron job.
+         */
+        int autoCancelNoShowAppointments();
 }

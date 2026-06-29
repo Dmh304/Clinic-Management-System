@@ -3,11 +3,11 @@
 // Sau khi đăng nhập thành công, hệ thống lưu token JWT vào Redux và localStorage,
 // sau đó tự động điều hướng đến dashboard tương ứng với vai trò (PATIENT, DOCTOR, v.v.).
 import { useState } from 'react'
-import { Form, Input, Button, Checkbox, Divider, message } from 'antd'
-import { MailOutlined, LockOutlined, EyeInvisibleOutlined, EyeTwoTone, QuestionCircleOutlined } from '@ant-design/icons'
+import { Form, Input, Button, Checkbox, Divider, Tabs, message } from 'antd'
+import { MailOutlined, LockOutlined, EyeInvisibleOutlined, EyeTwoTone, QuestionCircleOutlined, SafetyOutlined } from '@ant-design/icons'
 import { GoogleLogin } from '@react-oauth/google'
 import { useDispatch } from 'react-redux'
-import { useNavigate, useLocation, Link } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { loginSuccess } from '../../store/slices/authSlice'
 import authService from '../../services/authService'
 import Header from '../../components/layout/Header'
@@ -15,10 +15,12 @@ import Header from '../../components/layout/Header'
 const ROLE_REDIRECT = {
   PATIENT: '/patient/dashboard',
   DOCTOR: '/doctor/dashboard',
+  NURSE: '/nurse/queue',
+  RECEPTIONIST: '/receptionist/appointments',
   LAB_TECHNICIAN: '/lab/queue',
   PHARMACIST: '/pharmacy/dispensing',
   MANAGER: '/manager/dashboard',
-  ADMIN: '/admin/users',
+  ADMIN: '/admin/dashboard',
 }
 
 /* ─── Inline style constants ─── */
@@ -208,10 +210,18 @@ function ClinicEyeSvg() {
 export default function LoginPage() {
   const dispatch = useDispatch()
   const navigate = useNavigate()
-  const location = useLocation()
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [form] = Form.useForm()
+  const [activeTab, setActiveTab] = useState('patient') // patient | staff
+
+  // Nhân viên: bước 1 nhập email/mật khẩu, bước 2 nhập mã OTP gửi qua email
+  const [staffStep, setStaffStep] = useState('credentials') // credentials | otp
+  const [staffEmail, setStaffEmail] = useState('')
+  const [staffLoading, setStaffLoading] = useState(false)
+  const [staffErrorMsg, setStaffErrorMsg] = useState('')
+  const [staffForm] = Form.useForm()
+  const [otpForm] = Form.useForm()
 
 
   // Xử lý submit form đăng nhập: gọi API login, lưu thông tin vào Redux và điều hướng theo vai trò
@@ -223,9 +233,7 @@ export default function LoginPage() {
       const { token, userId, email, fullName, role, doctorId, patientId } = res.data
       dispatch(loginSuccess({ token, userId, email, fullName, role, doctorId, patientId }))
       message.success('Đăng nhập thành công!')
-      
-      const targetPath = ROLE_REDIRECT[role] || '/'
-      navigate(location.state?.from ?? targetPath, { replace: true })
+      navigate('/', { replace: true })
     } catch (err) {
       if (!err.response) {
         // Không có phản hồi — backend chưa khởi động hoặc mạng lỗi
@@ -249,9 +257,7 @@ export default function LoginPage() {
       const { token, userId, email, fullName, role, doctorId, patientId } = res.data
       dispatch(loginSuccess({ token, userId, email, fullName, role, doctorId, patientId }))
       message.success('Đăng nhập bằng Google thành công!')
-      
-      const targetPath = ROLE_REDIRECT[role] || '/'
-      navigate(location.state?.from ?? targetPath, { replace: true })
+      navigate('/', { replace: true })
     } catch (err) {
       if (!err.response) {
         setErrorMsg('Không thể kết nối đến máy chủ. Hãy kiểm tra backend đang chạy tại cổng 8080.')
@@ -261,6 +267,47 @@ export default function LoginPage() {
       }
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Bước 1 đăng nhập nhân viên: gửi email/mật khẩu, nếu đúng thì hệ thống gửi mã OTP qua email
+  const handleStaffLogin = async (values) => {
+    setStaffLoading(true)
+    setStaffErrorMsg('')
+    try {
+      await authService.staffLogin({ email: values.email, password: values.password })
+      setStaffEmail(values.email)
+      setStaffStep('otp')
+      message.success('Mã OTP đã được gửi đến email của bạn.')
+    } catch (err) {
+      if (!err.response) {
+        setStaffErrorMsg('Không thể kết nối đến máy chủ. Hãy kiểm tra backend đang chạy tại cổng 8080.')
+      } else {
+        setStaffErrorMsg(err.response.data?.message ?? 'Đăng nhập thất bại. Vui lòng thử lại.')
+      }
+    } finally {
+      setStaffLoading(false)
+    }
+  }
+
+  // Bước 2 đăng nhập nhân viên: xác minh mã OTP, nhận token JWT và điều hướng theo vai trò
+  const handleStaffVerifyOtp = async (values) => {
+    setStaffLoading(true)
+    setStaffErrorMsg('')
+    try {
+      const res = await authService.staffVerifyOtp(staffEmail, values.otp)
+      const { token, userId, email, fullName, role, doctorId } = res.data
+      dispatch(loginSuccess({ token, userId, email, fullName, role, doctorId }))
+      message.success('Đăng nhập thành công!')
+      navigate(ROLE_REDIRECT[role] ?? '/', { replace: true })
+    } catch (err) {
+      if (!err.response) {
+        setStaffErrorMsg('Không thể kết nối đến máy chủ. Hãy kiểm tra backend đang chạy tại cổng 8080.')
+      } else {
+        setStaffErrorMsg(err.response.data?.message ?? 'Mã OTP không đúng. Vui lòng thử lại.')
+      }
+    } finally {
+      setStaffLoading(false)
     }
   }
 
@@ -293,94 +340,201 @@ export default function LoginPage() {
             <p style={S.cardTitle}>Chào Mừng Trở Lại</p>
             <p style={S.cardSub}>Vui lòng nhập thông tin đăng nhập để tiếp tục.</p>
 
-            <Form form={form} onFinish={onFinish} layout="vertical" requiredMark={false} size="large">
-              {/* Email */}
-              <Form.Item
-                name="email"
-                label={<span style={S.label}>Địa Chỉ Email</span>}
-                rules={[
-                  { required: true, message: 'Vui lòng nhập email' },
-                  { type: 'email', message: 'Email không hợp lệ' },
-                ]}
-                style={{ marginBottom: 16 }}
-              >
-                <Input
-                  prefix={<MailOutlined style={{ color: '#9ca3af' }} />}
-                  placeholder="name@example.com"
-                  style={{ borderRadius: 10, height: 44 }}
-                />
-              </Form.Item>
+            <Tabs
+              activeKey={activeTab}
+              onChange={(key) => { setActiveTab(key); setStaffStep('credentials'); setStaffErrorMsg('') }}
+              items={[
+                {
+                  key: 'patient',
+                  label: 'Bệnh nhân',
+                  children: (
+                    <>
+                      <Form form={form} onFinish={onFinish} layout="vertical" requiredMark={false} size="large">
+                        {/* Email hoặc số điện thoại */}
+                        <Form.Item
+                          name="email"
+                          label={<span style={S.label}>Email Hoặc Số Điện Thoại</span>}
+                          rules={[{ required: true, message: 'Vui lòng nhập email hoặc số điện thoại' }]}
+                          style={{ marginBottom: 16 }}
+                        >
+                          <Input
+                            prefix={<MailOutlined style={{ color: '#9ca3af' }} />}
+                            placeholder="name@example.com hoặc 0901234567"
+                            style={{ borderRadius: 10, height: 44 }}
+                          />
+                        </Form.Item>
 
-              {/* Password */}
-              <Form.Item
-                name="password"
-                label={<span style={S.label}>Mật Khẩu</span>}
-                rules={[{ required: true, message: 'Vui lòng nhập mật khẩu' }]}
-                style={{ marginBottom: 12 }}
-              >
-                <Input.Password
-                  prefix={<LockOutlined style={{ color: '#9ca3af' }} />}
-                  placeholder="••••••••"
-                  iconRender={(visible) =>
-                    visible ? <EyeTwoTone /> : <EyeInvisibleOutlined style={{ color: '#9ca3af' }} />
-                  }
-                  style={{ borderRadius: 10, height: 44 }}
-                />
-              </Form.Item>
+                        {/* Password */}
+                        <Form.Item
+                          name="password"
+                          label={<span style={S.label}>Mật Khẩu</span>}
+                          rules={[{ required: true, message: 'Vui lòng nhập mật khẩu' }]}
+                          style={{ marginBottom: 12 }}
+                        >
+                          <Input.Password
+                            prefix={<LockOutlined style={{ color: '#9ca3af' }} />}
+                            placeholder="••••••••"
+                            iconRender={(visible) =>
+                              visible ? <EyeTwoTone /> : <EyeInvisibleOutlined style={{ color: '#9ca3af' }} />
+                            }
+                            style={{ borderRadius: 10, height: 44 }}
+                          />
+                        </Form.Item>
 
-              {/* Remember + Forgot */}
-              <div style={S.rememberRow}>
-                <Form.Item name="rememberMe" valuePropName="checked" noStyle>
-                  <Checkbox style={{ fontSize: 13, color: '#4b5563' }}>Ghi nhớ đăng nhập</Checkbox>
-                </Form.Item>
-                <Link to="/forgot-password" style={S.forgotLink}>Quên mật khẩu?</Link>
-              </div>
+                        {/* Remember + Forgot */}
+                        <div style={S.rememberRow}>
+                          <Form.Item name="rememberMe" valuePropName="checked" noStyle>
+                            <Checkbox style={{ fontSize: 13, color: '#4b5563' }}>Ghi nhớ đăng nhập</Checkbox>
+                          </Form.Item>
+                          <Link to="/forgot-password" style={S.forgotLink}>Quên mật khẩu?</Link>
+                        </div>
 
-              {/* Server error message */}
-              {errorMsg && (
-                <div style={{
-                  background: '#fef2f2', border: '1px solid #fecaca',
-                  borderRadius: 8, padding: '10px 14px', marginTop: 12,
-                  fontSize: 13, color: '#dc2626', lineHeight: 1.5,
-                }}>
-                  {errorMsg}
-                </div>
-              )}
+                        {/* Server error message */}
+                        {errorMsg && (
+                          <div style={{
+                            background: '#fef2f2', border: '1px solid #fecaca',
+                            borderRadius: 8, padding: '10px 14px', marginTop: 12,
+                            fontSize: 13, color: '#dc2626', lineHeight: 1.5,
+                          }}>
+                            {errorMsg}
+                          </div>
+                        )}
 
-              {/* Submit */}
-              <Form.Item style={{ marginTop: 16, marginBottom: 0 }}>
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  loading={loading}
-                  icon={!loading && <span style={{ fontSize: 16 }}>→</span>}
-                  style={S.submitBtn}
-                >
-                  Đăng Nhập
-                </Button>
-              </Form.Item>
-            </Form>
+                        {/* Submit */}
+                        <Form.Item style={{ marginTop: 16, marginBottom: 0 }}>
+                          <Button
+                            type="primary"
+                            htmlType="submit"
+                            loading={loading}
+                            icon={!loading && <span style={{ fontSize: 16 }}>→</span>}
+                            style={S.submitBtn}
+                          >
+                            Đăng Nhập
+                          </Button>
+                        </Form.Item>
+                      </Form>
 
-            <Divider style={{ margin: '20px 0', fontSize: 12, color: '#9ca3af' }}>HOẶC</Divider>
+                      <Divider style={{ margin: '20px 0', fontSize: 12, color: '#9ca3af' }}>HOẶC</Divider>
 
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <GoogleLogin
-                onSuccess={handleGoogleSuccess}
-                onError={() => setErrorMsg('Đăng nhập bằng Google thất bại. Vui lòng thử lại.')}
-                text="signin_with"
-                locale="vi"
-                width="348"
-              />
-            </div>
+                      <div style={{ display: 'flex', justifyContent: 'center' }}>
+                        <GoogleLogin
+                          onSuccess={handleGoogleSuccess}
+                          onError={() => setErrorMsg('Đăng nhập bằng Google thất bại. Vui lòng thử lại.')}
+                          text="signin_with"
+                          locale="vi"
+                          width="348"
+                        />
+                      </div>
+                    </>
+                  ),
+                },
+                {
+                  key: 'staff',
+                  label: 'Nhân viên',
+                  children: staffStep === 'credentials' ? (
+                    <Form form={staffForm} onFinish={handleStaffLogin} layout="vertical" requiredMark={false} size="large">
+                      <Form.Item
+                        name="email"
+                        label={<span style={S.label}>Địa Chỉ Email</span>}
+                        rules={[
+                          { required: true, message: 'Vui lòng nhập email' },
+                          { type: 'email', message: 'Email không hợp lệ' },
+                        ]}
+                        style={{ marginBottom: 16 }}
+                      >
+                        <Input
+                          prefix={<MailOutlined style={{ color: '#9ca3af' }} />}
+                          placeholder="name@example.com"
+                          style={{ borderRadius: 10, height: 44 }}
+                        />
+                      </Form.Item>
+
+                      <Form.Item
+                        name="password"
+                        label={<span style={S.label}>Mật Khẩu</span>}
+                        rules={[{ required: true, message: 'Vui lòng nhập mật khẩu' }]}
+                        style={{ marginBottom: 12 }}
+                      >
+                        <Input.Password
+                          prefix={<LockOutlined style={{ color: '#9ca3af' }} />}
+                          placeholder="••••••••"
+                          iconRender={(visible) =>
+                            visible ? <EyeTwoTone /> : <EyeInvisibleOutlined style={{ color: '#9ca3af' }} />
+                          }
+                          style={{ borderRadius: 10, height: 44 }}
+                        />
+                      </Form.Item>
+
+                      {staffErrorMsg && (
+                        <div style={{
+                          background: '#fef2f2', border: '1px solid #fecaca',
+                          borderRadius: 8, padding: '10px 14px', marginTop: 12,
+                          fontSize: 13, color: '#dc2626', lineHeight: 1.5,
+                        }}>
+                          {staffErrorMsg}
+                        </div>
+                      )}
+
+                      <Form.Item style={{ marginTop: 16, marginBottom: 0 }}>
+                        <Button type="primary" htmlType="submit" loading={staffLoading} style={S.submitBtn}>
+                          Gửi Mã OTP
+                        </Button>
+                      </Form.Item>
+                    </Form>
+                  ) : (
+                    <Form form={otpForm} onFinish={handleStaffVerifyOtp} layout="vertical" requiredMark={false} size="large">
+                      <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>
+                        Mã OTP đã được gửi đến <strong>{staffEmail}</strong>. Vui lòng nhập mã để hoàn tất đăng nhập.
+                      </p>
+                      <Form.Item
+                        name="otp"
+                        label={<span style={S.label}>Mã OTP</span>}
+                        rules={[{ required: true, message: 'Vui lòng nhập mã OTP' }]}
+                        style={{ marginBottom: 12 }}
+                      >
+                        <Input
+                          prefix={<SafetyOutlined style={{ color: '#9ca3af' }} />}
+                          placeholder="123456"
+                          maxLength={6}
+                          style={{ borderRadius: 10, height: 44 }}
+                        />
+                      </Form.Item>
+
+                      {staffErrorMsg && (
+                        <div style={{
+                          background: '#fef2f2', border: '1px solid #fecaca',
+                          borderRadius: 8, padding: '10px 14px', marginTop: 12,
+                          fontSize: 13, color: '#dc2626', lineHeight: 1.5,
+                        }}>
+                          {staffErrorMsg}
+                        </div>
+                      )}
+
+                      <Form.Item style={{ marginTop: 16, marginBottom: 0 }}>
+                        <Button type="primary" htmlType="submit" loading={staffLoading} style={S.submitBtn}>
+                          Xác Nhận
+                        </Button>
+                      </Form.Item>
+
+                      <Button type="link" onClick={() => { setStaffStep('credentials'); setStaffErrorMsg('') }} style={{ padding: 0, marginTop: 8 }}>
+                        Quay lại
+                      </Button>
+                    </Form>
+                  ),
+                },
+              ]}
+            />
 
             <Divider style={{ margin: '20px 0' }} />
 
-            <p style={S.registerRow}>
-              Bệnh nhân mới?{' '}
-              <Link to="/register" style={{ color: '#2563eb', fontWeight: 600 }}>
-                Tạo tài khoản
-              </Link>
-            </p>
+            {activeTab === 'patient' && (
+              <p style={S.registerRow}>
+                Bệnh nhân mới?{' '}
+                <Link to="/register" style={{ color: '#2563eb', fontWeight: 600 }}>
+                  Tạo tài khoản
+                </Link>
+              </p>
+            )}
 
             <p style={S.supportRow}>
               <QuestionCircleOutlined />

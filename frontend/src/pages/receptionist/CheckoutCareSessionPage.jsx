@@ -14,7 +14,7 @@ export default function CheckoutCareSessionPage() {
     setLoading(true)
     try {
       const res = await careSessionService.getAll()
-      const completed = (res.data.data || []).filter(s => s.status === 'COMPLETED')
+      const completed = (res.data || []).filter(s => s.status === 'COMPLETED')
       setSessions(completed)
     } finally {
       setLoading(false)

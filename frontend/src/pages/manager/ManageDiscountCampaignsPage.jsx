@@ -23,7 +23,7 @@ export default function ManageDiscountCampaignsPage() {
     setLoading(true)
     try {
       const res = await discountService.getAll()
-      setCampaigns(res.data.data || [])
+      setCampaigns(res.data || [])
     } finally {
       setLoading(false)
     }

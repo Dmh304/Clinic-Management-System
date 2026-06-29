@@ -73,6 +73,9 @@ public class ClinicService {
     @Column(name = "display_order")
     private Integer displayOrder;
 
+    @Column(name = "is_popular")
+    private Boolean isPopular;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -85,6 +88,7 @@ public class ClinicService {
         this.updatedAt = LocalDateTime.now();
         if (this.isActive == null) this.isActive = true;
         if (this.displayOrder == null) this.displayOrder = 0;
+        if (this.isPopular == null) this.isPopular = false;
     }
 
     @PreUpdate

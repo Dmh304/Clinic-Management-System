@@ -1,5 +1,6 @@
 package com.ecms.controller;
 
+import com.ecms.dto.request.ScheduleClinicVisitRequest;
 import com.ecms.dto.request.ServicePackageRequest;
 import com.ecms.dto.request.ServiceRegistrationRequest;
 import com.ecms.dto.response.*;
@@ -70,6 +71,16 @@ public class ClinicServiceController {
             @RequestParam String status) {
         return ResponseEntity.ok(ApiResponse.success("Cập nhật trạng thái đăng ký thành công",
                 clinicServiceService.updateRegistrationStatus(id, status)));
+    }
+
+    /** Đặt buổi đến phòng khám từ một đăng ký đã được tư vấn — RECEPTIONIST / ADMIN */
+    @PostMapping("/registrations/{id}/schedule")
+    public ResponseEntity<ApiResponse<CareSessionResponse>> scheduleClinicVisit(
+            @PathVariable Long id,
+            @Valid @RequestBody ScheduleClinicVisitRequest request,
+            Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.success("Đã đặt buổi đến phòng khám",
+                clinicServiceService.scheduleClinicVisit(id, request, authentication.getName())));
     }
 
     // ── Manager CRUD ──────────────────────────────────────────────

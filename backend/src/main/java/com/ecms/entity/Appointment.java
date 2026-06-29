@@ -103,6 +103,14 @@ public class Appointment {
     @Column(name = "check_in_by")
     private Long checkInBy;
 
+    /**
+     * ID người dùng đã ĐẶT lịch hẹn này. Khi bệnh nhân đặt hộ người thân,
+     * patient là người thân (không có tài khoản) còn bookedBy là tài khoản người
+     * đặt — để họ vẫn thấy lịch trong "Lịch hẹn của tôi".
+     */
+    @Column(name = "booked_by")
+    private Long bookedBy;
+
      /**
      * Trạng thái gửi nhắc lịch.
      */
