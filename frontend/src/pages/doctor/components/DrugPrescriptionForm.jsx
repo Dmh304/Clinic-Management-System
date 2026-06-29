@@ -18,7 +18,10 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
     const [previewVisible, setPreviewVisible] = useState(false);
     const [saving, setSaving] = useState(false);
 
+    const activeEmrIdRef = useRef(emr?.id);
+
     useEffect(() => {
+        activeEmrIdRef.current = emr?.id;
         if (emr?.patientId) {
             fetchExistingPrescriptions();
         }
@@ -26,8 +29,15 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
 
     const fetchExistingPrescriptions = async () => {
         try {
+            const targetEmrId = activeEmrIdRef.current || emr?.id;
+            if (!targetEmrId) return;
             const res = await prescriptionService.getByPatient(emr.patientId);
-            const currentPrescriptions = (res.data || []).filter(p => p.medicalRecordId === emr.id);
+            console.log('>>> DEBUG: getByPatient res.data =', res.data);
+            console.log('>>> DEBUG: targetEmrId =', targetEmrId);
+            const currentPrescriptions = (res.data || []).filter(p => {
+                console.log('>>> DEBUG: comparing p.medicalRecordId (', p.medicalRecordId, ') === targetEmrId (', targetEmrId, ')', typeof p.medicalRecordId, typeof targetEmrId);
+                return p.medicalRecordId === targetEmrId;
+            });
             setExistingPrescriptions(currentPrescriptions);
         } catch (error) {
             console.error('Lỗi khi tải danh sách đơn thuốc đã lưu', error);
@@ -82,7 +92,6 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
         }));
     };
 
-    const activeEmrIdRef = useRef(null);
 
     const handlePreview = async () => {
         let currentEmrId = emr?.id;

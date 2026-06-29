@@ -37,8 +37,10 @@ export default function EyeglassPrescriptionForm({ emr, isReadOnly, onPrescripti
 
     const fetchExistingPrescriptions = async () => {
         try {
+            const targetEmrId = activeEmrIdRef.current || emr?.id;
+            if (!targetEmrId) return;
             const res = await eyeglassPrescriptionService.getByPatient(emr.patientId);
-            const currentPrescriptions = (res.data || []).filter(p => p.medicalRecordId === emr.id);
+            const currentPrescriptions = (res.data || []).filter(p => p.medicalRecordId === targetEmrId);
             setExistingPrescriptions(currentPrescriptions);
         } catch (error) {
             console.error('Lỗi khi tải danh sách đơn kính đã lưu', error);
@@ -52,6 +54,7 @@ export default function EyeglassPrescriptionForm({ emr, isReadOnly, onPrescripti
                 const savedEmr = await onAutoSaveEMR();
                 if (savedEmr && savedEmr.id) {
                     currentEmrId = savedEmr.id;
+                    activeEmrIdRef.current = currentEmrId;
                 } else {
                     return; // Save failed
                 }

@@ -206,7 +206,7 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     @Query("SELECT a FROM Appointment a " +
             "WHERE a.appointmentTime >= :start AND a.appointmentTime < :end " +
             "AND a.doctor.id = :doctorId " +
-            "AND a.status IN ('WAITING', 'IN_PROGRESS', 'COMPLETED', 'CONFIRMED') " +
+            "AND a.status IN (com.ecms.entity.AppointmentStatus.WAITING, com.ecms.entity.AppointmentStatus.IN_PROGRESS, com.ecms.entity.AppointmentStatus.COMPLETED, com.ecms.entity.AppointmentStatus.CONFIRMED) " +
             "ORDER BY a.appointmentTime ASC")
     List<Appointment> findByAppointmentDateAndDoctorIdOrderByAppointmentTimeAsc(
             @Param("start") LocalDateTime start,
