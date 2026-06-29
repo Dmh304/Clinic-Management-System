@@ -22,7 +22,15 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+// readOnly mặc định cho cả class để giữ session mở khi map entity (open-in-view=false),
+// tránh LazyInitializationException ở getMySessions/getNurseQueue/getAllSessions...
+// Các method ghi (book, assignNurse, start, complete, checkout, cancel) đã có
+// @Transactional riêng nên tự ghi đè thành read-write.
+@Transactional(readOnly = true)
 public class CareSessionServiceImpl implements CareSessionService {
+
+    /** BR-16: số buổi chăm sóc tối đa mỗi điều dưỡng trong một ngày (mirror BR-03 của bác sĩ). */
+    private static final int MAX_CARE_SESSIONS_PER_NURSE_PER_DAY = 12;
 
     private final CareSessionRepository careSessionRepository;
     private final PatientServiceSubscriptionRepository subscriptionRepository;
@@ -150,6 +158,18 @@ public class CareSessionServiceImpl implements CareSessionService {
         if (!"NURSE".equals(nurse.getRole().getName())) {
             throw new IllegalArgumentException("Người dùng được chọn không phải điều dưỡng");
         }
+
+        // BR-16: chặn phân công vượt sức chứa buổi/ngày của điều dưỡng (bỏ qua chính buổi này
+        // để khi "đổi ĐD" không bị đếm trùng).
+        LocalDate sessionDate = session.getScheduledDateTime().toLocalDate();
+        long sameDayCount = careSessionRepository.countByNurseOnDateExcluding(
+                nurse.getId(), session.getId(),
+                sessionDate.atStartOfDay(), sessionDate.plusDays(1).atStartOfDay());
+        if (sameDayCount >= MAX_CARE_SESSIONS_PER_NURSE_PER_DAY) {
+            throw new IllegalStateException("Điều dưỡng đã đủ " + MAX_CARE_SESSIONS_PER_NURSE_PER_DAY
+                    + " buổi chăm sóc trong ngày, vui lòng chọn điều dưỡng khác");
+        }
+
         session.setNurse(nurse);
         session.setAssignedAt(LocalDateTime.now());
         return toResponse(careSessionRepository.save(session));
@@ -185,8 +205,13 @@ public class CareSessionServiceImpl implements CareSessionService {
         if (session.getNurse() == null || !session.getNurse().getId().equals(nurse.getId())) {
             throw new IllegalArgumentException("Bạn không được phân công buổi khám này");
         }
+        // UC-32 E-1: phải có ghi chú điều dưỡng mới được hoàn thành (chốt lại ở backend,
+        // không chỉ dựa vào validate ở frontend).
+        if (nurseNotes == null || nurseNotes.isBlank()) {
+            throw new IllegalArgumentException("Vui lòng nhập ghi chú buổi khám trước khi hoàn thành");
+        }
         session.setStatus("COMPLETED");
-        session.setNurseNotes(nurseNotes);
+        session.setNurseNotes(nurseNotes.trim());
         session.setCompletedAt(LocalDateTime.now());
         return toResponse(careSessionRepository.save(session));
     }

@@ -18,6 +18,10 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+// readOnly mặc định cho cả class: giữ session mở khi map entity → tránh
+// LazyInitializationException (open-in-view=false). Các method ghi (purchase,
+// cancelSubscription) đã có @Transactional riêng nên tự ghi đè thành read-write.
+@Transactional(readOnly = true)
 public class ServiceSubscriptionServiceImpl implements ServiceSubscriptionService {
 
     private final PatientServiceSubscriptionRepository subscriptionRepository;

@@ -42,8 +42,8 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
     @Transactional(readOnly = true)
     public List<ClinicServiceResponse> getAllServices(String type) {
         List<ClinicService> services = (type == null || type.isBlank())
-                ? clinicServiceRepository.findByIsActiveTrueOrderByDisplayOrderAsc()
-                : clinicServiceRepository.findByServiceTypeAndIsActiveTrueOrderByDisplayOrderAsc(type);
+                ? clinicServiceRepository.findByIsActiveTrueOrderByIsPopularDescDisplayOrderAsc()
+                : clinicServiceRepository.findByServiceTypeAndIsActiveTrueOrderByIsPopularDescDisplayOrderAsc(type);
         return services.stream()
                 .map(this::toServiceResponse)
                 .collect(Collectors.toList());
@@ -61,8 +61,8 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
                         .displayOrder(cat.getDisplayOrder())
                         .services(cat.getServices().stream()
                                 .filter(s -> Boolean.TRUE.equals(s.getIsActive()))
-                                .sorted(Comparator.comparingInt(s ->
-                                        s.getDisplayOrder() == null ? 0 : s.getDisplayOrder()))
+                                .sorted(Comparator.<ClinicService, Boolean>comparing(s -> Boolean.TRUE.equals(s.getIsPopular())).reversed()
+                                        .thenComparingInt(s -> s.getDisplayOrder() == null ? 0 : s.getDisplayOrder()))
                                 .map(this::toServiceResponse)
                                 .collect(Collectors.toList()))
                         .build())
@@ -189,7 +189,7 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
     @Override
     @Transactional(readOnly = true)
     public List<ClinicServiceResponse> getAllPackages() {
-        return clinicServiceRepository.findAllByOrderByDisplayOrderAsc()
+        return clinicServiceRepository.findAllByOrderByIsPopularDescDisplayOrderAsc()
                 .stream()
                 .map(this::toServiceResponse)
                 .collect(Collectors.toList());
@@ -202,6 +202,10 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
         if (request.getCategoryId() != null) {
             category = serviceCategoryRepository.findById(request.getCategoryId())
                     .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy danh mục"));
+        }
+        Integer displayOrder = request.getDisplayOrder();
+        if (displayOrder == null) {
+            displayOrder = clinicServiceRepository.findMaxDisplayOrder().orElse(0) + 1;
         }
         ClinicService service = ClinicService.builder()
                 .serviceName(request.getServiceName())
@@ -218,7 +222,8 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
                 .content(request.getContent())
                 .badge(request.getBadge())
                 .isActive(request.getIsActive() != null ? request.getIsActive() : true)
-                .displayOrder(request.getDisplayOrder() != null ? request.getDisplayOrder() : 0)
+                .displayOrder(displayOrder)
+                .isPopular(request.getIsPopular() != null ? request.getIsPopular() : false)
                 .build();
         return toServiceResponse(clinicServiceRepository.save(service));
     }
@@ -248,6 +253,7 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
         service.setBadge(request.getBadge());
         if (request.getIsActive() != null) service.setIsActive(request.getIsActive());
         if (request.getDisplayOrder() != null) service.setDisplayOrder(request.getDisplayOrder());
+        if (request.getIsPopular() != null) service.setIsPopular(request.getIsPopular());
         return toServiceResponse(clinicServiceRepository.save(service));
     }
 
@@ -287,6 +293,7 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
                 .validityDays(s.getValidityDays())
                 .isActive(s.getIsActive())
                 .displayOrder(s.getDisplayOrder())
+                .isPopular(s.getIsPopular())
                 .categoryId(s.getCategory() != null ? s.getCategory().getId() : null)
                 .categoryName(s.getCategory() != null ? s.getCategory().getName() : null)
                 .serviceType(s.getServiceType())
