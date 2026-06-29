@@ -54,23 +54,23 @@ function EyeFields({ prefix, label }) {
       <div style={{ fontWeight: 600, fontSize: 13, color: '#475569', marginBottom: 10 }}>{label}</div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12 }}>
         <Form.Item label="VA" name={`${prefix}Va`} style={{ marginBottom: 0 }}>
-          <InputNumber style={{ width: '100%' }} placeholder="0.00" step={0.1} min={0} max={2} />
+          <InputNumber style={{ width: '100%' }} placeholder="0.00" step={0.1} min={0} max={2} disabled/>
         </Form.Item>
         <Form.Item label="BCVA" name={`${prefix}Bcva`} style={{ marginBottom: 0 }}>
-          <InputNumber style={{ width: '100%' }} placeholder="0.00" step={0.1} min={0} max={2} />
+          <InputNumber style={{ width: '100%' }} placeholder="0.00" step={0.1} min={0} max={2} disabled/>
         </Form.Item>
         <Form.Item label="IOP (mmHg)" name={`${prefix}Iop`} style={{ marginBottom: 0 }}>
-          <InputNumber style={{ width: '100%' }} placeholder="0.0" step={0.5} min={0} />
+          <InputNumber style={{ width: '100%' }} placeholder="0.0" step={0.5} min={0} disabled/>
         </Form.Item>
         <div />
         <Form.Item label="SPH" name={`${prefix}Sph`} style={{ marginBottom: 0 }}>
-          <InputNumber style={{ width: '100%' }} placeholder="0.00" step={0.25} />
+          <InputNumber style={{ width: '100%' }} placeholder="0.00" step={0.25} disabled/>
         </Form.Item>
         <Form.Item label="CYL" name={`${prefix}Cyl`} style={{ marginBottom: 0 }}>
-          <InputNumber style={{ width: '100%' }} placeholder="0.00" step={0.25} />
+          <InputNumber style={{ width: '100%' }} placeholder="0.00" step={0.25} disabled/>
         </Form.Item>
         <Form.Item label="AXIS (°)" name={`${prefix}Axis`} style={{ marginBottom: 0 }}>
-          <InputNumber style={{ width: '100%' }} placeholder="0" min={0} max={180} />
+          <InputNumber style={{ width: '100%' }} placeholder="0" min={0} max={180} disabled/>
         </Form.Item>
       </div>
     </div>

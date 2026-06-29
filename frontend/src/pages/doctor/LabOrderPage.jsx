@@ -621,6 +621,7 @@ export default function LabOrderPage() {
               type="primary" 
               loading={retesting} 
               onClick={handleRetest}
+              disabled={!rejectionReason.trim()}
               style={{ fontSize: 13 }}
             >
               Xác nhận từ chối & làm lại

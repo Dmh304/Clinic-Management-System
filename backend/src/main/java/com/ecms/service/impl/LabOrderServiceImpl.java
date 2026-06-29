@@ -116,7 +116,7 @@ public class LabOrderServiceImpl implements LabOrderService {
     @Transactional
     public List<LabOrderResponse> getLabQueue(Long labTechnicianId) {
         return labOrderRepository
-                .findByLabTechnicianIdOrderByCreatedAt(labTechnicianId)
+                .findByLabTechnicianIdOrderByPriorityAndCreatedAt(labTechnicianId)
                 .stream()
                 .map(this::toOrderResponse)
                 .collect(Collectors.toList());
@@ -446,7 +446,7 @@ public class LabOrderServiceImpl implements LabOrderService {
     @Override
     @Transactional
     public List<LabOrderResponse> getLabOrdersForDoctor(Long doctorId) {
-        return labOrderRepository.findByDoctorIdOrderByCreatedAt(doctorId)
+        return labOrderRepository.findByDoctorIdOrderByPriorityAndCreatedAt(doctorId)
                 .stream()
                 .map(this::toOrderResponse)
                 .collect(Collectors.toList());

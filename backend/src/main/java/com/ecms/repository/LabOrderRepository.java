@@ -8,6 +8,9 @@
 package com.ecms.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
 import com.ecms.entity.LabOrder;
 import com.ecms.entity.LabOrderStatus;
 
@@ -49,4 +52,39 @@ public interface LabOrderRepository extends JpaRepository<LabOrder, Long> {
     List<LabOrder> findByLabTechnicianIdOrderByCreatedAt(Long labTechnicianId);
 
     boolean existsByMedicalRecordIdAndStatusIn(Long medicalRecordId, List<LabOrderStatus> statuses);
+
+    /**
+     * Tìm danh sách phiếu xét nghiệm do bác sĩ chỉ định,
+     * sắp xếp theo mức độ ưu tiên (EMERGENCY > WARNING > PRIMARY),
+     * sau đó theo thời gian tạo tăng dần (cũ trước, mới sau) trong cùng mức ưu
+     * tiên.
+     */
+    @Query("SELECT lo FROM LabOrder lo " +
+            "WHERE lo.doctor.id = :doctorId " +
+            "ORDER BY " +
+            "CASE lo.priority " +
+            "  WHEN com.ecms.entity.LabPriority.EMERGENCY THEN 0 " +
+            "  WHEN com.ecms.entity.LabPriority.WARNING THEN 1 " +
+            "  WHEN com.ecms.entity.LabPriority.PRIMARY THEN 2 " +
+            "  ELSE 99 END ASC, " +
+            "lo.createdAt ASC")
+    List<LabOrder> findByDoctorIdOrderByPriorityAndCreatedAt(@Param("doctorId") Long doctorId);
+
+    /**
+     * Tìm danh sách phiếu xét nghiệm do bác sĩ chỉ định,
+     * sắp xếp theo mức độ ưu tiên (EMERGENCY > WARNING > PRIMARY),
+     * sau đó theo thời gian tạo tăng dần (cũ trước, mới sau) trong cùng mức ưu
+     * tiên.
+     */
+    @Query("SELECT lo FROM LabOrder lo " +
+            "WHERE lo.labTechnician.id = :labTechnicianId " +
+            "ORDER BY " +
+            "CASE lo.priority " +
+            "  WHEN com.ecms.entity.LabPriority.EMERGENCY THEN 0 " +
+            "  WHEN com.ecms.entity.LabPriority.WARNING THEN 1 " +
+            "  WHEN com.ecms.entity.LabPriority.PRIMARY THEN 2 " +
+            "  ELSE 99 END ASC, " +
+            "lo.createdAt ASC")
+    List<LabOrder> findByLabTechnicianIdOrderByPriorityAndCreatedAt(@Param("labTechnicianId") Long labTechnicianId);
+
 }
