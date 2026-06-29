@@ -25,6 +25,13 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(ex.getMessage()));
     }
 
+    // Xử lý lỗi xung đột dữ liệu (ví dụ: email đã được đăng ký) — HTTP 409
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ApiResponse<Void>> handleConflict(ConflictException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error(ex.getMessage()));
+    }
+
     // Xử lý lỗi validation nhiều field cùng lúc (phone trùng, email trùng,...).
     // Trả về map fieldErrors để frontend hiển thị lỗi đúng vị trí từng field.
     @ExceptionHandler(FieldValidationException.class)

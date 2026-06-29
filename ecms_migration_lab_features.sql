@@ -121,3 +121,49 @@ GO
 
 PRINT N'✅ Migration lab_features hoàn tất: medical_records.image_url, lab_orders.rejection_reason/rejected_at + REJECTED status, lab_results (thêm cột mắt + xóa status), bảng lab_technicians.';
 GO
+
+-- ============================================================
+-- 5. users: đổi tên cột cho khớp với entity User.java hiện tại
+--    - failed_login_count  -> failed_login_attempts
+--    - locked_until        -> lock_until (nếu lock_until đã được
+--      Hibernate ddl-auto=update tự thêm trước đó thì chỉ cần xóa
+--      cột locked_until cũ, không cần rename)
+--    Dùng kiểm tra tồn tại cột để chạy lại an toàn (idempotent).
+-- ============================================================
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.users') AND name = 'failed_login_count')
+   AND NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.users') AND name = 'failed_login_attempts')
+BEGIN
+    EXEC sp_rename N'dbo.users.failed_login_count', N'failed_login_attempts', 'COLUMN';
+END
+GO
+
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.users') AND name = 'locked_until')
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('dbo.users') AND name = 'lock_until')
+        -- lock_until đã tồn tại (do Hibernate tự thêm) -> xóa cột cũ trùng
+        ALTER TABLE dbo.users DROP COLUMN locked_until;
+    ELSE
+        -- lock_until chưa tồn tại -> đổi tên cột cũ thành tên mới
+        EXEC sp_rename N'dbo.users.locked_until', N'lock_until', 'COLUMN';
+END
+GO
+
+PRINT N'✅ Migration users hoàn tất: failed_login_count -> failed_login_attempts, locked_until -> lock_until.';
+GO
+
+-- ============================================================
+-- 6. users: mở rộng CHECK constraint cho status để khớp với
+--    enum UserStatus.java hiện tại (PENDING_VERIFICATION, ACTIVE,
+--    LOCKED, DISABLED). Constraint cũ chỉ cho phép ACTIVE/INACTIVE/LOCKED.
+-- ============================================================
+IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_users_status')
+    ALTER TABLE dbo.users DROP CONSTRAINT CK_users_status;
+GO
+
+ALTER TABLE dbo.users
+    ADD CONSTRAINT CK_users_status
+    CHECK (status IN ('PENDING_VERIFICATION', 'ACTIVE', 'LOCKED', 'DISABLED'));
+GO
+
+PRINT N'✅ Migration users status hoàn tất: CK_users_status cho phép PENDING_VERIFICATION/ACTIVE/LOCKED/DISABLED.';
+GO
