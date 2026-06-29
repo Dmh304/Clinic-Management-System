@@ -239,7 +239,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         if (i.getPrescription().getStatus() == PrescriptionStatus.DISPENSED) {
             // DucTKH: Tương tác DB - Tìm chi tiết hóa đơn dựa vào reference ID (id của chi
             // tiết đơn thuốc)
-            Optional<InvoiceItem> invoiceItemOpt = invoiceItemRepository.findByRefId(i.getId());
+            Optional<InvoiceItem> invoiceItemOpt = invoiceItemRepository.findFirstByRefId(i.getId());
             // DucTKH: Điều kiện - Nếu tìm thấy chi tiết hóa đơn
             if (invoiceItemOpt.isPresent()) {
                 actualQuantity = invoiceItemOpt.get().getQuantity();

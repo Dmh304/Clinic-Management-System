@@ -148,7 +148,8 @@ public class SecurityConfig {
                         // ══════════════════════════════════════════════════════════════════
                         // ── EMR ───────────────────────────────────────────────────────────
                         // ══════════════════════════════════════════════════════════════════
-                        // Specific routes FIRST, wildcard LAST
+                        .requestMatchers(HttpMethod.GET, "/api/v1/emr/test-all")
+                        .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/emr/history")
                         .hasRole("PATIENT")
                         .requestMatchers(HttpMethod.GET, "/api/v1/emr/all")

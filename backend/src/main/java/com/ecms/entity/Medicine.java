@@ -18,13 +18,13 @@ public class Medicine {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "nvarchar(255)")
     private String name;
 
-    @Column(name = "dosage_form")
+    @Column(name = "dosage_form", columnDefinition = "nvarchar(50)")
     private String dosageForm;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "nvarchar(100)")
     private String unit;
 
     @Column(name = "unit_price", precision = 10, scale = 2)

@@ -28,10 +28,10 @@ public class PrescriptionItem {
     @Column(nullable = false)
     private Integer quantity;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "nvarchar(50)")
     private String dosage;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "nvarchar(50)")
     private String frequency;
 
     @Column(nullable = false)
