@@ -23,6 +23,7 @@ public class ClinicServiceResponse {
     private Integer validityDays;
     private Boolean isActive;
     private Integer displayOrder;
+    private Boolean isPopular;
     private Long categoryId;
     private String categoryName;
     private String serviceType;

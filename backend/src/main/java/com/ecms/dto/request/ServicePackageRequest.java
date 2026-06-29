@@ -48,4 +48,6 @@ public class ServicePackageRequest {
     private Boolean isActive;
 
     private Integer displayOrder;
+
+    private Boolean isPopular;
 }

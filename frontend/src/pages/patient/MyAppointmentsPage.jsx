@@ -78,7 +78,7 @@ export default function MyAppointmentsPage() {
     setRescheduling(true)
     try {
       const res = await appointmentService.rescheduleAppointment(reschedulingId, newTime)
-      const updated = res.data.data
+      const updated = res.data
       setAppointments(prev => prev.map(a => a.id === reschedulingId ? updated : a))
       message.success('Đổi lịch hẹn thành công')
       setReschedulingId(null)

@@ -26,6 +26,11 @@ export const serviceService = {
   updateRegistrationStatus: (id, status) =>
     axiosClient.patch(`/v1/services/registrations/${id}/status`, null, { params: { status } }),
 
+  // Lễ tân đặt buổi đến phòng khám từ đăng ký đã được tư vấn:
+  // tạo gói + buổi care-session đầu tiên, đánh dấu đăng ký Hoàn tất
+  scheduleClinicVisit: (id, payload) =>
+    axiosClient.post(`/v1/services/registrations/${id}/schedule`, payload),
+
   // Danh sách tất cả gói kể cả đã ẩn (MANAGER) — để khôi phục gói đã ẩn
   getAllPackages: () =>
     axiosClient.get('/v1/services/packages'),

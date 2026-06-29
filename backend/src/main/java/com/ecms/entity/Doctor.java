@@ -34,41 +34,23 @@ public class Doctor {
     @Column(name = "specialty")
     private String specialization;
 
-    @Column(name = "department")
-    private String department;
-
+    // Cột thật chứa SĐT là "phone_number" — cột "phone" trong DB là cột legacy
+    // rỗng, không dùng (giống lỗi drift đã gặp ở bảng services/category).
     @Column(name = "phone_number")
-    private String phoneNumber;
+    private String phone;
 
     @Column(name = "email")
     private String email;
 
+    @Column(name = "department")
+    private String department;
+
     @Column(name = "experience_years")
-    private int experienceYears;
+    private Integer experienceYears;
 
     @Column(name = "bio")
     private String bio;
 
     @Column(name = "avatar_url")
     private String avatarUrl;
-
-    @Column(name = "status")
-    private String status;
-
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-
-    // Tự động gán thời điểm tạo hồ sơ trước khi lưu vào DB lần đầu
-    @PrePersist
-    private void prePersist() {
-        createdAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    private void preUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
 }

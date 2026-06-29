@@ -18,9 +18,9 @@ import com.ecms.dto.request.WalkInAppointmentRequest;
 import com.ecms.dto.response.ApiResponse;
 import com.ecms.dto.response.AppointmentDashboardResponse;
 import com.ecms.dto.response.AppointmentResponse;
+import com.ecms.dto.response.SlotAvailabilityResponse;
 import com.ecms.entity.AppointmentStatus;
 import com.ecms.entity.Doctor;
-import com.ecms.entity.Patient;
 import com.ecms.entity.User;
 import com.ecms.repository.DoctorRepository;
 import com.ecms.repository.PatientRepository;
@@ -125,9 +125,10 @@ public class AppointmentController {
                         @PathVariable Long id,
                         @RequestBody(required = false) ConfirmAppointmentRequest request) {
                 Long doctorId = request != null ? request.getDoctorId() : null;
+                String reason = request != null ? request.getReason() : null;
 
                 return ResponseEntity.ok(
-                                ApiResponse.success(appointmentService.confirmAppointment(id, doctorId)));
+                                ApiResponse.success(appointmentService.confirmAppointment(id, doctorId, reason)));
         }
 
         /* Đánh dấu bệnh nhân đã đến phòng khám và check-in vào hàng đợi */
@@ -156,20 +157,29 @@ public class AppointmentController {
         /*
          * Tạo lịch hẹn trực tiếp tại quầy (Walk-in) - Dành cho Tiếp tân (RECEPTIONIST)
          */
-        @PostMapping("/walk-in")
-        public ResponseEntity<ApiResponse<AppointmentResponse>> createWalkInAppointment(
-                        @Valid @RequestBody WalkInAppointmentRequest request) {
+
+        public ResponseEntity<ApiResponse<List<SlotAvailabilityResponse>>> getAvailableSlots(
+                        @RequestParam 
+
                 return ResponseEntity.ok(
-                                ApiResponse.success(appointmentService.createWalkInAppointment(request)));
+                                ApiResponse.success(appointmentService.getAvailableSlots(doctorId, date)));
         }
 
-        /* Lấy danh sách toàn bộ lịch hẹn của Bệnh nhân đang đăng nhập */
+        @PostMapping("/walk-in")
+        p
+
+                        ApiResponse.success(appoi ateWalkI
+
+         lịch hẹn của Bệnh nhân đang đăng nhập */
         @GetMapping("/my")
         public ResponseEntity<ApiResponse<List<AppointmentResponse>>> getMyAppointments(
                         @AuthenticationPrincipal UserDetails userDetails) {
-                Long patientId = resolvePatientId(userDetails);
+                // Theo USER (không phải patientId) để gồm cả lịch đặt hộ người thân
+                Long userId = userDetails != null
+                                ? userRepository.findByEmail(userDetails.getUsername()).map(User::getId).orElse(null)
+                                : null;
                 return ResponseEntity.ok(
-                                ApiResponse.success(appointmentService.getMyAppointments(patientId)));
+                                ApiResponse.success(appointmentService.getMyAppointments(userId)));
         }
 
         /*
@@ -274,7 +284,10 @@ public class AppointmentController {
          */
         @Data
         public static class ConfirmAppointmentRequest {
-                private Long doctorId; // ID Bác sĩ được chỉ định phụ trách ca khám
+                private Long doctorId;
+                /** Bắt buộc khi lễ tân đổi sang bác sĩ khác với bác sĩ bệnh nhân đã đặt */
+                private String reason;
+
         }
 
         /* Tìm kiếm và trả về ID của Bác sĩ dựa trên Email tài khoản đăng nhập */
@@ -285,13 +298,12 @@ public class AppointmentController {
                 return doctorRepository.findByEmail(userDetails.getUsername()).map(Doctor::getId).orElse(null);
         }
 
-        /**
-         * Tìm kiếm và trả về ID của Bệnh nhân dựa trên Email tài khoản đăng nhập
-         * Cơ chế tìm kiếm 2 bước:
+        /
+
          * 1. Tìm thông qua tài khoản User liên kết (Đối với bệnh nhân đăng ký tài khoản
          * hệ thống)
-         * 2. Nếu không thấy, tìm kiếm trực tiếp bằng email trong bảng Patient (Đối với
-         * bệnh nhân vãng lai/walk-in được lưu email)
+         * 2. Nếu không thấy, tìm 
+         hân vãng lai/walk-in được lưu email)
          */
         private Long resolvePatientId(UserDetails userDetails) {
                 if (userDetails == null) {

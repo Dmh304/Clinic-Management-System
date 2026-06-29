@@ -14,9 +14,9 @@ export default function AssignNursePage() {
       careSessionService.getAll(date),
       careSessionService.getNurses(),
     ]).then(([sessRes, nurseRes]) => {
-      const booked = (sessRes.data.data || []).filter(s => s.status === 'BOOKED')
+      const booked = (sessRes.data || []).filter(s => s.status === 'BOOKED')
       setSessions(booked)
-      setNurses(nurseRes.data.data || [])
+      setNurses(nurseRes.data || [])
     }).finally(() => setLoading(false))
   }, [date])
 

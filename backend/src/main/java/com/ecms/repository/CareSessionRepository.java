@@ -29,4 +29,17 @@ public interface CareSessionRepository extends JpaRepository<CareSession, Long> 
 
     @Query("SELECT COUNT(cs) FROM CareSession cs WHERE cs.subscription.id = :subscriptionId AND cs.status != 'CANCELLED'")
     long countActiveSessionsBySubscription(@Param("subscriptionId") Long subscriptionId);
+
+    /** BR-16: số buổi (chưa huỷ) của 1 điều dưỡng trong 1 ngày — dùng kiểm tra sức chứa
+     *  khi phân công. excludeId để bỏ qua chính buổi đang phân công (tránh đếm trùng khi đổi ĐD). */
+    @Query("""
+            SELECT COUNT(cs) FROM CareSession cs
+            WHERE cs.nurse.id = :nurseId
+              AND cs.id <> :excludeId
+              AND cs.scheduledDateTime >= :start
+              AND cs.scheduledDateTime < :end
+              AND cs.status <> 'CANCELLED'
+            """)
+    long countByNurseOnDateExcluding(@Param("nurseId") Long nurseId, @Param("excludeId") Long excludeId,
+            @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }

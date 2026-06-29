@@ -5,6 +5,7 @@
 package com.ecms.security;
 
 import com.ecms.entity.User;
+import com.ecms.entity.UserStatus;
 import com.ecms.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -40,7 +41,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
                 return new org.springframework.security.core.userdetails.User(
                                 user.getEmail(),
                                 passwordForUserDetails,
-                                "ACTIVE".equals(user.getStatus()),
+                                user.getStatus() == UserStatus.ACTIVE,
                                 true, true, true,
                                 List.of(new SimpleGrantedAuthority(roleName)));
         }

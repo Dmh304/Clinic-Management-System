@@ -14,7 +14,7 @@ export default function CareQueuePage() {
     setLoading(true)
     try {
       const res = await careSessionService.getQueue()
-      setSessions(res.data.data || [])
+      setSessions(res.data || [])
     } catch {
       setError('Không thể tải hàng đợi')
     } finally {

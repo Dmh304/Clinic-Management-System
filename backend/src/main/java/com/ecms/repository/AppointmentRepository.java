@@ -71,6 +71,22 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
                         @Param("end") LocalDateTime end);
 
         /**
+         * "Lịch hẹn của tôi" theo USER: gồm lịch tự đặt (patient gắn tài khoản này)
+         * lẫn lịch đặt hộ người thân (booked_by = user này). Dùng cho UC-11.
+         */
+        @Query("""
+                        SELECT DISTINCT a
+                        FROM Appointment a
+                        LEFT JOIN FETCH a.patient p
+                        LEFT JOIN p.user u
+                        LEFT JOIN FETCH a.doctor
+                        LEFT JOIN FETCH a.clinicService
+                        WHERE u.id = :userId OR a.bookedBy = :userId
+                        ORDER BY a.appointmentTime DESC
+                        """)
+        List<Appointment> findMyAppointmentsByUser(@Param("userId") Long userId);
+
+        /**
          * Tìm kiếm lịch hẹn trong khoảng thời gian xác định và lọc theo một trạng thái
          * duy nhất
          * Phù hợp để liệt kê nhanh danh sách theo luồng nghiệp vụ
@@ -257,6 +273,32 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
                         @Param("statuses") Collection<AppointmentStatus> statuses);
 
         /**
+         * Các giờ khám đã bị chiếm của 1 bác sĩ trong 1 ngày (mọi trạng thái trừ
+         * CANCELLED). Dùng để tính khung giờ còn trống cho bệnh nhân đặt lịch —
+         * gồm cả lịch PENDING (đặt online chờ xác nhận) để tránh 2 người đặt
+         * trùng giờ.
+         */
+        @Query("""
+                        SELECT a.appointmentTime
+                        FROM Appointment a
+                        WHERE a.doctor.id = :doctorId
+                          AND a.appointmentTime >= :start
+                          AND a.appointmentTime < :end
+                          AND a.status <> 'CANCELLED'
+                        """)
+        List<LocalDateTime> findBookedTimesByDoctorAndDate(
+                        @Param("doctorId") Long doctorId,
+                        @Param("start") LocalDateTime start,
+                        @Param("end") LocalDateTime end);
+
+        /**
+         * Kiểm tra một bác sĩ đã có lịch hẹn còn hiệu lực (khác CANCELLED) đúng vào
+         * một thời điểm hay chưa — dùng để chặn đặt trùng khung giờ.
+         */
+        boolean existsByDoctor_IdAndAppointmentTimeAndStatusNot(
+                        Long doctorId, LocalDateTime appointmentTime, AppointmentStatus status);
+
+        /**
          * UC-13: lịch hẹn cần nhắc — đúng trạng thái, nằm trong khoảng thời gian
          * [start, end] và chưa gửi nhắc (reminder_sent = false). Dùng cho cron job
          * nhắc lịch 24h trước giờ khám.
@@ -265,4 +307,19 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
                         AppointmentStatus status,
                         LocalDateTime start,
                         LocalDateTime end);
+
+        /**
+         * Các lịch hẹn quá hạn (giờ khám đã trôi qua) nhưng vẫn ở trạng thái chưa
+         * hoàn tất — bệnh nhân không đến khám. Dùng cho cron tự động huỷ no-show.
+         */
+        @Query("""
+                        SELECT a
+                        FROM Appointment a
+                        LEFT JOIN FETCH a.patient
+                        WHERE a.appointmentTime < :cutoff
+                          AND a.status IN :statuses
+                        """)
+        List<Appointment> findNoShowAppointments(
+                        @Param("cutoff") LocalDateTime cutoff,
+                        @Param("statuses") Collection<AppointmentStatus> statuses);
 }

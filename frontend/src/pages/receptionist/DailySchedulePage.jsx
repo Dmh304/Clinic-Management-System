@@ -61,7 +61,7 @@ export default function DailySchedulePage() {
         const res = await axiosClient.get('/v1/appointments/daily-schedule', {
           params: { date: anchorDate.format('YYYY-MM-DD') },
         })
-        data = res.data.data || []
+        data = res.data || []
       } else {
         const res = await axiosClient.get('/v1/appointments/schedule-range', {
           params: {
@@ -69,7 +69,7 @@ export default function DailySchedulePage() {
             endDate: range.gridEnd.format('YYYY-MM-DD'),
           },
         })
-        data = res.data.data || []
+        data = res.data || []
       }
       setAppointments(data)
       const uniqueDoctors = [...new Map(data.filter(a => a.doctorName).map(a => [a.doctorId, a.doctorName])).entries()]
