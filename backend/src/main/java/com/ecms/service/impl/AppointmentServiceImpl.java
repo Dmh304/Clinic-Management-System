@@ -501,9 +501,19 @@ public class AppointmentServiceImpl implements AppointmentService {
         @Override
         @Transactional
         public AppointmentResponse reassignAppointment(Long id, ReassignAppointmentRequest request) {
+                // BR: Manager phải cung cấp ít nhất một trong ba: bác sĩ mới, giờ mới hoặc lý do
+                boolean hasDoctor = request.getDoctorId() != null;
+                boolean hasTime = request.getNewAppointmentTime() != null;
+                boolean hasReason = request.getReason() != null && !request.getReason().isBlank();
+                if (!hasDoctor && !hasTime && !hasReason) {
+                        throw new IllegalArgumentException(
+                                        "Vui lòng cung cấp bác sĩ mới, thời gian mới hoặc lý do chuyển lịch");
+                }
+
                 Appointment appointment = appointmentRepository.findById(id)
                                 .orElseThrow(() -> new ResourceNotFoundException("Lịch hẹn không tồn tại: " + id));
 
+                // EX-01 (BR-22): không thể chuyển lịch hẹn ở trạng thái cuối (COMPLETED/CANCELLED)
                 if (appointment.getStatus() == AppointmentStatus.COMPLETED
                                 || appointment.getStatus() == AppointmentStatus.CANCELLED) {
                         throw new IllegalStateException("Không thể chuyển lịch hẹn đã hoàn thành hoặc đã huỷ");
@@ -515,10 +525,27 @@ public class AppointmentServiceImpl implements AppointmentService {
 
                 boolean doctorChanged = false;
                 if (request.getDoctorId() != null) {
+                        // EX-02: bác sĩ không tồn tại hoặc không còn hoạt động
                         Doctor doctor = doctorRepository.findById(request.getDoctorId())
                                         .orElseThrow(() -> new ResourceNotFoundException(
                                                         "Bác sĩ không tồn tại: " + request.getDoctorId()));
+                        if (doctor.getUser() != null
+                                        && (doctor.getUser().getStatus() != UserStatus.ACTIVE
+                                                        || doctor.getUser().getDeletedAt() != null)) {
+                                throw new ResourceNotFoundException(
+                                                "Bác sĩ không tồn tại hoặc đã ngừng hoạt động: "
+                                                                + request.getDoctorId());
+                        }
                         doctorChanged = oldDoctor == null || !oldDoctor.getId().equals(doctor.getId());
+
+                        // EX-03 (BR-03): chặn nếu bác sĩ mới đã đủ số lịch hẹn tối đa trong ngày
+                        if (doctorChanged) {
+                                LocalDate targetDate = (request.getNewAppointmentTime() != null
+                                                ? request.getNewAppointmentTime()
+                                                : appointment.getAppointmentTime()).toLocalDate();
+                                validateDoctorCapacity(doctor.getId(), targetDate);
+                        }
+
                         appointment.setDoctor(doctor);
                 }
 

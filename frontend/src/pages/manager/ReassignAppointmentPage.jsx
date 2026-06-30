@@ -31,7 +31,9 @@ export default function ReassignAppointmentPage() {
 
   const handleReassign = async (e) => {
     e.preventDefault()
-    if (!form.doctorId && !form.newAppointmentTime) return setError('Vui lòng chọn bác sĩ mới hoặc thời gian mới')
+    if (!form.doctorId && !form.newAppointmentTime && !form.reason.trim()) {
+      return setError('Vui lòng chọn bác sĩ mới, thời gian mới hoặc nhập lý do chuyển lịch')
+    }
     setSaving(true)
     setError('')
     try {
