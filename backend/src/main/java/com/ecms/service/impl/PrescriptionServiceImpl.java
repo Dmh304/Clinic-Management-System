@@ -31,8 +31,8 @@ public class PrescriptionServiceImpl implements PrescriptionService {
     private final MedicineRepository medicineRepository;
     private final MedicalRecordRepository medicalRecordRepository;
     private final DoctorRepository doctorRepository;
-    // private final InvoiceRepository invoiceRepository;
-    // private final InvoiceItemRepository invoiceItemRepository;
+    private final InvoiceRepository invoiceRepository;
+    private final InvoiceItemRepository invoiceItemRepository;
 
     // Tạo mới một đơn thuốc từ yêu cầu của bác sĩ
     @Override
@@ -148,22 +148,22 @@ public class PrescriptionServiceImpl implements PrescriptionService {
 
         // Sinh hóa đơn (Invoice) cho tiền thuốc
         BigDecimal totalAmount = BigDecimal.ZERO;
-        // List<InvoiceItem> invoiceItems = new ArrayList<>();
+        List<InvoiceItem> invoiceItems = new ArrayList<>();
 
-        // Invoice invoice = Invoice.builder()
-        // .patient(p.getPatient())
-        // .appointment(p.getMedicalRecord().getAppointment())
-        // .paymentStatus("UNPAID")
-        // .status("DRAFT")
-        // .subTotal(BigDecimal.ZERO)
-        // .discountAmount(BigDecimal.ZERO)
-        // .tax(BigDecimal.ZERO)
-        // .totalAmount(BigDecimal.ZERO)
-        // .build();
+        Invoice invoice = Invoice.builder()
+            .patient(p.getPatient())
+            .appointment(p.getMedicalRecord().getAppointment())
+            .paymentStatus("UNPAID")
+            .status("DRAFT")
+            .subTotal(BigDecimal.ZERO)
+            .discountAmount(BigDecimal.ZERO)
+            .tax(BigDecimal.ZERO)
+            .totalAmount(BigDecimal.ZERO)
+            .build();
 
         // DucTKH: Tương tác DB - Lưu trước bản ghi Invoice để có ID phục vụ cho
         // InvoiceItem
-        // invoice = invoiceRepository.save(invoice);
+        invoice = invoiceRepository.save(invoice);
 
         // DucTKH: Vòng lặp - Xây dựng các chi tiết hóa đơn (InvoiceItem) dựa trên từng
         // thuốc trong đơn
@@ -173,26 +173,25 @@ public class PrescriptionServiceImpl implements PrescriptionService {
             BigDecimal itemTotal = unitPrice.multiply(BigDecimal.valueOf(dispensedQuantity));
             totalAmount = totalAmount.add(itemTotal); // DucTKH: Cộng dồn tổng tiền hóa đơn
 
-            // InvoiceItem invoiceItem = InvoiceItem.builder()
-            // .invoice(invoice)
-            // .itemType("MEDICINE")
-            // .description(item.getMedicine().getName() + " (" +
-            // item.getMedicine().getDosageForm() + ")")
-            // .quantity(dispensedQuantity)
-            // .unitPrice(unitPrice)
-            // .subTotal(itemTotal)
-            // .refId(item.getId()) // Link với PrescriptionItem ID
-            // .status("ACTIVE")
-            // .build();
-            // invoiceItems.add(invoiceItem);
+            InvoiceItem invoiceItem = InvoiceItem.builder()
+                .invoice(invoice)
+                .itemType("MEDICINE")
+                .description(item.getMedicine().getName() + " (" + item.getMedicine().getDosageForm() + ")")
+                .quantity(dispensedQuantity)
+                .unitPrice(unitPrice)
+                .subTotal(itemTotal)
+                .refId(item.getId()) // Link với PrescriptionItem ID
+                .status("ACTIVE")
+                .build();
+            invoiceItems.add(invoiceItem);
         }
 
-        // invoice.setSubTotal(totalAmount);
-        // invoice.setTotalAmount(totalAmount);
-        // // DucTKH: Tương tác DB - Cập nhật lại tổng tiền cho Invoice
-        // invoiceRepository.save(invoice);
-        // // DucTKH: Tương tác DB - Lưu hàng loạt các chi tiết hóa đơn
-        // invoiceItemRepository.saveAll(invoiceItems);
+        invoice.setSubTotal(totalAmount);
+        invoice.setTotalAmount(totalAmount);
+        // DucTKH: Tương tác DB - Cập nhật lại tổng tiền cho Invoice
+        invoiceRepository.save(invoice);
+        // DucTKH: Tương tác DB - Lưu hàng loạt các chi tiết hóa đơn
+        invoiceItemRepository.saveAll(invoiceItems);
 
         return toResponse(p);
     }
@@ -242,9 +241,9 @@ public class PrescriptionServiceImpl implements PrescriptionService {
             // tiết đơn thuốc)
             Optional<InvoiceItem> invoiceItemOpt = invoiceItemRepository.findFirstByRefIdAndItemType(i.getId(), "MEDICINE");
             // DucTKH: Điều kiện - Nếu tìm thấy chi tiết hóa đơn
-            // if (invoiceItemOpt.isPresent()) {
-            // actualQuantity = invoiceItemOpt.get().getQuantity();
-            // }
+            if (invoiceItemOpt.isPresent()) {
+                actualQuantity = invoiceItemOpt.get().getQuantity();
+            }
         }
 
         Integer displayQuantity = actualQuantity != null ? actualQuantity : i.getQuantity();
