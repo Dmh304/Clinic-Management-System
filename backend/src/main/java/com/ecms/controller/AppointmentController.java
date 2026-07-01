@@ -21,7 +21,6 @@ import com.ecms.dto.response.AppointmentResponse;
 import com.ecms.dto.response.SlotAvailabilityResponse;
 import com.ecms.entity.AppointmentStatus;
 import com.ecms.entity.Doctor;
-import com.ecms.entity.Patient;
 import com.ecms.entity.User;
 import com.ecms.repository.DoctorRepository;
 import com.ecms.repository.PatientRepository;

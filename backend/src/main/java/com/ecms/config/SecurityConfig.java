@@ -70,6 +70,10 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html")
                         .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auth/verify-email")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/admin/unlock-user")
+                        .hasRole("ADMIN")
 
                         // ══════════════════════════════════════════════════════════════════
                         // ── Doctors: GET list public ───────────────────────────────────────
