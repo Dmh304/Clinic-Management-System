@@ -14,7 +14,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import Header from '../../components/layout/Header'
-import { Form, Input, InputNumber, Tabs, Button, message, Tag, Spin, Collapse, Divider, Result } from 'antd'
+import { Form, Input, InputNumber, Tabs, Button, message, Tag, Spin, Collapse, Divider, Result, Pagination } from 'antd'
 import { labService } from '../../services/labService'
 
 const { TextArea } = Input
@@ -73,7 +73,8 @@ export default function LabQueuePage() {
   const [activeTab, setActiveTab]  = useState('PENDING')
   // searchText: Từ khóa tìm kiếm do người dùng nhập vào ô Input
   const [searchText, setSearchText]  = useState('')
-
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
   /**
    * Khối Guard: Xác thực xem người dùng hiện tại có phải là Kỹ thuật viên xét nghiệm hay không
   */
@@ -129,14 +130,9 @@ export default function LabQueuePage() {
    * Kết hợp cả 2 điều kiện: Lọc theo Tab trạng thái và Lọc theo từ khóa tìm kiếm
    */
   const filteredOrders = orders.filter((o) => {
-    // Nếu Tab hiện tại khác 'ALL', bản ghi phải trùng khớp chính xác trạng thái (status)
     if (activeTab !== 'ALL' && o.status !== activeTab) return false
-    
-    // Lọc theo từ khóa tìm kiếm (nếu ô tìm kiếm trống thì mặc định hiển thị)
     if (!searchText) return true
     const kw = searchText.toLowerCase()
-    
-    // Tìm kiếm không phân biệt hoa thường trên 4 trường dữ liệu quan trọng
     return (
       o.patientFullName?.toLowerCase().includes(kw) ||
       o.patientPhone?.toLowerCase().includes(kw) ||
@@ -144,6 +140,12 @@ export default function LabQueuePage() {
       o.doctorFullName?.toLowerCase().includes(kw)
     )
   })
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [activeTab, searchText])
+
+  const pagedOrders = filteredOrders.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
   /**
    * Đếm số lượng bản ghi theo từng trạng thái để hiển thị số lượng (Badge) trên đầu mỗi Tab
@@ -282,7 +284,7 @@ export default function LabQueuePage() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid #f1f5f9', backgroundColor: '#f8fafc' }}>
-                    {['STT', 'Ngày tạo', 'Bệnh nhân', 'SĐT', 'Bác sĩ chỉ định', 'Dịch vụ XN', 'Ưu tiên', 'Trạng thái', ''].map((h) => (
+                    {['STT', 'Ngày tạo', 'Bệnh nhân', 'SĐT', 'Bác sĩ chỉ định', 'Ưu tiên', 'Trạng thái', 'Thao tác'].map((h) => (
                       <th
                         key={h}
                         style={{ padding: '10px 16px', textAlign: 'left', fontSize: 13, fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}
@@ -293,7 +295,7 @@ export default function LabQueuePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredOrders.map((order, i) => (
+                  {pagedOrders.map((order, i) => (
                     <tr
                       key={order.id}
                       style={{ borderBottom: '1px solid #f1f5f9' }}
@@ -302,7 +304,9 @@ export default function LabQueuePage() {
                       onMouseLeave={e => e.currentTarget.style.backgroundColor = ''}
                     >
                       {/* Số thứ tự dòng tăng dần */}
-                      <td style={{ padding: '12px 16px', color: '#64748b', fontSize: 13 }}>{i + 1}</td>
+                      <td style={{ padding: '12px 16px', color: '#64748b', fontSize: 13 }}>
+                        {(currentPage - 1) * pageSize + i + 1}
+                      </td>
 
                       {/* Thời gian tạo: Hiển thị ngày/tháng và giờ riêng biệt */}
                       <td style={{ padding: '12px 16px', fontSize: 13, color: '#475569', whiteSpace: 'nowrap' }}>
@@ -403,6 +407,18 @@ export default function LabQueuePage() {
                   ))}
                 </tbody>
               </table>
+            )}
+            {filteredOrders.length > pageSize && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '14px 16px' }}>
+                <Pagination
+                  current={currentPage}
+                  pageSize={pageSize}
+                  total={filteredOrders.length}
+                  onChange={setCurrentPage}
+                  showTotal={(total) => `${total} phiếu xét nghiệm`}
+                  size="small"
+                />
+              </div>
             )}
           </Spin>
         </div>

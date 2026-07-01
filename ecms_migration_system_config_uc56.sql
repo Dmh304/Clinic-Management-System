@@ -7,7 +7,7 @@
 --
 -- Chạy thủ công bởi DBA trên DB ecms_db trước khi deploy code có liên quan.
 
-USE ecms_db;
+USE ecms_db_final;
 GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'notification_templates')

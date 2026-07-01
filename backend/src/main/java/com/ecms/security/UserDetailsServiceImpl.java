@@ -18,27 +18,31 @@ import java.util.List;
 @RequiredArgsConstructor
 public class UserDetailsServiceImpl implements UserDetailsService {
 
-    private final UserRepository userRepository;
+        private final UserRepository userRepository;
 
-    // Tải thông tin xác thực người dùng theo email: lấy passwordHash, trạng thái và vai trò để Spring Security kiểm tra quyền
-    @Override
-    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("Không tìm thấy người dùng: " + email));
+        // Tải thông tin xác thực người dùng theo email: lấy passwordHash, trạng thái và
+        // vai trò để Spring Security kiểm tra quyền
+        @Override
+        public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+                User user = userRepository.findByEmail(email)
+                                .orElseThrow(() -> new UsernameNotFoundException(
+                                                "Không tìm thấy người dùng: " + email));
 
-        String roleName = user.getRole() != null
-                ? "ROLE_" + user.getRole().getName()
-                : "ROLE_PATIENT";
+                String roleName = user.getRole() != null
+                                ? "ROLE_" + user.getRole().getName()
+                                : "ROLE_PATIENT";
 
-        // Tài khoản đăng nhập bằng Google có thể chưa có passwordHash (null) — Spring Security's User
-        // không chấp nhận password null, nên dùng chuỗi rỗng làm giá trị thay thế (không dùng để xác thực)
-        String passwordForUserDetails = user.getPasswordHash() != null ? user.getPasswordHash() : "";
+                // Tài khoản đăng nhập bằng Google có thể chưa có passwordHash (null) — Spring
+                // Security's User
+                // không chấp nhận password null, nên dùng chuỗi rỗng làm giá trị thay thế
+                // (không dùng để xác thực)
+                String passwordForUserDetails = user.getPasswordHash() != null ? user.getPasswordHash() : "";
 
-        return new org.springframework.security.core.userdetails.User(
-                user.getEmail(),
-                passwordForUserDetails,
-                user.getStatus() == UserStatus.ACTIVE,
-                true, true, true,
-                List.of(new SimpleGrantedAuthority(roleName)));
-    }
+                return new org.springframework.security.core.userdetails.User(
+                                user.getEmail(),
+                                passwordForUserDetails,
+                                user.getStatus() == UserStatus.ACTIVE,
+                                true, true, true,
+                                List.of(new SimpleGrantedAuthority(roleName)));
+        }
 }
