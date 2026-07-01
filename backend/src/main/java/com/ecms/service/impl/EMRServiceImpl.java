@@ -277,8 +277,8 @@ public class EMRServiceImpl implements EMRService {
         /* Tìm kiếm và phân giải (resolve) các đường dẫn hình ảnh kết quả xét nghiệm */
         private List<String> resolveLabImageUrls(MedicalRecord m) {
                 return labOrderRepository
-                                .findByMedicalRecordIdOrderByCreatedAtDesc(m.getId()) // Lấy danh sách lệnh xét nghiệm
-                                                                                      // theo thứ tự mới nhất
+                                .findByMedicalRecordIdOrderByCreatedAt(m.getId()) // Lấy danh sách lệnh xét nghiệm
+                                                                                  // theo thứ tự mới nhất
                                 .stream()
                                 .filter(o -> o.getStatus() == LabOrderStatus.APPROVED) // Chỉ chấp nhận các lệnh có
                                                                                        // trạng thái APPROVED

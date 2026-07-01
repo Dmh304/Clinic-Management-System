@@ -421,23 +421,29 @@ GO
 SET IDENTITY_INSERT prescriptions ON;
 
 INSERT INTO prescriptions
-    (id, medical_record_id, type, notes,
-     issued_by, dispensed_by, dispensed_at, status, created_at)
+    (id, medical_record_id, doctor_id, patient_id, notes, status, created_at)
+VALUES
+-- Đơn thuốc cho MR2 (đã cấp)
+(2, 2, 3, 2,
+    N'Nhỏ kháng sinh sáng-tối, nhỏ chống viêm trưa-chiều trong 7 ngày.',
+    'DISPENSED', DATEADD(DAY,-3,GETDATE()));
+
+SET IDENTITY_INSERT prescriptions OFF;
+GO
+
+SET IDENTITY_INSERT eyeglass_prescriptions ON;
+
+INSERT INTO eyeglass_prescriptions
+    (id, medical_record_id, doctor_id, patient_id, notes, status, created_at)
 VALUES
 -- Đơn kính cho MR1 (đã cấp)
-(1, 1, 'GLASSES',
+(1, 1, 3, 1,
     N'Kính cận đơn tròng. Tư vấn kính 2 tròng nếu > 40 tuổi.',
-    3, 8, DATEADD(DAY,-3,GETDATE()), 'DISPENSED', DATEADD(DAY,-3,GETDATE())),
-
--- Đơn thuốc cho MR2 (đã cấp)
-(2, 2, 'MEDICINE',
-    N'Nhỏ kháng sinh sáng-tối, nhỏ chống viêm trưa-chiều trong 7 ngày.',
-    3, 8, DATEADD(DAY,-3,GETDATE()), 'DISPENSED', DATEADD(DAY,-3,GETDATE())),
-
+    'DISPENSED', DATEADD(DAY,-3,GETDATE())),
 -- Đơn kính cho MR3 (chờ cấp)
-(3, 3, 'GLASSES',
+(3, 3, 4, 3,
     N'Cận thị OU, cấp đơn kính gọng. Tư vấn thêm kính áp tròng toric.',
-    4, NULL, NULL, 'PENDING', DATEADD(DAY,-3,GETDATE()));
+    'PENDING', DATEADD(DAY,-3,GETDATE()));
 
 SET IDENTITY_INSERT prescriptions OFF;
 GO
@@ -449,16 +455,13 @@ GO
 SET IDENTITY_INSERT prescription_items ON;
 
 INSERT INTO prescription_items
-    (id, prescription_id, medicine_id, quantity, unit,
-     dosage_instruction, unit_price, status, created_at)
+    (id, prescription_id, medicine_id, quantity, dosage, frequency, duration, instructions, unit_price)
 VALUES
-(1, 2, 1, 2, N'Lọ',
-    N'Nhỏ 1 giọt/mắt, sáng và tối sau rửa mặt, dùng trong 7 ngày.',
-    45000, 'DISPENSED', DATEADD(DAY,-3,GETDATE())),
+(1, 2, 1, 2, N'1 giọt/mắt', N'Sáng và tối', 7,
+    N'Sau rửa mặt', 45000),
 
-(2, 2, 2, 1, N'Lọ',
-    N'Nhỏ 1 giọt/mắt, trưa và chiều tối, dùng trong 5 ngày.',
-    38000, 'DISPENSED', DATEADD(DAY,-3,GETDATE()));
+(2, 2, 2, 1, N'1 giọt/mắt', N'Trưa và chiều tối', 5,
+    N'', 38000);
 
 SET IDENTITY_INSERT prescription_items OFF;
 GO
@@ -501,20 +504,20 @@ INSERT INTO lab_orders
     (id, medical_record_id, ordered_by, assigned_to, notes,
      priority, completed_at, status, created_at)
 VALUES
--- Xét nghiệm tiền phẫu cho MR4 (URGENT - đã xong)
+-- Xét nghiệm tiền phẫu cho MR4 (EMERGENCY - đã xong)
 (1, 4, 5, 9,
     N'Xét nghiệm tiền phẫu: sinh hóa máu. Ưu tiên trả kết quả trong ngày.',
-    'URGENT', DATEADD(DAY,-2,GETDATE()), 'COMPLETED', DATEADD(DAY,-2,GETDATE())),
+    'EMERGENCY', DATEADD(DAY,-2,GETDATE()), 'APPROVED', DATEADD(DAY,-2,GETDATE())),
 
--- Chụp OCT cho MR1 (NORMAL - đã xong)
+-- Chụp OCT cho MR1 (PRIMARY - đã xong)
 (2, 1, 3, 9,
     N'Chụp OCT hoàng điểm để loại trừ thoái hóa hoàng điểm.',
-    'NORMAL', DATEADD(DAY,-3,GETDATE()), 'COMPLETED', DATEADD(DAY,-3,GETDATE())),
+    'PRIMARY', DATEADD(DAY,-3,GETDATE()), 'APPROVED', DATEADD(DAY,-3,GETDATE())),
 
--- Soi đáy mắt cho MR2 (NORMAL - đang chờ)
+-- Soi đáy mắt cho MR2 (PRIMARY - đang chờ)
 (3, 2, 3, 9,
     N'Soi đáy mắt loại trừ viêm màng bồ đào.',
-    'NORMAL', NULL, 'PENDING', DATEADD(DAY,-3,GETDATE()));
+    'PRIMARY', NULL, 'PENDING', DATEADD(DAY,-3,GETDATE()));
 
 SET IDENTITY_INSERT lab_orders OFF;
 GO

@@ -9,8 +9,9 @@
 -- luôn có toàn quyền. Trước khi áp dụng script này ở production, hãy tạo một SQL login
 -- riêng cho ứng dụng (không phải sa) và thay <APP_DB_USER> bằng tên login đó.
 
-USE ecms_db;
+USE ecms_db_final;
 GO
+
 
 REVOKE UPDATE ON dbo.audit_logs FROM [<APP_DB_USER>];
 REVOKE DELETE ON dbo.audit_logs FROM [<APP_DB_USER>];

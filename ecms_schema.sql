@@ -375,20 +375,44 @@ GO
 CREATE TABLE prescriptions (
     id                BIGINT          NOT NULL IDENTITY(1,1),
     medical_record_id BIGINT          NOT NULL,
-    type              NVARCHAR(20)    NOT NULL,
+    doctor_id         BIGINT          NOT NULL,
+    patient_id        BIGINT          NOT NULL,
     notes             NVARCHAR(MAX)   NULL,
-    issued_by         BIGINT          NOT NULL,
-    dispensed_by      BIGINT          NULL,
-    dispensed_at      DATETIME2       NULL,
     status            NVARCHAR(20)    NOT NULL DEFAULT 'PENDING',
     created_at        DATETIME2       NOT NULL DEFAULT GETDATE(),
     updated_at        DATETIME2       NULL,
     CONSTRAINT PK_prescriptions PRIMARY KEY (id),
     CONSTRAINT FK_prescriptions_medical_record FOREIGN KEY (medical_record_id) REFERENCES medical_records(id),
-    CONSTRAINT FK_prescriptions_issued_by FOREIGN KEY (issued_by) REFERENCES users(id),
-    CONSTRAINT FK_prescriptions_dispensed_by FOREIGN KEY (dispensed_by) REFERENCES users(id),
-    CONSTRAINT CK_prescriptions_type CHECK (type IN ('MEDICINE', 'GLASSES', 'BOTH')),
+    CONSTRAINT FK_prescriptions_doctor FOREIGN KEY (doctor_id) REFERENCES doctors(id),
+    CONSTRAINT FK_prescriptions_patient FOREIGN KEY (patient_id) REFERENCES patients(id),
     CONSTRAINT CK_prescriptions_status CHECK (status IN ('PENDING', 'IN_PREPARATION', 'DISPENSED', 'SKIPPED'))
+);
+GO
+
+CREATE TABLE eyeglass_prescriptions (
+    id                BIGINT          NOT NULL IDENTITY(1,1),
+    medical_record_id BIGINT          NOT NULL,
+    doctor_id         BIGINT          NOT NULL,
+    patient_id        BIGINT          NOT NULL,
+    od_sph            DECIMAL(5, 2)   NULL,
+    od_cyl            DECIMAL(5, 2)   NULL,
+    od_axis           INT             NULL,
+    od_add            DECIMAL(5, 2)   NULL,
+    os_sph            DECIMAL(5, 2)   NULL,
+    os_cyl            DECIMAL(5, 2)   NULL,
+    os_axis           INT             NULL,
+    os_add            DECIMAL(5, 2)   NULL,
+    pd                DECIMAL(5, 2)   NULL,
+    lens_type         NVARCHAR(255)   NULL,
+    notes             NVARCHAR(500)   NULL,
+    status            NVARCHAR(20)    NOT NULL DEFAULT 'PENDING',
+    created_at        DATETIME2       NOT NULL DEFAULT GETDATE(),
+    updated_at        DATETIME2       NULL,
+    CONSTRAINT PK_eyeglass_prescriptions PRIMARY KEY (id),
+    CONSTRAINT FK_eyeglass_prescriptions_medical_record FOREIGN KEY (medical_record_id) REFERENCES medical_records(id),
+    CONSTRAINT FK_eyeglass_prescriptions_doctor FOREIGN KEY (doctor_id) REFERENCES doctors(id),
+    CONSTRAINT FK_eyeglass_prescriptions_patient FOREIGN KEY (patient_id) REFERENCES patients(id),
+    CONSTRAINT CK_eyeglass_prescriptions_status CHECK (status IN ('PENDING', 'IN_PREPARATION', 'DISPENSED', 'SKIPPED'))
 );
 GO
 
@@ -421,15 +445,14 @@ CREATE TABLE prescription_items (
     prescription_id      BIGINT          NOT NULL,
     medicine_id          BIGINT          NOT NULL,
     quantity             INT             NOT NULL,
-    unit                 NVARCHAR(50)    NOT NULL,
-    dosage_instruction   NVARCHAR(MAX)   NOT NULL,
+    dosage               NVARCHAR(50)    NOT NULL,
+    frequency            NVARCHAR(50)    NOT NULL,
+    duration             INT             NOT NULL,
+    instructions         NVARCHAR(200)   NULL,
     unit_price           DECIMAL(10,2)   NULL,
-    status               NVARCHAR(20)    NOT NULL DEFAULT 'PENDING',
-    created_at           DATETIME2       NOT NULL DEFAULT GETDATE(),
     CONSTRAINT PK_prescription_items PRIMARY KEY (id),
     CONSTRAINT FK_prescription_items_prescription FOREIGN KEY (prescription_id) REFERENCES prescriptions(id),
-    CONSTRAINT FK_prescription_items_medicine FOREIGN KEY (medicine_id) REFERENCES medicines(id),
-    CONSTRAINT CK_prescription_items_status CHECK (status IN ('PENDING', 'DISPENSED', 'CANCELLED'))
+    CONSTRAINT FK_prescription_items_medicine FOREIGN KEY (medicine_id) REFERENCES medicines(id)
 );
 GO
 
@@ -472,7 +495,7 @@ CREATE TABLE lab_orders (
     ordered_by        BIGINT          NOT NULL,
     assigned_to       BIGINT          NULL,
     notes             NVARCHAR(MAX)   NULL,
-    priority          NVARCHAR(20)    NOT NULL DEFAULT 'NORMAL',
+    priority          NVARCHAR(20)    NOT NULL DEFAULT 'PRIMARY',
     completed_at      DATETIME2       NULL,
     rejection_reason  NVARCHAR(MAX)   NULL,
     rejected_at       DATETIME2       NULL,
@@ -483,8 +506,8 @@ CREATE TABLE lab_orders (
     CONSTRAINT FK_lab_orders_medical_record FOREIGN KEY (medical_record_id) REFERENCES medical_records(id),
     CONSTRAINT FK_lab_orders_ordered_by FOREIGN KEY (ordered_by) REFERENCES users(id),
     CONSTRAINT FK_lab_orders_assigned_to FOREIGN KEY (assigned_to) REFERENCES users(id),
-    CONSTRAINT CK_lab_orders_priority CHECK (priority IN ('NORMAL', 'URGENT')),
-    CONSTRAINT CK_lab_orders_status CHECK (status IN ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'REJECTED'))
+    CONSTRAINT CK_lab_orders_priority CHECK (priority IN ('PRIMARY', 'WARNING', 'EMERGENCY')),
+    CONSTRAINT CK_lab_orders_status CHECK (status IN ('PENDING', 'IN_PROGRESS', 'SUBMITTED', 'REJECTED', 'APPROVED'))
 );
 GO
 

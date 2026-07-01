@@ -8,7 +8,7 @@
 package com.ecms.entity;
 
 public enum MedicalRecordStatus {
-    DRAFT, // Khởi tạo/Bản nháp
-    IN_PROGRESS, // Đang thực hiện
-    COMPLETED // Đã hoàn thành
+    DRAFT,                                      // Khởi tạo/Bản nháp
+    IN_PROGRESS,                                // Đang thực hiện
+    COMPLETED                                   // Đã hoàn thành
 }
