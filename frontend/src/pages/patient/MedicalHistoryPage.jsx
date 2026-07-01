@@ -14,7 +14,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import Header from '../../components/layout/Header'
-import { Form, Input, InputNumber, Tabs, Button, message, Tag, Spin, Collapse, Divider, Table } from 'antd'
+import { Form, Input, InputNumber, Tabs, Button, message, Tag, Spin, Collapse, Divider, Table, Pagination } from 'antd'
 import { emrService } from '../../services/emrService'
 import { appointmentService } from '../../services/appointmentService'
 import { prescriptionService } from '../../services/prescriptionService'
@@ -128,10 +128,13 @@ export default function MedicalHistoryPage() {
   //const [completedList, setCompletedList] = useState([])           // Danh sách các bệnh án đã hoàn thành
   const [listLoading, setListLoading] = useState(false)            // trạng thái chờ tải danh sách bệnh án đã hoàn thành
   const [searchText, setSearchText] = useState('')                 // từ khóa tìm kiếm theo bệnh án tại màn hình danh sách tổng
+  const [statusFilter, setStatusFilter] = useState('ALL')
   const [appointmentList, setAppointmentList] = useState([])       // Danh sách TOÀN BỘ lịch hẹn của bệnh nhân (mọi trạng thái)
   const [drugPrescriptions, setDrugPrescriptions] = useState([])
   const [eyePrescriptions, setEyePrescriptions] = useState([])
 
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
   /**
    * Hàm Tiện Ích: Ánh xạ chuyển đổi cấu trúc thuộc tính từ DTO của Server (API)
    * sang cấu trúc các trường (name) tương thích hoàn toàn với Form Ant Design
@@ -261,13 +264,25 @@ export default function MedicalHistoryPage() {
 
   /* Logic lọc tìm kiếm tại chỗ dựa trên từ khóa bác sĩ hoặc dịch vụ đã nhập */
   const filteredList = appointmentList.filter((r) => {
-    if(!searchText) return true
+    if (statusFilter !== 'ALL' && r.status !== statusFilter) return false
+    if (!searchText) return true
     const keyword = searchText.toLowerCase()
     return (
       r.doctorName?.toLowerCase().includes(keyword) ||
       r.serviceName?.toLowerCase().includes(keyword)
     )
   })
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [statusFilter, searchText])
+
+  const pagedList = filteredList.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+
+  const statusCounts = appointmentList.reduce((acc, r) => {
+    acc[r.status] = (acc[r.status] || 0) + 1
+    return acc
+  }, {})
 
   /* ================= GIAO DIỆN DANH SÁCH LỊCH SỬ KHÁM TỔNG HỢP ================= */
   if(!medicalRecordId){
@@ -283,7 +298,20 @@ export default function MedicalHistoryPage() {
           </div>
           
           <div style={{ backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
-            
+            {/* Tabs lọc theo trạng thái lịch hẹn - đồng bộ cách làm với LabOrder */}
+            <div style={{ padding: '0 16px', borderBottom: '1px solid #f1f5f9' }}>
+              <Tabs
+                activeKey={statusFilter}
+                onChange={setStatusFilter}
+                items={[
+                  { key: 'ALL', label: `Tất cả (${appointmentList.length})` },
+                    ...Object.entries(APPOINTMENT_STATUS_MAP).map(([key, cfg]) => ({
+                    key,
+                    label: `${cfg.label} (${statusCounts[key] || 0})`,
+                  })),
+                ]}
+              />
+            </div>
             {/* Thanh công cụ tìm kiếm trên danh sách */}
             <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9' }}>
               <Input.Search
@@ -310,14 +338,16 @@ export default function MedicalHistoryPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredList.map((r, i) => (
+                    {pagedList.map((r, i) => (
                       <tr
                         key={r.id}
                         style={{ borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
                         onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f0fdf9'} // Hiệu ứng hover dòng hàng
                         onMouseLeave={e => e.currentTarget.style.backgroundColor = ''}
                       >
-                        <td style={{ padding: '12px 16px', color: '#64748b', fontSize: 13 }}>{i + 1}</td>
+                        <td style={{ padding: '12px 16px', color: '#64748b', fontSize: 13 }}>
+                            {(currentPage - 1) * pageSize + i + 1}
+                        </td>
                         <td style={{ padding: '12px 16px', fontSize: 13, color: '#475569' }}>
                           {r.appointmentTime ? new Date(r.appointmentTime).toLocaleDateString('vi-VN') : '—'}
                         </td>
@@ -358,6 +388,18 @@ export default function MedicalHistoryPage() {
                     ))}
                   </tbody>
                 </table>
+              )}
+              {filteredList.length > pageSize && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '14px 16px' }}>
+                  <Pagination
+                    current={currentPage}
+                    pageSize={pageSize}
+                    total={filteredList.length}
+                    onChange={setCurrentPage}
+                    showTotal={(total) => `${total} lượt khám`}
+                    size="small"
+                  />
+                </div>
               )}
             </Spin>
           </div>

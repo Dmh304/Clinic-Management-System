@@ -1,0 +1,59 @@
+LỊCH SỬ THAY ĐỔI CƠ SỞ DỮ LIỆU & SOURCE CODE (MỨC ĐỘ ƯU TIÊN & TRẠNG THÁI PHIẾU XÉT NGHIỆM)
+=============================================================================
+Thời gian thực thi: 2026-06-30 (local time)
+
+1. TỔNG QUAN YÊU CẦU:
+- Thay đổi các giá trị mức độ ưu tiên (priority) của phiếu xét nghiệm (Lab Order) từ: 'NORMAL', 'URGENT' sang 3 giá trị mới: 'PRIMARY', 'WARNING', 'EMERGENCY'.
+- Thay đổi các trạng thái (status) của phiếu xét nghiệm (Lab Order) để khớp với code: 'PENDING', 'IN_PROGRESS', 'SUBMITTED', 'REJECTED', 'APPROVED' (thay vì 'COMPLETED', 'CANCELLED' ở cấu hình cũ).
+- Ghi nhận và thực thi các thay đổi này trên hệ thống cơ sở dữ liệu và source code.
+
+2. CÁC THAY ĐỔI ĐÃ THỰC THI:
+
+A. Trên các Cơ sở dữ liệu hiện hành (ecms_db_final, ecms_backup và ecms_db trên SQL Server):
+
+i) Cập nhật Mức độ ưu tiên (Priority):
+- Đã chạy script để tìm và xoá Default Constraint cũ trên cột priority của bảng lab_orders.
+- Đã cập nhật toàn bộ các dòng dữ liệu cũ trong bảng lab_orders của các cơ sở dữ liệu:
+  + Chuyển đổi 'NORMAL' thành 'PRIMARY'
+  + Chuyển đổi 'URGENT' thành 'EMERGENCY'
+  để tránh lỗi mapping enum LabPriority và vi phạm Check Constraint mới.
+- Đã thêm Default Constraint mới cho cột priority mặc định là 'PRIMARY' (Constraint Name: DF_lab_orders_priority).
+- Đã xoá Check Constraint cũ giới hạn 2 giá trị NORMAL/URGENT (Constraint Name: CK_lab_orders_priority).
+- Đã thêm Check Constraint mới CK_lab_orders_priority giới hạn trong 3 giá trị: 'PRIMARY', 'WARNING', 'EMERGENCY'.
+
+ii) Cập nhật Trạng thái phiếu xét nghiệm (Status):
+- Đã chạy script xoá Check Constraint cũ giới hạn trạng thái (Constraint Name: CK_lab_orders_status).
+- Đã cập nhật toàn bộ dữ liệu status cũ trong bảng lab_orders của các cơ sở dữ liệu:
+  + Chuyển đổi trạng thái cũ 'COMPLETED' thành 'APPROVED'
+  + Chuyển đổi trạng thái cũ 'CANCELLED' thành 'REJECTED'
+  để tương thích với trạng thái hoạt động của code nghiệp vụ.
+- Đã thêm Check Constraint mới CK_lab_orders_status giới hạn trong 5 giá trị: 'PENDING', 'IN_PROGRESS', 'SUBMITTED', 'REJECTED', 'APPROVED'.
+- Câu lệnh SQL đã thực thi cho phần Status:
+  --------------------------------------------------
+  USE ecms_db_final; -- Áp dụng tương tự cho ecms_backup và ecms_db
+  GO
+
+  IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_lab_orders_status' AND parent_object_id = OBJECT_ID('lab_orders'))
+  BEGIN
+      ALTER TABLE lab_orders DROP CONSTRAINT CK_lab_orders_status;
+  END
+
+  UPDATE lab_orders SET status = 'APPROVED' WHERE status = 'COMPLETED';
+  UPDATE lab_orders SET status = 'REJECTED' WHERE status = 'CANCELLED';
+
+  ALTER TABLE lab_orders ADD CONSTRAINT CK_lab_orders_status CHECK (status IN ('PENDING', 'IN_PROGRESS', 'SUBMITTED', 'REJECTED', 'APPROVED'));
+  GO
+  --------------------------------------------------
+
+B. Trên các file Schema & Seed mẫu của dự án:
+- File `ecms_schema.sql` (Line 475, 486 & 487):
+  + Thay đổi DEFAULT 'NORMAL' thành DEFAULT 'PRIMARY' cho cột priority.
+  + Thay đổi CK_lab_orders_priority thành CHECK (priority IN ('PRIMARY', 'WARNING', 'EMERGENCY')).
+  + Thay đổi CK_lab_orders_status thành CHECK (status IN ('PENDING', 'IN_PROGRESS', 'SUBMITTED', 'REJECTED', 'APPROVED')).
+- File `ecms_data_seed.sql` (Line 504 - 517):
+  + Thay đổi các dòng dữ liệu seed chứa mức độ ưu tiên từ 'URGENT' sang 'EMERGENCY', 'NORMAL' sang 'PRIMARY'.
+  + Thay đổi các dòng dữ liệu seed chứa trạng thái từ 'COMPLETED' sang 'APPROVED'.
+
+C. Trên Source code Front-end:
+- File `frontend/src/pages/doctor/EMRPage.jsx` (Line 201):
+  + Thay đổi setLabPriority('NORMAL') thành setLabPriority('PRIMARY') khi reset modal tạo lab order để tránh lỗi vi phạm Check Constraint của DB.

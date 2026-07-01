@@ -15,7 +15,7 @@
 --   4. Tạo bảng lab_technicians
 -- ============================================================
 
-USE ecms_db;
+USE ecms_db_final;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO

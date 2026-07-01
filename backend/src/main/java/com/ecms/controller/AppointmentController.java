@@ -21,6 +21,7 @@ import com.ecms.dto.response.AppointmentResponse;
 import com.ecms.dto.response.SlotAvailabilityResponse;
 import com.ecms.entity.AppointmentStatus;
 import com.ecms.entity.Doctor;
+import com.ecms.entity.Patient;
 import com.ecms.entity.User;
 import com.ecms.repository.DoctorRepository;
 import com.ecms.repository.PatientRepository;
@@ -154,7 +155,12 @@ public class AppointmentController {
                                                 userDetails.getUsername())));
         }
 
-        /** Khung giờ còn trống của 1 bác sĩ trong 1 ngày — bệnh nhân chọn khi đặt lịch */
+        /*
+         * Tạo lịch hẹn trực tiếp tại quầy (Walk-in) - Dành cho Tiếp tân (RECEPTIONIST)
+         */
+        /**
+         * Khung giờ còn trống của 1 bác sĩ trong 1 ngày — bệnh nhân chọn khi đặt lịch
+         */
         @GetMapping("/available-slots")
         public ResponseEntity<ApiResponse<List<SlotAvailabilityResponse>>> getAvailableSlots(
                         @RequestParam Long doctorId,
@@ -163,9 +169,6 @@ public class AppointmentController {
                                 ApiResponse.success(appointmentService.getAvailableSlots(doctorId, date)));
         }
 
-        /*
-         * Tạo lịch hẹn trực tiếp tại quầy (Walk-in) - Dành cho Tiếp tân (RECEPTIONIST)
-         */
         @PostMapping("/walk-in")
         public ResponseEntity<ApiResponse<AppointmentResponse>> createWalkInAppointment(
                         @Valid @RequestBody WalkInAppointmentRequest request) {
@@ -272,9 +275,10 @@ public class AppointmentController {
          */
         @Data
         public static class ConfirmAppointmentRequest {
-                private Long doctorId; // ID Bác sĩ được chỉ định phụ trách ca khám
+                private Long doctorId;
                 /** Bắt buộc khi lễ tân đổi sang bác sĩ khác với bác sĩ bệnh nhân đã đặt */
                 private String reason;
+
         }
 
         /* Tìm kiếm và trả về ID của Bác sĩ dựa trên Email tài khoản đăng nhập */

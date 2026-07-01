@@ -50,4 +50,5 @@ public interface MedicalRecordRepository extends JpaRepository<MedicalRecord, Lo
 
     /* Lấy toàn bộ danh sách hồ sơ bệnh án có trong hệ thống phòng khám trước */
     List<MedicalRecord> findAllByOrderByCreatedAtDesc();
+
 }
