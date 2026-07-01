@@ -421,23 +421,29 @@ GO
 SET IDENTITY_INSERT prescriptions ON;
 
 INSERT INTO prescriptions
-    (id, medical_record_id, type, notes,
-     issued_by, dispensed_by, dispensed_at, status, created_at)
+    (id, medical_record_id, doctor_id, patient_id, notes, status, created_at)
+VALUES
+-- Đơn thuốc cho MR2 (đã cấp)
+(2, 2, 3, 2,
+    N'Nhỏ kháng sinh sáng-tối, nhỏ chống viêm trưa-chiều trong 7 ngày.',
+    'DISPENSED', DATEADD(DAY,-3,GETDATE()));
+
+SET IDENTITY_INSERT prescriptions OFF;
+GO
+
+SET IDENTITY_INSERT eyeglass_prescriptions ON;
+
+INSERT INTO eyeglass_prescriptions
+    (id, medical_record_id, doctor_id, patient_id, notes, status, created_at)
 VALUES
 -- Đơn kính cho MR1 (đã cấp)
-(1, 1, 'GLASSES',
+(1, 1, 3, 1,
     N'Kính cận đơn tròng. Tư vấn kính 2 tròng nếu > 40 tuổi.',
-    3, 8, DATEADD(DAY,-3,GETDATE()), 'DISPENSED', DATEADD(DAY,-3,GETDATE())),
-
--- Đơn thuốc cho MR2 (đã cấp)
-(2, 2, 'MEDICINE',
-    N'Nhỏ kháng sinh sáng-tối, nhỏ chống viêm trưa-chiều trong 7 ngày.',
-    3, 8, DATEADD(DAY,-3,GETDATE()), 'DISPENSED', DATEADD(DAY,-3,GETDATE())),
-
+    'DISPENSED', DATEADD(DAY,-3,GETDATE())),
 -- Đơn kính cho MR3 (chờ cấp)
-(3, 3, 'GLASSES',
+(3, 3, 4, 3,
     N'Cận thị OU, cấp đơn kính gọng. Tư vấn thêm kính áp tròng toric.',
-    4, NULL, NULL, 'PENDING', DATEADD(DAY,-3,GETDATE()));
+    'PENDING', DATEADD(DAY,-3,GETDATE()));
 
 SET IDENTITY_INSERT prescriptions OFF;
 GO
@@ -449,16 +455,13 @@ GO
 SET IDENTITY_INSERT prescription_items ON;
 
 INSERT INTO prescription_items
-    (id, prescription_id, medicine_id, quantity, unit,
-     dosage_instruction, unit_price, status, created_at)
+    (id, prescription_id, medicine_id, quantity, dosage, frequency, duration, instructions, unit_price)
 VALUES
-(1, 2, 1, 2, N'Lọ',
-    N'Nhỏ 1 giọt/mắt, sáng và tối sau rửa mặt, dùng trong 7 ngày.',
-    45000, 'DISPENSED', DATEADD(DAY,-3,GETDATE())),
+(1, 2, 1, 2, N'1 giọt/mắt', N'Sáng và tối', 7,
+    N'Sau rửa mặt', 45000),
 
-(2, 2, 2, 1, N'Lọ',
-    N'Nhỏ 1 giọt/mắt, trưa và chiều tối, dùng trong 5 ngày.',
-    38000, 'DISPENSED', DATEADD(DAY,-3,GETDATE()));
+(2, 2, 2, 1, N'1 giọt/mắt', N'Trưa và chiều tối', 5,
+    N'', 38000);
 
 SET IDENTITY_INSERT prescription_items OFF;
 GO

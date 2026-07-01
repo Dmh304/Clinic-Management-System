@@ -546,7 +546,7 @@ export default function AppointmentManagementPage() {
       )}
 
       {/* Modal xác nhận + phân công bác sĩ (chế độ Ngày) */}
-      )}
+      
 
       {/* Modal xác nhận + phân công bác sĩ (chế độ Ngày) */}
       <Modal

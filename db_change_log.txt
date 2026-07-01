@@ -57,3 +57,22 @@ B. TrÃªn cÃ¡c file Schema & Seed máº«u cá»§a dá»± Ã¡n:
 C. TrÃªn Source code Front-end:
 - File `frontend/src/pages/doctor/EMRPage.jsx` (Line 201):
   + Thay Ä‘á»•i setLabPriority('NORMAL') thÃ nh setLabPriority('PRIMARY') khi reset modal táº¡o lab order Ä‘á»ƒ trÃ¡nh lá»—i vi pháº¡m Check Constraint cá»§a DB.
+
+
+L?CH S? THAY Ð?I CÕ S? D? LI?U & SOURCE CODE (M?C Ð? ÝU TIÊN & TR?NG THÁI PHI?U XÉT NGHI?M)
+=============================================================================
+Th?i gian th?c thi: 2026-07-01
+
+1. T?NG QUAN YÊU C?U:
+- Kh?c ph?c l?i API GET /api/v1/emr/all tr? v? 500 Internal Server Error do b?ng prescriptions trong CSDL thi?u các c?t doctor_id và patient_id, ð?ng th?i tách ðõn kính ra b?ng eyeglass_prescriptions ð?c l?p theo Entity JPA m?i.
+
+2. CÁC THAY Ð?I Ð? TH?C THI:
+
+A. Trên CSDL SQL Server:
+- Ð? thêm c?t doctor_id và patient_id vào b?ng prescriptions.
+- B?ng eyeglass_prescriptions ð? ðý?c kh?i t?o t? ð?ng b?i Hibernate (ddl-auto=update).
+
+B. Trên các file Schema & Seed m?u:
+- C?p nh?t ecms_schema.sql: Ði?u ch?nh b?ng prescriptions (b? type, issued_by, dispensed_by, thêm doctor_id, patient_id) và t?o m?i script kh?i t?o b?ng eyeglass_prescriptions.
+- C?p nh?t ecms_data_seed.sql: Tách riêng các d?ng insert cho ðõn thu?c (vào b?ng prescriptions) và ðõn kính (vào b?ng eyeglass_prescriptions).
+- B?ng prescription_items: Ð? thay th? các c?t unit, dosage_instruction b?ng các c?t chi ti?t dosage, frequency, duration, instructions theo ðúng chu?n c?a Entity PrescriptionItem.java.
