@@ -32,7 +32,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
     private final MedicalRecordRepository medicalRecordRepository;
     private final DoctorRepository doctorRepository;
     // private final InvoiceRepository invoiceRepository;
-    // private final InvoiceItemRepository invoiceItemRepository;
+    private final InvoiceItemRepository invoiceItemRepository;
 
     // Tạo mới một đơn thuốc từ yêu cầu của bác sĩ
     @Override
@@ -240,7 +240,8 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         if (i.getPrescription().getStatus() == PrescriptionStatus.DISPENSED) {
             // DucTKH: Tương tác DB - Tìm chi tiết hóa đơn dựa vào reference ID (id của chi
             // tiết đơn thuốc)
-            Optional<InvoiceItem> invoiceItemOpt = invoiceItemRepository.findFirstByRefIdAndItemType(i.getId(), "MEDICINE");
+            Optional<InvoiceItem> invoiceItemOpt = invoiceItemRepository.findFirstByRefIdAndItemType(i.getId(),
+                    "MEDICINE");
             // DucTKH: Điều kiện - Nếu tìm thấy chi tiết hóa đơn
             // if (invoiceItemOpt.isPresent()) {
             // actualQuantity = invoiceItemOpt.get().getQuantity();
