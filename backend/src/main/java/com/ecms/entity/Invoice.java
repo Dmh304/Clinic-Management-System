@@ -13,7 +13,11 @@ import java.util.List;
 
 @Entity
 @Table(name = "invoices")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Invoice {
 
     @Id
