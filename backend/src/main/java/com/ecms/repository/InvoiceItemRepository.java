@@ -11,8 +11,8 @@ import java.util.List;
 @Repository
 public interface InvoiceItemRepository extends JpaRepository<InvoiceItem, Long> {
     
-    // Tìm chi tiết hóa đơn dựa vào mã gốc (Ví dụ: PrescriptionItemId)
-    java.util.Optional<InvoiceItem> findFirstByRefId(Long refId);
+    // Tìm chi tiết hóa đơn dựa vào mã gốc (Ví dụ: PrescriptionItemId) và loại (MEDICINE, GLASSES)
+    java.util.Optional<InvoiceItem> findFirstByRefIdAndItemType(Long refId, String itemType);
 
     // Lấy toàn bộ chi tiết thuộc về một hóa đơn
     List<InvoiceItem> findByInvoice_Id(Long invoiceId);
