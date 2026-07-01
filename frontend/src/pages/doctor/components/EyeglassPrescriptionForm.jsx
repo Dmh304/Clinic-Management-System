@@ -87,7 +87,8 @@ export default function EyeglassPrescriptionForm({ emr, isReadOnly, onPrescripti
             form.resetFields();
             if (onPrescriptionSaved) onPrescriptionSaved();
         } catch (error) {
-            message.error('Kê đơn kính thất bại');
+            const errMsg = error.response?.data?.message || error.message || 'Lỗi không xác định';
+            message.error(`Kê đơn kính thất bại: ${errMsg}`);
         } finally {
             setSaving(false);
         }
