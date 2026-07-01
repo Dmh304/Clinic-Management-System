@@ -472,7 +472,7 @@ CREATE TABLE lab_orders (
     ordered_by        BIGINT          NOT NULL,
     assigned_to       BIGINT          NULL,
     notes             NVARCHAR(MAX)   NULL,
-    priority          NVARCHAR(20)    NOT NULL DEFAULT 'NORMAL',
+    priority          NVARCHAR(20)    NOT NULL DEFAULT 'PRIMARY',
     completed_at      DATETIME2       NULL,
     rejection_reason  NVARCHAR(MAX)   NULL,
     rejected_at       DATETIME2       NULL,
@@ -483,8 +483,8 @@ CREATE TABLE lab_orders (
     CONSTRAINT FK_lab_orders_medical_record FOREIGN KEY (medical_record_id) REFERENCES medical_records(id),
     CONSTRAINT FK_lab_orders_ordered_by FOREIGN KEY (ordered_by) REFERENCES users(id),
     CONSTRAINT FK_lab_orders_assigned_to FOREIGN KEY (assigned_to) REFERENCES users(id),
-    CONSTRAINT CK_lab_orders_priority CHECK (priority IN ('NORMAL', 'URGENT')),
-    CONSTRAINT CK_lab_orders_status CHECK (status IN ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED', 'REJECTED'))
+    CONSTRAINT CK_lab_orders_priority CHECK (priority IN ('PRIMARY', 'WARNING', 'EMERGENCY')),
+    CONSTRAINT CK_lab_orders_status CHECK (status IN ('PENDING', 'IN_PROGRESS', 'SUBMITTED', 'REJECTED', 'APPROVED'))
 );
 GO
 

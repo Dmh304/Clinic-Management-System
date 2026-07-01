@@ -148,17 +148,24 @@ public class LabOrderServiceImpl implements LabOrderService {
         if (labOrder.getStatus() != LabOrderStatus.IN_PROGRESS) {
             throw new IllegalStateException("Can only submit results for an IN_PROGRESS LabOrder");
         }
-        LabResult labResult = LabResult.builder()
-                .labOrder(labOrder)
-                .vaL(request.getVaL()).vaR(request.getVaR())
-                .bcvaL(request.getBcvaL()).bcvaR(request.getBcvaR())
-                .sphL(request.getSphL()).cylL(request.getCylL()).axisL(request.getAxisL()).iopL(request.getIopL())
-                .sphR(request.getSphR()).cylR(request.getCylR()).axisR(request.getAxisR()).iopR(request.getIopR())
-                .imageUrls(toJson(request.getImageUrls()))
-                .doctorNotes(request.getDoctorNotes())
-                .labTechnician(labTechnicianRepository.getReferenceById(labTechnicianId))
-                .doctor(labOrder.getDoctor())
-                .build();
+        LabResult labResult = labResultRepository.findTopByLabOrderIdOrderByIdDesc(labOrderId).orElse(new LabResult());
+        labResult.setLabOrder(labOrder);
+        labResult.setVaL(request.getVaL());
+        labResult.setVaR(request.getVaR());
+        labResult.setBcvaL(request.getBcvaL());
+        labResult.setBcvaR(request.getBcvaR());
+        labResult.setSphL(request.getSphL());
+        labResult.setCylL(request.getCylL());
+        labResult.setAxisL(request.getAxisL());
+        labResult.setIopL(request.getIopL());
+        labResult.setSphR(request.getSphR());
+        labResult.setCylR(request.getCylR());
+        labResult.setAxisR(request.getAxisR());
+        labResult.setIopR(request.getIopR());
+        labResult.setImageUrls(toJson(request.getImageUrls()));
+        labResult.setDoctorNotes(request.getDoctorNotes());
+        labResult.setLabTechnician(labTechnicianRepository.getReferenceById(labTechnicianId));
+        labResult.setDoctor(labOrder.getDoctor());
 
         labResultRepository.save(labResult);
 
@@ -353,8 +360,8 @@ public class LabOrderServiceImpl implements LabOrderService {
     private LabOrderResponse toOrderResponse(LabOrder labOrder) {
         String doctorFullName = null;
         if (labOrder.getDoctor() != null) {
-            // Nếu id liên kết thực chất là user_id
-            Doctor realDoctor = doctorRepository.findByUserId(labOrder.getDoctor().getId()).orElse(null);
+
+            Doctor realDoctor = doctorRepository.findById(labOrder.getDoctor().getId()).orElse(null);
             if (realDoctor != null) {
                 doctorFullName = realDoctor.getFullName();
             } else {

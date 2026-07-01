@@ -21,6 +21,7 @@ import com.ecms.dto.response.AppointmentResponse;
 import com.ecms.dto.response.SlotAvailabilityResponse;
 import com.ecms.entity.AppointmentStatus;
 import com.ecms.entity.Doctor;
+import com.ecms.entity.Patient;
 import com.ecms.entity.User;
 import com.ecms.repository.DoctorRepository;
 import com.ecms.repository.PatientRepository;
@@ -155,22 +156,27 @@ public class AppointmentController {
         }
 
         /*
-         * Tạo lịch hẹn trực tiếp tại quầy (Walk-in) - Dành cho Tiếp tân (RECEPTIONIST)
+         * Lấy danh sách slot khả dụng của bác sĩ trong ngày
          */
-
+        @GetMapping("/available-slots")
         public ResponseEntity<ApiResponse<List<SlotAvailabilityResponse>>> getAvailableSlots(
-                        @RequestParam 
-
+                        @RequestParam Long doctorId,
+                        @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
                 return ResponseEntity.ok(
                                 ApiResponse.success(appointmentService.getAvailableSlots(doctorId, date)));
         }
 
+        /*
+         * Tạo lịch hẹn trực tiếp tại quầy (Walk-in) - Dành cho Tiếp tân (RECEPTIONIST)
+         */
         @PostMapping("/walk-in")
-        p
+        public ResponseEntity<ApiResponse<AppointmentResponse>> createWalkInAppointment(
+                        @Valid @RequestBody WalkInAppointmentRequest request) {
+                return ResponseEntity.ok(
+                                ApiResponse.success(appointmentService.createWalkInAppointment(request)));
+        }
 
-                        ApiResponse.success(appoi ateWalkI
-
-         lịch hẹn của Bệnh nhân đang đăng nhập */
+        /* lịch hẹn của Bệnh nhân đang đăng nhập */
         @GetMapping("/my")
         public ResponseEntity<ApiResponse<List<AppointmentResponse>>> getMyAppointments(
                         @AuthenticationPrincipal UserDetails userDetails) {
@@ -298,12 +304,10 @@ public class AppointmentController {
                 return doctorRepository.findByEmail(userDetails.getUsername()).map(Doctor::getId).orElse(null);
         }
 
-        /
-
+        /*
          * 1. Tìm thông qua tài khoản User liên kết (Đối với bệnh nhân đăng ký tài khoản
          * hệ thống)
-         * 2. Nếu không thấy, tìm 
-         hân vãng lai/walk-in được lưu email)
+         * 2. Nếu không thấy, tìm bệnh nhân vãng lai/walk-in được lưu email)
          */
         private Long resolvePatientId(UserDetails userDetails) {
                 if (userDetails == null) {

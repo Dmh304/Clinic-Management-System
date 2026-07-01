@@ -501,20 +501,20 @@ INSERT INTO lab_orders
     (id, medical_record_id, ordered_by, assigned_to, notes,
      priority, completed_at, status, created_at)
 VALUES
--- Xét nghiệm tiền phẫu cho MR4 (URGENT - đã xong)
+-- Xét nghiệm tiền phẫu cho MR4 (EMERGENCY - đã xong)
 (1, 4, 5, 9,
     N'Xét nghiệm tiền phẫu: sinh hóa máu. Ưu tiên trả kết quả trong ngày.',
-    'URGENT', DATEADD(DAY,-2,GETDATE()), 'COMPLETED', DATEADD(DAY,-2,GETDATE())),
+    'EMERGENCY', DATEADD(DAY,-2,GETDATE()), 'APPROVED', DATEADD(DAY,-2,GETDATE())),
 
--- Chụp OCT cho MR1 (NORMAL - đã xong)
+-- Chụp OCT cho MR1 (PRIMARY - đã xong)
 (2, 1, 3, 9,
     N'Chụp OCT hoàng điểm để loại trừ thoái hóa hoàng điểm.',
-    'NORMAL', DATEADD(DAY,-3,GETDATE()), 'COMPLETED', DATEADD(DAY,-3,GETDATE())),
+    'PRIMARY', DATEADD(DAY,-3,GETDATE()), 'APPROVED', DATEADD(DAY,-3,GETDATE())),
 
--- Soi đáy mắt cho MR2 (NORMAL - đang chờ)
+-- Soi đáy mắt cho MR2 (PRIMARY - đang chờ)
 (3, 2, 3, 9,
     N'Soi đáy mắt loại trừ viêm màng bồ đào.',
-    'NORMAL', NULL, 'PENDING', DATEADD(DAY,-3,GETDATE()));
+    'PRIMARY', NULL, 'PENDING', DATEADD(DAY,-3,GETDATE()));
 
 SET IDENTITY_INSERT lab_orders OFF;
 GO

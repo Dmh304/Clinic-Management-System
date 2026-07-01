@@ -9,7 +9,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import Header from '../../components/layout/Header'
-import { Button, Input, Tag, Spin, Result, Modal, Row, Col, Card, message } from 'antd'
+import { Button, Input, Tag, Spin, Result, Modal, Row, Col, Card, message, Pagination } from 'antd'
 import { labService } from '../../services/labService'
 import useConfirmAction from '../../hooks/useConfirmAction'
 
@@ -110,6 +110,8 @@ export default function LabOrderPage() {
   const [rejectionReason, setRejectionReason] = useState('')
   const [retesting, setRetesting]             = useState(false)
 
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
   /* ---------------------------------------------------------------- */
   /* ROLE GUARD                                                        */
   /* ---------------------------------------------------------------- */
@@ -242,6 +244,12 @@ export default function LabOrderPage() {
     )
   })
 
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [activeTab, searchText])
+
+  const pagedOrders = filteredOrders.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+
   const countByStatus = (status) =>
     status === 'ALL' ? orders.length : orders.filter((o) => o.status === status).length
 
@@ -353,14 +361,16 @@ export default function LabOrderPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredOrders.map((order, i) => (
+                  {pagedOrders.map((order, i) => (
                     <tr
                       key={order.id}
                       style={{ borderBottom: '1px solid #f1f5f9' }}
                       onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f0f9ff' }}
                       onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '' }}
                     >
-                      <td style={{ padding: '12px 16px', color: '#64748b', fontSize: 13 }}>{i + 1}</td>
+                      <td style={{ padding: '12px 16px', color: '#64748b', fontSize: 13 }}>
+                        {(currentPage - 1) * pageSize + i + 1}
+                      </td>
                       <td style={{ padding: '12px 16px', fontSize: 13, color: '#475569', whiteSpace: 'nowrap' }}>
                         {order.createdAt ? new Date(order.createdAt).toLocaleDateString('vi-VN') : '—'}
                         <div style={{ fontSize: 11, color: '#94a3b8' }}>
@@ -409,6 +419,18 @@ export default function LabOrderPage() {
                   ))}
                 </tbody>
               </table>
+            )}
+            {filteredOrders.length > pageSize && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '14px 16px' }}>
+                <Pagination
+                  current={currentPage}
+                  pageSize={pageSize}
+                  total={filteredOrders.length}
+                  onChange={setCurrentPage}
+                  showTotal={(total) => `${total} phiếu`}
+                  size="small"
+                />
+              </div>
             )}
           </Spin>
         </div>

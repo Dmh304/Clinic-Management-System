@@ -232,6 +232,12 @@ public class AppointmentServiceImpl implements AppointmentService {
                 return toResponse(appointmentRepository.save(appointment));
         }
 
+        @Override
+        @Transactional
+        public AppointmentResponse confirmAppointment(Long id, Long doctorId) {
+                return confirmAppointment(id, doctorId, null);
+        }
+
         /*
          * Xác nhận lịch hẹn đăng ký trực tuyến (Xác nhận trạng thái từ PENDING lên
          * CONFIRMED)
@@ -973,6 +979,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                 });
 
                 return toResponse(appointment);
+        }
 
         @Override
         @Transactional

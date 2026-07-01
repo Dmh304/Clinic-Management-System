@@ -124,13 +124,4 @@ public interface AppointmentService {
          * (thuộc ngày trước đó). Trả về số lịch hẹn đã huỷ. Dùng cho cron job.
          */
         int autoCancelNoShowAppointments();
-
-        
-
-        
-
-         
-
-        
-
-        
+}

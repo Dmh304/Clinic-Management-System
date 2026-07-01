@@ -8,7 +8,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import { Form, Input, InputNumber, Tabs, Button, message, Tag, Spin, Collapse, Divider, Modal, Select } from 'antd'
+import { Form, Input, InputNumber, Tabs, Button, message, Tag, Spin, Collapse, Divider, Modal, Select, Pagination } from 'antd'
 import { emrService } from '../../services/emrService'
 import { labService } from '../../services/labService'
 import DrugPrescriptionForm from './components/DrugPrescriptionForm'
@@ -158,7 +158,8 @@ export default function EMRPage() {
   const [listLoading, setListLoading] = useState(false)            // trạng thái chờ tải danh sách bệnh án đã hoàn thành
   const [searchText, setSearchText] = useState('')                 // từ khóa tìm kiếm theo bệnh án tại màn hình danh sách tổng
   const [statusFilter, setStatusFilter] = useState('ALL')  // 'ALL' | 'DRAFT' | 'IN_PROGRESS' | 'COMPLETED'
-
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
     // ---- Lab order modal state ----
   const [labModal,       setLabModal]       = useState(false)
   const [labTechnicianId,   setLabTechnicianId]   = useState(null)
@@ -198,7 +199,7 @@ const openLabModal = async () => {
       message.success('Đã tạo phiếu chỉ định xét nghiệm thành công!')
       setLabModal(false)
       setLabTechnicianId(null)
-      setLabPriority('NORMAL')
+      setLabPriority('PRIMARY')
       setLabNotes('')
     } catch (e) {
       message.error(e?.response?.data?.message || 'Tạo phiếu xét nghiệm thất bại')
@@ -429,6 +430,14 @@ const openLabModal = async () => {
     )
   })
 
+  // Reset về trang 1 khi filter hoặc từ khóa tìm kiếm thay đổi
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [statusFilter, searchText])
+
+  // Danh sách đã được cắt theo trang hiện tại
+  const pagedList = filteredList.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+
   /* Biến cờ kiểm tra xem hồ sơ này đã được chốt hoàn thành chưa */
   //const isCompleted = emr?.status === 'COMPLETED'
 
@@ -526,14 +535,16 @@ const openLabModal = async () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredList.map((r, i) => (
+                {pagedList.map((r, i) => (
                   <tr
                     key={r.id}
                     style={{ borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
                     onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f0fdf9'}
                     onMouseLeave={e => e.currentTarget.style.backgroundColor = ''}
                   >
-                    <td style={{ padding: '12px 16px', color: '#64748b', fontSize: 13 }}>{i + 1}</td>
+                    <td style={{ padding: '12px 16px', color: '#64748b', fontSize: 13 }}>
+                      {(currentPage - 1) * pageSize + i + 1}
+                    </td>
                     <td style={{ padding: '12px 16px' }}>
                       <div style={{ fontWeight: 600, fontSize: 13, color: '#1e293b' }}>{r.patientName}</div>
                       <div style={{ fontSize: 12, color: '#64748b' }}>{r.patientPhone}</div>
@@ -587,6 +598,18 @@ const openLabModal = async () => {
                 ))}
               </tbody>
             </table>
+          )}
+          {filteredList.length > pageSize && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '14px 16px' }}>
+              <Pagination
+                current={currentPage}
+                pageSize={pageSize}
+                total={filteredList.length}
+                onChange={setCurrentPage}
+                showTotal={(total) => `${total} hồ sơ bệnh án`}
+                size="small"
+              />
+            </div>
           )}
         </Spin>
       </div>

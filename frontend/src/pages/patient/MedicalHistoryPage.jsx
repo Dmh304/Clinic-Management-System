@@ -14,7 +14,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import Header from '../../components/layout/Header'
-import { Form, Input, InputNumber, Tabs, Button, message, Tag, Spin, Collapse, Divider, Table } from 'antd'
+import { Form, Input, InputNumber, Tabs, Button, message, Tag, Spin, Collapse, Divider, Table, Pagination } from 'antd'
 import { emrService } from '../../services/emrService'
 import { appointmentService } from '../../services/appointmentService'
 import { prescriptionService } from '../../services/prescriptionService'
@@ -133,6 +133,8 @@ export default function MedicalHistoryPage() {
   const [drugPrescriptions, setDrugPrescriptions] = useState([])
   const [eyePrescriptions, setEyePrescriptions] = useState([])
 
+  const [currentPage, setCurrentPage] = useState(1)
+  const pageSize = 10
   /**
    * Hàm Tiện Ích: Ánh xạ chuyển đổi cấu trúc thuộc tính từ DTO của Server (API)
    * sang cấu trúc các trường (name) tương thích hoàn toàn với Form Ant Design
@@ -271,6 +273,12 @@ export default function MedicalHistoryPage() {
     )
   })
 
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [statusFilter, searchText])
+
+  const pagedList = filteredList.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+
   const statusCounts = appointmentList.reduce((acc, r) => {
     acc[r.status] = (acc[r.status] || 0) + 1
     return acc
@@ -330,14 +338,16 @@ export default function MedicalHistoryPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredList.map((r, i) => (
+                    {pagedList.map((r, i) => (
                       <tr
                         key={r.id}
                         style={{ borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
                         onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f0fdf9'} // Hiệu ứng hover dòng hàng
                         onMouseLeave={e => e.currentTarget.style.backgroundColor = ''}
                       >
-                        <td style={{ padding: '12px 16px', color: '#64748b', fontSize: 13 }}>{i + 1}</td>
+                        <td style={{ padding: '12px 16px', color: '#64748b', fontSize: 13 }}>
+                            {(currentPage - 1) * pageSize + i + 1}
+                        </td>
                         <td style={{ padding: '12px 16px', fontSize: 13, color: '#475569' }}>
                           {r.appointmentTime ? new Date(r.appointmentTime).toLocaleDateString('vi-VN') : '—'}
                         </td>
@@ -378,6 +388,18 @@ export default function MedicalHistoryPage() {
                     ))}
                   </tbody>
                 </table>
+              )}
+              {filteredList.length > pageSize && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '14px 16px' }}>
+                  <Pagination
+                    current={currentPage}
+                    pageSize={pageSize}
+                    total={filteredList.length}
+                    onChange={setCurrentPage}
+                    showTotal={(total) => `${total} lượt khám`}
+                    size="small"
+                  />
+                </div>
               )}
             </Spin>
           </div>
