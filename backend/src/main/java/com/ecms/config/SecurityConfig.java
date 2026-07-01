@@ -34,33 +34,35 @@ public class SecurityConfig {
                 return config.getAuthenticationManager();
         }
 
-        @Bean
-        public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-                http
-                                .cors(Customizer.withDefaults())
-                                .csrf(csrf -> csrf.disable())
-                                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                                // Token thiếu/sai/hết hạn → 401 (để frontend tự xoá session và chuyển về
-                                // /login).
-                                // Đã xác thực nhưng sai quyền (role) vẫn giữ 403 mặc định của Spring Security.
-                                .exceptionHandling(handling -> handling.authenticationEntryPoint(
-                                                (request, response, authException) -> response.sendError(
-                                                                HttpStatus.UNAUTHORIZED.value())))
-                                .authorizeHttpRequests(auth -> auth
-                                                // ── Auth ──────────────────────────────────────────────────────────
-                                                .requestMatchers(HttpMethod.POST, "/api/v1/auth/login",
-                                                                "/api/v1/auth/register",
-                                                                "/api/v1/auth/google",
-                                                                "/api/v1/auth/resend-verification",
-                                                                "/api/v1/auth/staff/login",
-                                                                "/api/v1/auth/staff/verify-otp",
-                                                                "/api/v1/auth/forgot-password",
-                                                                "/api/v1/auth/reset-password")
-                                                .permitAll()
-                                                .requestMatchers(HttpMethod.GET, "/api/v1/auth/verify-email")
-                                                .permitAll()
-                                                .requestMatchers(HttpMethod.POST, "/api/v1/auth/admin/unlock-user")
-                                                .hasRole("ADMIN")
+        // @Bean
+        // public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        // http
+        // .cors(Customizer.withDefaults())
+        // .csrf(csrf -> csrf.disable())
+        // .sessionManagement(sm ->
+        // sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        // // Token thiếu/sai/hết hạn → 401 (để frontend tự xoá session và chuyển về
+        // // /login).
+        // // Đã xác thực nhưng sai quyền (role) vẫn giữ 403 mặc định của Spring
+        // Security.
+        // .exceptionHandling(handling -> handling.authenticationEntryPoint(
+        // (request, response, authException) -> response.sendError(
+        // HttpStatus.UNAUTHORIZED.value())))
+        // .authorizeHttpRequests(auth -> auth
+        // // ── Auth ──────────────────────────────────────────────────────────
+        // .requestMatchers(HttpMethod.POST, "/api/v1/auth/login",
+        // "/api/v1/auth/register",
+        // "/api/v1/auth/google",
+        // "/api/v1/auth/resend-verification",
+        // "/api/v1/auth/staff/login",
+        // "/api/v1/auth/staff/verify-otp",
+        // "/api/v1/auth/forgot-password",
+        // "/api/v1/auth/reset-password")
+        // .permitAll()
+        // .requestMatchers(HttpMethod.GET, "/api/v1/auth/verify-email")
+        // .permitAll()
+        // .requestMatchers(HttpMethod.POST, "/api/v1/auth/admin/unlock-user")
+        // .hasRole("ADMIN")
 
         @Bean
         public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
