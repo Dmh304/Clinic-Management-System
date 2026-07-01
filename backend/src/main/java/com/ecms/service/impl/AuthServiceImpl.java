@@ -11,6 +11,7 @@ import com.ecms.dto.request.*;
 import com.ecms.dto.response.AuthResponse;
 import com.ecms.entity.AuthProvider;
 import com.ecms.entity.Doctor;
+import com.ecms.entity.Patient;
 import com.ecms.entity.Role;
 import com.ecms.entity.User;
 import com.ecms.entity.UserStatus;
@@ -18,6 +19,7 @@ import com.ecms.entity.VerificationTokenType;
 import com.ecms.exception.ResourceNotFoundException;
 import com.ecms.exception.UnauthorizedException;
 import com.ecms.repository.DoctorRepository;
+import com.ecms.repository.PatientRepository;
 import com.ecms.repository.RoleRepository;
 import com.ecms.repository.UserRepository;
 import com.ecms.security.JwtUtil;
@@ -46,6 +48,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final DoctorRepository doctorRepository;
+    private final PatientRepository patientRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final EmailService emailService;
@@ -382,8 +385,11 @@ public class AuthServiceImpl implements AuthService {
         String roleName = user.getRole().getName();
 
         Long doctorId = null;
+        Long patientId = null;
         if ("DOCTOR".equals(roleName)) {
             doctorId = doctorRepository.findByUserId(user.getId()).map(Doctor::getId).orElse(null);
+        } else if ("PATIENT".equals(roleName)) {
+            patientId = patientRepository.findByUserId(user.getId()).map(Patient::getId).orElse(null);
         }
 
         String token = jwtUtil.generateToken(user.getEmail(), roleName, doctorId, user.getTokenVersion());
@@ -396,6 +402,7 @@ public class AuthServiceImpl implements AuthService {
                 .fullName(user.getFullName())
                 .role(roleName)
                 .doctorId(doctorId)
+                .patientId(patientId)
                 .build();
     }
 
