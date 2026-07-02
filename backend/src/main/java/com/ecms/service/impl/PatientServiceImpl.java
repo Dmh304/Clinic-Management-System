@@ -60,32 +60,6 @@ public class PatientServiceImpl implements PatientService {
         public PatientResponse createWalkInPatient(PatientRequest request) {
                 // Thu thập tất cả lỗi validation trước khi throw để frontend nhận đủ thông tin
                 Map<String, String> errors = new LinkedHashMap<>();
-                if (request.getCccd() != null && !request.getCccd().isBlank()
-                                && patientRepository.existsByCccd(request.getCccd())) {
-                        errors.put("cccd", "CCCD " + request.getCccd() + " đã có hồ sơ bệnh nhân trong hệ thống");
-                }
-                if (request.getEmail() != null && !request.getEmail().isBlank()
-                                && userRepository.existsByEmail(request.getEmail())) {
-                        errors.put("email", "Email " + request.getEmail() + " đã được sử dụng trong hệ thống");
-                }
-                if (!errors.isEmpty()) {
-                        throw new FieldValidationException(errors);
-                }
-        }
-
-        // Đăng ký bệnh nhân vãng lai: CCCD (nếu có) và email (nếu có) phải không trùng
-        // trong hệ thống.
-        // SĐT được phép trùng để hỗ trợ trường hợp phụ huynh và con dùng chung số liên
-        // hệ.
-        // Nếu không có email (trẻ em), tự sinh email dạng pt{patientCode}@ecms.local để
-        // tạo tài khoản.
-        // Ném FieldValidationException nếu có bất kỳ field nào vi phạm (trả về tất cả
-        // lỗi cùng lúc).
-        @Override
-        @Transactional
-        public PatientResponse createWalkInPatient(PatientRequest request) {
-                // Thu thập tất cả lỗi validation trước khi throw để frontend nhận đủ thông tin
-                Map<String, String> errors = new LinkedHashMap<>();
 
                 // Bệnh nhân người lớn (>= 14 tuổi) BẮT BUỘC có CCCD và email thật — email tự
                 // sinh
