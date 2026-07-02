@@ -35,6 +35,9 @@ public class Invoice {
     @Column(name = "invoice_code", unique = true, length = 30)
     private String invoiceCode;
 
+    @OneToMany(mappedBy = "invoice", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<InvoiceItem> items = new ArrayList<>();
+
     // --- CÁC PHÍ DỊCH VỤ (Từ nhánh main) ---
     @Column(name = "service_fee", precision = 12, scale = 2)
     private BigDecimal serviceFee;
@@ -78,12 +81,17 @@ public class Invoice {
     @Column(name = "status", nullable = false, length = 20)
     private String status;
 
+    // UNPAID | PAID | PAYMENT_FAILED
+    @Column(name = "payment_status", nullable = false, length = 20)
+    private String paymentStatus;
     @Column(name = "notes", columnDefinition = "NVARCHAR(MAX)")
     private String notes;
 
     @Column(name = "issued_by")
     private Long issuedBy;
 
+    @Column(name = "notes", columnDefinition = "NVARCHAR(MAX)")
+    private String notes;
     // --- THỜI GIAN ---
     @Column(name = "generated_at")
     private LocalDateTime generatedAt;
@@ -97,28 +105,25 @@ public class Invoice {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    @OneToMany(mappedBy = "invoice", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private List<InvoiceItem> items = new ArrayList<>();
-
     @PrePersist
     protected void onCreate() {
         // Gán thời gian tạo mặc định
         createdAt = LocalDateTime.now();
-        
+
         // Trạng thái chung
         if (status == null) status = "DRAFT";
         if (paymentStatus == null) paymentStatus = "UNPAID";
-        
+
         // Khởi tạo các giá trị tiền tệ của hệ thống Dược (nhánh Duc)
         if (subTotal == null) subTotal = BigDecimal.ZERO;
         if (discountAmount == null) discountAmount = BigDecimal.ZERO;
         if (tax == null) tax = BigDecimal.ZERO;
-        
+
         // Khởi tạo các giá trị tiền tệ của hệ thống Khám bệnh/Xét nghiệm (nhánh main)
         if (serviceFee == null) serviceFee = BigDecimal.ZERO;
         if (labFee == null) labFee = BigDecimal.ZERO;
         if (medicineFee == null) medicineFee = BigDecimal.ZERO;
-        
+
         // Tổng tiền
         if (totalAmount == null) totalAmount = BigDecimal.ZERO;
     }
