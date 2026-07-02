@@ -1,3 +1,22 @@
 import axiosClient from '../api/axiosClient'
 
-// TODO: implement invoice API calls
+export const invoiceService = {
+	getAll: () => axiosClient.get('/v1/invoices'),
+
+	search: (keyword = '') =>
+		axiosClient.get('/v1/invoices/search', { params: keyword ? { keyword } : {} }),
+
+	create: (data) => axiosClient.post('/v1/invoices', data),
+
+	issue: (id, paymentMethod, paymentReference) =>
+		axiosClient.post(`/v1/invoices/${id}/issue`, { paymentMethod, paymentReference }),
+
+	cancel: (id) => axiosClient.post(`/v1/invoices/${id}/cancel`),
+
+	getById: (id) => axiosClient.get(`/v1/invoices/${id}`),
+
+	downloadPdf: (id) =>
+		axiosClient.get(`/v1/invoices/${id}/pdf`, { responseType: 'blob' }),
+
+	sendEmail: (id) => axiosClient.post(`/v1/invoices/${id}/send-email`),
+}
