@@ -78,4 +78,7 @@ export const appointmentService = {
   /* UC-13: gửi nhắc lịch thủ công cho 1 lịch hẹn (bỏ qua cửa sổ 24h) */
   sendReminder: (id) =>
     axiosClient.post(`/v1/appointments/${id}/send-reminder`),
+
+  abandonExam: (appointmentId) =>
+    axiosClient.post(`/v1/appointments/${appointmentId}/abandon`),
 }

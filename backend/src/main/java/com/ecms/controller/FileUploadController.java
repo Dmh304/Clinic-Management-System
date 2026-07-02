@@ -45,7 +45,8 @@ public class FileUploadController {
                 file.getOriginalFilename() == null ? "image" : file.getOriginalFilename());
         String ext = "";
         int dot = original.lastIndexOf('.');
-        if (dot >= 0) ext = original.substring(dot);
+        if (dot >= 0)
+            ext = original.substring(dot);
         String filename = UUID.randomUUID().toString().replace("-", "") + ext;
 
         Path target = UPLOAD_DIR.resolve(filename).toAbsolutePath();

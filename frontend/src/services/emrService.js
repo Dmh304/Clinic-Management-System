@@ -1,34 +1,39 @@
 /**
- * Tuấn - HE204215
+ * Author: TuanTD
  * 
- * Chứa các API call liên quan đến quản lý Bệnh án điện tử (EMR).
-*/
+ * File dịch vụ (Service Layer) quản lý toàn bộ các yêu cầu HTTP (API Calls)
+ * liên quan đến Hồ sơ Bệnh án điện tử (Electronic Medical Record - EMR).
+ * Sử dụng cấu hình `axiosClient` đã được thiết lập sẵn mã hóa interceptor và base URL.
+ */
 import axiosClient from '../api/axiosClient'
 
 export const emrService = {
-  // Hàm lưu bệnh án (tạo mới hoặc cập nhật bệnh án)
+  
+  /* Lưu hồ sơ bệnh án (Tạo mới hoặc Cập nhật dữ liệu) */
   saveEMR: (data) =>
     axiosClient.post('/v1/emr', data),
 
-  // Hàm lấy chi tiết bệnh án dựa theo ID của lịch hẹn
+  /* Lấy chi tiết hồ sơ bệnh án dựa theo ID của Lịch hẹn */
   getByAppointment: (appointmentId) =>
     axiosClient.get(`/v1/emr/appointment/${appointmentId}`),
 
-  // Hàm lấy lịch sử khám bệnh của một bệnh nhân cụ thể
+  /* Lấy toàn bộ lịch sử khám bệnh của một bệnh nhân cụ thể */
   getPatientHistory: (patientId) =>
     axiosClient.get(`/v1/emr/patient/${patientId}/history`),
 
-  // Hàm lấy danh sách tất cả hồ sơ bệnh án đã hoàn thành
+  /* Lấy danh sách tất cả các hồ sơ bệnh án đã hoàn thành trên hệ thống */
   getCompletedList: () =>
     axiosClient.get(`/v1/emr/completed`),
 
-  // Hàm lấy lịch sử bệnh án của chính bệnh nhân đang đăng nhập
+  /* Lấy lịch sử bệnh án của chính bệnh nhân hiện tại đang đăng nhập */
   getLoggingInPatientHistory: () =>
     axiosClient.get(`/v1/emr/history`),
 
+  /* Lấy chi tiết một hồ sơ bệnh án cụ thể theo mã ID EMR */
   getById: (id) =>
     axiosClient.get(`/v1/emr/${id}`),
 
+  /* Lấy toàn bộ danh sách hồ sơ bệnh án không phân biệt trạng thái */
   getAllList: () =>
     axiosClient.get(`/v1/emr/all`),
 }

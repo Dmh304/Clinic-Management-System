@@ -469,19 +469,24 @@ export default function AppointmentManagementPage() {
             </Row>
           )}
 
-          <Card>
-            <Space style={{ marginBottom: 16 }}>
-              <Select
-                value={filterStatus}
-                onChange={setFilterStatus}
-                style={{ width: 180 }}
-                options={[
-                  { label: 'Tất cả trạng thái', value: 'ALL' },
-                  ...Object.entries(STATUS_CONFIG).map(([v, c]) => ({ label: c.label, value: v })),
-                ]}
-              />
-              <Button icon={<ReloadOutlined />} onClick={reload} loading={loading}>Làm mới</Button>
-            </Space>
+      <Card>
+        <Space style={{ marginBottom: 16 }}>
+          <Select
+            value={filterStatus}
+            onChange={setFilterStatus}
+            style={{ width: 180 }}
+            options={[
+              { label: 'Tất cả trạng thái', value: 'ALL' },
+              ...Object.entries(STATUS_CONFIG).map(([v, c]) => ({
+                label: c.label,
+                value: v,
+              })),
+            ]}
+          />
+          <Button icon={<ReloadOutlined />} onClick={reload} loading={loading}>
+            Làm mới
+          </Button>
+        </Space>
 
             <Table
               columns={columns}
@@ -557,6 +562,9 @@ export default function AppointmentManagementPage() {
           )}
         </>
       )}
+
+      {/* Modal xác nhận + phân công bác sĩ (chế độ Ngày) */}
+      
 
       {/* Modal xác nhận + phân công bác sĩ (chế độ Ngày) */}
       <Modal

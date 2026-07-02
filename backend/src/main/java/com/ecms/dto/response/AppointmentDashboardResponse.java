@@ -1,9 +1,3 @@
-/**
- * Author: Tuấn - HE204215
- * 
- * Đối tượng chuyển đổi dữ liệu (DTO) phản hồi thông tin thống kê lịch hẹn trên dashboard
- * Tổng hợp số lượng lịch hẹn theo từng trạng thái cụ thể để hiển thị
- */
 // Le Thi Bich Ngan - HE204710
 // DTO trả về số liệu thống kê lịch hẹn trong ngày cho trang Reception Dashboard.
 // Gồm tổng số lịch và số lượng theo từng trạng thái:

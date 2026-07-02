@@ -1,3 +1,6 @@
+// DucTKH
+// Entity đại diện cho bảng invoice_details trong cơ sở dữ liệu.
+// Dùng để lưu trữ chi tiết từng mục trong hóa đơn (thuốc, dịch vụ, v.v.).
 // ThangNBHE201024
 // Entity ánh xạ bảng "invoice_details" — lưu từng dòng chi tiết của hóa đơn.
 // Mỗi InvoiceItem tương ứng một khoản phí: dịch vụ khám, xét nghiệm, thuốc hoặc kính.
@@ -8,6 +11,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
 
 @Entity
 @Table(name = "invoice_details")
@@ -31,7 +36,7 @@ public class InvoiceItem {
     @Column(name = "item_type", nullable = false, length = 20)
     private String itemType;
 
-    // Polymorphic FK — trỏ đến service_id, medicine_id,... (validate ở tầng Service)
+    // Polymorphic FK - trỏ đến service_id, medicine_id,... (validate ở tầng Service)
     @Column(name = "ref_id")
     private Long refId;
 
@@ -44,18 +49,26 @@ public class InvoiceItem {
     private Integer quantity;
 
     // Đơn giá (VNĐ)
-    @Column(name = "unit_price", precision = 12, scale = 2)
+    @Column(name = "unit_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal unitPrice;
 
     // Thành tiền = quantity × unitPrice; ánh xạ cột sub_total trong DB
-    @Column(name = "sub_total", precision = 12, scale = 2)
-    private BigDecimal subtotal;
+    @Column(name = "sub_total", nullable = false, precision = 12, scale = 2)
+    private BigDecimal subTotal;
+
+    @Column(nullable = false)
+    private String status;
+
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;
 
     // Gán giá trị mặc định trước khi INSERT để tránh lỗi NOT NULL từ DB
     @PrePersist
-    private void prePersist() {
-        if (quantity == null) quantity = 1;
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        if (status == null) status = "ACTIVE";
         if (unitPrice == null) unitPrice = BigDecimal.ZERO;
-        if (subtotal == null) subtotal = BigDecimal.ZERO;
+        if (subTotal == null) subTotal = BigDecimal.ZERO;
+        if (quantity == null) quantity = 1;
     }
 }
