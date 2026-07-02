@@ -99,13 +99,14 @@ public class CareSessionServiceImpl implements CareSessionService {
         // UC-40 POST-3: thông báo xác nhận đặt lịch thành công
         try {
             Long patientUserId = sessionPatient.getUser() != null
-                    ? sessionPatient.getUser().getId() : null;
+                    ? sessionPatient.getUser().getId()
+                    : null;
             notificationService.createForUser(patientUserId,
                     "Đặt buổi chăm sóc thành công — "
-                    + subscription.getService().getServiceName()
-                    + " (buổi " + sessionNumber + "/" + subscription.getTotalSessions() + ")"
-                    + ". Thời gian: " + request.getScheduledDateTime().toLocalDate()
-                    + " lúc " + request.getScheduledDateTime().toLocalTime(),
+                            + subscription.getService().getServiceName()
+                            + " (buổi " + sessionNumber + "/" + subscription.getTotalSessions() + ")"
+                            + ". Thời gian: " + request.getScheduledDateTime().toLocalDate()
+                            + " lúc " + request.getScheduledDateTime().toLocalTime(),
                     null);
         } catch (Exception e) {
             log.error("UC-40: Gửi thông báo book care session thất bại: {}", e.getMessage());
@@ -248,7 +249,7 @@ public class CareSessionServiceImpl implements CareSessionService {
         if (isPatientSelf && session.getScheduledDateTime().isBefore(LocalDateTime.now().plusHours(1))) {
             throw new IllegalStateException(
                     "Buổi khám chỉ có thể huỷ trước giờ hẹn ít nhất 1 giờ. "
-                    + "Vui lòng liên hệ trực tiếp phòng khám.");
+                            + "Vui lòng liên hệ trực tiếp phòng khám.");
         }
 
         // UC-40 ALT-2: hoàn lại buổi cho subscription khi huỷ (đã trừ lúc book)

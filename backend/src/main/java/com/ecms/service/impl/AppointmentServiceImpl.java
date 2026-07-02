@@ -14,6 +14,7 @@ import com.ecms.exception.ResourceNotFoundException;
 import com.ecms.repository.AppointmentRepository;
 import com.ecms.repository.ClinicServiceRepository;
 import com.ecms.repository.DoctorRepository;
+import com.ecms.repository.MedicalRecordRepository;
 import com.ecms.repository.PatientRepository;
 import com.ecms.repository.UserRepository;
 import com.ecms.service.AppointmentService;
@@ -21,6 +22,8 @@ import com.ecms.service.EmailService;
 import com.ecms.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import org.apache.coyote.BadRequestException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -67,6 +70,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         private final UserRepository userRepository;
         private final NotificationService notificationService;
         private final EmailService emailService;
+        private final MedicalRecordRepository medicalRecordRepository;
 
         @Override
         @Transactional(readOnly = true)
@@ -192,6 +196,12 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         @Override
         @Transactional
+        public AppointmentResponse confirmAppointment(Long id, Long doctorId) {
+                return confirmAppointment(id, doctorId, null);
+        }
+
+        @Override
+        @Transactional
         public AppointmentResponse confirmAppointment(Long id, Long doctorId, String reason) {
                 Appointment appointment = appointmentRepository.findById(id)
                                 .orElseThrow(() -> new ResourceNotFoundException("Lịch hẹn không tồn tại: " + id));
@@ -215,7 +225,8 @@ public class AppointmentServiceImpl implements AppointmentService {
                         validateDoctorCapacity(doctorId, appointment.getAppointmentDate());
                         appointment.setDoctor(doctor);
 
-                        // Lưu vết lý do đổi bác sĩ vào notes (giữ nguyên note gốc) — giống luồng chuyển lịch
+                        // Lưu vết lý do đổi bác sĩ vào notes (giữ nguyên note gốc) — giống luồng chuyển
+                        // lịch
                         if (doctorChanged) {
                                 String original = appointment.getNotes();
                                 appointment.setNotes(
@@ -241,7 +252,9 @@ public class AppointmentServiceImpl implements AppointmentService {
                                                 ? saved.getAppointmentTime().toLocalDate().toString()
                                                 : "";
                                 notificationService.createForUser(patientUserId,
-                                                "Lịch hẹn khám của bạn vào lúc " + timeStr + " ngày " + dateStr + " đã được xác nhận.", saved.getId());
+                                                "Lịch hẹn khám của bạn vào lúc " + timeStr + " ngày " + dateStr
+                                                                + " đã được xác nhận.",
+                                                saved.getId());
                         }
                 } catch (Exception e) {
                         log.error("Lỗi khi gửi thông báo xác nhận lịch hẹn: {}", e.getMessage());
@@ -299,7 +312,8 @@ public class AppointmentServiceImpl implements AppointmentService {
                 // (đã bao gồm luôn việc chặn đặt vào quá khứ)
                 if (appointmentTime.isBefore(LocalDateTime.now().plusMinutes(BOOKING_LEAD_TIME_MINUTES))) {
                         throw new IllegalArgumentException(
-                                        "Vui lòng đặt lịch trước giờ khám ít nhất " + BOOKING_LEAD_TIME_MINUTES + " phút");
+                                        "Vui lòng đặt lịch trước giờ khám ít nhất " + BOOKING_LEAD_TIME_MINUTES
+                                                        + " phút");
                 }
 
                 // Chặn đặt trùng khung giờ của cùng một bác sĩ (mọi trạng thái trừ CANCELLED)
@@ -343,10 +357,11 @@ public class AppointmentServiceImpl implements AppointmentService {
         /**
          * Xác định bệnh nhân được khám cho 1 lượt đặt online (UC-11):
          * - Đặt hộ người thân: tạo hồ sơ Patient MỚI (không gắn tài khoản) từ thông
-         *   tin nhập trong form. Lịch hẹn sẽ gắn patient = người thân, còn booked_by
-         *   = tài khoản người đặt (để vẫn xem được ở "Lịch hẹn của tôi").
+         * tin nhập trong form. Lịch hẹn sẽ gắn patient = người thân, còn booked_by
+         * = tài khoản người đặt (để vẫn xem được ở "Lịch hẹn của tôi").
          * - Đặt cho mình: dùng hồ sơ của tài khoản; bổ sung các trường còn trống
-         *   (giới tính/ngày sinh/địa chỉ/SĐT) nếu form có gửi lên, không ghi đè dữ liệu cũ.
+         * (giới tính/ngày sinh/địa chỉ/SĐT) nếu form có gửi lên, không ghi đè dữ liệu
+         * cũ.
          */
         private Patient resolveBookingPatient(BookAppointmentRequest request, Patient selfPatient) {
                 if (request.isBookingForOther()) {
@@ -361,8 +376,10 @@ public class AppointmentServiceImpl implements AppointmentService {
                                         .gender(request.getPatientGender())
                                         .dateOfBirth(request.getPatientDob())
                                         .phone(request.getPatientPhone().trim())
-                                        .email(isBlank(request.getPatientEmail()) ? null : request.getPatientEmail().trim())
-                                        .address(isBlank(request.getPatientAddress()) ? null : request.getPatientAddress().trim())
+                                        .email(isBlank(request.getPatientEmail()) ? null
+                                                        : request.getPatientEmail().trim())
+                                        .address(isBlank(request.getPatientAddress()) ? null
+                                                        : request.getPatientAddress().trim())
                                         .build();
                         return patientRepository.save(relative);
                 }
@@ -388,7 +405,9 @@ public class AppointmentServiceImpl implements AppointmentService {
                 return changed ? patientRepository.save(selfPatient) : selfPatient;
         }
 
-        /** Sinh mã bệnh nhân kế tiếp dạng PT0001, PT0002,... (giống PatientServiceImpl). */
+        /**
+         * Sinh mã bệnh nhân kế tiếp dạng PT0001, PT0002,... (giống PatientServiceImpl).
+         */
         private String nextPatientCode() {
                 return String.format("PT%04d", patientRepository.count() + 1);
         }
@@ -459,7 +478,8 @@ public class AppointmentServiceImpl implements AppointmentService {
                                         "Lịch khám vãng lai chỉ áp dụng cho hôm nay. Vui lòng dùng chức năng đặt lịch hẹn cho ngày khác.");
                 }
 
-                // Giờ khám phải khớp lưới khung giờ làm việc của phòng khám (giống đặt lịch online)
+                // Giờ khám phải khớp lưới khung giờ làm việc của phòng khám (giống đặt lịch
+                // online)
                 if (!ALL_SLOTS.contains(walkInTime.toLocalTime())) {
                         throw new IllegalArgumentException(
                                         "Giờ khám không hợp lệ, vui lòng chọn theo khung giờ làm việc của phòng khám");
@@ -527,7 +547,8 @@ public class AppointmentServiceImpl implements AppointmentService {
                         appointment.setTimeSlot(request.getNewAppointmentTime().toLocalTime().toString());
                 }
 
-                // UC-18: fix bug overwrite notes — append lý do chuyển lịch, giữ nguyên note gốc
+                // UC-18: fix bug overwrite notes — append lý do chuyển lịch, giữ nguyên note
+                // gốc
                 if (request.getReason() != null) {
                         String original = appointment.getNotes();
                         appointment.setNotes(
@@ -704,7 +725,8 @@ public class AppointmentServiceImpl implements AppointmentService {
 
                 if (isPatientSelf) {
                         Patient patient = patientRepository.findByEmail(actingUserEmail)
-                                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin bệnh nhân"));
+                                        .orElseThrow(() -> new ResourceNotFoundException(
+                                                        "Không tìm thấy thông tin bệnh nhân"));
                         if (appointment.getPatient() == null
                                         || !appointment.getPatient().getId().equals(patient.getId())) {
                                 throw new ResourceNotFoundException("Lịch hẹn không tồn tại: " + id);
@@ -759,7 +781,8 @@ public class AppointmentServiceImpl implements AppointmentService {
                         throw new IllegalArgumentException("Thời gian khám mới không được để trống");
                 }
 
-                // BR-04: giờ khám mới cũng phải cách hiện tại tối thiểu BOOKING_LEAD_TIME_MINUTES
+                // BR-04: giờ khám mới cũng phải cách hiện tại tối thiểu
+                // BOOKING_LEAD_TIME_MINUTES
                 // (giống lúc đặt mới), tránh đổi sang giờ quá sát/đã qua.
                 if (newTime.isBefore(LocalDateTime.now().plusMinutes(BOOKING_LEAD_TIME_MINUTES))) {
                         throw new IllegalArgumentException(
@@ -767,11 +790,13 @@ public class AppointmentServiceImpl implements AppointmentService {
                                                         + BOOKING_LEAD_TIME_MINUTES + " phút");
                 }
 
-                // Chặn đổi sang khung giờ đã có lịch hẹn khác của cùng bác sĩ (trừ chính lịch này)
+                // Chặn đổi sang khung giờ đã có lịch hẹn khác của cùng bác sĩ (trừ chính lịch
+                // này)
                 if (appointment.getDoctor() != null
                                 && !newTime.equals(appointment.getAppointmentTime())
                                 && appointmentRepository.existsByDoctor_IdAndAppointmentTimeAndStatusNot(
-                                                appointment.getDoctor().getId(), newTime, AppointmentStatus.CANCELLED)) {
+                                                appointment.getDoctor().getId(), newTime,
+                                                AppointmentStatus.CANCELLED)) {
                         throw new IllegalStateException(
                                         "Khung giờ này đã có lịch hẹn khác, vui lòng chọn khung giờ khác");
                 }
@@ -823,7 +848,8 @@ public class AppointmentServiceImpl implements AppointmentService {
                 appointment.setReminderSent(true);
                 Appointment saved = appointmentRepository.save(appointment);
 
-                // Thông báo in-app cho bệnh nhân (kiểu Facebook) — chỉ tạo nếu bệnh nhân có tài khoản.
+                // Thông báo in-app cho bệnh nhân (kiểu Facebook) — chỉ tạo nếu bệnh nhân có tài
+                // khoản.
                 // Bệnh nhân bấm thông báo để xem chi tiết lịch hẹn của mình.
                 Long patientUserId = patient.getUser() != null ? patient.getUser().getId() : null;
                 notificationService.createForUser(patientUserId,
@@ -836,14 +862,50 @@ public class AppointmentServiceImpl implements AppointmentService {
                 return toResponse(saved);
         }
 
+        /**
+         * Dừng ca khám giữa chừng:
+         * 1. Validate: appointment phải đang IN_PROGRESS
+         * 2. Chuyển appointment → CANCELLED
+         * 3. Nếu tồn tại MedicalRecord gắn với appointment này → đưa về DRAFT
+         */
+        @Override
+        @Transactional
+        public AppointmentResponse abandonExam(Long appointmentId) {
+                Appointment appointment = appointmentRepository.findById(appointmentId)
+                                .orElseThrow(() -> new ResourceNotFoundException(
+                                                "Không tìm thấy lịch hẹn #" + appointmentId));
+
+                if (appointment.getStatus() != AppointmentStatus.IN_PROGRESS) {
+                        throw new IllegalStateException(
+                                        "Chỉ có thể dừng ca khám đang ở trạng thái IN_PROGRESS. " +
+                                                        "Trạng thái hiện tại: " + appointment.getStatus());
+                }
+
+                // Chuyển appointment về CANCELLED
+                appointment.setStatus(AppointmentStatus.CANCELLED);
+                appointment.setCancelReason("Bác sĩ dừng khám giữa chừng");
+                appointmentRepository.save(appointment);
+
+                // Nếu đã tạo Medical Record cho appointment này → đưa về DRAFT
+                medicalRecordRepository.findByAppointmentId(appointmentId).ifPresent(record -> {
+                        // Chỉ revert nếu record chưa COMPLETED (tránh mất dữ liệu đã hoàn tất)
+                        if (record.getStatus() != MedicalRecordStatus.COMPLETED) {
+                                record.setStatus(MedicalRecordStatus.DRAFT);
+                                medicalRecordRepository.save(record);
+                        }
+                });
+
+                return toResponse(appointment);
+        }
+
         @Override
         @Transactional
         public int autoCancelNoShowAppointments() {
                 // Mốc cắt: 00:00 hôm nay. Mọi lịch hẹn có giờ khám trước thời điểm này
                 // (thuộc các ngày đã qua) mà vẫn chưa kết thúc đều cần dọn tự động:
-                //  - PENDING/CONFIRMED còn treo  → bệnh nhân không đến khám (no-show)
-                //  - WAITING/IN_PROGRESS còn treo → ca khám bị bỏ dở, không được đóng
-                //    (đây là lý do "đang khám" bị kẹt từ ngày hôm trước sang hôm sau).
+                // - PENDING/CONFIRMED còn treo → bệnh nhân không đến khám (no-show)
+                // - WAITING/IN_PROGRESS còn treo → ca khám bị bỏ dở, không được đóng
+                // (đây là lý do "đang khám" bị kẹt từ ngày hôm trước sang hôm sau).
                 LocalDateTime cutoff = LocalDate.now().atStartOfDay();
                 List<Appointment> noShows = appointmentRepository.findNoShowAppointments(
                                 cutoff,

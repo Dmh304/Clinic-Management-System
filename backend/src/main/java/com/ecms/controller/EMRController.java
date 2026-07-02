@@ -50,8 +50,10 @@ public class EMRController {
      * Mỗi lịch hẹn hoàn thành gắn liền với 1 bệnh án cụ thể
      */
     @GetMapping("/appointment/{appointmentId}")
-    public ResponseEntity<ApiResponse<EMRResponse>> getByAppointment(@PathVariable Long appointmentId) {
-        return ResponseEntity.ok(ApiResponse.success(emrService.getByAppointmentId(appointmentId)));
+    public ResponseEntity<ApiResponse<EMRResponse>> getByAppointment(@PathVariable Long appointmentId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Long doctorId = resolveDoctorId(userDetails);
+        return ResponseEntity.ok(ApiResponse.success(emrService.getOrCreateByAppointmentId(appointmentId, doctorId)));
     }
 
     /* Lấy chi tiết một hồ sơ bệnh án dựa trên chính ID của nó */

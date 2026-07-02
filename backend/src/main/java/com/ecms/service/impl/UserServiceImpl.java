@@ -25,7 +25,8 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final PatientRepository patientRepository;
 
-    // Lấy thông tin hồ sơ người dùng: tìm User theo email, kết hợp dữ liệu Patient nếu có
+    // Lấy thông tin hồ sơ người dùng: tìm User theo email, kết hợp dữ liệu Patient
+    // nếu có
     @Override
     public UserProfileResponse getProfile(String email) {
         User user = userRepository.findByEmail(email)
@@ -34,7 +35,8 @@ public class UserServiceImpl implements UserService {
         return buildResponse(user, patient.orElse(null));
     }
 
-    // Cập nhật hồ sơ: lưu thay đổi vào User và Patient; nếu bệnh nhân chưa có bản ghi Patient thì tạo mới
+    // Cập nhật hồ sơ: lưu thay đổi vào User và Patient; nếu bệnh nhân chưa có bản
+    // ghi Patient thì tạo mới
     @Override
     @Transactional
     public UserProfileResponse updateProfile(String email, UpdateProfileRequest request) {
@@ -73,7 +75,8 @@ public class UserServiceImpl implements UserService {
 
         // Self-registered patients without a Patient record → create one
         if ("PATIENT".equals(user.getRole().getName())) {
-            // Sinh mã bệnh nhân theo cùng quy tắc với bệnh nhân vãng lai (PT0001, PT0002,...)
+            // Sinh mã bệnh nhân theo cùng quy tắc với bệnh nhân vãng lai (PT0001,
+            // PT0002,...)
             // để mọi Patient đều có patient_code ngay từ khi tạo, tránh giá trị NULL
             long count = patientRepository.count();
             String patientCode = String.format("PT%04d", count + 1);
@@ -95,7 +98,8 @@ public class UserServiceImpl implements UserService {
         return buildResponse(user, null);
     }
 
-    // Tạo đối tượng UserProfileResponse từ dữ liệu User và Patient (Patient có thể null với các role khác PATIENT)
+    // Tạo đối tượng UserProfileResponse từ dữ liệu User và Patient (Patient có thể
+    // null với các role khác PATIENT)
     private UserProfileResponse buildResponse(User user, Patient patient) {
         return UserProfileResponse.builder()
                 .userId(user.getId())
