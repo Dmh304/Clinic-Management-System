@@ -11,6 +11,7 @@ import { useSelector } from 'react-redux'
 import logoImg from '../../assets/ECMS_Logo.png'
 import { doctorService } from '../../services/doctorService';
 import { appointmentService } from '../../services/appointmentService';
+import userService from '../../services/userService';
 import { CLINIC_INFO } from '../../constants/clinicInfo';
 // ─── Design tokens ───────────────────────────────────────────────
 const C = {
@@ -633,12 +634,46 @@ function Page3({ data, onConfirm, onBack, submitting, submitError }) {
   const [pDob, setPDob] = useState("");
   const [pAddress, setPAddress] = useState("");
   const [symptom, setSymptom] = useState("");
+  // Hồ sơ đầy đủ của tài khoản đang đăng nhập (SĐT, ngày sinh, giới tính, địa chỉ...)
+  // — dùng để điền sẵn khi "đặt cho mình", tránh nhập lại gây lệch dữ liệu với DB.
+  const [profile, setProfile] = useState(null);
+
+  // Điền sẵn toàn bộ thông tin người khám từ hồ sơ tài khoản.
+  const fillFromProfile = (p) => {
+    if (!p) return;
+    setPName(p.fullName || "");
+    setPGender(p.gender || "");
+    setPPhone(p.phone || "");
+    setPEmail(p.email || "");
+    setPDob(p.dateOfBirth || "");
+    setPAddress(p.address || "");
+  };
+
+  // Tải hồ sơ tài khoản 1 lần khi vào bước xác nhận; mặc định "đặt cho mình"
+  // nên điền sẵn luôn để bệnh nhân không phải gõ lại.
+  useEffect(() => {
+    let active = true;
+    userService.getProfile()
+      .then((res) => {
+        const p = res.data;
+        if (!active || !p) return;
+        setProfile(p);
+        if (!forOther) fillFromProfile(p);
+      })
+      .catch(() => { /* không có hồ sơ chi tiết → giữ nguyên các ô trống */ });
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Khi đổi giữa "đặt cho mình" / "đặt cho người thân": với chính mình thì điền
-  // sẵn tên tài khoản, với người thân thì xoá trống để nhập tên người khám.
+  // sẵn toàn bộ thông tin tài khoản, với người thân thì xoá trống để nhập mới.
   const switchTarget = (other) => {
     setForOther(other);
-    setPName(other ? "" : (user?.fullName || ""));
+    if (other) {
+      setPName(""); setPGender(""); setPPhone(""); setPEmail(""); setPDob(""); setPAddress("");
+    } else {
+      fillFromProfile(profile || { fullName: user?.fullName });
+    }
   };
 
   const headerDate = data.date
