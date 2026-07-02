@@ -1,5 +1,6 @@
 package com.ecms.service;
 
+import com.ecms.dto.request.CounterServiceRegistrationRequest;
 import com.ecms.dto.request.ScheduleClinicVisitRequest;
 import com.ecms.dto.request.ServicePackageRequest;
 import com.ecms.dto.request.ServiceRegistrationRequest;
@@ -25,6 +26,13 @@ public interface ClinicServiceService {
      * tạo gói (subscription) + buổi care-session đầu tiên, đánh dấu đăng ký COMPLETED.
      */
     CareSessionResponse scheduleClinicVisit(Long registrationId, ScheduleClinicVisitRequest request,
+            String currentUserEmail);
+
+    /**
+     * Lễ tân đăng ký dịch vụ cho khách đến trực tiếp quầy: tạo đăng ký (đã hoàn tất) +
+     * gói (subscription) + buổi care-session đầu tiên trong một giao dịch.
+     */
+    CareSessionResponse registerServiceAtCounter(CounterServiceRegistrationRequest request,
             String currentUserEmail);
 
     // Manager CRUD

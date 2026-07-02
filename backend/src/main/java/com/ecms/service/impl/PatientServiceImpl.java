@@ -55,6 +55,21 @@ public class PatientServiceImpl implements PatientService {
     public PatientResponse createWalkInPatient(PatientRequest request) {
         // Thu thập tất cả lỗi validation trước khi throw để frontend nhận đủ thông tin
         Map<String, String> errors = new LinkedHashMap<>();
+
+        // Bệnh nhân người lớn (>= 14 tuổi) BẮT BUỘC có CCCD và email thật — email tự sinh
+        // dạng pt{code}@ecms.local không gửi được nhắc lịch/PR dịch vụ. Trẻ em (< 14 tuổi)
+        // được miễn: dùng thông tin phụ huynh và email nội bộ tự sinh để tạo tài khoản.
+        boolean isChild = request.getDateOfBirth() != null
+                && Period.between(request.getDateOfBirth(), LocalDate.now()).getYears() < CHILD_AGE_THRESHOLD;
+        if (!isChild) {
+            if (request.getCccd() == null || request.getCccd().isBlank()) {
+                errors.put("cccd", "Vui lòng nhập CCCD cho bệnh nhân người lớn");
+            }
+            if (request.getEmail() == null || request.getEmail().isBlank()) {
+                errors.put("email", "Vui lòng nhập email để bệnh nhân nhận nhắc lịch và tạo tài khoản đăng nhập");
+            }
+        }
+
         if (request.getCccd() != null && !request.getCccd().isBlank()
                 && patientRepository.existsByCccd(request.getCccd())) {
             errors.put("cccd", "CCCD " + request.getCccd() + " đã có hồ sơ bệnh nhân trong hệ thống");

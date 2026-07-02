@@ -1,6 +1,7 @@
 package com.ecms.service.impl;
 
 import com.ecms.dto.request.BookCareSessionRequest;
+import com.ecms.dto.request.CounterServiceRegistrationRequest;
 import com.ecms.dto.request.PurchaseServiceRequest;
 import com.ecms.dto.request.ScheduleClinicVisitRequest;
 import com.ecms.dto.request.ServicePackageRequest;
@@ -21,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -182,6 +184,45 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
         serviceRegistrationRepository.save(registration);
 
         return session;
+    }
+
+    @Override
+    @Transactional
+    public CareSessionResponse registerServiceAtCounter(CounterServiceRegistrationRequest request,
+            String currentUserEmail) {
+        User receptionist = userRepository.findByEmail(currentUserEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
+        Patient patient = patientRepository.findById(request.getPatientId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bệnh nhân"));
+        ClinicService service = clinicServiceRepository.findById(request.getServiceId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy gói dịch vụ"));
+
+        // 1) Ghi nhận đăng ký (đã hoàn tất ngay — khách đăng ký trực tiếp tại quầy)
+        ServiceRegistration registration = ServiceRegistration.builder()
+                .service(service)
+                .patient(patient)
+                .registeredBy(receptionist)
+                .registrationDate(LocalDate.now())
+                .status("COMPLETED")
+                .notes(request.getNotes())
+                .build();
+        serviceRegistrationRepository.save(registration);
+
+        // 2) Tạo gói (subscription) cho bệnh nhân
+        PurchaseServiceRequest purchaseRequest = PurchaseServiceRequest.builder()
+                .serviceId(service.getId())
+                .patientId(patient.getId())
+                .notes(request.getNotes())
+                .build();
+        ServiceSubscriptionResponse subscription = subscriptionService.purchase(purchaseRequest, currentUserEmail);
+
+        // 3) Đặt buổi care-session đầu tiên (book() kiểm tra giờ làm việc 07:30–17:00)
+        BookCareSessionRequest bookRequest = BookCareSessionRequest.builder()
+                .subscriptionId(subscription.getId())
+                .scheduledDateTime(request.getScheduledDateTime())
+                .notes(request.getNotes())
+                .build();
+        return careSessionService.book(bookRequest, currentUserEmail);
     }
 
     // ── Manager CRUD ───────────────────────────────────────────────
