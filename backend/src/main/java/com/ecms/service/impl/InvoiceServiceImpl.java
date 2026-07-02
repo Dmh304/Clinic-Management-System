@@ -125,7 +125,7 @@ public class InvoiceServiceImpl implements InvoiceService {
                         .description(itemReq.getDescription())
                         .quantity(qty)
                         .unitPrice(price)
-                        .subtotal(subtotal)
+                        .subTotal(subtotal)
                         .build();
                 items.add(item);
 
@@ -149,7 +149,11 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .serviceFee(serviceFee)
                 .labFee(labFee)
                 .medicineFee(medicineFee)
+                .subTotal(total)
+                .discountAmount(BigDecimal.ZERO)
+                .tax(BigDecimal.ZERO)
                 .totalAmount(total)
+                .generatedAt(LocalDateTime.now())
                 .paymentMethod(request.getPaymentMethod())
                 .paymentReference(request.getPaymentReference())
                 .status("DRAFT")
@@ -203,6 +207,10 @@ public class InvoiceServiceImpl implements InvoiceService {
 
         if ("ISSUED".equals(invoice.getStatus())) {
             throw new IllegalStateException("Không thể hủy hóa đơn đã phát hành");
+        }
+
+        if (!"DRAFT".equals(invoice.getStatus())) {
+            throw new IllegalStateException("Chỉ hóa đơn ở trạng thái DRAFT mới được hủy");
         }
 
         invoice.setStatus("CANCELLED");
@@ -289,7 +297,7 @@ public class InvoiceServiceImpl implements InvoiceService {
                  .append("<td style='padding:6px 8px;border-bottom:1px solid #e2e8f0'>").append(item.getDescription()).append("</td>")
                  .append("<td style='padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:center'>").append(item.getQuantity()).append("</td>")
                  .append("<td style='padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:right'>").append(vnd.format(item.getUnitPrice())).append("₫</td>")
-                 .append("<td style='padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:right'>").append(vnd.format(item.getSubtotal())).append("₫</td>")
+                 .append("<td style='padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:right'>").append(vnd.format(item.getSubTotal())).append("₫</td>")
                  .append("</tr>");
         }
 
@@ -340,7 +348,7 @@ public class InvoiceServiceImpl implements InvoiceService {
                         .description(item.getDescription())
                         .quantity(item.getQuantity())
                         .unitPrice(item.getUnitPrice())
-                        .subtotal(item.getSubtotal())
+                        .subtotal(item.getSubTotal())
                         .build())
                 .collect(Collectors.toList());
         resp.setItems(itemResponses);

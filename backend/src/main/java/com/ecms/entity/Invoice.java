@@ -81,17 +81,11 @@ public class Invoice {
     @Column(name = "status", nullable = false, length = 20)
     private String status;
 
-    // UNPAID | PAID | PAYMENT_FAILED
-    @Column(name = "payment_status", nullable = false, length = 20)
-    private String paymentStatus;
     @Column(name = "notes", columnDefinition = "NVARCHAR(MAX)")
     private String notes;
 
     @Column(name = "issued_by")
     private Long issuedBy;
-
-    @Column(name = "notes", columnDefinition = "NVARCHAR(MAX)")
-    private String notes;
     // --- THỜI GIAN ---
     @Column(name = "generated_at")
     private LocalDateTime generatedAt;
