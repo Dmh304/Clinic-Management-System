@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -31,6 +32,12 @@ public class CareSessionServiceImpl implements CareSessionService {
 
     /** BR-16: số buổi chăm sóc tối đa mỗi điều dưỡng trong một ngày (mirror BR-03 của bác sĩ). */
     private static final int MAX_CARE_SESSIONS_PER_NURSE_PER_DAY = 12;
+
+    /** Giờ làm việc của phòng khám — buổi dịch vụ phải nằm trong khung này, khớp với
+     *  giờ khám chính (mở 07:30, đóng 17:00). Đồng bộ với hằng số phía frontend
+     *  (constants/clinicInfo.js) và lưới slot của lịch khám vãng lai. */
+    private static final LocalTime CLINIC_OPEN_TIME = LocalTime.of(7, 30);
+    private static final LocalTime CLINIC_CLOSE_TIME = LocalTime.of(17, 0);
 
     private final CareSessionRepository careSessionRepository;
     private final PatientServiceSubscriptionRepository subscriptionRepository;
@@ -74,6 +81,14 @@ public class CareSessionServiceImpl implements CareSessionService {
 
         if (request.getScheduledDateTime().isBefore(LocalDateTime.now())) {
             throw new IllegalArgumentException("Thời gian đặt lịch phải trong tương lai");
+        }
+
+        // Buổi dịch vụ chỉ được đặt trong giờ làm việc của phòng khám (07:30–17:00),
+        // giống giờ khám chính — không đặt ngoài giờ hành chính.
+        LocalTime bookedTime = request.getScheduledDateTime().toLocalTime();
+        if (bookedTime.isBefore(CLINIC_OPEN_TIME) || bookedTime.isAfter(CLINIC_CLOSE_TIME)) {
+            throw new IllegalArgumentException(
+                    "Thời gian làm dịch vụ phải trong giờ làm việc của phòng khám (07:30–17:00)");
         }
 
         long activeCount = careSessionRepository.countActiveSessionsBySubscription(subscription.getId());

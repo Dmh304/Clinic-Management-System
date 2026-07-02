@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import dayjs from 'dayjs'
 import { subscriptionService } from '../../services/subscriptionService'
 import { careSessionService } from '../../services/careSessionService'
+import { CLINIC_HOURS, validateClinicTime } from '../../constants/clinicInfo'
 
 export default function BookCareSessionPage() {
   const [searchParams] = useSearchParams()
@@ -29,6 +31,9 @@ export default function BookCareSessionPage() {
     e.preventDefault()
     if (!selectedSub) return setError('Vui lòng chọn gói đăng ký')
     if (!scheduledDateTime) return setError('Vui lòng chọn ngày giờ')
+    // Chỉ cho đặt trong giờ làm việc phòng khám (07:30–17:00), không đặt quá khứ
+    const timeError = validateClinicTime(dayjs(scheduledDateTime), dayjs)
+    if (timeError) return setError(timeError)
     setSubmitting(true)
     setError('')
     try {
@@ -93,6 +98,9 @@ export default function BookCareSessionPage() {
               <input type="datetime-local" value={scheduledDateTime} onChange={e => setScheduledDateTime(e.target.value)} required
                 min={new Date().toISOString().slice(0, 16)}
                 style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
+              <div style={{ marginTop: 6, fontSize: 12, color: '#94a3b8' }}>
+                Phòng khám làm việc {CLINIC_HOURS.openLabel}–{CLINIC_HOURS.closeLabel}. Vui lòng chọn trong khung giờ này.
+              </div>
             </div>
 
             <div style={{ marginBottom: 24 }}>
