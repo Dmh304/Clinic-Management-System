@@ -13,6 +13,10 @@ import axiosClient from '../api/axiosClient'
 
 export const appointmentService = {
 
+  /* Hàm lấy toàn bộ lịch hẹn dùng cho trang hóa đơn / tìm kiếm lịch hẹn */
+  getAllAppointments: (keyword = '') =>
+    axiosClient.get('/v1/appointments/search', { params: keyword ? { keyword } : {} }),
+
   /* Hàm lấy danh sách tất cả các lịch hẹn trong ngày hôm nay */
   getTodayAppointments: () =>
     axiosClient.get('/v1/appointments/today'),

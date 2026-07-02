@@ -357,6 +357,14 @@ export default function AppointmentManagementPage() {
               Bắt đầu khám
             </Button>
           )}
+          {record.status === 'COMPLETED' && (
+            <Button size="small" type="primary"
+              icon={<CheckCircleOutlined />}
+              style={{ backgroundColor: '#10b981', borderColor: '#10b981' }}
+              onClick={() => navigate('/receptionist/invoice', { state: { appointmentId: record.id } })}>
+              Thu phí & HĐ
+            </Button>
+          )}
         </Space>
       ),
     },
