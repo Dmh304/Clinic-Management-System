@@ -448,7 +448,7 @@ The following Business Rules must be enforced at both layers: Frontend validatio
 - **Priority:** Must Have | **Frequency:** Low
 - **Business Rules:** BR-01
 
-#### UC-08: Edit Personal Profile
+#### UC-08: Manage Personal Profile
 - **Primary Actor:** User, Patient, Receptionist, Lab Technician, Doctor, Pharmacist, Clinic Manager, Admin
 - **Trigger:** User clicks their avatar or 'Profile' in the navigation menu.
 - **Description:** Any authenticated user views and updates their personal profile (full name, phone, date of birth, address, profile photo). Email and role fields are read-only and can only be modified by Admin.
@@ -587,7 +587,7 @@ The following Business Rules must be enforced at both layers: Frontend validatio
 - **Primary Actor:** System (`AppointmentReminderScheduler`), Receptionist (manual trigger)
 - **Secondary Actors:** Patient (recipient)
 - **Trigger:** Automated: cron job runs every hour. Manual: Receptionist triggers a reminder for a specific appointment.
-- **Description:** The system automatically sends an email reminder to patients 24 hours before their confirmed appointment. Receptionists can also send an ad-hoc manual reminder at any time.
+- **Description:** The system automatically sends an in-app reminder notification to patients 24 hours before their confirmed appointment (no email channel is wired in the current build — see Business Rules). Receptionists can also send an ad-hoc manual reminder at any time.
 - **Preconditions:** PRE-01: An appointment exists with status CONFIRMED. PRE-02 (automated): scheduler running and `appointmentTime` falls within [now+24h, now+25h] and `reminderSent = false`. PRE-03 (manual): Receptionist authenticated, viewing the appointment in `/receptionist/appointments`.
 - **Postconditions:** POST-01: An in-app notification is created for the patient (only if linked to a User account). POST-02: A role-broadcast notification is created for RECEPTIONIST. POST-03: `appointment.reminderSent = true` to guard against duplicate sends.
 - **Normal Flow:**
@@ -720,8 +720,8 @@ The following Business Rules must be enforced at both layers: Frontend validatio
 - **Primary Actor:** Clinic Manager
 - **Secondary Actors:** Nurse (notified), System
 - **Trigger:** Clinic Manager opens the 'Unassigned Care Sessions' list to staff each scheduled session with a Nurse.
-- **Description:** The Clinic Manager reviews SCHEDULED care sessions for a given day and assigns each to an available Nurse, ensuring even distribution and adherence to per-nurse daily capacity.
-- **Preconditions:** PRE-1: Manager authenticated. PRE-2: At least one CareSession with status = SCHEDULED and no nurse exists. PRE-3: At least one Nurse is rostered for that day.
+- **Description:** The Clinic Manager reviews BOOKED care sessions for a given day and assigns each to an available Nurse, ensuring even distribution and adherence to per-nurse daily capacity.
+- **Preconditions:** PRE-1: Manager authenticated. PRE-2: At least one CareSession with status = BOOKED and no nurse exists. PRE-3: At least one Nurse is rostered for that day.
 - **Postconditions:** POST-1: `CareSession.nurse_id` and `assigned_at` set. POST-2: Nurse notified; session appears on their Care Queue (UC-31). POST-3: Event logged.
 - **Normal Flow:**
   1. Manager opens 'Unassigned Care Sessions' for the selected date.
@@ -997,11 +997,11 @@ The following Business Rules must be enforced at both layers: Frontend validatio
 - **Primary Actor:** Nurse
 - **Trigger:** Nurse logs in or opens the 'Care Queue' screen.
 - **Description:** The Nurse views all CareSessions assigned to them for the day, ordered by scheduled time, and selects the next patient to begin a session. Parallels the Lab Technician's queue and Doctor's patient queue for the wellness-care workflow.
-- **Preconditions:** PRE-1: Nurse authenticated. PRE-2: At least one CareSession assigned to this nurse with status = SCHEDULED today.
+- **Preconditions:** PRE-1: Nurse authenticated. PRE-2: At least one CareSession assigned to this nurse with status = BOOKED today.
 - **Postconditions:** POST-1: Queue displayed, refreshed in real time.
 - **Normal Flow:**
   1. Nurse opens 'Care Queue'.
-  2. System displays all SCHEDULED CareSessions for this nurse today, ordered by scheduled time.
+  2. System displays all BOOKED CareSessions for this nurse today, ordered by scheduled time.
   3. Each row shows patient name, session type, scheduled time, package/subscription reference.
   4. Nurse selects a session, clicks 'Start Session' (delegates to UC-32).
 - **Exceptions:** E-1 — No sessions assigned: "No care sessions assigned to you today."
@@ -1013,7 +1013,7 @@ The following Business Rules must be enforced at both layers: Frontend validatio
 - **Secondary Actors:** System (notification to Receptionist for checkout)
 - **Trigger:** Nurse clicks 'Start Session' on a queued CareSession (from UC-31).
 - **Description:** The Nurse conducts the wellness/care session, records brief session notes and any observed issues, and marks the session complete, triggering checkout.
-- **Preconditions:** PRE-1: CareSession status = SCHEDULED, assigned to this nurse. PRE-2: Nurse authenticated.
+- **Preconditions:** PRE-1: CareSession status = BOOKED, assigned to this nurse. PRE-2: Nurse authenticated.
 - **Postconditions:** POST-1: Status IN_PROGRESS → COMPLETED, with timestamps. POST-2: Session notes saved. POST-3: Receptionist notified for checkout.
 - **Normal Flow:**
   1. Nurse clicks 'Start Session'; status → IN_PROGRESS.
@@ -1242,7 +1242,7 @@ The following Business Rules must be enforced at both layers: Frontend validatio
 - **Normal Flow:**
   1. Manager opens `/manager/service-packages`, sees the list of packages (filterable to include hidden ones).
   2. Manager clicks "Thêm gói mới" or "Sửa" on an existing package, opening the create/edit form.
-  3. Manager fills in name, description, price (> 0), duration in minutes (> 0), sessions included (≥ 1), uploads a thumbnail (drag-and-drop supported).
+  3. Manager fills in name, description, price (> 0), duration in minutes (> 0), sessions included (≥ 1), validity in days (optional — blank means "Không giới hạn"), uploads a thumbnail (drag-and-drop supported).
   4. On upload, the UI calls `POST /api/v1/files/upload` (multipart, MANAGER/ADMIN only); the backend stores the file under `backend/uploads/`, serves it at `/api/uploads/**`; the returned URL is set as `thumbnailUrl`.
   5. Manager saves → `POST /api/v1/services/packages` (create) or `PUT /api/v1/services/packages/{id}` (edit).
   6. The package list refreshes; for ACTIVE packages, the change is immediately reflected on `/services`.
@@ -1251,7 +1251,7 @@ The following Business Rules must be enforced at both layers: Frontend validatio
   - EX-01 (Validation failure): name/description empty, price ≤ 0, duration ≤ 0, sessionsIncluded < 1, or no image → field-specific errors.
   - EX-02 (Encoding regression): if a live-DB column is still VARCHAR instead of NVARCHAR, Vietnamese diacritics silently become '?' on save — a **schema issue, not an application bug**; check this first if '?' reappears.
 - **Priority:** Should Have | **Frequency:** Occasional; during catalogue planning or seasonal promotions
-- **Business Rules:** Required fields: name, description, price > 0, duration > 0, sessionsIncluded ≥ 1, thumbnail image. Only MANAGER/ADMIN may call the image-upload or package CRUD endpoints. Hidden (inactive) packages remain editable/listable to the Manager but excluded from the patient-facing catalogue until reactivated.
+- **Business Rules:** Required fields: name, description, price > 0, duration > 0, sessionsIncluded ≥ 1, thumbnail image; `validityDays` is optional (null = unlimited) and, when set, determines the subscription's `expiryDate` at purchase time. Only MANAGER/ADMIN may call the image-upload or package CRUD endpoints. Hidden (inactive) packages remain editable/listable to the Manager but excluded from the patient-facing catalogue until reactivated.
 - **Assumptions:** Distinguished from general system/medicine/service config (Admin-owned) by being a Manager-owned, business/pricing-focused catalogue specific to wellness packages.
 - **Non-Functional Requirements:** NFR-01: list/catalogue refresh < 2s at P95. NFR-02: image uploads restricted to MANAGER/ADMIN; backend must be restarted after upload-handling code changes for new routes to take effect.
 
