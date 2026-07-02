@@ -397,17 +397,24 @@ export default function WalkInAppointmentPage() {
             </>
           ) : (
             <>
+              {/* Người lớn: CCCD & email BẮT BUỘC (email tự sinh không gửi được nhắc lịch) */}
               <Form.Item
                 label="CCCD"
                 name="cccd"
-                rules={[{ pattern: /^[0-9]{12}$/, message: 'CCCD phải có đúng 12 chữ số' }]}
+                rules={[
+                  { required: true, message: 'Vui lòng nhập CCCD' },
+                  { pattern: /^[0-9]{12}$/, message: 'CCCD phải có đúng 12 chữ số' },
+                ]}
               >
                 <Input placeholder="012345678901" maxLength={12} />
               </Form.Item>
               <Form.Item
                 label="Email"
                 name="email"
-                rules={[{ type: 'email', message: 'Email không hợp lệ' }]}
+                rules={[
+                  { required: true, message: 'Vui lòng nhập email để bệnh nhân nhận nhắc lịch & tạo tài khoản' },
+                  { type: 'email', message: 'Email không hợp lệ' },
+                ]}
               >
                 <Input placeholder="example@email.com" />
               </Form.Item>

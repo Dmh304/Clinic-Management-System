@@ -71,6 +71,51 @@ public class PatientServiceImpl implements PatientService {
                 if (!errors.isEmpty()) {
                         throw new FieldValidationException(errors);
                 }
+        }
+
+        // Đăng ký bệnh nhân vãng lai: CCCD (nếu có) và email (nếu có) phải không trùng
+        // trong hệ thống.
+        // SĐT được phép trùng để hỗ trợ trường hợp phụ huynh và con dùng chung số liên
+        // hệ.
+        // Nếu không có email (trẻ em), tự sinh email dạng pt{patientCode}@ecms.local để
+        // tạo tài khoản.
+        // Ném FieldValidationException nếu có bất kỳ field nào vi phạm (trả về tất cả
+        // lỗi cùng lúc).
+        @Override
+        @Transactional
+        public PatientResponse createWalkInPatient(PatientRequest request) {
+                // Thu thập tất cả lỗi validation trước khi throw để frontend nhận đủ thông tin
+                Map<String, String> errors = new LinkedHashMap<>();
+
+                // Bệnh nhân người lớn (>= 14 tuổi) BẮT BUỘC có CCCD và email thật — email tự
+                // sinh
+                // dạng pt{code}@ecms.local không gửi được nhắc lịch/PR dịch vụ. Trẻ em (< 14
+                // tuổi)
+                // được miễn: dùng thông tin phụ huynh và email nội bộ tự sinh để tạo tài khoản.
+                boolean isChild = request.getDateOfBirth() != null
+                                && Period.between(request.getDateOfBirth(), LocalDate.now())
+                                                .getYears() < CHILD_AGE_THRESHOLD;
+                if (!isChild) {
+                        if (request.getCccd() == null || request.getCccd().isBlank()) {
+                                errors.put("cccd", "Vui lòng nhập CCCD cho bệnh nhân người lớn");
+                        }
+                        if (request.getEmail() == null || request.getEmail().isBlank()) {
+                                errors.put("email",
+                                                "Vui lòng nhập email để bệnh nhân nhận nhắc lịch và tạo tài khoản đăng nhập");
+                        }
+                }
+
+                if (request.getCccd() != null && !request.getCccd().isBlank()
+                                && patientRepository.existsByCccd(request.getCccd())) {
+                        errors.put("cccd", "CCCD " + request.getCccd() + " đã có hồ sơ bệnh nhân trong hệ thống");
+                }
+                if (request.getEmail() != null && !request.getEmail().isBlank()
+                                && userRepository.existsByEmail(request.getEmail())) {
+                        errors.put("email", "Email " + request.getEmail() + " đã được sử dụng trong hệ thống");
+                }
+                if (!errors.isEmpty()) {
+                        throw new FieldValidationException(errors);
+                }
 
                 Role patientRole = roleRepository.findByName("PATIENT")
                                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy vai trò PATIENT"));
