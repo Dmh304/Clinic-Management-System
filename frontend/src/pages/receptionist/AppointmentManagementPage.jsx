@@ -346,7 +346,25 @@ export default function AppointmentManagementPage() {
               </Button>
             </>
           )}
-
+          {record.status === 'WAITING' && (
+            <Button size="small" type="primary"
+              style={{ backgroundColor: '#8b5cf6', borderColor: '#8b5cf6' }}
+              onClick={() => dispatch(changeAppointmentStatus({ id: record.id, status: 'IN_PROGRESS' }))
+                .unwrap()
+                .then(() => { message.success('Bắt đầu khám'); dispatch(fetchDashboard(dayParam)) })
+                .catch((err) => message.error(err))
+              }>
+              Bắt đầu khám
+            </Button>
+          )}
+          {record.status === 'COMPLETED' && (
+            <Button size="small" type="primary"
+              icon={<CheckCircleOutlined />}
+              style={{ backgroundColor: '#10b981', borderColor: '#10b981' }}
+              onClick={() => navigate('/receptionist/invoice', { state: { appointmentId: record.id } })}>
+              Thu phí & HĐ
+            </Button>
+          )}
         </Space>
       ),
     },
