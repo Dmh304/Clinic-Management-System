@@ -131,7 +131,7 @@ export default function AppRouter() {
         <Route path="/patient/dashboard" element={<PatientDashboard />} />
         <Route path="/patient/booking" element={<BookingPage />} />
         <Route path="/patient/history" element={<MedicalHistoryPage />} />
-        <Route path="/patient/prescription" element={<PrescriptionViewPage />} />
+        <Route path="/patient/prescription" element={<WithHeader><PrescriptionViewPage /></WithHeader>} />
         <Route path="/patient/subscriptions" element={<WithHeader><MySubscriptionsPage /></WithHeader>} />
         <Route path="/patient/book-session" element={<WithHeader><BookCareSessionPage /></WithHeader>} />
         <Route path="/patient/care-sessions" element={<WithHeader><MyCareSessionsPage /></WithHeader>} />
@@ -170,13 +170,13 @@ export default function AppRouter() {
       {/* ── Lab ── */}
       <Route element={<ProtectedRoute allowedRoles={['LAB_TECHNICIAN']} />}>
         <Route path="/lab/queue" element={<LabQueuePage />} />
-        <Route path="/lab/result" element={<LabResultEntryPage />} />
+        <Route path="/lab/result-entry" element={<LabResultEntryPage />} />
       </Route>
 
       {/* ── Pharmacy ── */}
       <Route element={<ProtectedRoute allowedRoles={['PHARMACIST']} />}>
-        <Route path="/pharmacy/dispensing" element={<DispensingPage />} />
-        <Route path="/pharmacy/invoice" element={<PharmacyInvoicePage />} />
+        <Route path="/pharmacy/dispensing" element={<WithHeader><DispensingPage /></WithHeader>} />
+        <Route path="/pharmacy/invoice" element={<WithHeader><PharmacyInvoicePage /></WithHeader>} />
       </Route>
 
       {/* ── Manager ── */}

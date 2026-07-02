@@ -11,6 +11,7 @@ import com.ecms.dto.request.*;
 import com.ecms.dto.response.AuthResponse;
 import com.ecms.entity.AuthProvider;
 import com.ecms.entity.Doctor;
+import com.ecms.entity.Patient;
 import com.ecms.entity.Role;
 import com.ecms.entity.User;
 import com.ecms.entity.UserStatus;
@@ -18,6 +19,7 @@ import com.ecms.entity.VerificationTokenType;
 import com.ecms.exception.ResourceNotFoundException;
 import com.ecms.exception.UnauthorizedException;
 import com.ecms.repository.DoctorRepository;
+import com.ecms.repository.PatientRepository;
 import com.ecms.repository.RoleRepository;
 import com.ecms.repository.UserRepository;
 import com.ecms.security.JwtUtil;
@@ -46,6 +48,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final DoctorRepository doctorRepository;
+    private final PatientRepository patientRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final EmailService emailService;
@@ -57,10 +60,12 @@ public class AuthServiceImpl implements AuthService {
     @Value("${app.frontend-base-url}")
     private String frontendBaseUrl;
 
-    // Lưu tạm mật khẩu mới (đã mã hóa) đang chờ xác nhận OTP trong luồng đổi mật khẩu
+    // Lưu tạm mật khẩu mới (đã mã hóa) đang chờ xác nhận OTP trong luồng đổi mật
+    // khẩu
     private final ConcurrentHashMap<Long, String> pendingPasswordChanges = new ConcurrentHashMap<>();
 
-    // Đăng ký tài khoản: tạo User ở trạng thái PENDING_VERIFICATION và gửi email xác minh
+    // Đăng ký tài khoản: tạo User ở trạng thái PENDING_VERIFICATION và gửi email
+    // xác minh
     @Override
     @Transactional
     public void register(RegisterRequest request) {
@@ -108,7 +113,8 @@ public class AuthServiceImpl implements AuthService {
         sendVerificationEmail(user);
     }
 
-    // Đăng nhập bệnh nhân bằng email hoặc số điện thoại; chặn nếu chưa xác minh, bị khóa, hoặc không phải PATIENT
+    // Đăng nhập bệnh nhân bằng email hoặc số điện thoại; chặn nếu chưa xác minh, bị
+    // khóa, hoặc không phải PATIENT
     @Override
     @Transactional
     public AuthResponse login(LoginRequest request) {
@@ -124,7 +130,7 @@ public class AuthServiceImpl implements AuthService {
         if (user.getPasswordHash() == null) {
             throw new UnauthorizedException(
                     "Tài khoản này đang đăng nhập bằng Google. Vui lòng dùng nút \"Đăng nhập với Google\", " +
-                    "hoặc đặt mật khẩu trong phần Cài đặt tài khoản.");
+                            "hoặc đặt mật khẩu trong phần Cài đặt tài khoản.");
         }
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
@@ -143,7 +149,8 @@ public class AuthServiceImpl implements AuthService {
         return buildAuthResponse(user);
     }
 
-    // Đăng nhập bằng Google: xác minh ID token, tìm tài khoản theo email — nếu chưa có thì tạo mới với vai trò PATIENT
+    // Đăng nhập bằng Google: xác minh ID token, tìm tài khoản theo email — nếu chưa
+    // có thì tạo mới với vai trò PATIENT
     @Override
     @Transactional
     public AuthResponse loginWithGoogle(GoogleLoginRequest request) {
@@ -173,7 +180,8 @@ public class AuthServiceImpl implements AuthService {
         }
 
         if (!"PATIENT".equals(user.getRole().getName())) {
-            throw new UnauthorizedException("Tài khoản này là nhân viên hệ thống. Vui lòng đăng nhập qua cổng nhân viên");
+            throw new UnauthorizedException(
+                    "Tài khoản này là nhân viên hệ thống. Vui lòng đăng nhập qua cổng nhân viên");
         }
 
         if (user.getStatus() != UserStatus.ACTIVE) {
@@ -183,7 +191,8 @@ public class AuthServiceImpl implements AuthService {
         return buildAuthResponse(user);
     }
 
-    // Bước 1 đăng nhập nhân viên: xác thực email/mật khẩu, áp dụng chính sách khóa tài khoản, gửi OTP nếu hợp lệ
+    // Bước 1 đăng nhập nhân viên: xác thực email/mật khẩu, áp dụng chính sách khóa
+    // tài khoản, gửi OTP nếu hợp lệ
     @Override
     @Transactional
     public void staffLogin(StaffLoginRequest request) {
@@ -223,7 +232,8 @@ public class AuthServiceImpl implements AuthService {
         return buildAuthResponse(user);
     }
 
-    // Quên mật khẩu: luôn trả lời giống nhau dù email có tồn tại hay không, để tránh dò email
+    // Quên mật khẩu: luôn trả lời giống nhau dù email có tồn tại hay không, để
+    // tránh dò email
     @Override
     @Transactional
     public void forgotPassword(ForgotPasswordRequest request) {
@@ -263,7 +273,8 @@ public class AuthServiceImpl implements AuthService {
         userRepository.save(user);
     }
 
-    // Bước 1 đổi mật khẩu (đã đăng nhập): xác minh mật khẩu hiện tại, lưu tạm mật khẩu mới và gửi OTP xác nhận
+    // Bước 1 đổi mật khẩu (đã đăng nhập): xác minh mật khẩu hiện tại, lưu tạm mật
+    // khẩu mới và gửi OTP xác nhận
     @Override
     @Transactional
     public void changePassword(String email, ChangePasswordRequest request) {
@@ -274,7 +285,8 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Người dùng không tồn tại"));
 
-        if (user.getPasswordHash() == null || !passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
+        if (user.getPasswordHash() == null
+                || !passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
             throw new IllegalArgumentException("Mật khẩu hiện tại không đúng");
         }
 
@@ -331,7 +343,8 @@ public class AuthServiceImpl implements AuthService {
         return userRepository.findByPhone(identifier);
     }
 
-    // Kiểm tra trạng thái khóa: bệnh nhân tự động mở khóa sau thời hạn, nhân viên cần admin mở khóa
+    // Kiểm tra trạng thái khóa: bệnh nhân tự động mở khóa sau thời hạn, nhân viên
+    // cần admin mở khóa
     private void ensureNotLocked(User user, boolean isStaff) {
         if (user.getStatus() != UserStatus.LOCKED) {
             return;
@@ -348,7 +361,8 @@ public class AuthServiceImpl implements AuthService {
         throw new UnauthorizedException(GENERIC_LOGIN_ERROR);
     }
 
-    // Ghi nhận đăng nhập sai: khóa tài khoản sau 5 lần liên tiếp theo chính sách BR-02
+    // Ghi nhận đăng nhập sai: khóa tài khoản sau 5 lần liên tiếp theo chính sách
+    // BR-02
     private void registerFailedAttempt(User user, boolean isStaff) {
         int attempts = user.getFailedLoginAttempts() + 1;
         user.setFailedLoginAttempts(attempts);
@@ -371,8 +385,11 @@ public class AuthServiceImpl implements AuthService {
         String roleName = user.getRole().getName();
 
         Long doctorId = null;
+        Long patientId = null;
         if ("DOCTOR".equals(roleName)) {
             doctorId = doctorRepository.findByUserId(user.getId()).map(Doctor::getId).orElse(null);
+        } else if ("PATIENT".equals(roleName)) {
+            patientId = patientRepository.findByUserId(user.getId()).map(Patient::getId).orElse(null);
         }
 
         String token = jwtUtil.generateToken(user.getEmail(), roleName, doctorId, user.getTokenVersion());
@@ -385,13 +402,16 @@ public class AuthServiceImpl implements AuthService {
                 .fullName(user.getFullName())
                 .role(roleName)
                 .doctorId(doctorId)
+                .patientId(patientId)
                 .build();
     }
 
-    // Xác minh ID token do Google cấp: kiểm tra chữ ký, hạn sử dụng và audience (Client ID) khớp với hệ thống
+    // Xác minh ID token do Google cấp: kiểm tra chữ ký, hạn sử dụng và audience
+    // (Client ID) khớp với hệ thống
     private GoogleIdToken.Payload verifyGoogleIdToken(String idTokenString) {
         try {
-            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), GsonFactory.getDefaultInstance())
+            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(),
+                    GsonFactory.getDefaultInstance())
                     .setAudience(Collections.singletonList(googleClientId))
                     .build();
 

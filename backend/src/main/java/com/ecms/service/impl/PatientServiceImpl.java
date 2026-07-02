@@ -85,71 +85,71 @@ public class PatientServiceImpl implements PatientService {
                 Role patientRole = roleRepository.findByName("PATIENT")
                                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy vai trò PATIENT"));
 
-        // Sinh mã bệnh nhân theo thứ tự: PT0001, PT0002,...
-        long count = patientRepository.count();
-        String patientCode = String.format("PT%04d", count + 1);
+                // Sinh mã bệnh nhân theo thứ tự: PT0001, PT0002,...
+                long count = patientRepository.count();
+                String patientCode = String.format("PT%04d", count + 1);
 
-        // Trẻ em không có email → tự sinh email nội bộ để tạo tài khoản đăng nhập
-        String email = (request.getEmail() == null || request.getEmail().isBlank())
-                ? "pt" + patientCode + "@ecms.local"
-                : request.getEmail();
+                // Trẻ em không có email → tự sinh email nội bộ để tạo tài khoản đăng nhập
+                String email = (request.getEmail() == null || request.getEmail().isBlank())
+                                ? "pt" + patientCode + "@ecms.local"
+                                : request.getEmail();
 
-        // Tạo tài khoản đăng nhập cho bệnh nhân với mật khẩu mặc định đã mã hóa
-        User user = User.builder()
-                .fullName(request.getFullName())
-                .email(email)
-                .phone(request.getPhone())
-                .passwordHash(passwordEncoder.encode(DEFAULT_PASSWORD))
-                .role(patientRole)
-                .build();
-        userRepository.save(user);
+                // Tạo tài khoản đăng nhập cho bệnh nhân với mật khẩu mặc định đã mã hóa
+                User user = User.builder()
+                                .fullName(request.getFullName())
+                                .email(email)
+                                .phone(request.getPhone())
+                                .passwordHash(passwordEncoder.encode(DEFAULT_PASSWORD))
+                                .role(patientRole)
+                                .build();
+                userRepository.save(user);
 
-        // Tạo hồ sơ bệnh nhân và liên kết với tài khoản vừa tạo
-        Patient patient = Patient.builder()
-                .user(user)
-                .patientCode(patientCode)
-                .fullName(request.getFullName())
-                .phone(request.getPhone())
-                .email(email)
-                .dateOfBirth(request.getDateOfBirth())
-                .gender(request.getGender())
-                .address(request.getAddress())
-                .cccd(request.getCccd())
-                .emergencyContactName(request.getEmergencyContactName())
-                .emergencyContactPhone(request.getEmergencyContactPhone())
-                .build();
+                // Tạo hồ sơ bệnh nhân và liên kết với tài khoản vừa tạo
+                Patient patient = Patient.builder()
+                                .user(user)
+                                .patientCode(patientCode)
+                                .fullName(request.getFullName())
+                                .phone(request.getPhone())
+                                .email(email)
+                                .dateOfBirth(request.getDateOfBirth())
+                                .gender(request.getGender())
+                                .address(request.getAddress())
+                                .cccd(request.getCccd())
+                                .emergencyContactName(request.getEmergencyContactName())
+                                .emergencyContactPhone(request.getEmergencyContactPhone())
+                                .build();
 
                 return toResponse(patientRepository.save(patient));
         }
 
-    // Tìm kiếm bệnh nhân theo từ khóa (tên, số điện thoại hoặc CCCD).
-    // Nếu không có từ khóa thì trả về toàn bộ danh sách bệnh nhân.
-    @Override
-    public List<PatientResponse> searchPatients(String keyword) {
-        List<Patient> patients = (keyword == null || keyword.trim().isEmpty())
-                ? patientRepository.findAll()
-                : patientRepository.searchByNameOrPhoneOrCccd(keyword.trim());
-        return patients.stream().map(this::toResponse).collect(Collectors.toList());
-    }
+        // Tìm kiếm bệnh nhân theo từ khóa (tên, số điện thoại hoặc CCCD).
+        // Nếu không có từ khóa thì trả về toàn bộ danh sách bệnh nhân.
+        @Override
+        public List<PatientResponse> searchPatients(String keyword) {
+                List<Patient> patients = (keyword == null || keyword.trim().isEmpty())
+                                ? patientRepository.findAll()
+                                : patientRepository.searchByNameOrPhoneOrCccd(keyword.trim());
+                return patients.stream().map(this::toResponse).collect(Collectors.toList());
+        }
 
-    // Chuyển đổi entity Patient sang DTO PatientResponse để trả về cho frontend
-    private PatientResponse toResponse(Patient p) {
-        Boolean isChild = p.getDateOfBirth() != null
-                && Period.between(p.getDateOfBirth(), LocalDate.now()).getYears() < CHILD_AGE_THRESHOLD;
-        return PatientResponse.builder()
-                .id(p.getId())
-                .patientCode(p.getPatientCode())
-                .fullName(p.getFullName())
-                .phone(p.getPhone())
-                .email(p.getEmail())
-                .dateOfBirth(p.getDateOfBirth())
-                .gender(p.getGender())
-                .address(p.getAddress())
-                .cccd(p.getCccd())
-                .emergencyContactName(p.getEmergencyContactName())
-                .emergencyContactPhone(p.getEmergencyContactPhone())
-                .isChild(isChild)
-                .createdAt(p.getCreatedAt())
-                .build();
-    }
+        // Chuyển đổi entity Patient sang DTO PatientResponse để trả về cho frontend
+        private PatientResponse toResponse(Patient p) {
+                Boolean isChild = p.getDateOfBirth() != null
+                                && Period.between(p.getDateOfBirth(), LocalDate.now()).getYears() < CHILD_AGE_THRESHOLD;
+                return PatientResponse.builder()
+                                .id(p.getId())
+                                .patientCode(p.getPatientCode())
+                                .fullName(p.getFullName())
+                                .phone(p.getPhone())
+                                .email(p.getEmail())
+                                .dateOfBirth(p.getDateOfBirth())
+                                .gender(p.getGender())
+                                .address(p.getAddress())
+                                .cccd(p.getCccd())
+                                .emergencyContactName(p.getEmergencyContactName())
+                                .emergencyContactPhone(p.getEmergencyContactPhone())
+                                .isChild(isChild)
+                                .createdAt(p.getCreatedAt())
+                                .build();
+        }
 }
