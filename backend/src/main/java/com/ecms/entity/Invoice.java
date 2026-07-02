@@ -35,6 +35,7 @@ public class Invoice {
     @Column(name = "invoice_code", unique = true, length = 30)
     private String invoiceCode;
 
+    @Builder.Default
     @OneToMany(mappedBy = "invoice", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<InvoiceItem> items = new ArrayList<>();
 
