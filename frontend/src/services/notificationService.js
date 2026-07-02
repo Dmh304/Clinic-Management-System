@@ -9,9 +9,10 @@ export const notificationService = {
   getAll: () =>
     axiosClient.get('/v1/notifications'),
 
-  // Số lượng thông báo chưa đọc
+  // Số lượng thông báo chưa đọc — polling nền, không được phép làm đăng xuất người dùng
+  // nếu 401 (vd: token gần hết hạn trong lúc họ đang thao tác ở màn khác)
   getUnreadCount: () =>
-    axiosClient.get('/v1/notifications/unread-count'),
+    axiosClient.get('/v1/notifications/unread-count', { skipAuthRedirect: true }),
 
   // Đánh dấu 1 thông báo là đã đọc
   markAsRead: (id) =>

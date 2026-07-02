@@ -26,7 +26,10 @@ axiosClient.interceptors.response.use(
       const hadToken = !!localStorage.getItem('ecms_token')
       // Chỉ redirect khi đang có token mà bị invalid (hết hạn, sai...)
       // Nếu không có token thì là request công khai, không redirect
-      if (!url.includes('/auth/login') && hadToken) {
+      // Bỏ qua các request nền (polling) đánh dấu skipAuthRedirect để không làm mất
+      // trạng thái đang thao tác của người dùng (vd: đang mở modal đổi giờ khám) chỉ vì
+      // một lượt polling thông báo bị 401 không liên quan tới hành động họ đang làm
+      if (!url.includes('/auth/login') && hadToken && !err.config?.skipAuthRedirect) {
         localStorage.removeItem('ecms_token')
         localStorage.removeItem('ecms_user')
         window.location.href = '/login'
