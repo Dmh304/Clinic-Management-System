@@ -283,10 +283,11 @@ public class AppointmentController {
 
         /* Tìm kiếm và trả về ID của Bác sĩ dựa trên Email tài khoản đăng nhập */
         private Long resolveDoctorId(UserDetails userDetails) {
-                if (userDetails == null) {
-                        return null;
-                }
-                return doctorRepository.findByEmail(userDetails.getUsername()).map(Doctor::getId).orElse(null);
+                if (userDetails == null) return null;
+                return userRepository.findByEmail(userDetails.getUsername())
+                        .flatMap(u -> doctorRepository.findByUserId(u.getId()))
+                        .map(Doctor::getId)
+                        .orElse(null);
         }
 
         /**

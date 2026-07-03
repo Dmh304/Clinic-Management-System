@@ -364,6 +364,28 @@ export default function UserManagementPage() {
           <Form.Item name="department" label="Phòng/Bộ phận">
             <Input placeholder="Ví dụ: Khoa Mắt, Phòng Tiếp Nhận..." />
           </Form.Item>
+          <Form.Item name="phone" label="Số điện thoại">
+            <Input placeholder="0901234567" />
+          </Form.Item>
+          {/* Các field chỉ hiển thị khi role = DOCTOR */}
+          <Form.Item noStyle shouldUpdate={(prev, cur) => prev.role !== cur.role}>
+            {({ getFieldValue }) => getFieldValue('role') === 'DOCTOR' && (
+              <>
+                <Form.Item
+                  name="specialty" label="Chuyên khoa"
+                  rules={[{ required: true, message: 'Vui lòng nhập chuyên khoa' }]}
+                >
+                  <Input placeholder="Ví dụ: Khoa mắt tổng quát, Khúc xạ..." />
+                </Form.Item>
+                <Form.Item
+                  name="licenseNumber" label="Số chứng chỉ hành nghề"
+                  rules={[{ required: true, message: 'Vui lòng nhập số chứng chỉ hành nghề' }]}
+                >
+                  <Input placeholder="Ví dụ: BV-HCM-001234" />
+                </Form.Item>
+              </>
+            )}
+          </Form.Item>
         </Form>
       </Modal>
 

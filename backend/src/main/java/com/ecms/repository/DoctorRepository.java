@@ -19,12 +19,12 @@ public interface DoctorRepository extends JpaRepository<Doctor, Long> {
 
     /* Tìm kiếm thông tin bác sĩ dựa trên địa chỉ Email */
     Optional<Doctor> findByEmail(String email);
-
+    Optional<Doctor> findByUserId(Long userId);
+    boolean existsByUserId(Long userId);
+    boolean existsByLicenseNumber(String licenseNumber);
     /*
      * Tìm kiếm thông tin bác sĩ thông qua mã định danh tài khoản người dùng (User
      * ID)
      */
-    Optional<Doctor> findByUserId(Long userId);
-
     Optional<Doctor> findById(Long id);
 }

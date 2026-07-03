@@ -30,11 +30,11 @@ import com.ecms.entity.Patient;
 import com.ecms.repository.DoctorRepository;
 import com.ecms.repository.LabTechnicianRepository;
 import com.ecms.repository.PatientRepository;
+import com.ecms.repository.UserRepository;
 import com.ecms.service.LabOrderService;
 import lombok.RequiredArgsConstructor;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -59,6 +59,7 @@ public class LabOrderController {
 
     /* Repository dùng để truy xuất thông tin bệnh nhân */
     private final PatientRepository patientRepository;
+    private final UserRepository userRepository;
 
     /**
      * Tạo phiếu chỉ định xét nghiệm mới.
@@ -211,16 +212,13 @@ public class LabOrderController {
 
     /**
      * Lấy danh sách kỹ thuật viên xét nghiệm đang hoạt động
-     *
      * Chỉ bác sĩ mới được phép truy cập endpoint này
      */
     @GetMapping("/technicians")
     @PreAuthorize("hasAnyRole('DOCTOR')")
     public ResponseEntity<ApiResponse<List<LabTechnicianResponse>>> getActiveLabTechnicians() {
-
         return ResponseEntity.ok(
-                ApiResponse.success(
-                        labOrderService.getActiveLabTechnicians()));
+                ApiResponse.success(labOrderService.getActiveLabTechnicians()));
     }
 
     /**
@@ -229,68 +227,47 @@ public class LabOrderController {
     @GetMapping("/doctor")
     public ResponseEntity<ApiResponse<List<LabOrderResponse>>> getLabOrdersForDoctor(
             @AuthenticationPrincipal UserDetails userDetails) {
-
         Long doctorId = resolveDoctorId(userDetails);
-
         return ResponseEntity.ok(
-                ApiResponse.success(
-                        labOrderService.getLabOrdersForDoctor(doctorId)));
+                ApiResponse.success(labOrderService.getLabOrdersForDoctor(doctorId)));
     }
 
     /**
      * Lưu kết quả xét nghiệm dưới dạng bản nháp
-     *
-     * Dùng khi kỹ thuật viên chưa hoàn tất nhập dữ liệu
      */
     @PutMapping("/{id}/draft")
     public ResponseEntity<ApiResponse<LabOrderResponse>> saveDraft(
             @PathVariable Long id,
             @RequestBody LabResultRequest request,
             @AuthenticationPrincipal UserDetails userDetails) {
-
         Long labTechnicianId = resolveLabTechnicianId(userDetails);
-
         return ResponseEntity.ok(
-                ApiResponse.success(
-                        labOrderService.saveDraft(id, request, labTechnicianId)));
+                ApiResponse.success(labOrderService.saveDraft(id, request, labTechnicianId)));
     }
 
     /**
      * Tìm ID bác sĩ từ email của tài khoản đăng nhập
      */
     private Long resolveDoctorId(UserDetails userDetails) {
-        if (userDetails == null) {
-            return null;
-        }
-
-        return doctorRepository.findByEmail(userDetails.getUsername())
+        if (userDetails == null) return null;
+        // Dùng user_id để join sang doctors thay vì khớp doctors.email với users.email
+        // (hai cột này có thể lệch nhau nếu email bác sĩ được cập nhật sau khi tạo hồ sơ)
+        return userRepository.findByEmail(userDetails.getUsername())
+                .flatMap(u -> doctorRepository.findByUserId(u.getId()))
                 .map(Doctor::getId)
                 .orElse(null);
     }
 
-    /**
-     * Tìm ID kỹ thuật viên xét nghiệm từ email đăng nhập
-     */
     private Long resolveLabTechnicianId(UserDetails userDetails) {
-        if (userDetails == null) {
-            return null;
-        }
-
-        return labTechnicianRepository.findByEmail(userDetails.getUsername())
+        if (userDetails == null) return null;
+        return userRepository.findByEmail(userDetails.getUsername())
+                .flatMap(u -> labTechnicianRepository.findByUserId(u.getId()))
                 .map(LabTechnician::getId)
                 .orElse(null);
     }
 
-    /**
-     * Tìm ID bệnh nhân từ email đăng nhập
-     */
     private Long resolvePatientId(UserDetails userDetails) {
-        if (userDetails == null) {
-            return null;
-        }
-
-        return patientRepository.findByEmail(userDetails.getUsername())
-                .map(Patient::getId)
-                .orElse(null);
+        if (userDetails == null) return null;
+        return patientRepository.findByEmail(userDetails.getUsername()).map(Patient::getId).orElse(null);
     }
 }

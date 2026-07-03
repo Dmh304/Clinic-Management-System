@@ -6,12 +6,18 @@ import com.ecms.dto.request.UpdateStaffUserRequest;
 import com.ecms.dto.response.PageResponse;
 import com.ecms.dto.response.StaffUserResponse;
 import com.ecms.entity.AuthProvider;
+import com.ecms.entity.Doctor;
+import com.ecms.entity.LabTechnician;
 import com.ecms.entity.Role;
+import com.ecms.entity.Staff;
 import com.ecms.entity.User;
 import com.ecms.entity.UserStatus;
 import com.ecms.exception.ConflictException;
 import com.ecms.exception.ResourceNotFoundException;
+import com.ecms.repository.DoctorRepository;
+import com.ecms.repository.LabTechnicianRepository;
 import com.ecms.repository.RoleRepository;
+import com.ecms.repository.StaffRepository;
 import com.ecms.repository.UserRepository;
 import com.ecms.service.AdminUserService;
 import com.ecms.service.AuditLogService;
@@ -39,6 +45,9 @@ public class AdminUserServiceImpl implements AdminUserService {
     private final PasswordEncoder passwordEncoder;
     private final AuditLogService auditLogService;
     private final EmailService emailService;
+    private final DoctorRepository doctorRepository;
+    private final LabTechnicianRepository labTechnicianRepository;
+    private final StaffRepository staffRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -65,6 +74,9 @@ public class AdminUserServiceImpl implements AdminUserService {
             throw new ConflictException("This email is already registered.");
         }
 
+        // Validate các field bắt buộc theo role trước khi tạo user
+        validateRoleSpecificFields(request);
+
         User user = User.builder()
                 .fullName(request.getFullName())
                 .email(request.getEmail())
@@ -75,6 +87,10 @@ public class AdminUserServiceImpl implements AdminUserService {
                 .passwordHash(passwordEncoder.encode(TempPasswordGenerator.generate()))
                 .build();
         User saved = userRepository.save(user);
+
+        // Tạo row trong bảng profile tương ứng với role để các module khác (appointment,
+        // lab order...) có thể resolve đúng doctor/labTech/staff theo user_id.
+        createProfileForRole(saved, request);
 
         auditLogService.log(resolveActorId(actorEmail), "CREATE_USER", "User", String.valueOf(saved.getId()),
                 null, snapshot(saved), ipAddress);
@@ -130,6 +146,10 @@ public class AdminUserServiceImpl implements AdminUserService {
     @Transactional
     public StaffUserResponse deactivateUser(Long id, String actorEmail, String ipAddress) {
         User user = getStaffUserOrThrow(id);
+
+        if (user.getRole() != null && "ADMIN".equals(user.getRole().getName())) {
+            throw new IllegalStateException("Không thể vô hiệu hoá tài khoản Admin");
+        }
 
         if (user.getStatus() == UserStatus.DISABLED) {
             throw new IllegalStateException("Tài khoản đã bị vô hiệu hoá");
@@ -206,6 +226,76 @@ public class AdminUserServiceImpl implements AdminUserService {
     }
 
     // ───────────────────────────── Helpers ─────────────────────────────
+
+    // Validate các field bắt buộc theo role (gọi trước khi save user để fail-fast)
+    private void validateRoleSpecificFields(CreateStaffUserRequest request) {
+        String roleName = request.getRole().trim().toUpperCase();
+        if ("DOCTOR".equals(roleName)) {
+            if (request.getSpecialty() == null || request.getSpecialty().isBlank()) {
+                throw new IllegalArgumentException("Chuyên khoa (specialty) là bắt buộc khi tạo tài khoản bác sĩ");
+            }
+            if (request.getLicenseNumber() == null || request.getLicenseNumber().isBlank()) {
+                throw new IllegalArgumentException("Số chứng chỉ hành nghề (licenseNumber) là bắt buộc khi tạo tài khoản bác sĩ");
+            }
+            if (doctorRepository.existsByLicenseNumber(request.getLicenseNumber().trim())) {
+                throw new ConflictException("Số chứng chỉ hành nghề đã được đăng ký: " + request.getLicenseNumber());
+            }
+        }
+    }
+
+    // Tạo row trong bảng profile tương ứng ngay sau khi user được save.
+    // Dùng user.getId() làm suffix code để đảm bảo unique mà không cần query MAX.
+    // Toàn bộ nằm trong cùng @Transactional với createUser — nếu lỗi thì rollback cả user.
+    private void createProfileForRole(User user, CreateStaffUserRequest request) {
+        String roleName = user.getRole().getName();
+        String codeId = "%06d".formatted(user.getId());
+
+        switch (roleName) {
+            case "DOCTOR" -> {
+                Doctor doctor = Doctor.builder()
+                        .user(user)
+                        .doctorCode("DR" + codeId)
+                        .fullName(user.getFullName())
+                        .licenseNumber(request.getLicenseNumber().trim())
+                        .specialization(request.getSpecialty().trim())
+                        .department(user.getDepartment())
+                        .email(user.getEmail())
+                        .phone(request.getPhone())
+                        .build();
+                doctorRepository.save(doctor);
+            }
+            case "LAB_TECHNICIAN" -> {
+                LabTechnician labTech = LabTechnician.builder()
+                        .user(user)
+                        .labTechCode("LAB" + codeId)
+                        .fullName(user.getFullName())
+                        .email(user.getEmail())
+                        .phone(request.getPhone())
+                        .build();
+                labTechnicianRepository.save(labTech);
+            }
+            default -> {
+                // NURSE, PHARMACIST, RECEPTIONIST, MANAGER, ADMIN → staffs
+                String position = switch (roleName) {
+                    case "RECEPTIONIST" -> "Lễ tân viên";
+                    case "PHARMACIST"   -> "Dược sĩ";
+                    case "NURSE"        -> "Điều dưỡng";
+                    case "MANAGER"      -> "Quản lý";
+                    case "ADMIN"        -> "Quản trị viên";
+                    default             -> roleName;
+                };
+                Staff staff = Staff.builder()
+                        .user(user)
+                        .employeeCode("EMP" + codeId)
+                        .fullName(user.getFullName())
+                        .department(user.getDepartment())
+                        .position(position)
+                        .phoneNumber(request.getPhone())
+                        .build();
+                staffRepository.save(staff);
+            }
+        }
+    }
 
     // Tải tài khoản theo id; tài khoản PATIENT bị coi như không tồn tại trong phạm vi UC-55
     private User getStaffUserOrThrow(Long id) {
