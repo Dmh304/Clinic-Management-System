@@ -9,21 +9,19 @@ import com.ecms.dto.response.ApiResponse;
 import com.ecms.dto.response.LabOrderResponse;
 import com.ecms.dto.response.LabResultResponse;
 import com.ecms.entity.Doctor;
-import com.ecms.entity.LabOrder;
 import com.ecms.entity.LabTechnician;
 import com.ecms.entity.Patient;
 import com.ecms.repository.DoctorRepository;
 import com.ecms.repository.LabTechnicianRepository;
 import com.ecms.repository.PatientRepository;
+import com.ecms.repository.UserRepository;
 import com.ecms.service.LabOrderService;
 
 import lombok.RequiredArgsConstructor;
 
 import java.util.List;
 
-import org.springframework.boot.autoconfigure.couchbase.CouchbaseProperties.Authentication;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,7 +29,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 
 @RestController
 @RequestMapping("/api/v1/lab")
@@ -41,6 +38,7 @@ public class LabOrderController {
     private final DoctorRepository doctorRepository;
     private final LabTechnicianRepository labTechnicianRepository;
     private final PatientRepository patientRepository;
+    private final UserRepository userRepository;
 
     @PostMapping
     public ResponseEntity<ApiResponse<LabOrderResponse>> createLabOrder(@RequestBody LabOrderRequest request,
@@ -95,27 +93,26 @@ public class LabOrderController {
         return ResponseEntity.ok(ApiResponse.success(labOrderService.requestRetest(id, doctorId, request)));
     }
 
-    /* Tìm kiếm và trả về id của bác sĩ dựa trên thông tin tài khoản đăng nhập */
     private Long resolveDoctorId(UserDetails userDetails) {
-        if (userDetails == null) {
-            return null;
-        }
-        return doctorRepository.findByEmail(userDetails.getUsername()).map(Doctor::getId).orElse(null);
+        if (userDetails == null) return null;
+        // Dùng user_id để join sang doctors thay vì khớp doctors.email với users.email
+        // (hai cột này có thể lệch nhau nếu email bác sĩ được cập nhật sau khi tạo hồ sơ)
+        return userRepository.findByEmail(userDetails.getUsername())
+                .flatMap(u -> doctorRepository.findByUserId(u.getId()))
+                .map(Doctor::getId)
+                .orElse(null);
     }
 
-    /* Tìm kiếm và trả về id của bác sĩ dựa trên thông tin tài khoản đăng nhập */
     private Long resolveLabTechnicianId(UserDetails userDetails) {
-        if (userDetails == null) {
-            return null;
-        }
-        return labTechnicianRepository.findByEmail(userDetails.getUsername()).map(LabTechnician::getId).orElse(null);
+        if (userDetails == null) return null;
+        return userRepository.findByEmail(userDetails.getUsername())
+                .flatMap(u -> labTechnicianRepository.findByUserId(u.getId()))
+                .map(LabTechnician::getId)
+                .orElse(null);
     }
 
-    /* Tìm kiếm và trả về id của bác sĩ dựa trên thông tin tài khoản đăng nhập */
     private Long resolvePatientId(UserDetails userDetails) {
-        if (userDetails == null) {
-            return null;
-        }
+        if (userDetails == null) return null;
         return patientRepository.findByEmail(userDetails.getUsername()).map(Patient::getId).orElse(null);
     }
 }

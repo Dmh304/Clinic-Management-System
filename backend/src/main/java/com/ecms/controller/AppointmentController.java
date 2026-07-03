@@ -232,9 +232,10 @@ public class AppointmentController {
         }
 
         private Long resolveDoctorId(UserDetails userDetails) {
-                if (userDetails == null) {
-                        return null;
-                }
-                return doctorRepository.findByEmail(userDetails.getUsername()).map(Doctor::getId).orElse(null);
+                if (userDetails == null) return null;
+                return userRepository.findByEmail(userDetails.getUsername())
+                        .flatMap(u -> doctorRepository.findByUserId(u.getId()))
+                        .map(Doctor::getId)
+                        .orElse(null);
         }
 }

@@ -13,7 +13,7 @@ import authService from '../../services/authService'
 import Header from '../../components/layout/Header'
 
 const ROLE_REDIRECT = {
-  PATIENT: '/patient/dashboard',
+  PATIENT: '/',
   DOCTOR: '/doctor/dashboard',
   NURSE: '/nurse/queue',
   RECEPTIONIST: '/receptionist/appointments',

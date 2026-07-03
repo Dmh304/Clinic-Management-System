@@ -10,4 +10,6 @@ import com.ecms.entity.LabTechnician;
 @Repository
 public interface LabTechnicianRepository extends JpaRepository<LabTechnician, Long> {
     Optional<LabTechnician> findByEmail(String email);
+    Optional<LabTechnician> findByUserId(Long userId);
+    boolean existsByUserId(Long userId);
 }

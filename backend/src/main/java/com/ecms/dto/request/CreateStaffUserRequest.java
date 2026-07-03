@@ -1,7 +1,7 @@
 // UC-55 - Manage User Account
 // DTO nhận dữ liệu tạo tài khoản nhân viên mới từ Admin.
-// Không nhận password — hệ thống tự sinh mật khẩu tạm. Role PATIENT bị chặn ở service layer
-// (BR phạm vi UC-55: Admin chỉ quản lý tài khoản nhân viên).
+// Không nhận password — hệ thống tự sinh mật khẩu tạm. Role PATIENT bị chặn ở service layer.
+// Khi role = DOCTOR: specialty và licenseNumber là bắt buộc (validate ở service layer).
 package com.ecms.dto.request;
 
 import jakarta.validation.constraints.Email;
@@ -22,4 +22,13 @@ public class CreateStaffUserRequest {
     private String role;
 
     private String department;
+
+    // Chỉ áp dụng khi role = DOCTOR (validate ở service layer)
+    private String specialty;
+
+    // Chỉ áp dụng khi role = DOCTOR; unique trong bảng doctors
+    private String licenseNumber;
+
+    // Số điện thoại nhân viên (tuỳ chọn, dùng trong hồ sơ bác sĩ/nhân viên)
+    private String phone;
 }
