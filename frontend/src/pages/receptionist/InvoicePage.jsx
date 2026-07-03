@@ -21,6 +21,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
+import { useLocation } from 'react-router-dom'
 import {
   Table, Tag, Button, Space, Typography, Card, message,
   Modal, Form, Input, Select, InputNumber, Tabs, Divider,
@@ -89,6 +90,7 @@ const fmt = (amount) =>
 
 export default function InvoicePage() {
   const dispatch = useDispatch()
+  const location = useLocation()
   const { list: invoices, loading: invoiceLoading } = useSelector((s) => s.invoice)
 
   const [allAppointments, setAllAppointments] = useState([])
@@ -143,7 +145,27 @@ export default function InvoicePage() {
       if (!isMounted) return
 
       if (appointmentsResult.status === 'fulfilled') {
-        setAllAppointments(appointmentsResult.value?.data ?? [])
+        const appointments = appointmentsResult.value?.data ?? []
+        setAllAppointments(appointments)
+
+        // Nếu navigate từ AppointmentManagementPage với appointmentId, tự động mở modal
+        const appointmentId = location.state?.appointmentId
+        if (appointmentId) {
+          const targetAppt = appointments.find((a) => a.id === appointmentId)
+          if (targetAppt && targetAppt.status === 'COMPLETED') {
+            // Delay một chút để đảm bảo state đã được cập nhật
+            setTimeout(() => {
+              if (isMounted) {
+                const prefill = targetAppt.serviceName
+                  ? [{ itemType: 'SERVICE', description: targetAppt.serviceName, quantity: 1, unitPrice: targetAppt.servicePrice ?? 0 }]
+                  : [{ itemType: 'SERVICE', description: '', quantity: 1, unitPrice: 0 }]
+                setItems(prefill)
+                form.setFieldsValue({ paymentMethod: 'CASH', paymentReference: BANK_ACCOUNT, notes: '' })
+                setCreateModal({ open: true, appointment: targetAppt })
+              }
+            }, 300)
+          }
+        }
       } else {
         message.error('Không thể tải danh sách lịch hẹn')
       }
@@ -160,7 +182,7 @@ export default function InvoicePage() {
     return () => {
       isMounted = false
     }
-  }, [dispatch])
+  }, [dispatch, location.state?.appointmentId, form])
 
   // ─── Derived ─────────────────────────────────────────────────────────────────
 
