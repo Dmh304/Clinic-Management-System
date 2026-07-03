@@ -104,7 +104,7 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Lịch hẹn không tồn tại: " + request.getAppointmentId()));
 
-        if (invoiceRepository.existsByAppointment_Id(request.getAppointmentId())) {
+        if (invoiceRepository.existsByAppointment_IdAndStatusNot(request.getAppointmentId(), "CANCELLED")) {
             throw new IllegalStateException("Lịch hẹn này đã có hóa đơn");
         }
 
@@ -134,6 +134,8 @@ public class InvoiceServiceImpl implements InvoiceService {
                     serviceFee = serviceFee.add(subtotal);
                 } else if ("MEDICINE".equals(type) || "GLASSES".equals(type)) {
                     medicineFee = medicineFee.add(subtotal);
+                } else if ("LAB".equals(type) || "OTHER".equals(type)) {
+                    labFee = labFee.add(subtotal);
                 } else {
                     labFee = labFee.add(subtotal);
                 }
@@ -329,11 +331,16 @@ public class InvoiceServiceImpl implements InvoiceService {
              + "</body></html>";
     }
 
-    // Xuất hóa đơn dạng byte[] PDF — delegate sang InvoicePdfService
+    // Xuất hóa đơn dạng byte[] PDF theo id — load từ DB rồi delegate
     @Override
     @Transactional(readOnly = true)
     public byte[] generateInvoicePdf(Long id) {
-        InvoiceResponse inv = getInvoiceById(id);
+        return invoicePdfService.generate(getInvoiceById(id));
+    }
+
+    // Xuất PDF từ DTO đã load sẵn — dùng khi caller đã có InvoiceResponse để tránh load DB lần 2
+    @Override
+    public byte[] generateInvoicePdf(InvoiceResponse inv) {
         return invoicePdfService.generate(inv);
     }
 
@@ -353,5 +360,14 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .collect(Collectors.toList());
         resp.setItems(itemResponses);
         return resp;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<InvoiceResponse> getMyInvoices(Long patientId) {
+        return invoiceRepository.findByPatientIdWithDetails(patientId)
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
     }
 }

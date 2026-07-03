@@ -28,6 +28,8 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
             """)
     List<Invoice> findAllWithDetails();
 
+    // Trả về hóa đơn hoạt động (không bị huỷ) của 1 lịch hẹn — tránh NonUniqueResultException
+    // khi tồn tại cả hóa đơn CANCELLED lẫn hóa đơn mới cho cùng 1 lịch hẹn.
     @Query("""
             SELECT DISTINCT i FROM Invoice i
             LEFT JOIN FETCH i.appointment a
@@ -35,6 +37,7 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
             LEFT JOIN FETCH a.doctor
             LEFT JOIN FETCH a.clinicService
             WHERE i.appointment.id = :appointmentId
+              AND i.status <> 'CANCELLED'
             """)
     Optional<Invoice> findByAppointmentId(@Param("appointmentId") Long appointmentId);
 
@@ -59,4 +62,20 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     long countByDatePrefix(@Param("dateStr") String dateStr);
 
     boolean existsByAppointment_Id(Long appointmentId);
+
+    // Kiểm tra lịch hẹn đã có hóa đơn CHƯA BỊ HỦY chưa — dùng để tránh tạo trùng
+    // khi hóa đơn cũ đã CANCELLED, lễ tân vẫn có thể tạo lại cho lịch hẹn đó.
+    boolean existsByAppointment_IdAndStatusNot(Long appointmentId, String status);
+
+    // Lấy tất cả hóa đơn của một bệnh nhân kèm chi tiết — dùng cho trang "Hóa đơn của tôi" (Patient)
+    @Query("""
+            SELECT DISTINCT i FROM Invoice i
+            LEFT JOIN FETCH i.appointment a
+            LEFT JOIN FETCH i.patient p
+            LEFT JOIN FETCH a.doctor
+            LEFT JOIN FETCH a.clinicService
+            WHERE i.patient.id = :patientId
+            ORDER BY i.createdAt DESC
+            """)
+    List<Invoice> findByPatientIdWithDetails(@Param("patientId") Long patientId);
 }

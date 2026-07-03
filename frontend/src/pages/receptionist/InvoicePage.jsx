@@ -393,7 +393,13 @@ export default function InvoicePage() {
     { title: 'STT', key: 'stt', width: 50, render: (_, __, i) => i + 1 },
     { title: 'Bệnh nhân', dataIndex: 'patientName', key: 'patientName' },
     { title: 'SĐT', dataIndex: 'patientPhone', key: 'patientPhone', width: 125 },
-    { title: 'Giờ khám', dataIndex: 'timeSlot', key: 'timeSlot', width: 100 },
+    {
+      title: 'Ngày khám', dataIndex: 'appointmentTime', key: 'appointmentTime', width: 120,
+      render: (t) => t ? new Date(t).toLocaleDateString('vi-VN') : '—',
+      sorter: (a, b) => new Date(a.appointmentTime) - new Date(b.appointmentTime),
+      defaultSortOrder: 'descend',
+    },
+    { title: 'Giờ khám', dataIndex: 'timeSlot', key: 'timeSlot', width: 90 },
     {
       title: 'STT hàng đợi', dataIndex: 'queueNumber', key: 'queueNumber', width: 105,
       render: (q) => q ? <Tag color="blue">#{q}</Tag> : '—',

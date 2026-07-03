@@ -35,6 +35,12 @@ public interface InvoiceService {
     // Ném IllegalStateException nếu bệnh nhân chưa có email; RuntimeException nếu SMTP thất bại
     void sendInvoiceEmail(Long id);
 
-    // Xuất hóa đơn dạng PDF để tải về hoặc in
+    // Xuất hóa đơn dạng PDF theo id (load từ DB)
     byte[] generateInvoicePdf(Long id);
+
+    // Xuất hóa đơn dạng PDF từ DTO đã load sẵn — tránh load DB lần 2
+    byte[] generateInvoicePdf(InvoiceResponse inv);
+
+    // Lấy danh sách hóa đơn của bệnh nhân đang đăng nhập — dùng cho trang "Hóa đơn của tôi"
+    List<InvoiceResponse> getMyInvoices(Long patientId);
 }

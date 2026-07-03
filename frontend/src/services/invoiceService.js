@@ -9,9 +9,9 @@ export const invoiceService = {
 	create: (data) => axiosClient.post('/v1/invoices', data),
 
 	issue: (id, paymentMethod, paymentReference) =>
-		axiosClient.post(`/v1/invoices/${id}/issue`, { paymentMethod, paymentReference }),
+		axiosClient.patch(`/v1/invoices/${id}/issue`, { paymentMethod, paymentReference }),
 
-	cancel: (id) => axiosClient.post(`/v1/invoices/${id}/cancel`),
+	cancel: (id) => axiosClient.patch(`/v1/invoices/${id}/cancel`),
 
 	getById: (id) => axiosClient.get(`/v1/invoices/${id}`),
 
@@ -19,4 +19,6 @@ export const invoiceService = {
 		axiosClient.get(`/v1/invoices/${id}/pdf`, { responseType: 'blob' }),
 
 	sendEmail: (id) => axiosClient.post(`/v1/invoices/${id}/send-email`),
+
+	getMy: () => axiosClient.get('/v1/invoices/my'),
 }

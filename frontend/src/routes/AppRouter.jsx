@@ -34,6 +34,7 @@ import MySubscriptionsPage from '../pages/patient/MySubscriptionsPage'
 import BookCareSessionPage from '../pages/patient/BookCareSessionPage'
 import MyCareSessionsPage from '../pages/patient/MyCareSessionsPage'
 import MyAppointmentsPage from '../pages/patient/MyAppointmentsPage'
+import MyInvoicesPage from '../pages/patient/MyInvoicesPage'
 
 
 
@@ -136,6 +137,7 @@ export default function AppRouter() {
         <Route path="/patient/book-session" element={<WithHeader><BookCareSessionPage /></WithHeader>} />
         <Route path="/patient/care-sessions" element={<WithHeader><MyCareSessionsPage /></WithHeader>} />
         <Route path="/patient/appointments" element={<WithHeader><MyAppointmentsPage /></WithHeader>} />
+        <Route path="/patient/invoices" element={<WithHeader><MyInvoicesPage /></WithHeader>} />
       </Route>
 
       {/* ── Doctor ── */}
