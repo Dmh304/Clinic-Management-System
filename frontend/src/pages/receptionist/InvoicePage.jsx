@@ -21,6 +21,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
+import { useLocation } from 'react-router-dom'
 import {
   Table, Tag, Button, Space, Typography, Card, message,
   Modal, Form, Input, Select, InputNumber, Tabs, Divider,
@@ -89,6 +90,7 @@ const fmt = (amount) =>
 
 export default function InvoicePage() {
   const dispatch = useDispatch()
+  const location = useLocation()
   const { list: invoices, loading: invoiceLoading } = useSelector((s) => s.invoice)
 
   const [allAppointments, setAllAppointments] = useState([])
@@ -143,7 +145,27 @@ export default function InvoicePage() {
       if (!isMounted) return
 
       if (appointmentsResult.status === 'fulfilled') {
-        setAllAppointments(appointmentsResult.value?.data ?? [])
+        const appointments = appointmentsResult.value?.data ?? []
+        setAllAppointments(appointments)
+
+        // Nếu navigate từ AppointmentManagementPage với appointmentId, tự động mở modal
+        const appointmentId = location.state?.appointmentId
+        if (appointmentId) {
+          const targetAppt = appointments.find((a) => a.id === appointmentId)
+          if (targetAppt && targetAppt.status === 'COMPLETED') {
+            // Delay một chút để đảm bảo state đã được cập nhật
+            setTimeout(() => {
+              if (isMounted) {
+                const prefill = targetAppt.serviceName
+                  ? [{ itemType: 'SERVICE', description: targetAppt.serviceName, quantity: 1, unitPrice: targetAppt.servicePrice ?? 0 }]
+                  : [{ itemType: 'SERVICE', description: '', quantity: 1, unitPrice: 0 }]
+                setItems(prefill)
+                form.setFieldsValue({ paymentMethod: 'CASH', paymentReference: BANK_ACCOUNT, notes: '' })
+                setCreateModal({ open: true, appointment: targetAppt })
+              }
+            }, 300)
+          }
+        }
       } else {
         message.error('Không thể tải danh sách lịch hẹn')
       }
@@ -160,7 +182,7 @@ export default function InvoicePage() {
     return () => {
       isMounted = false
     }
-  }, [dispatch])
+  }, [dispatch, location.state?.appointmentId, form])
 
   // ─── Derived ─────────────────────────────────────────────────────────────────
 
@@ -278,6 +300,22 @@ export default function InvoicePage() {
       })).unwrap()
 
       message.success(`Hóa đơn ${created.invoiceCode} đã được phát hành thành công`)
+
+      // UC-22/UC-23 (BP-4): tạo & phát hành xong thì gửi hóa đơn điện tử vào email
+      // bệnh nhân luôn. Lỗi gửi email (bệnh nhân chưa có email, SMTP timeout...)
+      // chỉ cảnh báo, không làm hỏng luồng thu phí đã hoàn tất.
+      try {
+        await invoiceService.sendEmail(created.id)
+        message.success('Đã gửi hóa đơn vào email bệnh nhân')
+      } catch (err) {
+        const isTimeout = err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')
+        const serverMsg = err?.response?.data?.message
+        message.warning(
+          serverMsg
+            || (isTimeout ? 'Hóa đơn đã phát hành nhưng gửi email bị quá thời gian chờ' : 'Hóa đơn đã phát hành nhưng chưa gửi được email cho bệnh nhân')
+        )
+      }
+
       handleCloseCreate()
       dispatch(fetchAllInvoices())
       void refreshAppointments()
@@ -371,7 +409,13 @@ export default function InvoicePage() {
     { title: 'STT', key: 'stt', width: 50, render: (_, __, i) => i + 1 },
     { title: 'Bệnh nhân', dataIndex: 'patientName', key: 'patientName' },
     { title: 'SĐT', dataIndex: 'patientPhone', key: 'patientPhone', width: 125 },
-    { title: 'Giờ khám', dataIndex: 'timeSlot', key: 'timeSlot', width: 100 },
+    {
+      title: 'Ngày khám', dataIndex: 'appointmentTime', key: 'appointmentTime', width: 120,
+      render: (t) => t ? new Date(t).toLocaleDateString('vi-VN') : '—',
+      sorter: (a, b) => new Date(a.appointmentTime) - new Date(b.appointmentTime),
+      defaultSortOrder: 'descend',
+    },
+    { title: 'Giờ khám', dataIndex: 'timeSlot', key: 'timeSlot', width: 90 },
     {
       title: 'STT hàng đợi', dataIndex: 'queueNumber', key: 'queueNumber', width: 105,
       render: (q) => q ? <Tag color="blue">#{q}</Tag> : '—',

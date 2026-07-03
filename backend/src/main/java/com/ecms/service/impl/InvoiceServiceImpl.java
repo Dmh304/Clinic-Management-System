@@ -104,7 +104,7 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Lịch hẹn không tồn tại: " + request.getAppointmentId()));
 
-        if (invoiceRepository.existsByAppointment_Id(request.getAppointmentId())) {
+        if (invoiceRepository.existsByAppointment_IdAndStatusNot(request.getAppointmentId(), "CANCELLED")) {
             throw new IllegalStateException("Lịch hẹn này đã có hóa đơn");
         }
 
@@ -125,7 +125,7 @@ public class InvoiceServiceImpl implements InvoiceService {
                         .description(itemReq.getDescription())
                         .quantity(qty)
                         .unitPrice(price)
-                        .subtotal(subtotal)
+                        .subTotal(subtotal)
                         .build();
                 items.add(item);
 
@@ -134,6 +134,8 @@ public class InvoiceServiceImpl implements InvoiceService {
                     serviceFee = serviceFee.add(subtotal);
                 } else if ("MEDICINE".equals(type) || "GLASSES".equals(type)) {
                     medicineFee = medicineFee.add(subtotal);
+                } else if ("LAB".equals(type) || "OTHER".equals(type)) {
+                    labFee = labFee.add(subtotal);
                 } else {
                     labFee = labFee.add(subtotal);
                 }
@@ -149,7 +151,11 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .serviceFee(serviceFee)
                 .labFee(labFee)
                 .medicineFee(medicineFee)
+                .subTotal(total)
+                .discountAmount(BigDecimal.ZERO)
+                .tax(BigDecimal.ZERO)
                 .totalAmount(total)
+                .generatedAt(LocalDateTime.now())
                 .paymentMethod(request.getPaymentMethod())
                 .paymentReference(request.getPaymentReference())
                 .status("DRAFT")
@@ -203,6 +209,10 @@ public class InvoiceServiceImpl implements InvoiceService {
 
         if ("ISSUED".equals(invoice.getStatus())) {
             throw new IllegalStateException("Không thể hủy hóa đơn đã phát hành");
+        }
+
+        if (!"DRAFT".equals(invoice.getStatus())) {
+            throw new IllegalStateException("Chỉ hóa đơn ở trạng thái DRAFT mới được hủy");
         }
 
         invoice.setStatus("CANCELLED");
@@ -289,7 +299,7 @@ public class InvoiceServiceImpl implements InvoiceService {
                  .append("<td style='padding:6px 8px;border-bottom:1px solid #e2e8f0'>").append(item.getDescription()).append("</td>")
                  .append("<td style='padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:center'>").append(item.getQuantity()).append("</td>")
                  .append("<td style='padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:right'>").append(vnd.format(item.getUnitPrice())).append("₫</td>")
-                 .append("<td style='padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:right'>").append(vnd.format(item.getSubtotal())).append("₫</td>")
+                 .append("<td style='padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:right'>").append(vnd.format(item.getSubTotal())).append("₫</td>")
                  .append("</tr>");
         }
 
@@ -321,11 +331,16 @@ public class InvoiceServiceImpl implements InvoiceService {
              + "</body></html>";
     }
 
-    // Xuất hóa đơn dạng byte[] PDF — delegate sang InvoicePdfService
+    // Xuất hóa đơn dạng byte[] PDF theo id — load từ DB rồi delegate
     @Override
     @Transactional(readOnly = true)
     public byte[] generateInvoicePdf(Long id) {
-        InvoiceResponse inv = getInvoiceById(id);
+        return invoicePdfService.generate(getInvoiceById(id));
+    }
+
+    // Xuất PDF từ DTO đã load sẵn — dùng khi caller đã có InvoiceResponse để tránh load DB lần 2
+    @Override
+    public byte[] generateInvoicePdf(InvoiceResponse inv) {
         return invoicePdfService.generate(inv);
     }
 
@@ -340,10 +355,19 @@ public class InvoiceServiceImpl implements InvoiceService {
                         .description(item.getDescription())
                         .quantity(item.getQuantity())
                         .unitPrice(item.getUnitPrice())
-                        .subtotal(item.getSubtotal())
+                        .subtotal(item.getSubTotal())
                         .build())
                 .collect(Collectors.toList());
         resp.setItems(itemResponses);
         return resp;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<InvoiceResponse> getMyInvoices(Long patientId) {
+        return invoiceRepository.findByPatientIdWithDetails(patientId)
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
     }
 }

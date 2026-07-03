@@ -3,13 +3,21 @@ package com.ecms.controller;
 import com.ecms.dto.request.InvoiceRequest;
 import com.ecms.dto.response.ApiResponse;
 import com.ecms.dto.response.InvoiceResponse;
+import com.ecms.entity.Patient;
+import com.ecms.entity.User;
+import com.ecms.exception.ResourceNotFoundException;
+import com.ecms.repository.PatientRepository;
+import com.ecms.repository.UserRepository;
 import com.ecms.service.InvoiceService;
 import jakarta.validation.Valid;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -30,6 +38,7 @@ import java.util.List;
  *   PATCH  /{id}/issue              — Phát hành hóa đơn (thu tiền)
  *   PATCH  /{id}/cancel             — Hủy hóa đơn nháp
  *   POST   /{id}/send-email         — Gửi hóa đơn qua email
+ *   GET    /my                       — Hóa đơn của bệnh nhân đang đăng nhập
  *   GET    /{id}/pdf                — Tải xuống hóa đơn PDF
  */
 @RestController
@@ -38,11 +47,24 @@ import java.util.List;
 public class InvoiceController {
 
     private final InvoiceService invoiceService;
+    private final UserRepository userRepository;
+    private final PatientRepository patientRepository;
 
     // Lấy danh sách tất cả hóa đơn (không kèm items) — dùng cho tab Lịch sử hóa đơn
     @GetMapping
     public ResponseEntity<ApiResponse<List<InvoiceResponse>>> getAllInvoices() {
         return ResponseEntity.ok(ApiResponse.success(invoiceService.getAllInvoices()));
+    }
+
+    // Hóa đơn của bệnh nhân đang đăng nhập — dùng cho trang "Hóa đơn của tôi" (PATIENT)
+    @GetMapping("/my")
+    public ResponseEntity<ApiResponse<List<InvoiceResponse>>> getMyInvoices(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new ResourceNotFoundException("Người dùng không tồn tại"));
+        Patient patient = patientRepository.findByUserId(user.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ bệnh nhân"));
+        return ResponseEntity.ok(ApiResponse.success(invoiceService.getMyInvoices(patient.getId())));
     }
 
     // Tìm kiếm hóa đơn theo tên, SĐT bệnh nhân hoặc mã hóa đơn
@@ -70,7 +92,11 @@ public class InvoiceController {
     @PostMapping
     public ResponseEntity<ApiResponse<InvoiceResponse>> createInvoice(
             @Valid @RequestBody InvoiceRequest request) {
-        return ResponseEntity.ok(ApiResponse.success(invoiceService.createInvoice(request)));
+        try {
+            return ResponseEntity.ok(ApiResponse.success(invoiceService.createInvoice(request)));
+        } catch (DataIntegrityViolationException e) {
+            throw new IllegalStateException("Mã hóa đơn bị trùng do tạo đồng thời, vui lòng thử lại");
+        }
     }
 
     // Phát hành hóa đơn sau khi thu tiền: DRAFT → ISSUED, paymentStatus → PAID
@@ -101,7 +127,7 @@ public class InvoiceController {
     @GetMapping("/{id}/pdf")
     public ResponseEntity<byte[]> downloadPdf(@PathVariable Long id) {
         InvoiceResponse inv = invoiceService.getInvoiceById(id);
-        byte[] pdf = invoiceService.generateInvoicePdf(id);
+        byte[] pdf = invoiceService.generateInvoicePdf(inv);
         String filename = "hoa-don-" + inv.getInvoiceCode() + ".pdf";
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_PDF)
