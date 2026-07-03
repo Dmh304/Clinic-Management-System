@@ -48,6 +48,7 @@ export default function MyInvoicesPage() {
   const [detail, setDetail]         = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(null)
+  const [emailSending, setEmailSending] = useState(null)
 
   useEffect(() => {
     invoiceService.getMy()
@@ -95,6 +96,24 @@ export default function MyInvoicesPage() {
       message.error('Không thể tải PDF hóa đơn')
     } finally {
       setPdfLoading(null)
+    }
+  }
+
+  // Gửi hóa đơn điện tử vào chính email của bệnh nhân (backend gửi tới patient.email
+  // gắn với hóa đơn — cũng là email tài khoản đang đăng nhập).
+  const handleSendEmail = async (inv) => {
+    setEmailSending(inv.id)
+    try {
+      await invoiceService.sendEmail(inv.id)
+      message.success('Đã gửi hóa đơn vào email của bạn')
+    } catch (err) {
+      const isTimeout = err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')
+      const serverMsg = err?.response?.data?.message
+      message.error(
+        serverMsg || (isTimeout ? 'Hết thời gian chờ — máy chủ email không phản hồi' : 'Không thể gửi email, vui lòng thử lại')
+      )
+    } finally {
+      setEmailSending(null)
     }
   }
 
@@ -213,6 +232,15 @@ export default function MyInvoicesPage() {
                           Tải PDF
                         </ActionBtn>
                       )}
+                      {inv.status === 'ISSUED' && (
+                        <ActionBtn
+                          onClick={() => handleSendEmail(inv)}
+                          loading={emailSending === inv.id}
+                          color="#16a34a"
+                        >
+                          Gửi vào email
+                        </ActionBtn>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -227,15 +255,26 @@ export default function MyInvoicesPage() {
         open={!!detail}
         onCancel={() => setDetail(null)}
         footer={detail && detail.status === 'ISSUED' ? (
-          <button
-            onClick={() => handleDownloadPdf(detail)}
-            disabled={pdfLoading === detail?.id}
-            style={{
-              padding: '8px 20px', borderRadius: 8, border: 'none', cursor: 'pointer',
-              background: '#0ea5e9', color: '#fff', fontWeight: 600, fontSize: 13,
-            }}>
-            {pdfLoading === detail?.id ? 'Đang tải...' : 'Tải PDF'}
-          </button>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button
+              onClick={() => handleSendEmail(detail)}
+              disabled={emailSending === detail?.id}
+              style={{
+                padding: '8px 20px', borderRadius: 8, border: '1px solid #16a34a', cursor: 'pointer',
+                background: '#fff', color: '#16a34a', fontWeight: 600, fontSize: 13,
+              }}>
+              {emailSending === detail?.id ? 'Đang gửi...' : 'Gửi vào email'}
+            </button>
+            <button
+              onClick={() => handleDownloadPdf(detail)}
+              disabled={pdfLoading === detail?.id}
+              style={{
+                padding: '8px 20px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                background: '#0ea5e9', color: '#fff', fontWeight: 600, fontSize: 13,
+              }}>
+              {pdfLoading === detail?.id ? 'Đang tải...' : 'Tải PDF'}
+            </button>
+          </div>
         ) : null}
         title={
           <span style={{ fontSize: 16, fontWeight: 700, color: '#1e293b' }}>

@@ -300,6 +300,22 @@ export default function InvoicePage() {
       })).unwrap()
 
       message.success(`Hóa đơn ${created.invoiceCode} đã được phát hành thành công`)
+
+      // UC-22/UC-23 (BP-4): tạo & phát hành xong thì gửi hóa đơn điện tử vào email
+      // bệnh nhân luôn. Lỗi gửi email (bệnh nhân chưa có email, SMTP timeout...)
+      // chỉ cảnh báo, không làm hỏng luồng thu phí đã hoàn tất.
+      try {
+        await invoiceService.sendEmail(created.id)
+        message.success('Đã gửi hóa đơn vào email bệnh nhân')
+      } catch (err) {
+        const isTimeout = err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')
+        const serverMsg = err?.response?.data?.message
+        message.warning(
+          serverMsg
+            || (isTimeout ? 'Hóa đơn đã phát hành nhưng gửi email bị quá thời gian chờ' : 'Hóa đơn đã phát hành nhưng chưa gửi được email cho bệnh nhân')
+        )
+      }
+
       handleCloseCreate()
       dispatch(fetchAllInvoices())
       void refreshAppointments()
