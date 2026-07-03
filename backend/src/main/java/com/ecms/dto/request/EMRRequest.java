@@ -1,5 +1,5 @@
 /**
- * Author: Tuấn - HE204215
+ * Author: TuanTD
  * 
  * Đối tượng chuyển đổi dữ liệu (DTO) chứa thông tin yêu cầu lưu hồ sơ bệnh án điện tử
  * Lớp này tiếp nhận dữ liệu chẩn đoán chung và các chỉ số đo thị lực chuyên khoa

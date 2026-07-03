@@ -25,13 +25,22 @@ public class DoctorController {
     public ResponseEntity<ApiResponse<List<DoctorResponse>>> getAllDoctors() {
         List<DoctorResponse> doctors = doctorRepository.findAll()
                 .stream()
-                .map(this::toResponse)
+                .map(d -> DoctorResponse.builder()
+                        .id(d.getId())
+                        .fullName(d.getFullName())
+                        .specialization(d.getSpecialization())
+                        .phone(d.getPhone())
+                        .email(d.getEmail())
+                        .build())
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(ApiResponse.success(doctors));
     }
 
-    /** Cập nhật ảnh đại diện bác sĩ — MANAGER/ADMIN, dùng sau khi upload qua /api/v1/files/upload */
+    /**
+     * Cập nhật ảnh đại diện bác sĩ — MANAGER/ADMIN, dùng sau khi upload qua
+     * /api/v1/files/upload
+     */
     @PatchMapping("/{id}/avatar")
     public ResponseEntity<ApiResponse<DoctorResponse>> updateAvatar(
             @PathVariable Long id,

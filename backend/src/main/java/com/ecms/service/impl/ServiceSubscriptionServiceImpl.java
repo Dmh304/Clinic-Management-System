@@ -64,7 +64,8 @@ public class ServiceSubscriptionServiceImpl implements ServiceSubscriptionServic
                     .orElseThrow(() -> new ResourceNotFoundException("Mã giảm giá không hợp lệ"));
 
             LocalDate today = LocalDate.now();
-            if (!discount.getIsActive() || today.isBefore(discount.getValidFrom()) || today.isAfter(discount.getValidTo())) {
+            if (!discount.getIsActive() || today.isBefore(discount.getValidFrom())
+                    || today.isAfter(discount.getValidTo())) {
                 throw new IllegalArgumentException("Mã giảm giá đã hết hạn hoặc không còn hiệu lực");
             }
             if (discount.getMaxUsageCount() != null && discount.getUsedCount() >= discount.getMaxUsageCount()) {
@@ -150,13 +151,15 @@ public class ServiceSubscriptionServiceImpl implements ServiceSubscriptionServic
                 .orElseThrow(() -> new ResourceNotFoundException("Mã giảm giá không tồn tại"));
 
         LocalDate today = LocalDate.now();
-        if (!discount.getIsActive() || today.isBefore(discount.getValidFrom()) || today.isAfter(discount.getValidTo())) {
+        if (!discount.getIsActive() || today.isBefore(discount.getValidFrom())
+                || today.isAfter(discount.getValidTo())) {
             throw new IllegalArgumentException("Mã giảm giá đã hết hạn");
         }
         if (discount.getMaxUsageCount() != null && discount.getUsedCount() >= discount.getMaxUsageCount()) {
             throw new IllegalArgumentException("Mã giảm giá đã hết lượt sử dụng");
         }
-        if (amount != null && discount.getMinPurchaseAmount() != null && amount.compareTo(discount.getMinPurchaseAmount()) < 0) {
+        if (amount != null && discount.getMinPurchaseAmount() != null
+                && amount.compareTo(discount.getMinPurchaseAmount()) < 0) {
             throw new IllegalArgumentException("Giá trị đơn hàng chưa đủ điều kiện");
         }
 

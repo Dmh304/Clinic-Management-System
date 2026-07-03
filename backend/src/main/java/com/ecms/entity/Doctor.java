@@ -1,5 +1,7 @@
 package com.ecms.entity;
 
+import java.time.LocalDateTime;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -55,9 +57,18 @@ public class Doctor {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    // Tự động gán thời điểm tạo hồ sơ trước khi lưu vào DB lần đầu
     @PrePersist
     private void prePersist() {
         if (createdAt == null) createdAt = LocalDateTime.now();
         if (status == null) status = "ACTIVE";
+    }
+
+    @PreUpdate
+    private void preUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 }

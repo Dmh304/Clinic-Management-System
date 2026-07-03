@@ -1,3 +1,6 @@
+// DucTKH
+// Component Layout Header chứa thanh điều hướng chính (Navbar) của ứng dụng.
+// Đã cấu hình hiển thị theo vai trò người dùng (Bệnh nhân, Lễ tân, Bác sĩ...).
 import { useState, useRef, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
@@ -284,7 +287,7 @@ export default function Header() {
             )}
           </div>
 
-          {Object.entries(PROTECTED_GUEST_ROUTES).map(([label, path]) => {
+          {(!isAuthenticated || user?.role === 'PATIENT') && Object.entries(PROTECTED_GUEST_ROUTES).map(([label, path]) => {
             const active = pathname.startsWith(path)
             // Nhân viên (mọi role khác PATIENT) không được dùng các tính năng dành cho bệnh nhân này
             const isLockedForStaff = isAuthenticated && user?.role !== 'PATIENT'
@@ -362,6 +365,21 @@ export default function Header() {
                 </button>
               )}
 
+              {user?.role === 'LAB_TECHNICIAN' && (
+                <button
+                  onClick={() => navigate('/lab/queue')}
+                  style={{
+                  backgroundColor: '#0d9488',
+                  color: '#fff',
+                  border: 'none', cursor: 'pointer',
+                  padding: '6px 14px', borderRadius: 8, fontSize: 13, fontWeight: 500,
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  }}
+                >
+                  Hàng đợi xét nghiệm
+                </button>
+              )}
+
               {user?.role === 'NURSE' && (
                 <button
                   onClick={() => navigate('/nurse/queue')}
@@ -390,6 +408,27 @@ export default function Header() {
                 </button>
               )}
 
+              {user?.role === 'PHARMACIST' && (
+                <button
+                  onClick={() => navigate('/pharmacy/dispensing')}
+                  style={{
+                    backgroundColor: '#10b981', color: '#fff',
+                    border: 'none', cursor: 'pointer',
+                    padding: '6px 14px', borderRadius: 8, fontSize: 13, fontWeight: 500,
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    transition: 'background-color 0.15s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#059669' }}
+                  onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#10b981' }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    <path d="M8 11h8"/>
+                    <path d="M12 7v8"/>
+                  </svg>
+                  Phát thuốc
+                </button>
+              )}
               {/* UC-13: chuông thông báo (badge số chưa đọc) */}
               <NotificationBell viewAllPath={user?.role === 'RECEPTIONIST' ? '/receptionist/notifications' : undefined} />
               {user?.role === 'ADMIN' && (
@@ -466,7 +505,7 @@ export default function Header() {
                           icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82Z"/><circle cx="7" cy="7" r="1"/></svg>,
                         },
                         {
-                          label: 'Hồ sơ bệnh án', to: '/patient/history',
+                          label: 'Lịch sử khám bệnh', to: '/patient/history',
                           icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
                         }
                       ] : []),

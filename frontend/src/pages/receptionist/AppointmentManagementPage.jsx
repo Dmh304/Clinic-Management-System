@@ -346,17 +346,7 @@ export default function AppointmentManagementPage() {
               </Button>
             </>
           )}
-          {record.status === 'WAITING' && (
-            <Button size="small" type="primary"
-              style={{ backgroundColor: '#8b5cf6', borderColor: '#8b5cf6' }}
-              onClick={() => dispatch(changeAppointmentStatus({ id: record.id, status: 'IN_PROGRESS' }))
-                .unwrap()
-                .then(() => { message.success('Bắt đầu khám'); dispatch(fetchDashboard(dayParam)) })
-                .catch((err) => message.error(err))
-              }>
-              Bắt đầu khám
-            </Button>
-          )}
+
         </Space>
       ),
     },
@@ -461,19 +451,24 @@ export default function AppointmentManagementPage() {
             </Row>
           )}
 
-          <Card>
-            <Space style={{ marginBottom: 16 }}>
-              <Select
-                value={filterStatus}
-                onChange={setFilterStatus}
-                style={{ width: 180 }}
-                options={[
-                  { label: 'Tất cả trạng thái', value: 'ALL' },
-                  ...Object.entries(STATUS_CONFIG).map(([v, c]) => ({ label: c.label, value: v })),
-                ]}
-              />
-              <Button icon={<ReloadOutlined />} onClick={reload} loading={loading}>Làm mới</Button>
-            </Space>
+      <Card>
+        <Space style={{ marginBottom: 16 }}>
+          <Select
+            value={filterStatus}
+            onChange={setFilterStatus}
+            style={{ width: 180 }}
+            options={[
+              { label: 'Tất cả trạng thái', value: 'ALL' },
+              ...Object.entries(STATUS_CONFIG).map(([v, c]) => ({
+                label: c.label,
+                value: v,
+              })),
+            ]}
+          />
+          <Button icon={<ReloadOutlined />} onClick={reload} loading={loading}>
+            Làm mới
+          </Button>
+        </Space>
 
             <Table
               columns={columns}
@@ -549,6 +544,9 @@ export default function AppointmentManagementPage() {
           )}
         </>
       )}
+
+      {/* Modal xác nhận + phân công bác sĩ (chế độ Ngày) */}
+      
 
       {/* Modal xác nhận + phân công bác sĩ (chế độ Ngày) */}
       <Modal

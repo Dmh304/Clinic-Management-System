@@ -230,10 +230,12 @@ export default function LoginPage() {
     setErrorMsg('')
     try {
       const res = await authService.login({ email: values.email, password: values.password })
-      const { token, userId, email, fullName, role, doctorId } = res.data
-      dispatch(loginSuccess({ token, userId, email, fullName, role, doctorId }))
+      const { token, userId, email, fullName, role, doctorId, patientId } = res.data
+      dispatch(loginSuccess({ token, userId, email, fullName, role, doctorId, patientId }))
       message.success('Đăng nhập thành công!')
-      navigate('/', { replace: true })
+      
+      const targetPath = ROLE_REDIRECT[role] || '/'
+      navigate(location.state?.from ?? targetPath, { replace: true })
     } catch (err) {
       if (!err.response) {
         // Không có phản hồi — backend chưa khởi động hoặc mạng lỗi
@@ -254,10 +256,12 @@ export default function LoginPage() {
     setErrorMsg('')
     try {
       const res = await authService.loginWithGoogle(credentialResponse.credential)
-      const { token, userId, email, fullName, role, doctorId } = res.data
-      dispatch(loginSuccess({ token, userId, email, fullName, role, doctorId }))
+      const { token, userId, email, fullName, role, doctorId, patientId } = res.data
+      dispatch(loginSuccess({ token, userId, email, fullName, role, doctorId, patientId }))
       message.success('Đăng nhập bằng Google thành công!')
-      navigate('/', { replace: true })
+      
+      const targetPath = ROLE_REDIRECT[role] || '/'
+      navigate(location.state?.from ?? targetPath, { replace: true })
     } catch (err) {
       if (!err.response) {
         setErrorMsg('Không thể kết nối đến máy chủ. Hãy kiểm tra backend đang chạy tại cổng 8080.')

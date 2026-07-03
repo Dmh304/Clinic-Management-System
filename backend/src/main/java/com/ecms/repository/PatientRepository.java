@@ -27,6 +27,7 @@ public interface PatientRepository extends JpaRepository<Patient, Long> {
     Optional<Patient> findByPhone(String phone);
 
     Optional<Patient> findByEmail(String email);
+    Optional<Patient> findByUserId(Long userId);
 
     // Tìm kiếm bệnh nhân theo tên (không phân biệt hoa/thường) hoặc số điện thoại;
     // dùng trong tìm kiếm tại quầy lễ tân
