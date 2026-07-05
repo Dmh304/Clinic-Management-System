@@ -40,12 +40,11 @@ public class PatientServiceImpl implements PatientService {
         private final RoleRepository roleRepository;
         private final PasswordEncoder passwordEncoder;
 
-        // Mật khẩu mặc định cấp cho bệnh nhân vãng lai khi tạo tài khoản lần đầu
-        private static final String DEFAULT_PASSWORD = "Password@123";
+    // Mật khẩu mặc định cấp cho bệnh nhân vãng lai khi tạo tài khoản lần đầu
+    private static final String DEFAULT_PASSWORD = "Password@123";
 
-        // Tuổi dưới mức này được xem là trẻ em — không yêu cầu CCCD/email, dùng thông
-        // tin phụ huynh
-        private static final int CHILD_AGE_THRESHOLD = 14;
+    // Tuổi dưới mức này được xem là trẻ em — không yêu cầu CCCD/email, dùng thông tin phụ huynh
+    private static final int CHILD_AGE_THRESHOLD = 14;
 
         // Đăng ký bệnh nhân vãng lai: CCCD (nếu có) và email (nếu có) phải không trùng
         // trong hệ thống.
