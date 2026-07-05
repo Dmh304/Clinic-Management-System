@@ -41,6 +41,8 @@ public class InvoiceResponse {
     private BigDecimal serviceFee;
     private BigDecimal labFee;
     private BigDecimal medicineFee;
+    private BigDecimal subTotal;
+    private BigDecimal discountAmount;
     private BigDecimal totalAmount;
 
     // Thông tin thanh toán

@@ -328,6 +328,18 @@ export default function MyInvoicesPage() {
                     ))}
                   </tbody>
                   <tfoot>
+                    {detail.discountAmount > 0 && (
+                      <>
+                        <tr>
+                          <td colSpan={3} style={{ padding: '6px 10px', color: '#64748b', textAlign: 'right' }}>Tạm tính</td>
+                          <td style={{ padding: '6px 10px', color: '#374151', textAlign: 'right' }}>{fmt(detail.subTotal)}</td>
+                        </tr>
+                        <tr>
+                          <td colSpan={3} style={{ padding: '6px 10px', color: '#dc2626', textAlign: 'right' }}>Giảm giá</td>
+                          <td style={{ padding: '6px 10px', color: '#dc2626', textAlign: 'right' }}>−{fmt(detail.discountAmount)}</td>
+                        </tr>
+                      </>
+                    )}
                     <tr style={{ background: '#f8fafc' }}>
                       <td colSpan={3} style={{ padding: '10px 10px', fontWeight: 700, color: '#374151', textAlign: 'right' }}>Tổng cộng</td>
                       <td style={{ padding: '10px 10px', fontWeight: 700, fontSize: 16, color: '#6366f1', textAlign: 'right' }}>{fmt(detail.totalAmount)}</td>

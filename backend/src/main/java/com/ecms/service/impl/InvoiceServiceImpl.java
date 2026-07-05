@@ -142,7 +142,19 @@ public class InvoiceServiceImpl implements InvoiceService {
             }
         }
 
-        BigDecimal total = serviceFee.add(labFee).add(medicineFee);
+        BigDecimal subTotal = serviceFee.add(labFee).add(medicineFee);
+
+        // BR-11: Total = Examination fee + Lab fee + Medicine fee − Discount.
+        // Giới hạn discount trong [0, subTotal] để tổng tiền không âm và không vượt quá phí.
+        BigDecimal discount = request.getDiscountAmount() != null
+                ? request.getDiscountAmount()
+                : BigDecimal.ZERO;
+        if (discount.compareTo(BigDecimal.ZERO) < 0) {
+            discount = BigDecimal.ZERO;
+        } else if (discount.compareTo(subTotal) > 0) {
+            discount = subTotal;
+        }
+        BigDecimal total = subTotal.subtract(discount);
 
         Invoice invoice = Invoice.builder()
                 .appointment(appointment)
@@ -151,8 +163,8 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .serviceFee(serviceFee)
                 .labFee(labFee)
                 .medicineFee(medicineFee)
-                .subTotal(total)
-                .discountAmount(BigDecimal.ZERO)
+                .subTotal(subTotal)
+                .discountAmount(discount)
                 .tax(BigDecimal.ZERO)
                 .totalAmount(total)
                 .generatedAt(LocalDateTime.now())
@@ -246,6 +258,8 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .serviceFee(i.getServiceFee())
                 .labFee(i.getLabFee())
                 .medicineFee(i.getMedicineFee())
+                .subTotal(i.getSubTotal())
+                .discountAmount(i.getDiscountAmount())
                 .totalAmount(i.getTotalAmount())
                 .paymentMethod(i.getPaymentMethod())
                 .paymentReference(i.getPaymentReference())
@@ -323,6 +337,10 @@ public class InvoiceServiceImpl implements InvoiceService {
              + "<th style='padding:8px;text-align:right;border-bottom:2px solid #e2e8f0'>Thành tiền</th>"
              + "</tr></thead><tbody>" + items + "</tbody></table>"
              + "<div style='text-align:right;padding:12px 0;border-top:2px solid #e2e8f0'>"
+             + (inv.getDiscountAmount() != null && inv.getDiscountAmount().compareTo(BigDecimal.ZERO) > 0
+                    ? "<div style='color:#64748b;font-size:14px;margin-bottom:4px'>Tạm tính: " + vnd.format(inv.getSubTotal()) + "₫</div>"
+                      + "<div style='color:#dc2626;font-size:14px;margin-bottom:6px'>Giảm giá: −" + vnd.format(inv.getDiscountAmount()) + "₫</div>"
+                    : "")
              + "<span style='font-size:18px;font-weight:700;color:#10b981'>Tổng cộng: " + vnd.format(inv.getTotalAmount()) + "₫</span></div>"
              + "<p style='color:#64748b;font-size:13px'>Phương thức: " + ("CASH".equals(inv.getPaymentMethod()) ? "Tiền mặt" : "QR Code") + "</p>"
              + "</div>"

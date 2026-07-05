@@ -38,6 +38,7 @@ import {
 import { appointmentService } from '../../services/appointmentService'
 import { invoiceService } from '../../services/invoiceService'
 import { clinicServiceService } from '../../services/clinicServiceService'
+import { medicineService } from '../../services/medicineService'
 
 const { Title, Text } = Typography
 
@@ -102,6 +103,7 @@ export default function InvoicePage() {
   const [createModal, setCreateModal] = useState({ open: false, appointment: null })
   const [form]                        = Form.useForm()
   const [items, setItems]             = useState([])
+  const [discount, setDiscount]       = useState(0)
   const [submitting, setSubmitting]   = useState(false)
   const [qrLoading, setQrLoading]     = useState(false)
   const [qrKey, setQrKey]             = useState(0)
@@ -109,8 +111,9 @@ export default function InvoicePage() {
   const paymentMethod    = Form.useWatch('paymentMethod', form)
   const paymentReference = Form.useWatch('paymentReference', form)
 
-  // Autocomplete dịch vụ khám
+  // Autocomplete: dịch vụ khám / xét nghiệm (CLINICAL) và danh mục thuốc
   const [availableServices, setAvailableServices] = useState([])
+  const [availableMedicines, setAvailableMedicines] = useState([])
 
   // Modal xem chi tiết
   const [detailModal, setDetailModal] = useState({ open: false, invoice: null })
@@ -137,9 +140,10 @@ export default function InvoicePage() {
     const loadInitialData = async () => {
       dispatch(fetchAllInvoices())
 
-      const [appointmentsResult, servicesResult] = await Promise.allSettled([
+      const [appointmentsResult, servicesResult, medicinesResult] = await Promise.allSettled([
         appointmentService.getAllAppointments(),
         clinicServiceService.getAllServices(),
+        medicineService.getAll(),
       ])
 
       if (!isMounted) return
@@ -172,6 +176,10 @@ export default function InvoicePage() {
 
       if (servicesResult.status === 'fulfilled') {
         setAvailableServices(servicesResult.value?.data ?? [])
+      }
+
+      if (medicinesResult.status === 'fulfilled') {
+        setAvailableMedicines(medicinesResult.value?.data ?? [])
       }
 
       setApptLoading(false)
@@ -218,6 +226,7 @@ export default function InvoicePage() {
       ? [{ itemType: 'SERVICE', description: appt.serviceName, quantity: 1, unitPrice: appt.servicePrice ?? 0 }]
       : [{ itemType: 'SERVICE', description: '', quantity: 1, unitPrice: 0 }]
     setItems(prefill)
+    setDiscount(0)
     form.setFieldsValue({ paymentMethod: 'CASH', paymentReference: BANK_ACCOUNT, notes: '' })
     setCreateModal({ open: true, appointment: appt })
   }
@@ -226,6 +235,7 @@ export default function InvoicePage() {
     setCreateModal({ open: false, appointment: null })
     form.resetFields()
     setItems([])
+    setDiscount(0)
   }
 
   // ─── Item editing ─────────────────────────────────────────────────────────────
@@ -234,6 +244,21 @@ export default function InvoicePage() {
   const removeItem = (idx) => setItems((p) => p.filter((_, i) => i !== idx))
   const updateItem = (idx, field, val) =>
     setItems((p) => p.map((it, i) => (i === idx ? { ...it, [field]: val } : it)))
+
+  // Danh mục gợi ý theo loại khoản phí, chuẩn hoá về { name, price }:
+  //  - SERVICE : mọi dịch vụ | LAB: dịch vụ CLINICAL (khám/cận lâm sàng)
+  //  - MEDICINE: danh mục thuốc | GLASSES/OTHER: nhập tay (trả null)
+  const catalogForType = (type) => {
+    if (type === 'MEDICINE')
+      return availableMedicines.map((m) => ({ name: m.name, price: Number(m.unitPrice) || 0 }))
+    if (type === 'LAB')
+      return availableServices
+        .filter((s) => s.serviceType === 'CLINICAL')
+        .map((s) => ({ name: s.serviceName, price: Number(s.price) || 0 }))
+    if (type === 'SERVICE')
+      return availableServices.map((s) => ({ name: s.serviceName, price: Number(s.price) || 0 }))
+    return null
+  }
 
   const handleAddServiceFromInfo = () => {
     const appt = createModal.appointment
@@ -254,6 +279,8 @@ export default function InvoicePage() {
 
   const calcSubtotal = (it) => (it.quantity ?? 1) * (it.unitPrice ?? 0)
   const totalAmount  = items.reduce((s, it) => s + calcSubtotal(it), 0)
+  // BR-11: Tổng thanh toán = tạm tính − giảm giá (không âm)
+  const grandTotal   = Math.max(0, totalAmount - (discount || 0))
 
   // ─── Submit ───────────────────────────────────────────────────────────────────
 
@@ -275,6 +302,10 @@ export default function InvoicePage() {
       message.warning('Đơn giá phải lớn hơn 0 cho tất cả các khoản phí')
       return
     }
+    if ((discount || 0) < 0 || (discount || 0) > totalAmount) {
+      message.warning('Số tiền giảm giá phải từ 0 đến tổng tạm tính')
+      return
+    }
 
     setSubmitting(true)
     try {
@@ -282,6 +313,7 @@ export default function InvoicePage() {
         appointmentId: createModal.appointment.id,
         paymentMethod: values.paymentMethod,
         paymentReference: values.paymentReference || null,
+        discountAmount: discount || 0,
         notes: values.notes || null,
         items: items.map((it) => ({
           itemType: it.itemType,
@@ -684,67 +716,77 @@ export default function InvoicePage() {
                     />
                   </Col>
                   <Col flex="auto">
-                    {item.itemType === 'SERVICE' ? (
-                      <AutoComplete
-                        size="small"
-                        value={item.description}
-                        onChange={(v) => updateItem(idx, 'description', v)}
-                        onSelect={(v, option) => {
-                          const isDup = items.some((it, i) =>
-                            i !== idx && it.description?.trim().toLowerCase() === v.trim().toLowerCase()
-                          )
-                          if (isDup) {
-                            message.warning('Khoản phí này đã có trong danh sách')
-                            return
-                          }
-                          setItems((prev) => prev.map((it, i) =>
-                            i === idx ? { ...it, description: v, unitPrice: option.price ?? 0 } : it
-                          ))
-                        }}
-                        options={availableServices
-                          .filter((s) =>
-                            !items.some((it, i) =>
-                              i !== idx &&
-                              it.description?.trim().toLowerCase() === s.serviceName.trim().toLowerCase()
+                    {(() => {
+                      const catalog = catalogForType(item.itemType)
+                      // GLASSES / OTHER: không có danh mục → nhập tay
+                      if (!catalog) {
+                        return (
+                          <Input
+                            size="small"
+                            value={item.description}
+                            onChange={(e) => updateItem(idx, 'description', e.target.value)}
+                            status={!item.description?.trim() ? 'error' : ''}
+                            placeholder={item.itemType === 'GLASSES' ? 'Loại kính, thông số...' : 'Mô tả khoản phí...'}
+                          />
+                        )
+                      }
+                      const placeholder =
+                        item.itemType === 'MEDICINE' ? 'Nhập hoặc chọn thuốc...' :
+                        item.itemType === 'LAB'      ? 'Nhập hoặc chọn xét nghiệm / cận lâm sàng...' :
+                                                       'Nhập hoặc chọn dịch vụ khám...'
+                      const notFound =
+                        item.itemType === 'MEDICINE' ? 'Không tìm thấy thuốc' :
+                        item.itemType === 'LAB'      ? 'Không tìm thấy xét nghiệm' :
+                                                       'Không tìm thấy dịch vụ'
+                      return (
+                        <AutoComplete
+                          size="small"
+                          value={item.description}
+                          onChange={(v) => updateItem(idx, 'description', v)}
+                          onSelect={(v, option) => {
+                            const isDup = items.some((it, i) =>
+                              i !== idx && it.description?.trim().toLowerCase() === v.trim().toLowerCase()
                             )
-                          )
-                          .map((s) => ({
-                            value: s.serviceName,
-                            label: (
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                  {s.serviceName}
-                                </span>
-                                <Text type="secondary" style={{ fontSize: 11, flexShrink: 0, color: '#10b981', fontWeight: 600 }}>
-                                  {fmt(s.price)}
-                                </Text>
-                              </div>
-                            ),
-                            price: s.price ?? 0,
-                          }))}
-                        filterOption={(input, option) =>
-                          option.value.toLowerCase().includes(input.toLowerCase())
-                        }
-                        placeholder="Nhập hoặc chọn dịch vụ khám..."
-                        style={{ width: '100%' }}
-                        allowClear
-                        status={!item.description?.trim() ? 'error' : ''}
-                        notFoundContent={<Text type="secondary" style={{ fontSize: 12 }}>Không tìm thấy dịch vụ</Text>}
-                      />
-                    ) : (
-                      <Input
-                        size="small"
-                        value={item.description}
-                        onChange={(e) => updateItem(idx, 'description', e.target.value)}
-                        status={!item.description?.trim() ? 'error' : ''}
-                        placeholder={
-                          item.itemType === 'MEDICINE' ? 'Tên thuốc, liều lượng...' :
-                          item.itemType === 'LAB'      ? 'Tên xét nghiệm...' :
-                          item.itemType === 'GLASSES'  ? 'Loại kính, thông số...' :
-                                                         'Mô tả khoản phí...'
-                        }
-                      />
-                    )}
+                            if (isDup) {
+                              message.warning('Khoản phí này đã có trong danh sách')
+                              return
+                            }
+                            setItems((prev) => prev.map((it, i) =>
+                              i === idx ? { ...it, description: v, unitPrice: option.price ?? 0 } : it
+                            ))
+                          }}
+                          options={catalog
+                            .filter((c) =>
+                              !items.some((it, i) =>
+                                i !== idx &&
+                                it.description?.trim().toLowerCase() === c.name.trim().toLowerCase()
+                              )
+                            )
+                            .map((c) => ({
+                              value: c.name,
+                              label: (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {c.name}
+                                  </span>
+                                  <Text type="secondary" style={{ fontSize: 11, flexShrink: 0, color: '#10b981', fontWeight: 600 }}>
+                                    {fmt(c.price)}
+                                  </Text>
+                                </div>
+                              ),
+                              price: c.price ?? 0,
+                            }))}
+                          filterOption={(input, option) =>
+                            option.value.toLowerCase().includes(input.toLowerCase())
+                          }
+                          placeholder={placeholder}
+                          style={{ width: '100%' }}
+                          allowClear
+                          status={!item.description?.trim() ? 'error' : ''}
+                          notFoundContent={<Text type="secondary" style={{ fontSize: 12 }}>{notFound}</Text>}
+                        />
+                      )
+                    })()}
                   </Col>
                   <Col flex="68px">
                     <InputNumber
@@ -786,9 +828,29 @@ export default function InvoicePage() {
 
             <Divider style={{ margin: '12px 0' }} />
 
-            <div style={{ textAlign: 'right', marginBottom: 20 }}>
-              <Text style={{ fontSize: 15 }}>Tổng cộng: </Text>
-              <Text strong style={{ fontSize: 22, color: '#10b981' }}>{fmt(totalAmount)}</Text>
+            {/* Giảm giá (BR-11) + tổng thanh toán */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, marginBottom: 20 }}>
+              <div style={{ color: '#64748b', fontSize: 14 }}>
+                Tạm tính: <Text strong>{fmt(totalAmount)}</Text>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 14, color: '#64748b' }}>Giảm giá (đ):</span>
+                <InputNumber
+                  size="small"
+                  min={0}
+                  max={totalAmount}
+                  value={discount}
+                  onChange={(v) => setDiscount(v ?? 0)}
+                  formatter={(v) => v?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                  parser={(v) => v?.replace(/,/g, '')}
+                  style={{ width: 140 }}
+                  status={(discount || 0) > totalAmount ? 'error' : ''}
+                />
+              </div>
+              <div>
+                <Text style={{ fontSize: 15 }}>Tổng cộng: </Text>
+                <Text strong style={{ fontSize: 22, color: '#10b981' }}>{fmt(grandTotal)}</Text>
+              </div>
             </div>
 
             <Form form={form} layout="vertical">
@@ -810,7 +872,7 @@ export default function InvoicePage() {
               </Row>
 
               {/* ── VietQR block ── */}
-              {paymentMethod === 'VIET_QR' && totalAmount > 0 && (
+              {paymentMethod === 'VIET_QR' && grandTotal > 0 && (
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -826,7 +888,7 @@ export default function InvoicePage() {
                     <img
                       key={qrKey}
                       src={buildVietQrUrl(
-                        totalAmount,
+                        grandTotal,
                         `Thanh toan ${createModal.appointment?.patientName ?? ''}`,
                         paymentReference?.trim() || BANK_ACCOUNT
                       )}
@@ -846,7 +908,7 @@ export default function InvoicePage() {
                     <div style={{ fontSize: 13, color: '#374151', lineHeight: 2 }}>
                       <div><Text type="secondary">Ngân hàng:</Text> <Text strong>{BANK_NAME}</Text></div>
                       <div><Text type="secondary">STK:</Text> <Text strong>{paymentReference?.trim() || BANK_ACCOUNT}</Text></div>
-                      <div><Text type="secondary">Số tiền:</Text> <Text strong style={{ color: '#10b981' }}>{fmt(totalAmount)}</Text></div>
+                      <div><Text type="secondary">Số tiền:</Text> <Text strong style={{ color: '#10b981' }}>{fmt(grandTotal)}</Text></div>
                       <div><Text type="secondary">Nội dung:</Text> <Text strong>Thanh toan {createModal.appointment?.patientName ?? ''}</Text></div>
                     </div>
                     <Button
@@ -946,6 +1008,16 @@ export default function InvoicePage() {
               textAlign: 'right', padding: '12px 16px',
               background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0',
             }}>
+              {detailModal.invoice.discountAmount > 0 && (
+                <>
+                  <div style={{ color: '#64748b', fontSize: 14 }}>
+                    Tạm tính: {fmt(detailModal.invoice.subTotal)}
+                  </div>
+                  <div style={{ color: '#dc2626', fontSize: 14, marginBottom: 4 }}>
+                    Giảm giá: −{fmt(detailModal.invoice.discountAmount)}
+                  </div>
+                </>
+              )}
               <Text style={{ fontSize: 15 }}>Tổng cộng: </Text>
               <Text strong style={{ fontSize: 22, color: '#10b981' }}>
                 {fmt(detailModal.invoice.totalAmount)}

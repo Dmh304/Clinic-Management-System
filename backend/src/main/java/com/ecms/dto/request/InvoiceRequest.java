@@ -14,6 +14,9 @@ public class InvoiceRequest {
 
     private List<InvoiceItemRequest> items;
 
+    // Số tiền giảm giá do lễ tân áp dụng (BR-11: Total = phí − Discount). Có thể null = 0.
+    private BigDecimal discountAmount;
+
     // CASH hoặc VIET_QR
     private String paymentMethod;
 

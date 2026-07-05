@@ -219,6 +219,12 @@ public class InvoicePdfService {
                     feeRow(sumTbl, "Phi thuoc / kinh:", fmtVnd(inv.getMedicineFee()), fFeeLabel, fFeeValue);
             }
 
+            // Dòng giảm giá (BR-11): chỉ hiển thị khi có áp dụng discount
+            if (isPos(inv.getDiscountAmount())) {
+                feeRow(sumTbl, "Tam tinh:", fmtVnd(inv.getSubTotal()), fFeeLabel, fFeeValue);
+                feeRow(sumTbl, "Giam gia:", "-" + fmtVnd(inv.getDiscountAmount()), fFeeLabel, fFeeValue);
+            }
+
             PdfPCell tc1 = new PdfPCell(new Phrase("TONG CONG:", fTotLbl));
             tc1.setBackgroundColor(C_SUCCESS_LT);
             tc1.setHorizontalAlignment(Element.ALIGN_RIGHT);

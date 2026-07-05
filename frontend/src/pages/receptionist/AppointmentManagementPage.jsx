@@ -8,6 +8,7 @@
  * DucTKHHE204463 / Le Thi Bich Ngan - HE204710
  */
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import dayjs from 'dayjs'
 import {
@@ -72,6 +73,7 @@ function formatTime(dt) {
 
 export default function AppointmentManagementPage() {
   const dispatch = useDispatch()
+  const navigate = useNavigate()
   const { list, loading, error, dashboard } = useSelector((s) => s.appointment)
 
   // ── Chế độ xem & điều hướng ──

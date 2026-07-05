@@ -280,29 +280,6 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
                 return toServiceResponse(clinicServiceRepository.save(service));
         }
 
-        // 1) Tạo gói (subscription) — lễ tân mua hộ bệnh nhân của đăng ký này
-        PurchaseServiceRequest purchaseRequest = PurchaseServiceRequest.builder()
-                .serviceId(registration.getService().getId())
-                .patientId(registration.getPatient().getId())
-                .notes(registration.getNotes())
-                .build();
-        ServiceSubscriptionResponse subscription = subscriptionService.purchase(purchaseRequest, currentUserEmail);
-
-        // 2) Đặt buổi care-session đầu tiên vào thời điểm đã chọn (book() hỗ trợ lễ tân đặt hộ)
-        BookCareSessionRequest bookRequest = BookCareSessionRequest.builder()
-                .subscriptionId(subscription.getId())
-                .scheduledDateTime(request.getScheduledDateTime())
-                .notes(request.getNotes())
-                .build();
-        CareSessionResponse session = careSessionService.book(bookRequest, currentUserEmail);
-
-        // 3) Đánh dấu đăng ký đã hoàn tất xử lý
-        registration.setStatus("COMPLETED");
-        serviceRegistrationRepository.save(registration);
-
-        return session;
-    }
-
     @Override
     @Transactional
     public CareSessionResponse registerServiceAtCounter(CounterServiceRegistrationRequest request,
@@ -342,24 +319,13 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
         return careSessionService.book(bookRequest, currentUserEmail);
     }
 
-    // ── Manager CRUD ───────────────────────────────────────────────
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<ClinicServiceResponse> getAllPackages() {
-        return clinicServiceRepository.findAllByOrderByIsPopularDescDisplayOrderAsc()
-                .stream()
-                .map(this::toServiceResponse)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional
-    public ClinicServiceResponse createPackage(ServicePackageRequest request) {
-        ServiceCategory category = null;
-        if (request.getCategoryId() != null) {
-            category = serviceCategoryRepository.findById(request.getCategoryId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy danh mục"));
+        @Override
+        @Transactional
+        public void deletePackage(Long id) {
+                ClinicService service = clinicServiceRepository.findById(id)
+                                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy gói dịch vụ"));
+                service.setIsActive(false);
+                clinicServiceRepository.save(service);
         }
 
         @Override
