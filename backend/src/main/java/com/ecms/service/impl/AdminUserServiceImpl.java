@@ -317,7 +317,7 @@ public class AdminUserServiceImpl implements AdminUserService {
     }
 
     private Long resolveActorId(String actorEmail) {
-        return userRepository.findByEmail(actorEmail).map(User::getId).orElse(null);
+        return userRepository.findByEmail(actorEmail).map(user -> user.getId()).orElse(null);
     }
 
     private Map<String, Object> snapshot(User user) {

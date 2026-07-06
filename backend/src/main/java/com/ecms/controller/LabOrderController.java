@@ -24,9 +24,6 @@ import com.ecms.dto.response.ApiResponse;
 import com.ecms.dto.response.LabOrderResponse;
 import com.ecms.dto.response.LabResultResponse;
 import com.ecms.dto.response.LabTechnicianResponse;
-import com.ecms.entity.Doctor;
-import com.ecms.entity.LabTechnician;
-import com.ecms.entity.Patient;
 import com.ecms.repository.DoctorRepository;
 import com.ecms.repository.LabTechnicianRepository;
 import com.ecms.repository.PatientRepository;
@@ -215,7 +212,6 @@ public class LabOrderController {
      * Chỉ bác sĩ mới được phép truy cập endpoint này
      */
     @GetMapping("/technicians")
-    @PreAuthorize("hasAnyRole('DOCTOR')")
     public ResponseEntity<ApiResponse<List<LabTechnicianResponse>>> getActiveLabTechnicians() {
         return ResponseEntity.ok(
                 ApiResponse.success(labOrderService.getActiveLabTechnicians()));
@@ -254,7 +250,7 @@ public class LabOrderController {
         // (hai cột này có thể lệch nhau nếu email bác sĩ được cập nhật sau khi tạo hồ sơ)
         return userRepository.findByEmail(userDetails.getUsername())
                 .flatMap(u -> doctorRepository.findByUserId(u.getId()))
-                .map(Doctor::getId)
+                .map(doctor -> doctor.getId())
                 .orElse(null);
     }
 
@@ -262,12 +258,12 @@ public class LabOrderController {
         if (userDetails == null) return null;
         return userRepository.findByEmail(userDetails.getUsername())
                 .flatMap(u -> labTechnicianRepository.findByUserId(u.getId()))
-                .map(LabTechnician::getId)
+                .map(tech -> tech.getId())
                 .orElse(null);
     }
 
     private Long resolvePatientId(UserDetails userDetails) {
         if (userDetails == null) return null;
-        return patientRepository.findByEmail(userDetails.getUsername()).map(Patient::getId).orElse(null);
+        return patientRepository.findByEmail(userDetails.getUsername()).map(patient -> patient.getId()).orElse(null);
     }
 }

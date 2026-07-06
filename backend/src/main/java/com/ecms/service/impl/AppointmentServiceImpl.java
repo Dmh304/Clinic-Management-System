@@ -300,7 +300,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         public AppointmentResponse bookOnlineAppointment(BookAppointmentRequest request, String patientEmail) {
                 Patient selfPatient = patientRepository.findByUser_Email(patientEmail)
                                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin bệnh nhân"));
-                Long bookedByUserId = userRepository.findByEmail(patientEmail).map(User::getId).orElse(null);
+                Long bookedByUserId = userRepository.findByEmail(patientEmail).map(user -> user.getId()).orElse(null);
 
                 Doctor doctor = doctorRepository.findById(request.getDoctorId())
                                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -774,7 +774,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                 appointment.setCancelReason(request != null ? request.getReason() : null);
                 appointment.setCancelledAt(LocalDateTime.now());
                 appointment.setCancelledBy(
-                                userRepository.findByEmail(actingUserEmail).map(User::getId).orElse(null));
+                                userRepository.findByEmail(actingUserEmail).map(user -> user.getId()).orElse(null));
 
                 return toResponse(appointmentRepository.save(appointment));
         }
