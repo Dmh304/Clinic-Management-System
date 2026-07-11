@@ -82,6 +82,14 @@ const PAYMENT_STATUS_CFG = {
   PAYMENT_FAILED: { color: 'red',    label: 'Thất bại' },
 }
 
+// Tình trạng gửi email hóa đơn — khớp Invoice.emailStatus ở backend
+const EMAIL_STATUS_CFG = {
+  NOT_SENT: { color: 'default',    label: 'Chưa gửi' },
+  SENDING:  { color: 'processing', label: 'Đang gửi' },
+  SENT:     { color: 'green',      label: 'Đã gửi' },
+  FAILED:   { color: 'red',        label: 'Gửi lỗi' },
+}
+
 const fmt = (amount) =>
   amount != null
     ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount)
@@ -334,17 +342,15 @@ export default function InvoicePage() {
       message.success(`Hóa đơn ${created.invoiceCode} đã được phát hành thành công`)
 
       // UC-22/UC-23 (BP-4): tạo & phát hành xong thì gửi hóa đơn điện tử vào email
-      // bệnh nhân luôn. Lỗi gửi email (bệnh nhân chưa có email, SMTP timeout...)
-      // chỉ cảnh báo, không làm hỏng luồng thu phí đã hoàn tất.
+      // bệnh nhân. Việc gửi chạy nền; tình trạng gửi hiển thị ở cột "Gửi email".
+      // Lỗi (bệnh nhân chưa có email) chỉ cảnh báo, không làm hỏng luồng thu phí.
       try {
         await invoiceService.sendEmail(created.id)
-        message.success('Đã gửi hóa đơn vào email bệnh nhân')
+        message.success('Đang gửi hóa đơn vào email bệnh nhân…')
       } catch (err) {
-        const isTimeout = err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')
         const serverMsg = err?.response?.data?.message
         message.warning(
-          serverMsg
-            || (isTimeout ? 'Hóa đơn đã phát hành nhưng gửi email bị quá thời gian chờ' : 'Hóa đơn đã phát hành nhưng chưa gửi được email cho bệnh nhân')
+          serverMsg || 'Hóa đơn đã phát hành nhưng chưa gửi được email cho bệnh nhân'
         )
       }
 
@@ -416,14 +422,16 @@ export default function InvoicePage() {
     }
     setEmailSending(true)
     try {
+      // Backend nhận yêu cầu và trả về ngay; email được gửi nền, tình trạng
+      // gửi (Đang gửi → Đã gửi / Gửi lỗi) cập nhật trong bảng sau vài giây.
       await invoiceService.sendEmail(inv.id)
-      message.success(`Đã gửi hóa đơn đến ${inv.patientEmail}`)
+      message.success(`Đang gửi hóa đơn đến ${inv.patientEmail}…`)
+      dispatch(fetchAllInvoices())
+      // Làm mới lại sau ít giây để cập nhật kết quả gửi cuối cùng (SENT/FAILED)
+      setTimeout(() => dispatch(fetchAllInvoices()), 4000)
     } catch (err) {
-      const isTimeout = err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')
       const serverMsg = err?.response?.data?.message
-      message.error(
-        serverMsg || (isTimeout ? 'Hết thời gian chờ — máy chủ SMTP không phản hồi' : 'Không thể gửi email')
-      )
+      message.error(serverMsg || 'Không thể gửi email')
     } finally {
       setEmailSending(false)
     }
@@ -502,12 +510,19 @@ export default function InvoicePage() {
       },
     },
     {
+      title: 'Gửi email', dataIndex: 'emailStatus', key: 'emailStatus', width: 110,
+      render: (s) => {
+        const c = EMAIL_STATUS_CFG[s] || EMAIL_STATUS_CFG.NOT_SENT
+        return <Tag color={c.color}>{c.label}</Tag>
+      },
+    },
+    {
       title: 'Ngày tạo', dataIndex: 'createdAt', key: 'createdAt', width: 145,
       render: (d) =>
         d ? new Date(d).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : '—',
     },
     {
-      title: 'Hành động', key: 'action', width: 155,
+      title: 'Hành động', key: 'action', width: 215,
       render: (_, record) => (
         <Space>
           <Button size="small" icon={<FileTextOutlined />}
@@ -521,6 +536,14 @@ export default function InvoicePage() {
             }}>
             Chi tiết
           </Button>
+          {record.status === 'ISSUED' && (
+            <Tooltip title={record.emailStatus === 'SENT' ? 'Gửi lại email hóa đơn' : 'Gửi email hóa đơn'}>
+              <Button size="small" icon={<MailOutlined />} loading={emailSending}
+                onClick={() => handleSendEmail(record)}>
+                {record.emailStatus === 'FAILED' ? 'Gửi lại' : 'Gửi'}
+              </Button>
+            </Tooltip>
+          )}
           {record.status === 'DRAFT' && (
             <Popconfirm title="Hủy hóa đơn này?" onConfirm={() => handleCancelInvoice(record.id)}
               okText="Hủy HĐ" cancelText="Không">

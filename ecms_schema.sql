@@ -586,6 +586,8 @@ CREATE TABLE invoices (
     payment_reference  NVARCHAR(100)   NULL,
     payment_status     NVARCHAR(20)    NOT NULL DEFAULT 'UNPAID',
     pdf_url            NVARCHAR(500)   NULL,
+    email_status       NVARCHAR(20)    NULL DEFAULT 'NOT_SENT',
+    email_sent_at      DATETIME2       NULL,
     notes              NVARCHAR(MAX)   NULL,
     issued_by          BIGINT          NULL,
     generated_at       DATETIME2       NULL,
@@ -599,9 +601,17 @@ CREATE TABLE invoices (
     CONSTRAINT FK_invoices_issued_by FOREIGN KEY (issued_by) REFERENCES users(id),
     CONSTRAINT CK_invoices_payment_method CHECK (payment_method IN ('CASH', 'VIET_QR', 'OTHER')),
     CONSTRAINT CK_invoices_payment_status CHECK (payment_status IN ('UNPAID', 'PENDING_PAYMENT', 'PAID', 'PAYMENT_FAILED')),
-    CONSTRAINT CK_invoices_status CHECK (status IN ('DRAFT', 'ISSUED', 'CANCELLED'))
+    CONSTRAINT CK_invoices_status CHECK (status IN ('DRAFT', 'ISSUED', 'CANCELLED')),
+    CONSTRAINT CK_invoices_email_status CHECK (email_status IN ('NOT_SENT', 'SENDING', 'SENT', 'FAILED'))
 );
 GO
+
+-- Migration cho DB đã tồn tại (ddl-auto=none nên chạy tay):
+--   ALTER TABLE invoices ADD email_status NVARCHAR(20) NULL DEFAULT 'NOT_SENT', email_sent_at DATETIME2 NULL;
+--   GO
+--   ALTER TABLE invoices ADD CONSTRAINT CK_invoices_email_status
+--       CHECK (email_status IN ('NOT_SENT', 'SENDING', 'SENT', 'FAILED'));
+--   GO
 CREATE UNIQUE INDEX UQ_invoices_invoice_code ON invoices(invoice_code) WHERE invoice_code IS NOT NULL;
 GO
 

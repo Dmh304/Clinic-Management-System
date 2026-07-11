@@ -77,6 +77,15 @@ public class Invoice {
     @Column(name = "pdf_url")
     private String pdfUrl;
 
+    // --- TÌNH TRẠNG GỬI EMAIL HÓA ĐƠN ---
+    // NOT_SENT | SENDING | SENT | FAILED
+    // Hóa đơn vẫn PAID kể cả khi email FAILED; lễ tân có thể gửi lại (retry).
+    @Column(name = "email_status", length = 20)
+    private String emailStatus;
+
+    @Column(name = "email_sent_at")
+    private LocalDateTime emailSentAt;
+
     // --- TRẠNG THÁI & GHI CHÚ ---
     // DRAFT | ISSUED | CANCELLED
     @Column(name = "status", nullable = false, length = 20)
@@ -108,6 +117,7 @@ public class Invoice {
         // Trạng thái chung
         if (status == null) status = "DRAFT";
         if (paymentStatus == null) paymentStatus = "UNPAID";
+        if (emailStatus == null) emailStatus = "NOT_SENT";
 
         // Khởi tạo các giá trị tiền tệ của hệ thống Dược (nhánh Duc)
         if (subTotal == null) subTotal = BigDecimal.ZERO;

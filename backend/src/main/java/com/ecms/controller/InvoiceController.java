@@ -9,6 +9,7 @@ import com.ecms.exception.ResourceNotFoundException;
 import com.ecms.repository.PatientRepository;
 import com.ecms.repository.UserRepository;
 import com.ecms.service.InvoiceService;
+import com.ecms.service.impl.InvoiceMailDispatcher;
 import jakarta.validation.Valid;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +48,7 @@ import java.util.List;
 public class InvoiceController {
 
     private final InvoiceService invoiceService;
+    private final InvoiceMailDispatcher invoiceMailDispatcher;
     private final UserRepository userRepository;
     private final PatientRepository patientRepository;
 
@@ -116,10 +118,13 @@ public class InvoiceController {
     }
 
     // ThangNBHE201024 - Gửi hóa đơn điện tử qua email đến bệnh nhân
-    // Backend tạo MimeMessage HTML qua JavaMailSender, SMTP Gmail gửi đến patient.email
+    // Đồng bộ: kiểm tra email + đánh dấu tình trạng gửi = SENDING, trả về ngay.
+    // Việc gửi SMTP (Gmail) chạy nền qua InvoiceMailDispatcher để không treo
+    // thread request khi SMTP chậm; tình trạng gửi (SENT/FAILED) cập nhật sau.
     @PostMapping("/{id}/send-email")
     public ResponseEntity<ApiResponse<Void>> sendEmail(@PathVariable Long id) {
-        invoiceService.sendInvoiceEmail(id);
+        invoiceService.markEmailSending(id);
+        invoiceMailDispatcher.dispatch(id);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
