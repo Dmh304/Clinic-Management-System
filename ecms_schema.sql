@@ -204,9 +204,10 @@ CREATE TABLE service_categories (
     name          NVARCHAR(300)   NOT NULL,
     slug          NVARCHAR(200)   NULL,
     display_order INT             NOT NULL DEFAULT 0,
-    CONSTRAINT PK_service_categories PRIMARY KEY (id),
-    CONSTRAINT UQ_service_categories_slug UNIQUE (slug)
+    CONSTRAINT PK_service_categories PRIMARY KEY (id)
 );
+GO
+CREATE UNIQUE INDEX UQ_service_categories_slug ON service_categories(slug) WHERE slug IS NOT NULL;
 GO
 
 -- ----------------------------------------------------------------------------
@@ -500,7 +501,8 @@ CREATE TABLE eyeglass_prescriptions (
     CONSTRAINT PK_eyeglass_prescriptions PRIMARY KEY (id),
     CONSTRAINT FK_eyeglass_prescriptions_medical_record FOREIGN KEY (medical_record_id) REFERENCES medical_records(id),
     CONSTRAINT FK_eyeglass_prescriptions_doctor FOREIGN KEY (doctor_id) REFERENCES doctors(id),
-    CONSTRAINT FK_eyeglass_prescriptions_patient FOREIGN KEY (patient_id) REFERENCES patients(id)
+    CONSTRAINT FK_eyeglass_prescriptions_patient FOREIGN KEY (patient_id) REFERENCES patients(id),
+    CONSTRAINT CK_eyeglass_prescriptions_status CHECK (status IN ('PENDING', 'DISPENSED', 'SKIPPED'))
 );
 GO
 
@@ -622,7 +624,7 @@ CREATE TABLE invoice_details (
     created_at  DATETIME2       NOT NULL DEFAULT GETDATE(),
     CONSTRAINT PK_invoice_details PRIMARY KEY (id),
     CONSTRAINT FK_invoice_details_invoice FOREIGN KEY (invoice_id) REFERENCES invoices(id),
-    CONSTRAINT CK_invoice_details_item_type CHECK (item_type IN ('SERVICE', 'MEDICINE', 'GLASSES', 'OTHER')),
+    CONSTRAINT CK_invoice_details_item_type CHECK (item_type IN ('SERVICE', 'MEDICINE', 'GLASSES', 'LAB', 'OTHER')),
     CONSTRAINT CK_invoice_details_status CHECK (status IN ('ACTIVE', 'CANCELLED'))
 );
 GO

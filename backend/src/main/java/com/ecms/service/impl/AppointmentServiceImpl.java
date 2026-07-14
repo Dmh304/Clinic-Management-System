@@ -46,6 +46,12 @@ public class AppointmentServiceImpl implements AppointmentService {
         /** Đặt lịch online phải trước giờ khám tối thiểu 2 giờ (BR-04). */
         private static final int BOOKING_LEAD_TIME_MINUTES = 120;
 
+        /** Giờ mở/đóng cửa phòng khám — dùng khi bệnh nhân tự đổi giờ khám.
+         *  Đồng bộ với khung giờ đặt lịch (07:30 slot đầu, 16:30 slot cuối kết thúc 17:00)
+         *  và với buổi dịch vụ chăm sóc (CareSessionServiceImpl). */
+        private static final LocalTime CLINIC_OPEN_TIME = LocalTime.of(7, 30);
+        private static final LocalTime CLINIC_CLOSE_TIME = LocalTime.of(17, 0);
+
         /** Giờ làm việc cố định của phòng khám (cách nhau 30 phút). */
         private static final List<LocalTime> MORNING_SLOTS = List.of(
                         LocalTime.of(7, 30), LocalTime.of(8, 0), LocalTime.of(8, 30), LocalTime.of(9, 0),
@@ -300,7 +306,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         public AppointmentResponse bookOnlineAppointment(BookAppointmentRequest request, String patientEmail) {
                 Patient selfPatient = patientRepository.findByUser_Email(patientEmail)
                                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin bệnh nhân"));
-                Long bookedByUserId = userRepository.findByEmail(patientEmail).map(User::getId).orElse(null);
+                Long bookedByUserId = userRepository.findByEmail(patientEmail).map(user -> user.getId()).orElse(null);
 
                 Doctor doctor = doctorRepository.findById(request.getDoctorId())
                                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -521,9 +527,19 @@ public class AppointmentServiceImpl implements AppointmentService {
         @Override
         @Transactional
         public AppointmentResponse reassignAppointment(Long id, ReassignAppointmentRequest request) {
+                // BR: Manager phải cung cấp ít nhất một trong ba: bác sĩ mới, giờ mới hoặc lý do
+                boolean hasDoctor = request.getDoctorId() != null;
+                boolean hasTime = request.getNewAppointmentTime() != null;
+                boolean hasReason = request.getReason() != null && !request.getReason().isBlank();
+                if (!hasDoctor && !hasTime && !hasReason) {
+                        throw new IllegalArgumentException(
+                                        "Vui lòng cung cấp bác sĩ mới, thời gian mới hoặc lý do chuyển lịch");
+                }
+
                 Appointment appointment = appointmentRepository.findById(id)
                                 .orElseThrow(() -> new ResourceNotFoundException("Lịch hẹn không tồn tại: " + id));
 
+                // EX-01 (BR-22): không thể chuyển lịch hẹn ở trạng thái cuối (COMPLETED/CANCELLED)
                 if (appointment.getStatus() == AppointmentStatus.COMPLETED
                                 || appointment.getStatus() == AppointmentStatus.CANCELLED) {
                         throw new IllegalStateException("Không thể chuyển lịch hẹn đã hoàn thành hoặc đã huỷ");
@@ -535,10 +551,27 @@ public class AppointmentServiceImpl implements AppointmentService {
 
                 boolean doctorChanged = false;
                 if (request.getDoctorId() != null) {
+                        // EX-02: bác sĩ không tồn tại hoặc không còn hoạt động
                         Doctor doctor = doctorRepository.findById(request.getDoctorId())
                                         .orElseThrow(() -> new ResourceNotFoundException(
                                                         "Bác sĩ không tồn tại: " + request.getDoctorId()));
+                        if (doctor.getUser() != null
+                                        && (doctor.getUser().getStatus() != UserStatus.ACTIVE
+                                                        || doctor.getUser().getDeletedAt() != null)) {
+                                throw new ResourceNotFoundException(
+                                                "Bác sĩ không tồn tại hoặc đã ngừng hoạt động: "
+                                                                + request.getDoctorId());
+                        }
                         doctorChanged = oldDoctor == null || !oldDoctor.getId().equals(doctor.getId());
+
+                        // EX-03 (BR-03): chặn nếu bác sĩ mới đã đủ số lịch hẹn tối đa trong ngày
+                        if (doctorChanged) {
+                                LocalDate targetDate = (request.getNewAppointmentTime() != null
+                                                ? request.getNewAppointmentTime()
+                                                : appointment.getAppointmentTime()).toLocalDate();
+                                validateDoctorCapacity(doctor.getId(), targetDate);
+                        }
+
                         appointment.setDoctor(doctor);
                 }
 
@@ -747,7 +780,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                 appointment.setCancelReason(request != null ? request.getReason() : null);
                 appointment.setCancelledAt(LocalDateTime.now());
                 appointment.setCancelledBy(
-                                userRepository.findByEmail(actingUserEmail).map(User::getId).orElse(null));
+                                userRepository.findByEmail(actingUserEmail).map(user -> user.getId()).orElse(null));
 
                 return toResponse(appointmentRepository.save(appointment));
         }
@@ -781,17 +814,25 @@ public class AppointmentServiceImpl implements AppointmentService {
                         throw new IllegalArgumentException("Thời gian khám mới không được để trống");
                 }
 
-                // BR-04: giờ khám mới cũng phải cách hiện tại tối thiểu
-                // BOOKING_LEAD_TIME_MINUTES
-                // (giống lúc đặt mới), tránh đổi sang giờ quá sát/đã qua.
+                // BR-04: giờ khám mới phải cách thời điểm hiện tại tối thiểu BOOKING_LEAD_TIME_MINUTES
+                // (2 giờ) — kiểm theo thời gian thực nên bệnh nhân vẫn dời SỚM hơn trong ngày được,
+                // miễn giờ mới còn cách hiện tại ≥ 2 giờ (vd 13:30 → 12:00 khi hiện tại 09:50 vẫn OK).
+                // Mọi lần đổi đều đưa lịch về PENDING để lễ tân xác nhận lại (BR-23).
                 if (newTime.isBefore(LocalDateTime.now().plusMinutes(BOOKING_LEAD_TIME_MINUTES))) {
                         throw new IllegalArgumentException(
                                         "Vui lòng chọn giờ khám mới cách thời điểm hiện tại ít nhất "
                                                         + BOOKING_LEAD_TIME_MINUTES + " phút");
                 }
 
-                // Chặn đổi sang khung giờ đã có lịch hẹn khác của cùng bác sĩ (trừ chính lịch
-                // này)
+                // Giờ mới phải nằm trong giờ làm việc phòng khám (07:30–17:00),
+                // đồng bộ với đặt lịch và buổi dịch vụ.
+                LocalTime newLocalTime = newTime.toLocalTime();
+                if (newLocalTime.isBefore(CLINIC_OPEN_TIME) || newLocalTime.isAfter(CLINIC_CLOSE_TIME)) {
+                        throw new IllegalArgumentException(
+                                        "Giờ khám mới phải trong giờ làm việc của phòng khám (07:30–17:00)");
+                }
+
+                // Chặn đổi sang khung giờ đã có lịch hẹn khác của cùng bác sĩ (trừ chính lịch này)
                 if (appointment.getDoctor() != null
                                 && !newTime.equals(appointment.getAppointmentTime())
                                 && appointmentRepository.existsByDoctor_IdAndAppointmentTimeAndStatusNot(
@@ -807,10 +848,21 @@ public class AppointmentServiceImpl implements AppointmentService {
                 }
 
                 appointment.setAppointmentTime(newTime);
-                appointment.setTimeSlot(newTime.toLocalTime().format(SLOT_FMT));
+                appointment.setTimeSlot(newLocalTime.format(SLOT_FMT));
+                // Đổi giờ luôn cần lễ tân xác nhận lại → đưa về PENDING
                 appointment.setStatus(AppointmentStatus.PENDING);
 
-                return toResponse(appointmentRepository.save(appointment));
+                Appointment saved = appointmentRepository.save(appointment);
+
+                // Thông báo cho toàn bộ Lễ tân để họ xác nhận lại giờ khám mới
+                // (bệnh nhân bấm "Đổi giờ" chỉ tạo yêu cầu, chưa phải đã chốt).
+                notificationService.createForReceptionists(
+                                "Bệnh nhân " + patient.getFullName() + " đã đổi giờ khám sang "
+                                                + newTime.toLocalDate() + " lúc " + newLocalTime.format(SLOT_FMT)
+                                                + ". Vui lòng xác nhận lại.",
+                                saved.getId());
+
+                return toResponse(saved);
         }
 
         @Override

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import dayjs from 'dayjs'
 import axiosClient from '../../api/axiosClient'
+import { careSessionService } from '../../services/careSessionService'
 
 const STATUS_INFO = {
   PENDING: { label: 'Chờ', color: '#d97706', bg: '#fef3c7' },
@@ -9,6 +10,26 @@ const STATUS_INFO = {
   IN_PROGRESS: { label: 'Đang khám', color: '#ea580c', bg: '#ffedd5' },
   COMPLETED: { label: 'Hoàn thành', color: '#16a34a', bg: '#dcfce7' },
   CANCELLED: { label: 'Đã huỷ', color: '#dc2626', bg: '#fee2e2' },
+  // Trạng thái riêng của buổi dịch vụ (care session)
+  BOOKED: { label: 'Đã đặt', color: '#2563eb', bg: '#dbeafe' },
+  CHECKED_OUT: { label: 'Đã trả', color: '#16a34a', bg: '#dcfce7' },
+}
+
+// Chuyển 1 buổi dịch vụ (care session) sang cùng khuôn dữ liệu với lịch khám để
+// hiển thị chung. Điều dưỡng (nurse) đứng ở vị trí "bác sĩ"; loại = SERVICE.
+function mapCareSession(s) {
+  return {
+    id: `cs-${s.id}`,
+    appointmentTime: s.scheduledDateTime,
+    patientName: s.patientName,
+    patientPhone: s.patientCode || '',
+    doctorId: s.nurseId ? `nurse-${s.nurseId}` : null,
+    doctorName: s.nurseName || 'Chưa phân công điều dưỡng',
+    serviceName: s.serviceName,
+    status: s.status,
+    type: 'SERVICE',
+    isService: true,
+  }
 }
 
 const WEEKDAY_SHORT = ['CN', 'Th 2', 'Th 3', 'Th 4', 'Th 5', 'Th 6', 'Th 7']
@@ -71,9 +92,29 @@ export default function DailySchedulePage() {
         })
         data = res.data || []
       }
-      setAppointments(data)
-      const uniqueDoctors = [...new Map(data.filter(a => a.doctorName).map(a => [a.doctorId, a.doctorName])).entries()]
-        .map(([id, name]) => ({ id, name }))
+
+      // Gộp thêm buổi đặt dịch vụ (care session). Care session chưa có endpoint theo
+      // khoảng ngày nên với view Tuần/Tháng ta lấy tất cả rồi lọc theo lưới đang xem.
+      let sessions = []
+      try {
+        const csRes = viewMode === 'day'
+          ? await careSessionService.getAll(anchorDate.format('YYYY-MM-DD'))
+          : await careSessionService.getAll()
+        sessions = (csRes.data || []).map(mapCareSession)
+        if (viewMode !== 'day') {
+          sessions = sessions.filter(s => {
+            const d = dayjs(s.appointmentTime)
+            return !d.isBefore(range.gridStart, 'day') && !d.isAfter(range.gridEnd, 'day')
+          })
+        }
+      } catch { /* không tải được buổi dịch vụ → chỉ hiện lịch khám */ }
+
+      const merged = [...data, ...sessions]
+      setAppointments(merged)
+      // Bộ lọc chỉ liệt kê bác sĩ thật (không gộp điều dưỡng của buổi dịch vụ)
+      const uniqueDoctors = [...new Map(
+        data.filter(a => a.doctorName).map(a => [a.doctorId, a.doctorName])
+      ).entries()].map(([id, name]) => ({ id, name }))
       setDoctors(uniqueDoctors)
     } finally {
       setLoading(false)
@@ -81,6 +122,7 @@ export default function DailySchedulePage() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchSchedule()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [range.gridStart.format('YYYY-MM-DD'), range.gridEnd.format('YYYY-MM-DD')])
@@ -242,12 +284,24 @@ function DayList({ appointments }) {
                   <div style={{ fontWeight: 600, color: '#1e293b', fontSize: 14 }}>{a.patientName}</div>
                   <div style={{ fontSize: 12, color: '#64748b' }}>{a.patientPhone}</div>
                 </td>
-                <td style={{ padding: '10px 14px', fontSize: 14, color: '#374151' }}>{a.doctorName || '—'}</td>
+                <td style={{ padding: '10px 14px', fontSize: 14, color: '#374151' }}>
+                  {a.doctorName || '—'}
+                  {a.isService && <span style={{ fontSize: 11, color: '#0891b2', marginLeft: 4 }}>(điều dưỡng)</span>}
+                </td>
                 <td style={{ padding: '10px 14px', fontSize: 14, color: '#374151' }}>{a.serviceName || '—'}</td>
                 <td style={{ padding: '10px 14px' }}>
-                  <span style={{ fontSize: 11, background: a.type === 'WALK_IN' ? '#fef3c7' : '#dbeafe', color: a.type === 'WALK_IN' ? '#d97706' : '#2563eb', padding: '2px 7px', borderRadius: 8, fontWeight: 600 }}>
-                    {a.type === 'WALK_IN' ? 'Vãng lai' : 'Đặt trước'}
-                  </span>
+                  {(() => {
+                    const t = a.isService
+                      ? { bg: '#cffafe', color: '#0891b2', label: 'Dịch vụ' }
+                      : a.type === 'WALK_IN'
+                        ? { bg: '#fef3c7', color: '#d97706', label: 'Vãng lai' }
+                        : { bg: '#dbeafe', color: '#2563eb', label: 'Đặt trước' }
+                    return (
+                      <span style={{ fontSize: 11, background: t.bg, color: t.color, padding: '2px 7px', borderRadius: 8, fontWeight: 600 }}>
+                        {t.label}
+                      </span>
+                    )
+                  })()}
                 </td>
                 <td style={{ padding: '10px 14px' }}>
                   <span style={{ background: info.bg, color: info.color, padding: '2px 8px', borderRadius: 10, fontSize: 12, fontWeight: 600 }}>{info.label}</span>

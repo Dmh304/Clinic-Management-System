@@ -1,0 +1,387 @@
+import { useEffect, useState } from 'react'
+import { Modal, Spin, message, Empty } from 'antd'
+import { invoiceService } from '../../services/invoiceService'
+
+const INVOICE_STATUS = {
+  DRAFT:     { label: 'Nháp',         color: '#d97706', bg: '#fef3c7' },
+  ISSUED:    { label: 'Đã phát hành', color: '#16a34a', bg: '#dcfce7' },
+  CANCELLED: { label: 'Đã hủy',       color: '#dc2626', bg: '#fee2e2' },
+}
+
+const PAYMENT_STATUS = {
+  UNPAID:         { label: 'Chưa thanh toán', color: '#d97706', bg: '#fef3c7' },
+  PAID:           { label: 'Đã thanh toán',   color: '#16a34a', bg: '#dcfce7' },
+  PAYMENT_FAILED: { label: 'Thất bại',        color: '#dc2626', bg: '#fee2e2' },
+}
+
+const PAYMENT_METHOD = {
+  CASH:    'Tiền mặt',
+  VIET_QR: 'QR Code (VietQR)',
+}
+
+const fmt = (n) =>
+  n != null ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n) : '—'
+
+const fmtDate = (d) =>
+  d ? new Date(d).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'
+
+const StatusBadge = ({ map, value }) => {
+  const cfg = map[value] || { label: value || '—', color: '#6b7280', bg: '#f3f4f6' }
+  return (
+    <span style={{
+      display: 'inline-block', padding: '2px 10px', borderRadius: 12, fontSize: 12,
+      fontWeight: 600, color: cfg.color, backgroundColor: cfg.bg,
+    }}>
+      {cfg.label}
+    </span>
+  )
+}
+
+const TAB_ALL      = 'ALL'
+const TAB_ISSUED   = 'ISSUED'
+const TAB_CANCELLED = 'CANCELLED'
+
+export default function MyInvoicesPage() {
+  const [invoices, setInvoices]     = useState([])
+  const [loading, setLoading]       = useState(true)
+  const [activeTab, setActiveTab]   = useState(TAB_ALL)
+  const [detail, setDetail]         = useState(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [pdfLoading, setPdfLoading] = useState(null)
+  const [emailSending, setEmailSending] = useState(null)
+
+  useEffect(() => {
+    invoiceService.getMy()
+      .then(res => setInvoices(res.data || []))
+      .catch(() => message.error('Không thể tải danh sách hóa đơn'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const filtered = invoices.filter(inv => {
+    if (activeTab === TAB_ALL) return true
+    return inv.status === activeTab
+  })
+
+  const totalPaid = invoices
+    .filter(i => i.paymentStatus === 'PAID')
+    .reduce((s, i) => s + (i.totalAmount ?? 0), 0)
+
+  const handleOpenDetail = async (inv) => {
+    setDetailLoading(true)
+    setDetail({ ...inv, items: [] })
+    try {
+      const res = await invoiceService.getById(inv.id)
+      setDetail(res.data ?? inv)
+    } catch {
+      message.error('Không thể tải chi tiết hóa đơn')
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
+  const handleDownloadPdf = async (inv) => {
+    setPdfLoading(inv.id)
+    try {
+      const blob = await invoiceService.downloadPdf(inv.id)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.target = '_blank'
+      a.rel = 'noopener noreferrer'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 60000)
+    } catch {
+      message.error('Không thể tải PDF hóa đơn')
+    } finally {
+      setPdfLoading(null)
+    }
+  }
+
+  // Gửi hóa đơn điện tử vào chính email của bệnh nhân (backend gửi tới patient.email
+  // gắn với hóa đơn — cũng là email tài khoản đang đăng nhập).
+  const handleSendEmail = async (inv) => {
+    setEmailSending(inv.id)
+    try {
+      await invoiceService.sendEmail(inv.id)
+      message.success('Đã gửi hóa đơn vào email của bạn')
+    } catch (err) {
+      const isTimeout = err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')
+      const serverMsg = err?.response?.data?.message
+      message.error(
+        serverMsg || (isTimeout ? 'Hết thời gian chờ — máy chủ email không phản hồi' : 'Không thể gửi email, vui lòng thử lại')
+      )
+    } finally {
+      setEmailSending(null)
+    }
+  }
+
+  const tabs = [
+    { key: TAB_ALL,       label: 'Tất cả',       count: invoices.length },
+    { key: TAB_ISSUED,    label: 'Đã phát hành', count: invoices.filter(i => i.status === 'ISSUED').length },
+    { key: TAB_CANCELLED, label: 'Đã hủy',       count: invoices.filter(i => i.status === 'CANCELLED').length },
+  ]
+
+  return (
+    <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', paddingBottom: 48 }}>
+
+      {/* ── Header ── */}
+      <div style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)', padding: '32px 24px 24px' }}>
+        <div style={{ maxWidth: 900, margin: '0 auto' }}>
+          <h1 style={{ color: '#fff', fontSize: 24, fontWeight: 700, margin: 0 }}>Hóa đơn của tôi</h1>
+          <p style={{ color: 'rgba(255,255,255,0.8)', margin: '6px 0 0', fontSize: 14 }}>
+            Xem lại lịch sử thanh toán và tải hóa đơn
+          </p>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 900, margin: '0 auto', padding: '0 24px' }}>
+
+        {/* ── Stats ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, margin: '24px 0' }}>
+          {[
+            { label: 'Tổng hóa đơn',     value: invoices.length, unit: 'hóa đơn', color: '#6366f1' },
+            { label: 'Đã thanh toán',     value: invoices.filter(i => i.paymentStatus === 'PAID').length, unit: 'hóa đơn', color: '#16a34a' },
+            { label: 'Tổng tiền đã trả',  value: fmt(totalPaid), unit: null, color: '#0ea5e9' },
+          ].map(s => (
+            <div key={s.label} style={{
+              background: '#fff', borderRadius: 12, padding: '16px 20px',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.07)', borderLeft: `4px solid ${s.color}`,
+            }}>
+              <p style={{ margin: 0, fontSize: 12, color: '#64748b', fontWeight: 500 }}>{s.label}</p>
+              <p style={{ margin: '6px 0 0', fontSize: 22, fontWeight: 700, color: s.color }}>
+                {s.value}{s.unit ? <span style={{ fontSize: 13, fontWeight: 400, color: '#94a3b8', marginLeft: 4 }}>{s.unit}</span> : null}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Tabs ── */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+          {tabs.map(t => (
+            <button key={t.key} onClick={() => setActiveTab(t.key)} style={{
+              padding: '7px 16px', borderRadius: 20, fontSize: 13, fontWeight: 600,
+              cursor: 'pointer', border: 'none', transition: 'all 0.15s',
+              background: activeTab === t.key ? '#6366f1' : '#fff',
+              color: activeTab === t.key ? '#fff' : '#64748b',
+              boxShadow: activeTab === t.key ? '0 2px 8px rgba(99,102,241,0.3)' : '0 1px 3px rgba(0,0,0,0.08)',
+            }}>
+              {t.label}
+              <span style={{
+                marginLeft: 6, padding: '1px 7px', borderRadius: 10, fontSize: 11,
+                background: activeTab === t.key ? 'rgba(255,255,255,0.3)' : '#f1f5f9',
+                color: activeTab === t.key ? '#fff' : '#6b7280',
+              }}>{t.count}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* ── List ── */}
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: 60 }}><Spin size="large" /></div>
+        ) : filtered.length === 0 ? (
+          <div style={{ background: '#fff', borderRadius: 12, padding: 48, textAlign: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+            <Empty description="Chưa có hóa đơn nào" />
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {filtered.map(inv => (
+              <div key={inv.id} style={{
+                background: '#fff', borderRadius: 12, padding: '18px 20px',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
+                borderLeft: `4px solid ${(INVOICE_STATUS[inv.status] || {}).color || '#e2e8f0'}`,
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+
+                  {/* Left: info */}
+                  <div style={{ flex: 1, minWidth: 200 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 700, fontSize: 15, color: '#6366f1' }}>{inv.invoiceCode}</span>
+                      <StatusBadge map={INVOICE_STATUS} value={inv.status} />
+                      <StatusBadge map={PAYMENT_STATUS} value={inv.paymentStatus} />
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '6px 24px', marginTop: 10 }}>
+                      <InfoItem label="Ngày" value={fmtDate(inv.createdAt)} />
+                      <InfoItem label="Giờ khám" value={inv.timeSlot || '—'} />
+                      <InfoItem label="Bác sĩ" value={inv.doctorName || '—'} />
+                      <InfoItem label="Dịch vụ" value={inv.serviceName || '—'} />
+                      <InfoItem label="Thanh toán" value={PAYMENT_METHOD[inv.paymentMethod] || inv.paymentMethod || '—'} />
+                    </div>
+                  </div>
+
+                  {/* Right: amount + actions */}
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <p style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#0f172a' }}>{fmt(inv.totalAmount)}</p>
+                    {inv.paidAt && (
+                      <p style={{ margin: '2px 0 0', fontSize: 11, color: '#94a3b8' }}>
+                        Đã thanh toán {fmtDate(inv.paidAt)}
+                      </p>
+                    )}
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 10 }}>
+                      <ActionBtn onClick={() => handleOpenDetail(inv)} color="#6366f1">
+                        Chi tiết
+                      </ActionBtn>
+                      {inv.status === 'ISSUED' && (
+                        <ActionBtn
+                          onClick={() => handleDownloadPdf(inv)}
+                          loading={pdfLoading === inv.id}
+                          color="#0ea5e9"
+                        >
+                          Tải PDF
+                        </ActionBtn>
+                      )}
+                      {inv.status === 'ISSUED' && (
+                        <ActionBtn
+                          onClick={() => handleSendEmail(inv)}
+                          loading={emailSending === inv.id}
+                          color="#16a34a"
+                        >
+                          Gửi vào email
+                        </ActionBtn>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Detail Modal ── */}
+      <Modal
+        open={!!detail}
+        onCancel={() => setDetail(null)}
+        footer={detail && detail.status === 'ISSUED' ? (
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button
+              onClick={() => handleSendEmail(detail)}
+              disabled={emailSending === detail?.id}
+              style={{
+                padding: '8px 20px', borderRadius: 8, border: '1px solid #16a34a', cursor: 'pointer',
+                background: '#fff', color: '#16a34a', fontWeight: 600, fontSize: 13,
+              }}>
+              {emailSending === detail?.id ? 'Đang gửi...' : 'Gửi vào email'}
+            </button>
+            <button
+              onClick={() => handleDownloadPdf(detail)}
+              disabled={pdfLoading === detail?.id}
+              style={{
+                padding: '8px 20px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                background: '#0ea5e9', color: '#fff', fontWeight: 600, fontSize: 13,
+              }}>
+              {pdfLoading === detail?.id ? 'Đang tải...' : 'Tải PDF'}
+            </button>
+          </div>
+        ) : null}
+        title={
+          <span style={{ fontSize: 16, fontWeight: 700, color: '#1e293b' }}>
+            Chi tiết hóa đơn {detail?.invoiceCode}
+          </span>
+        }
+        width={620}
+      >
+        {detailLoading ? (
+          <div style={{ textAlign: 'center', padding: 40 }}><Spin /></div>
+        ) : detail && (
+          <div>
+            {/* Header info */}
+            <div style={{
+              background: '#f8fafc', borderRadius: 8, padding: '14px 16px',
+              display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 24px', marginBottom: 20,
+            }}>
+              <InfoItem label="Ngày tạo"    value={fmtDate(detail.createdAt)} />
+              <InfoItem label="Giờ khám"    value={detail.timeSlot || '—'} />
+              <InfoItem label="Bác sĩ"      value={detail.doctorName || '—'} />
+              <InfoItem label="Dịch vụ"     value={detail.serviceName || '—'} />
+              <InfoItem label="Thanh toán"  value={PAYMENT_METHOD[detail.paymentMethod] || detail.paymentMethod || '—'} />
+              <InfoItem label="Trạng thái"  value={<StatusBadge map={INVOICE_STATUS} value={detail.status} />} />
+            </div>
+
+            {/* Items table */}
+            {detail.items && detail.items.length > 0 ? (
+              <div>
+                <p style={{ fontWeight: 600, fontSize: 13, color: '#374151', marginBottom: 8 }}>Chi tiết khoản phí</p>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: '#f1f5f9' }}>
+                      {['Mô tả', 'SL', 'Đơn giá', 'Thành tiền'].map(h => (
+                        <th key={h} style={{ padding: '8px 10px', textAlign: h === 'Mô tả' ? 'left' : 'right', color: '#475569', fontWeight: 600 }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detail.items.map((item, i) => (
+                      <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '8px 10px', color: '#1e293b' }}>
+                          <span style={{ fontSize: 11, color: '#94a3b8', marginRight: 6 }}>
+                            {item.itemType === 'SERVICE' ? 'DV' : item.itemType === 'LAB' ? 'XN' : item.itemType === 'MEDICINE' ? 'TH' : item.itemType === 'GLASSES' ? 'KN' : 'KH'}
+                          </span>
+                          {item.description}
+                        </td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', color: '#374151' }}>{item.quantity}</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', color: '#374151' }}>{fmt(item.unitPrice)}</td>
+                        <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600, color: '#1e293b' }}>{fmt(item.subtotal)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    {detail.discountAmount > 0 && (
+                      <>
+                        <tr>
+                          <td colSpan={3} style={{ padding: '6px 10px', color: '#64748b', textAlign: 'right' }}>Tạm tính</td>
+                          <td style={{ padding: '6px 10px', color: '#374151', textAlign: 'right' }}>{fmt(detail.subTotal)}</td>
+                        </tr>
+                        <tr>
+                          <td colSpan={3} style={{ padding: '6px 10px', color: '#dc2626', textAlign: 'right' }}>Giảm giá</td>
+                          <td style={{ padding: '6px 10px', color: '#dc2626', textAlign: 'right' }}>−{fmt(detail.discountAmount)}</td>
+                        </tr>
+                      </>
+                    )}
+                    <tr style={{ background: '#f8fafc' }}>
+                      <td colSpan={3} style={{ padding: '10px 10px', fontWeight: 700, color: '#374151', textAlign: 'right' }}>Tổng cộng</td>
+                      <td style={{ padding: '10px 10px', fontWeight: 700, fontSize: 16, color: '#6366f1', textAlign: 'right' }}>{fmt(detail.totalAmount)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: 24, color: '#94a3b8', fontSize: 13 }}>
+                Không có chi tiết khoản phí
+              </div>
+            )}
+
+            {detail.notes && (
+              <div style={{ marginTop: 16, padding: '10px 14px', background: '#fefce8', borderRadius: 8, fontSize: 13, color: '#92400e' }}>
+                <strong>Ghi chú:</strong> {detail.notes}
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+    </div>
+  )
+}
+
+function InfoItem({ label, value }) {
+  return (
+    <div>
+      <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>{label}</span>
+      <div style={{ fontSize: 13, color: '#1e293b', fontWeight: 500, marginTop: 2 }}>{value}</div>
+    </div>
+  )
+}
+
+function ActionBtn({ onClick, loading, color, children }) {
+  return (
+    <button onClick={onClick} disabled={loading} style={{
+      padding: '5px 14px', borderRadius: 6, border: `1px solid ${color}`,
+      background: '#fff', color: color, fontSize: 12, fontWeight: 600,
+      cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1,
+    }}>
+      {loading ? '...' : children}
+    </button>
+  )
+}

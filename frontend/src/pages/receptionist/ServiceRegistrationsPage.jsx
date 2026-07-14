@@ -2,10 +2,13 @@
 // đang chờ được liên hệ tư vấn. Lễ tân đánh dấu "Đã liên hệ" sau khi gọi điện tư vấn
 // để tránh liên hệ trùng và để bệnh nhân thấy trạng thái cập nhật trong "Dịch vụ của tôi".
 import { useEffect, useState } from 'react'
-import { Table, Tag, Button, Input, message, Typography, Space, Modal, DatePicker, Form } from 'antd'
-import { SearchOutlined, PhoneOutlined, MailOutlined, CheckCircleOutlined, CloseCircleOutlined, CalendarOutlined } from '@ant-design/icons'
+import { Table, Tag, Button, Input, message, Typography, Space, Modal, DatePicker, Form, Select } from 'antd'
+import { SearchOutlined, PhoneOutlined, MailOutlined, CheckCircleOutlined, CloseCircleOutlined, CalendarOutlined, PlusOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { serviceService } from '../../services/serviceService'
+import { patientService } from '../../services/patientService'
+import { clinicServiceService } from '../../services/clinicServiceService'
+import { CLINIC_HOURS, validateClinicTime } from '../../constants/clinicInfo'
 
 const { Title, Text } = Typography
 
@@ -14,6 +17,41 @@ const STATUS_TAG = {
   CONFIRMED: { color: 'green', label: 'Đã liên hệ tư vấn' },
   COMPLETED: { color: 'default', label: 'Hoàn tất' },
   CANCELLED: { color: 'red', label: 'Đã huỷ' },
+}
+
+// Chặn chọn ngày quá khứ trên DatePicker
+const disabledClinicDate = (current) => current && current < dayjs().startOf('day')
+
+// Chặn chọn giờ ngoài giờ làm việc phòng khám (07:30–17:00) và giờ đã qua nếu là hôm nay.
+const disabledClinicTime = (current) => {
+  const isToday = current && current.isSame(dayjs(), 'day')
+  return {
+    disabledHours: () => {
+      const hours = []
+      for (let h = 0; h < 24; h++) {
+        if (h < CLINIC_HOURS.openHour || h > CLINIC_HOURS.closeHour) hours.push(h)
+      }
+      if (isToday) {
+        for (let h = 0; h < dayjs().hour(); h++) if (!hours.includes(h)) hours.push(h)
+      }
+      return hours
+    },
+    disabledMinutes: (selectedHour) => {
+      const mins = []
+      if (selectedHour === CLINIC_HOURS.openHour) for (let m = 0; m < CLINIC_HOURS.openMinute; m++) mins.push(m)
+      if (selectedHour === CLINIC_HOURS.closeHour) for (let m = CLINIC_HOURS.closeMinute + 1; m < 60; m++) mins.push(m)
+      if (isToday && selectedHour === dayjs().hour()) for (let m = 0; m <= dayjs().minute(); m++) if (!mins.includes(m)) mins.push(m)
+      return mins
+    },
+  }
+}
+
+// Rule dùng chung cho các ô chọn thời gian buổi dịch vụ — chặn quá khứ & ngoài giờ làm việc
+const clinicTimeRule = {
+  validator: (_, value) => {
+    const err = validateClinicTime(value, dayjs)
+    return err ? Promise.reject(new Error(err)) : Promise.resolve()
+  },
 }
 
 export default function ServiceRegistrationsPage() {
@@ -27,6 +65,14 @@ export default function ServiceRegistrationsPage() {
   const [scheduleModal, setScheduleModal] = useState({ open: false, reg: null })
   const [scheduling, setScheduling] = useState(false)
   const [scheduleForm] = Form.useForm()
+
+  // Modal đăng ký dịch vụ cho khách đến trực tiếp quầy (walk-in)
+  const [counterModal, setCounterModal] = useState(false)
+  const [counterLoading, setCounterLoading] = useState(false)
+  const [counterForm] = Form.useForm()
+  const [carePackages, setCarePackages] = useState([])
+  const [patientOptions, setPatientOptions] = useState([])
+  const [patientSearching, setPatientSearching] = useState(false)
 
   const fetchRegistrations = async () => {
     setLoading(true)
@@ -107,6 +153,61 @@ export default function ServiceRegistrationsPage() {
       message.error(err?.response?.data?.message || 'Đặt buổi thất bại')
     } finally {
       setScheduling(false)
+    }
+  }
+
+  // ── Đăng ký dịch vụ tại quầy (walk-in) ────────────────────────────
+  const openCounterModal = () => {
+    counterForm.resetFields()
+    setPatientOptions([])
+    setCounterModal(true)
+    // Nạp danh sách gói CARE để lễ tân chọn
+    if (carePackages.length === 0) {
+      clinicServiceService.getServicesByType('CARE')
+        .then((res) => setCarePackages(res.data || []))
+        .catch(() => setCarePackages([]))
+    }
+  }
+
+  const handlePatientSearch = async (value) => {
+    if (!value || value.trim().length < 2) {
+      setPatientOptions([])
+      return
+    }
+    setPatientSearching(true)
+    try {
+      const res = await patientService.searchPatients(value.trim())
+      setPatientOptions(res.data || [])
+    } catch {
+      setPatientOptions([])
+    } finally {
+      setPatientSearching(false)
+    }
+  }
+
+  const handleCounterRegister = async () => {
+    let values
+    try {
+      values = await counterForm.validateFields()
+    } catch {
+      return
+    }
+    setCounterLoading(true)
+    try {
+      await serviceService.registerAtCounter({
+        patientId: values.patientId,
+        serviceId: values.serviceId,
+        scheduledDateTime: values.scheduledDateTime.format('YYYY-MM-DDTHH:mm:ss'),
+        notes: values.notes || null,
+      })
+      message.success('Đã đăng ký dịch vụ và đặt buổi đầu tiên cho khách')
+      setCounterModal(false)
+      counterForm.resetFields()
+      fetchRegistrations()
+    } catch (err) {
+      message.error(err?.response?.data?.message || 'Đăng ký dịch vụ tại quầy thất bại')
+    } finally {
+      setCounterLoading(false)
     }
   }
 
@@ -203,6 +304,9 @@ export default function ServiceRegistrationsPage() {
           </Text>
         </div>
         <Space>
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCounterModal}>
+            Đăng ký dịch vụ tại quầy
+          </Button>
           <Input
             placeholder="Tìm theo tên, SĐT, dịch vụ..."
             prefix={<SearchOutlined />}
@@ -254,20 +358,91 @@ export default function ServiceRegistrationsPage() {
         )}
         <Form form={scheduleForm} layout="vertical">
           <Form.Item
-            label="Thời gian đến phòng khám"
+            label={`Thời gian đến phòng khám (giờ làm việc ${CLINIC_HOURS.openLabel}–${CLINIC_HOURS.closeLabel})`}
             name="scheduledDateTime"
-            rules={[{ required: true, message: 'Vui lòng chọn ngày giờ' }]}
+            rules={[{ required: true, message: 'Vui lòng chọn ngày giờ' }, clinicTimeRule]}
           >
             <DatePicker
-              showTime={{ format: 'HH:mm' }}
+              showTime={{ format: 'HH:mm', minuteStep: 5 }}
               format="DD/MM/YYYY HH:mm"
               style={{ width: '100%' }}
               placeholder="Chọn ngày và giờ"
-              disabledDate={(current) => current && current < dayjs().startOf('day')}
+              disabledDate={disabledClinicDate}
+              disabledTime={disabledClinicTime}
+              showNow={false}
             />
           </Form.Item>
           <Form.Item label="Ghi chú" name="notes">
             <Input.TextArea rows={2} placeholder="Ghi chú cho buổi khám (không bắt buộc)" />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Modal đăng ký dịch vụ cho khách đến trực tiếp quầy */}
+      <Modal
+        title="Đăng ký dịch vụ tại quầy"
+        open={counterModal}
+        onOk={handleCounterRegister}
+        onCancel={() => { setCounterModal(false); counterForm.resetFields() }}
+        okText="Đăng ký & đặt buổi"
+        cancelText="Đóng"
+        confirmLoading={counterLoading}
+        destroyOnHidden
+      >
+        <Text type="secondary" style={{ display: 'block', marginBottom: 16, fontSize: 13 }}>
+          Dành cho khách đến trực tiếp phòng khám đăng ký gói dịch vụ. Hệ thống tạo gói và
+          đặt luôn buổi đầu tiên vào thời gian đã chọn.
+        </Text>
+        <Form form={counterForm} layout="vertical">
+          <Form.Item
+            label="Bệnh nhân"
+            name="patientId"
+            rules={[{ required: true, message: 'Vui lòng chọn bệnh nhân' }]}
+            extra="Chưa có hồ sơ? Dùng chức năng 'Đăng ký bệnh nhân vãng lai' để tạo trước."
+          >
+            <Select
+              showSearch
+              filterOption={false}
+              placeholder="Tìm theo tên hoặc số điện thoại..."
+              onSearch={handlePatientSearch}
+              loading={patientSearching}
+              notFoundContent={patientSearching ? 'Đang tìm...' : 'Nhập ít nhất 2 ký tự để tìm'}
+              options={patientOptions.map((p) => ({
+                label: `${p.fullName}${p.phone ? ' — ' + p.phone : ''}`,
+                value: p.id,
+              }))}
+            />
+          </Form.Item>
+          <Form.Item
+            label="Gói dịch vụ"
+            name="serviceId"
+            rules={[{ required: true, message: 'Vui lòng chọn gói dịch vụ' }]}
+          >
+            <Select
+              placeholder="Chọn gói dịch vụ"
+              options={carePackages.map((s) => ({
+                label: `${s.serviceName}${s.sessionsIncluded ? ` (${s.sessionsIncluded} buổi)` : ''}`,
+                value: s.id,
+              }))}
+            />
+          </Form.Item>
+          <Form.Item
+            label={`Thời gian buổi đầu tiên (giờ làm việc ${CLINIC_HOURS.openLabel}–${CLINIC_HOURS.closeLabel})`}
+            name="scheduledDateTime"
+            rules={[{ required: true, message: 'Vui lòng chọn ngày giờ' }, clinicTimeRule]}
+          >
+            <DatePicker
+              showTime={{ format: 'HH:mm', minuteStep: 5 }}
+              format="DD/MM/YYYY HH:mm"
+              style={{ width: '100%' }}
+              placeholder="Chọn ngày và giờ"
+              disabledDate={disabledClinicDate}
+              disabledTime={disabledClinicTime}
+              showNow={false}
+            />
+          </Form.Item>
+          <Form.Item label="Ghi chú" name="notes">
+            <Input.TextArea rows={2} placeholder="Ghi chú (không bắt buộc)" />
           </Form.Item>
         </Form>
       </Modal>
