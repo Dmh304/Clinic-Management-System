@@ -8,6 +8,7 @@
  * DucTKHHE204463 / Le Thi Bich Ngan - HE204710
  */
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import dayjs from 'dayjs'
 import {
@@ -104,6 +105,7 @@ function formatTime(dt) {
 
 export default function AppointmentManagementPage() {
   const dispatch = useDispatch()
+  const navigate = useNavigate()
   const { list, loading, error, dashboard } = useSelector((s) => s.appointment)
 
   // ── Chế độ xem & điều hướng ──
@@ -397,7 +399,25 @@ export default function AppointmentManagementPage() {
               </Button>
             </>
           )}
-
+          {record.status === 'WAITING' && (
+            <Button size="small" type="primary"
+              style={{ backgroundColor: '#8b5cf6', borderColor: '#8b5cf6' }}
+              onClick={() => dispatch(changeAppointmentStatus({ id: record.id, status: 'IN_PROGRESS' }))
+                .unwrap()
+                .then(() => { message.success('Bắt đầu khám'); dispatch(fetchDashboard(dayParam)) })
+                .catch((err) => message.error(err))
+              }>
+              Bắt đầu khám
+            </Button>
+          )}
+          {record.status === 'COMPLETED' && (
+            <Button size="small" type="primary"
+              icon={<CheckCircleOutlined />}
+              style={{ backgroundColor: '#10b981', borderColor: '#10b981' }}
+              onClick={() => navigate('/receptionist/invoice', { state: { appointmentId: record.id } })}>
+              Thu phí & HĐ
+            </Button>
+          )}
         </Space>
         )
       },

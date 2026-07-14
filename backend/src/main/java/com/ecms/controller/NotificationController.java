@@ -2,7 +2,6 @@ package com.ecms.controller;
 
 import com.ecms.dto.response.ApiResponse;
 import com.ecms.dto.response.NotificationResponse;
-import com.ecms.entity.User;
 import com.ecms.repository.UserRepository;
 import com.ecms.service.NotificationService;
 import lombok.RequiredArgsConstructor;
@@ -61,7 +60,7 @@ public class NotificationController {
         if (authentication == null) {
             return null;
         }
-        return userRepository.findByEmail(authentication.getName()).map(User::getId).orElse(null);
+        return userRepository.findByEmail(authentication.getName()).map(user -> user.getId()).orElse(null);
     }
 
     // Suy ra tên vai trò từ authority đầu tiên (bỏ tiền tố "ROLE_")

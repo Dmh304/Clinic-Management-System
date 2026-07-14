@@ -13,7 +13,7 @@ import authService from '../../services/authService'
 import Header from '../../components/layout/Header'
 
 const ROLE_REDIRECT = {
-  PATIENT: '/patient/dashboard',
+  PATIENT: '/',
   DOCTOR: '/doctor/dashboard',
   NURSE: '/nurse/queue',
   RECEPTIONIST: '/receptionist/appointments',
@@ -353,7 +353,7 @@ export default function LoginPage() {
                   label: 'Bệnh nhân',
                   children: (
                     <>
-                      <Form form={form} onFinish={onFinish} layout="vertical" requiredMark={false} size="large">
+                      <Form form={form} onFinish={onFinish} onSubmit={(e) => e.preventDefault()} layout="vertical" requiredMark={false} size="large">
                         {/* Email hoặc số điện thoại */}
                         <Form.Item
                           name="email"
@@ -436,7 +436,7 @@ export default function LoginPage() {
                   key: 'staff',
                   label: 'Nhân viên',
                   children: staffStep === 'credentials' ? (
-                    <Form form={staffForm} onFinish={handleStaffLogin} layout="vertical" requiredMark={false} size="large">
+                    <Form form={staffForm} onFinish={handleStaffLogin} onSubmit={(e) => e.preventDefault()} layout="vertical" requiredMark={false} size="large">
                       <Form.Item
                         name="email"
                         label={<span style={S.label}>Địa Chỉ Email</span>}
@@ -486,7 +486,7 @@ export default function LoginPage() {
                       </Form.Item>
                     </Form>
                   ) : (
-                    <Form form={otpForm} onFinish={handleStaffVerifyOtp} layout="vertical" requiredMark={false} size="large">
+                    <Form form={otpForm} onFinish={handleStaffVerifyOtp} onSubmit={(e) => e.preventDefault()} layout="vertical" requiredMark={false} size="large">
                       <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>
                         Mã OTP đã được gửi đến <strong>{staffEmail}</strong>. Vui lòng nhập mã để hoàn tất đăng nhập.
                       </p>

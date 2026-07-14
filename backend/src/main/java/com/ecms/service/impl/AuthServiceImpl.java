@@ -10,8 +10,6 @@ import com.google.api.client.json.gson.GsonFactory;
 import com.ecms.dto.request.*;
 import com.ecms.dto.response.AuthResponse;
 import com.ecms.entity.AuthProvider;
-import com.ecms.entity.Doctor;
-import com.ecms.entity.Patient;
 import com.ecms.entity.Role;
 import com.ecms.entity.User;
 import com.ecms.entity.UserStatus;
@@ -387,9 +385,9 @@ public class AuthServiceImpl implements AuthService {
         Long doctorId = null;
         Long patientId = null;
         if ("DOCTOR".equals(roleName)) {
-            doctorId = doctorRepository.findByUserId(user.getId()).map(Doctor::getId).orElse(null);
+            doctorId = doctorRepository.findByUserId(user.getId()).map(doctor -> doctor.getId()).orElse(null);
         } else if ("PATIENT".equals(roleName)) {
-            patientId = patientRepository.findByUserId(user.getId()).map(Patient::getId).orElse(null);
+            patientId = patientRepository.findByUserId(user.getId()).map(patient -> patient.getId()).orElse(null);
         }
 
         String token = jwtUtil.generateToken(user.getEmail(), roleName, doctorId, user.getTokenVersion());

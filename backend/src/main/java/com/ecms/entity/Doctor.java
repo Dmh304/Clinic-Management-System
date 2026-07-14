@@ -5,13 +5,11 @@ import java.time.LocalDateTime;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "doctors")
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class Doctor {
 
     @Id
@@ -19,31 +17,30 @@ public class Doctor {
     private Long id;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", unique = true)
+    @JoinColumn(name = "user_id", unique = true, nullable = false)
     private User user;
 
-    @Column(name = "doctor_code", nullable = false)
+    @Column(name = "doctor_code", nullable = false, unique = true, length = 20)
     private String doctorCode;
 
     @Column(name = "full_name", nullable = false)
     private String fullName;
 
-    @Column(name = "license_number", nullable = false)
+    @Column(name = "license_number", nullable = false, unique = true, length = 100)
     private String licenseNumber;
 
-    @Column(name = "specialty")
+    @Column(name = "specialty", nullable = false, length = 100)
     private String specialization;
 
-    // Cột thật chứa SĐT là "phone_number" — cột "phone" trong DB là cột legacy
-    // rỗng, không dùng (giống lỗi drift đã gặp ở bảng services/category).
-    @Column(name = "phone_number")
+    @Column(name = "department")
+    private String department;
+
+    // Cột thật chứa SĐT là "phone_number"
+    @Column(name = "phone_number", length = 15)
     private String phone;
 
     @Column(name = "email")
     private String email;
-
-    @Column(name = "department")
-    private String department;
 
     @Column(name = "experience_years")
     private Integer experienceYears;
@@ -54,10 +51,10 @@ public class Doctor {
     @Column(name = "avatar_url")
     private String avatarUrl;
 
-    @Column(name = "status")
+    @Column(name = "status", nullable = false, length = 20)
     private String status;
 
-    @Column(name = "created_at")
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "updated_at")
@@ -66,7 +63,8 @@ public class Doctor {
     // Tự động gán thời điểm tạo hồ sơ trước khi lưu vào DB lần đầu
     @PrePersist
     private void prePersist() {
-        createdAt = LocalDateTime.now();
+        if (createdAt == null) createdAt = LocalDateTime.now();
+        if (status == null) status = "ACTIVE";
     }
 
     @PreUpdate

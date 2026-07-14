@@ -40,12 +40,11 @@ public class PatientServiceImpl implements PatientService {
         private final RoleRepository roleRepository;
         private final PasswordEncoder passwordEncoder;
 
-        // Mật khẩu mặc định cấp cho bệnh nhân vãng lai khi tạo tài khoản lần đầu
-        private static final String DEFAULT_PASSWORD = "Password@123";
+    // Mật khẩu mặc định cấp cho bệnh nhân vãng lai khi tạo tài khoản lần đầu
+    private static final String DEFAULT_PASSWORD = "Password@123";
 
-        // Tuổi dưới mức này được xem là trẻ em — không yêu cầu CCCD/email, dùng thông
-        // tin phụ huynh
-        private static final int CHILD_AGE_THRESHOLD = 14;
+    // Tuổi dưới mức này được xem là trẻ em — không yêu cầu CCCD/email, dùng thông tin phụ huynh
+    private static final int CHILD_AGE_THRESHOLD = 14;
 
         // Đăng ký bệnh nhân vãng lai: CCCD (nếu có) và email (nếu có) phải không trùng
         // trong hệ thống.
@@ -62,14 +61,21 @@ public class PatientServiceImpl implements PatientService {
                 // Thu thập tất cả lỗi validation trước khi throw để frontend nhận đủ thông tin
                 Map<String, String> errors = new LinkedHashMap<>();
 
+                // Bệnh nhân người lớn (>= 14 tuổi) BẮT BUỘC có CCCD và email thật — email tự
+                // sinh
+                // dạng pt{code}@ecms.local không gửi được nhắc lịch/PR dịch vụ. Trẻ em (< 14
+                // tuổi)
+                // được miễn: dùng thông tin phụ huynh và email nội bộ tự sinh để tạo tài khoản.
                 boolean isChild = request.getDateOfBirth() != null
-                                && Period.between(request.getDateOfBirth(), LocalDate.now()).getYears() < CHILD_AGE_THRESHOLD;
+                                && Period.between(request.getDateOfBirth(), LocalDate.now())
+                                                .getYears() < CHILD_AGE_THRESHOLD;
                 if (!isChild) {
                         if (request.getCccd() == null || request.getCccd().isBlank()) {
                                 errors.put("cccd", "Vui lòng nhập CCCD cho bệnh nhân người lớn");
                         }
                         if (request.getEmail() == null || request.getEmail().isBlank()) {
-                                errors.put("email", "Vui lòng nhập email để bệnh nhân nhận nhắc lịch và tạo tài khoản đăng nhập");
+                                errors.put("email",
+                                                "Vui lòng nhập email để bệnh nhân nhận nhắc lịch và tạo tài khoản đăng nhập");
                         }
                 }
 

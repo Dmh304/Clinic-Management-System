@@ -37,7 +37,9 @@ spring.servlet.multipart.max-request-size=10MB
 # ============================================================
 # JWT
 # ============================================================
-jwt.secret=YOUR_JWT_SECRET
+# Secret must be at least 32 bytes long for HMAC-SHA (HS256/HS384/HS512).
+# Use an environment variable like JWT_SECRET for production.
+jwt.secret=${JWT_SECRET:ReplaceWithAtLeast32BytesLongSecretKey!!!!}
 jwt.access-token-expiration=3600000
 jwt.refresh-token-expiration=604800000
 
