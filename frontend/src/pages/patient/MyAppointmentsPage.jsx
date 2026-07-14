@@ -1,7 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { appointmentService } from '../../services/appointmentService'
-import { Input, Button, Modal, Tabs, message, Empty } from 'antd'
+import { Input, Button, Modal, Tabs, message, Empty, DatePicker } from 'antd'
+import dayjs from 'dayjs'
+
+// BR-04: giờ khám mới khi đổi giờ phải cách hiện tại tối thiểu 2 giờ (khớp
+// BOOKING_LEAD_TIME_MINUTES = 120 ở backend). Cho phép dời sớm hơn trong ngày,
+// miễn là còn cách hiện tại ≥ 2 giờ.
+const RESCHEDULE_LEAD_MINUTES = 120
+
+// Giờ làm việc phòng khám (đồng bộ với backend: mở 07:30, đóng 17:00)
+const CLINIC_OPEN_HOUR = 7
+const CLINIC_CLOSE_HOUR = 17
 
 const STATUS_INFO = {
   PENDING: { label: 'Chờ xác nhận', color: '#d97706', bg: '#fef3c7' },
@@ -20,7 +30,7 @@ export default function MyAppointmentsPage() {
   const [loading, setLoading] = useState(true)
   const [cancelling, setCancelling] = useState(null)
   const [reschedulingId, setReschedulingId] = useState(null)
-  const [newTime, setNewTime] = useState('')
+  const [newTime, setNewTime] = useState(null)
   const [rescheduling, setRescheduling] = useState(false)
 
   // Search & Filter state
@@ -67,7 +77,7 @@ export default function MyAppointmentsPage() {
 
   const openReschedule = (id) => {
     setReschedulingId(id)
-    setNewTime('')
+    setNewTime(null)
   }
 
   const handleReschedule = async () => {
@@ -75,12 +85,16 @@ export default function MyAppointmentsPage() {
       message.error('Vui lòng chọn thời gian mới')
       return
     }
+    if (newTime.isBefore(dayjs().add(RESCHEDULE_LEAD_MINUTES, 'minute'))) {
+      message.error(`Vui lòng chọn giờ khám mới cách hiện tại ít nhất ${RESCHEDULE_LEAD_MINUTES} phút`)
+      return
+    }
     setRescheduling(true)
     try {
-      const res = await appointmentService.rescheduleAppointment(reschedulingId, newTime)
+      const res = await appointmentService.rescheduleAppointment(reschedulingId, newTime.format('YYYY-MM-DDTHH:mm:ss'))
       const updated = res.data
       setAppointments(prev => prev.map(a => a.id === reschedulingId ? updated : a))
-      message.success('Đổi lịch hẹn thành công')
+      message.success('Đã gửi yêu cầu đổi giờ. Vui lòng chờ lễ tân xác nhận lại.')
       setReschedulingId(null)
     } catch (err) {
       message.error(err.response?.data?.message || 'Không thể đổi giờ lịch hẹn')
@@ -221,8 +235,38 @@ export default function MyAppointmentsPage() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
           <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: 320 }}>
             <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700, color: '#1e293b' }}>Đổi giờ khám</h3>
-            <input type="datetime-local" value={newTime} onChange={e => setNewTime(e.target.value)}
-              style={{ width: '100%', padding: 8, borderRadius: 8, border: '1px solid #e2e8f0', marginBottom: 16 }} />
+            <DatePicker
+              showTime={{ format: 'HH:mm', minuteStep: 5 }}
+              format="DD/MM/YYYY HH:mm"
+              value={newTime}
+              onChange={(val) => setNewTime(val)}
+              disabledDate={(d) => d && d.isBefore(dayjs(), 'day')}
+              disabledTime={(d) => {
+                // Giới hạn theo giờ làm việc phòng khám (07:30–17:00) + BR-04: mốc sớm nhất
+                // được chọn là hiện tại + 2 giờ. Chỉ chặn "trước mốc" trong ngày chứa mốc
+                // (dời sớm hơn giờ cũ vẫn OK, miễn còn cách hiện tại ≥ 2 giờ).
+                const min = dayjs().add(RESCHEDULE_LEAD_MINUTES, 'minute')
+                const isLeadDay = d && d.isSame(min, 'day')
+                return {
+                  disabledHours: () => {
+                    const hours = []
+                    for (let h = 0; h < 24; h++) {
+                      if (h < CLINIC_OPEN_HOUR || h > CLINIC_CLOSE_HOUR) hours.push(h)
+                      else if (isLeadDay && h < min.hour()) hours.push(h)
+                    }
+                    return hours
+                  },
+                  disabledMinutes: (h) => {
+                    const mins = new Set()
+                    if (h === CLINIC_OPEN_HOUR) for (let m = 0; m < 30; m++) mins.add(m)   // trước 07:30
+                    if (h === CLINIC_CLOSE_HOUR) for (let m = 1; m < 60; m++) mins.add(m)   // sau 17:00
+                    if (isLeadDay && h === min.hour()) for (let m = 0; m < min.minute(); m++) mins.add(m)
+                    return [...mins]
+                  },
+                }
+              }}
+              style={{ width: '100%', marginBottom: 16 }}
+            />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button onClick={() => setReschedulingId(null)}
                 style={{ background: '#f1f5f9', color: '#475569', border: 'none', padding: '7px 14px', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>

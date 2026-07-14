@@ -50,8 +50,9 @@ public class PatientServiceImpl implements PatientService {
         // trong hệ thống.
         // SĐT được phép trùng để hỗ trợ trường hợp phụ huynh và con dùng chung số liên
         // hệ.
-        // Nếu không có email (trẻ em), tự sinh email dạng pt{patientCode}@ecms.local để
-        // tạo tài khoản.
+        // Bệnh nhân người lớn (>= 14 tuổi) BẮT BUỘC có CCCD và email thật — email tự sinh
+        // dạng pt{code}@ecms.local không gửi được nhắc lịch/PR dịch vụ. Trẻ em (< 14 tuổi)
+        // được miễn: dùng thông tin phụ huynh và email nội bộ tự sinh để tạo tài khoản.
         // Ném FieldValidationException nếu có bất kỳ field nào vi phạm (trả về tất cả
         // lỗi cùng lúc).
         @Override

@@ -307,6 +307,7 @@ public class CareSessionServiceImpl implements CareSessionService {
                 .patientId(s.getPatient().getId())
                 .patientName(s.getPatient().getFullName())
                 .patientCode(s.getPatient().getPatientCode())
+                .patientPhone(s.getPatient().getPhone())
                 .nurseId(s.getNurse() != null ? s.getNurse().getId() : null)
                 .nurseName(s.getNurse() != null ? s.getNurse().getFullName() : null)
                 .scheduledDateTime(s.getScheduledDateTime())
