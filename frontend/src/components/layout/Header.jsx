@@ -231,7 +231,7 @@ export default function Header() {
                           servicesByType[group.type].map((svc) => (
                             <li key={svc.id}>
                               <Link
-                                to={group.to}
+                                to={`/services?serviceId=${svc.id}`}
                                 onClick={() => setServicesOpen(false)}
                                 style={{
                                   fontSize: 13,

@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { Modal, message, Input, Spin } from "antd";
+import { Modal, message, Input, Spin, Pagination, Checkbox, InputNumber, Button } from "antd";
 import {
   AppstoreOutlined,
   UnorderedListOutlined,
@@ -10,9 +10,11 @@ import {
   CheckCircleOutlined,
   LockOutlined,
   SearchOutlined,
+  FilterOutlined,
 } from "@ant-design/icons";
 import { serviceService } from "../../services/serviceService";
 import { patientService } from "../../services/patientService";
+import heroBgImg from "../../assets/dich_vu_kham_mat.png";
 
 // ─── Design tokens — đồng bộ với dự án Nhãn Khoa Ánh Sao ────────
 const C = {
@@ -47,76 +49,77 @@ function HeroSection({ onScrollToServices }) {
   return (
     <section
       style={{
-        background: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 55%, #e0f2fe 100%)",
-        padding: "72px 0",
+        position: "relative",
+        minHeight: 420,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundImage: `url(${heroBgImg})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
         fontFamily: font,
       }}
     >
+      {/* Lớp phủ tối để làm nổi bật chữ trắng, đồng thời giảm độ chi tiết của ảnh nền */}
       <div
         style={{
-          maxWidth: 1280, margin: "0 auto", padding: "0 24px",
-          display: "flex", alignItems: "center", gap: 56,
+          position: "absolute", inset: 0,
+          background: "linear-gradient(rgba(15,23,42,0.72), rgba(15,23,42,0.72))",
+          backdropFilter: "blur(1px)",
+        }}
+      />
+
+      <div
+        style={{
+          position: "relative", zIndex: 1,
+          maxWidth: 720, margin: "0 auto", padding: "80px 24px",
+          textAlign: "center",
+          display: "flex", flexDirection: "column", alignItems: "center",
         }}
       >
-        <div style={{ flex: 1, maxWidth: 540 }}>
-          <span
-            style={{
-              display: "inline-block", backgroundColor: "#0d9488", color: "#fff",
-              fontSize: 11, fontWeight: 700, letterSpacing: 1,
-              padding: "4px 12px", borderRadius: 999, marginBottom: 20,
-            }}
-          >
-            DỊCH VỤ PHÒNG KHÁM
-          </span>
-
-          <h1
-            style={{
-              fontSize: 40, fontWeight: 800, color: "#0f172a",
-              lineHeight: 1.2, margin: "0 0 18px", letterSpacing: -0.5,
-            }}
-          >
-            Tất cả dịch vụ nhãn khoa
-          </h1>
-
-          <p
-            style={{
-              fontSize: 15, color: C.textSub, lineHeight: 1.75,
-              margin: "0 0 32px", maxWidth: 440,
-            }}
-          >
-            Từ dịch vụ khám lâm sàng chuyên sâu đến các gói chăm sóc và phục hồi
-            thị lực. Chọn dịch vụ phù hợp, xem chi tiết liệu trình và đặt lịch
-            hoặc đăng ký tư vấn chỉ trong vài bước.
-          </p>
-
-          <div style={{ display: "flex", gap: 12 }}>
-            <button
-              onClick={onScrollToServices}
-              style={{
-                backgroundColor: C.primary, color: "#fff", border: "none",
-                borderRadius: 8, padding: "12px 24px", fontSize: 14, fontWeight: 600,
-                cursor: "pointer", fontFamily: font, transition: "background-color 0.15s",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = C.primaryDark)}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = C.primary)}
-            >
-              Xem tất cả dịch vụ
-            </button>
-          </div>
-        </div>
-
-        <div
+        <span
           style={{
-            flex: "0 0 420px", height: 320, borderRadius: 20,
-            overflow: "hidden", boxShadow: "0 16px 48px rgba(29,78,216,.18)",
+            display: "inline-block", backgroundColor: "#0d9488", color: "#fff",
+            fontSize: 11, fontWeight: 700, letterSpacing: 1,
+            padding: "4px 12px", borderRadius: 999, marginBottom: 20,
           }}
         >
-          <img
-            src="https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=840&h=640&fit=crop&auto=format"
-            alt="Chăm sóc mắt chuyên nghiệp"
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          />
-        </div>
+          DỊCH VỤ PHÒNG KHÁM
+        </span>
+
+        <h1
+          style={{
+            fontSize: 42, fontWeight: 800, color: "#fff",
+            lineHeight: 1.2, margin: "0 0 18px", letterSpacing: -0.5,
+            textShadow: "0 2px 16px rgba(0,0,0,0.35)",
+          }}
+        >
+          Tất cả dịch vụ nhãn khoa
+        </h1>
+
+        <p
+          style={{
+            fontSize: 15, color: "#e2e8f0", lineHeight: 1.75,
+            margin: "0 0 32px", maxWidth: 520,
+          }}
+        >
+          Từ dịch vụ khám lâm sàng chuyên sâu đến các gói chăm sóc và phục hồi
+          thị lực. Chọn dịch vụ phù hợp, xem chi tiết liệu trình và đặt lịch
+          hoặc đăng ký tư vấn chỉ trong vài bước.
+        </p>
+
+        <button
+          onClick={onScrollToServices}
+          style={{
+            backgroundColor: C.primary, color: "#fff", border: "none",
+            borderRadius: 8, padding: "12px 28px", fontSize: 14, fontWeight: 600,
+            cursor: "pointer", fontFamily: font, transition: "background-color 0.15s",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = C.primaryDark)}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = C.primary)}
+        >
+          Xem tất cả dịch vụ
+        </button>
       </div>
     </section>
   );
@@ -550,8 +553,103 @@ function ReceptionistModal({ open, service, onClose, onConfirm, loading }) {
   );
 }
 
+const PAGE_SIZE = 15;
+
+// ─── Bộ lọc bên trái ────────────────────────────────────────────────
+function FilterSidebar({
+  categories, typeFilter, onToggleType, categoryFilter, onToggleCategory,
+  priceMin, priceMax, onChangePriceMin, onChangePriceMax, onApplyPrice,
+  popularOnly, onTogglePopular, onClear,
+}) {
+  return (
+    <aside
+      style={{
+        width: 240, flexShrink: 0, backgroundColor: C.surface,
+        border: `1px solid ${C.border}`, borderRadius: 14, padding: "18px 18px 20px",
+        alignSelf: "flex-start", position: "sticky", top: 88,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+        <FilterOutlined style={{ color: C.primary }} />
+        <span style={{ fontSize: 13, fontWeight: 700, color: C.text, letterSpacing: 0.3 }}>BỘ LỌC TÌM KIẾM</span>
+      </div>
+
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: C.textSub, marginBottom: 10 }}>Loại dịch vụ</div>
+        {[
+          { value: "CLINICAL", label: "Khám lâm sàng" },
+          { value: "CARE", label: "Gói chăm sóc" },
+        ].map((opt) => (
+          <label key={opt.value} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 13, color: C.textSub, cursor: "pointer" }}>
+            <Checkbox checked={typeFilter.includes(opt.value)} onChange={() => onToggleType(opt.value)} />
+            {opt.label}
+          </label>
+        ))}
+      </div>
+
+      {categories.length > 0 && (
+        <>
+          <div style={{ borderTop: `1px solid ${C.border}`, margin: "0 0 16px" }} />
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: C.textSub, marginBottom: 10 }}>Danh mục</div>
+            {categories.map((cat) => (
+              <label key={cat} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 13, color: C.textSub, cursor: "pointer" }}>
+                <Checkbox checked={categoryFilter.includes(cat)} onChange={() => onToggleCategory(cat)} />
+                {cat}
+              </label>
+            ))}
+          </div>
+        </>
+      )}
+
+      <div style={{ borderTop: `1px solid ${C.border}`, margin: "0 0 16px" }} />
+
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: C.textSub, marginBottom: 10 }}>Khoảng giá</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+          <InputNumber
+            min={0}
+            placeholder="Từ"
+            value={priceMin}
+            onChange={onChangePriceMin}
+            style={{ width: "100%" }}
+            controls={false}
+          />
+          <span style={{ color: C.textMuted }}>—</span>
+          <InputNumber
+            min={0}
+            placeholder="Đến"
+            value={priceMax}
+            onChange={onChangePriceMax}
+            style={{ width: "100%" }}
+            controls={false}
+          />
+        </div>
+        <Button
+          block
+          onClick={onApplyPrice}
+          style={{ backgroundColor: C.primary, color: "#fff", border: "none", fontWeight: 600 }}
+        >
+          Áp dụng
+        </Button>
+      </div>
+
+      <div style={{ borderTop: `1px solid ${C.border}`, margin: "0 0 16px" }} />
+
+      <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18, fontSize: 13, color: C.textSub, cursor: "pointer" }}>
+        <Checkbox checked={popularOnly} onChange={onTogglePopular} />
+        Chỉ hiện dịch vụ nổi bật
+      </label>
+
+      <Button block onClick={onClear} style={{ color: C.textSub }}>
+        Xóa tất cả bộ lọc
+      </Button>
+    </aside>
+  );
+}
+
 // ─── Catalog ──────────────────────────────────────────────────────
-function ServiceCatalog({ catalogRef, services, loading, role, isAuthenticated, pendingIds, onRegistered }) {
+function ServiceCatalog({ catalogRef, services, loading, role, isAuthenticated, pendingIds, onRegistered, initialServiceId, onConsumeInitialId }) {
   const navigate = useNavigate();
   const [isListMode, setIsListMode] = useState(false);
   const [search, setSearch] = useState("");
@@ -559,6 +657,54 @@ function ServiceCatalog({ catalogRef, services, loading, role, isAuthenticated, 
   const [confirmModal, setConfirmModal] = useState({ open: false, service: null });
   const [receptionistModal, setReceptionistModal] = useState({ open: false, service: null });
   const [detail, setDetail] = useState(null);
+
+  // Bộ lọc
+  const [typeFilter, setTypeFilter] = useState([]);
+  const [categoryFilter, setCategoryFilter] = useState([]);
+  const [priceMin, setPriceMin] = useState(null);
+  const [priceMax, setPriceMax] = useState(null);
+  const [appliedPriceMin, setAppliedPriceMin] = useState(null);
+  const [appliedPriceMax, setAppliedPriceMax] = useState(null);
+  const [popularOnly, setPopularOnly] = useState(false);
+  const [page, setPage] = useState(1);
+
+  // Mở sẵn modal chi tiết khi vào từ liên kết dịch vụ cụ thể (mega-menu) — khách
+  // không phải tự tìm lại trong danh sách.
+  useEffect(() => {
+    if (!initialServiceId || services.length === 0) return;
+    const match = services.find((s) => String(s.id) === String(initialServiceId));
+    if (match) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDetail(match);
+      catalogRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+    onConsumeInitialId?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialServiceId, services]);
+
+  // Mọi thay đổi bộ lọc/từ khoá đều quay về trang 1 ngay tại nơi thay đổi
+  // (thay vì dùng effect riêng) để tránh cascading render.
+  const toggleInArray = (setFn) => (value) => {
+    setFn((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]));
+    setPage(1);
+  };
+
+  const categories = useMemo(
+    () => [...new Set(services.map((s) => s.categoryName).filter(Boolean))],
+    [services]
+  );
+
+  const handleClearFilters = () => {
+    setTypeFilter([]);
+    setCategoryFilter([]);
+    setPriceMin(null);
+    setPriceMax(null);
+    setAppliedPriceMin(null);
+    setAppliedPriceMax(null);
+    setPopularOnly(false);
+    setSearch("");
+    setPage(1);
+  };
 
   // Bệnh nhân đặt lịch khám cho dịch vụ lâm sàng → chuyển sang luồng đặt lịch hẹn
   const handleBook = (service) => {
@@ -612,12 +758,23 @@ function ServiceCatalog({ catalogRef, services, loading, role, isAuthenticated, 
 
   // Lọc theo từ khoá: tên / mô tả / danh mục (tìm nhanh khi không nhớ rõ tên)
   const kw = search.trim().toLowerCase();
-  const visible = kw
-    ? services.filter((s) =>
-        [s.serviceName, s.description, s.categoryName]
-          .filter(Boolean)
-          .some((v) => v.toLowerCase().includes(kw)))
-    : services;
+  const filtered = services.filter((s) => {
+    if (kw) {
+      const matchKw = [s.serviceName, s.description, s.categoryName]
+        .filter(Boolean)
+        .some((v) => v.toLowerCase().includes(kw));
+      if (!matchKw) return false;
+    }
+    if (typeFilter.length > 0 && !typeFilter.includes(s.serviceType)) return false;
+    if (categoryFilter.length > 0 && !categoryFilter.includes(s.categoryName)) return false;
+    if (appliedPriceMin != null && (s.price ?? 0) < appliedPriceMin) return false;
+    if (appliedPriceMax != null && (s.price ?? 0) > appliedPriceMax) return false;
+    if (popularOnly && !s.isPopular) return false;
+    return true;
+  });
+
+  const totalFiltered = filtered.length;
+  const visible = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <section ref={catalogRef} style={{ backgroundColor: "#f8fafc", padding: "64px 0", fontFamily: font }}>
@@ -638,7 +795,7 @@ function ServiceCatalog({ catalogRef, services, loading, role, isAuthenticated, 
               allowClear
               placeholder="Tìm dịch vụ theo từ khoá..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               prefix={<SearchOutlined style={{ color: C.textMuted }} />}
               style={{ width: 280, borderRadius: 8 }}
             />
@@ -666,34 +823,68 @@ function ServiceCatalog({ catalogRef, services, loading, role, isAuthenticated, 
           </div>
         </div>
 
-        {/* Cards */}
-        {loading ? (
-          <div style={{ textAlign: "center", padding: "60px 0" }}>
-            <Spin size="large" />
+        {/* Bộ lọc + Cards */}
+        <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
+          <FilterSidebar
+            categories={categories}
+            typeFilter={typeFilter}
+            onToggleType={toggleInArray(setTypeFilter)}
+            categoryFilter={categoryFilter}
+            onToggleCategory={toggleInArray(setCategoryFilter)}
+            priceMin={priceMin}
+            priceMax={priceMax}
+            onChangePriceMin={setPriceMin}
+            onChangePriceMax={setPriceMax}
+            onApplyPrice={() => { setAppliedPriceMin(priceMin); setAppliedPriceMax(priceMax); setPage(1); }}
+            popularOnly={popularOnly}
+            onTogglePopular={() => { setPopularOnly((v) => !v); setPage(1); }}
+            onClear={handleClearFilters}
+          />
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {loading ? (
+              <div style={{ textAlign: "center", padding: "60px 0" }}>
+                <Spin size="large" />
+              </div>
+            ) : totalFiltered === 0 ? (
+              <div style={{ textAlign: "center", padding: "60px 0", color: C.textMuted, fontSize: 15 }}>
+                {kw ? `Không tìm thấy dịch vụ nào khớp "${search}".` : "Không có dịch vụ nào khớp bộ lọc đã chọn."}
+              </div>
+            ) : (
+              <>
+                <div
+                  style={
+                    isListMode
+                      ? { display: "flex", flexDirection: "column", gap: 20 }
+                      : { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }
+                  }
+                >
+                  {visible.map((s, i) => (
+                    <ServiceCard
+                      key={s.id ?? i}
+                      service={s}
+                      isListMode={isListMode}
+                      onOpenDetail={setDetail}
+                      actionProps={actionProps}
+                    />
+                  ))}
+                </div>
+
+                {totalFiltered > PAGE_SIZE && (
+                  <div style={{ display: "flex", justifyContent: "center", marginTop: 36 }}>
+                    <Pagination
+                      current={page}
+                      pageSize={PAGE_SIZE}
+                      total={totalFiltered}
+                      onChange={setPage}
+                      showSizeChanger={false}
+                    />
+                  </div>
+                )}
+              </>
+            )}
           </div>
-        ) : visible.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "60px 0", color: C.textMuted, fontSize: 15 }}>
-            {kw ? `Không tìm thấy dịch vụ nào khớp "${search}".` : "Hiện chưa có dịch vụ nào."}
-          </div>
-        ) : (
-          <div
-            style={
-              isListMode
-                ? { display: "flex", flexDirection: "column", gap: 20 }
-                : { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }
-            }
-          >
-            {visible.map((s, i) => (
-              <ServiceCard
-                key={s.id ?? i}
-                service={s}
-                isListMode={isListMode}
-                onOpenDetail={setDetail}
-                actionProps={actionProps}
-              />
-            ))}
-          </div>
-        )}
+        </div>
       </div>
 
       {/* Modal chi tiết */}
@@ -746,6 +937,8 @@ export default function ServicePackagesPage() {
   const catalogRef = useRef(null);
   const { isAuthenticated, user } = useSelector((s) => s.auth);
   const role = user?.role ?? null;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialServiceId = searchParams.get("serviceId");
 
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -791,6 +984,11 @@ export default function ServicePackagesPage() {
         isAuthenticated={isAuthenticated}
         pendingIds={pendingIds}
         onRegistered={markPending}
+        initialServiceId={initialServiceId}
+        onConsumeInitialId={() => {
+          searchParams.delete("serviceId");
+          setSearchParams(searchParams, { replace: true });
+        }}
       />
     </div>
   );
