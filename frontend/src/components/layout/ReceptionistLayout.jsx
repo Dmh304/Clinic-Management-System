@@ -27,7 +27,7 @@ const NAV_ITEMS = [
     ),
   },
   {
-    label: 'Đăng ký bệnh nhân',
+    label: 'Tạo tài khoản bệnh nhân',
     to: '/receptionist/walk-in',
     icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
