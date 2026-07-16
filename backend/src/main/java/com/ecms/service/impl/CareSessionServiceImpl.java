@@ -149,10 +149,21 @@ public class CareSessionServiceImpl implements CareSessionService {
     }
 
     @Override
-    public List<CareSessionResponse> getNurseQueue(String nurseEmail) {
+    public List<CareSessionResponse> getNurseQueue(String nurseEmail, LocalDate date) {
         User nurse = userRepository.findByEmail(nurseEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
-        return careSessionRepository.findByNurse_IdAndStatusOrderByScheduledDateTimeAsc(nurse.getId(), "BOOKED")
+        // Không truyền ngày (vd: DeliverCareSessionPage tra cứu theo id) → giữ hành vi cũ,
+        // trả toàn bộ buổi đang chờ (BOOKED) bất kể ngày nào.
+        if (date == null) {
+            return careSessionRepository.findByNurse_IdAndStatusOrderByScheduledDateTimeAsc(nurse.getId(), "BOOKED")
+                    .stream().map(this::toResponse).collect(Collectors.toList());
+        }
+        // Có ngày cụ thể (điều hướng ngày trước/sau trên trang hàng đợi) → trả mọi trạng thái
+        // trong ngày đó, giống cách lịch của lễ tân hiển thị cả ngày để dễ chuẩn bị.
+        LocalDateTime start = date.atStartOfDay();
+        LocalDateTime end = date.plusDays(1).atStartOfDay();
+        return careSessionRepository
+                .findByNurse_IdAndScheduledDateTimeBetweenOrderByScheduledDateTimeAsc(nurse.getId(), start, end)
                 .stream().map(this::toResponse).collect(Collectors.toList());
     }
 

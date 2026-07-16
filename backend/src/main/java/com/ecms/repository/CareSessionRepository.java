@@ -18,6 +18,11 @@ public interface CareSessionRepository extends JpaRepository<CareSession, Long> 
 
     List<CareSession> findByNurse_IdOrderByScheduledDateTimeAsc(Long nurseId);
 
+    /** Hàng đợi của điều dưỡng theo 1 ngày cụ thể (mọi trạng thái) — dùng cho điều hướng
+     *  xem ngày trước/sau trên trang Hàng đợi buổi khám, giống lịch của lễ tân. */
+    List<CareSession> findByNurse_IdAndScheduledDateTimeBetweenOrderByScheduledDateTimeAsc(
+            Long nurseId, LocalDateTime start, LocalDateTime end);
+
     List<CareSession> findBySubscription_IdOrderBySessionNumberAsc(Long subscriptionId);
 
     List<CareSession> findByStatusOrderByScheduledDateTimeAsc(String status);

@@ -16,7 +16,7 @@ public interface CareSessionService {
 
     List<CareSessionResponse> getAllSessions(LocalDate date);
 
-    List<CareSessionResponse> getNurseQueue(String nurseEmail);
+    List<CareSessionResponse> getNurseQueue(String nurseEmail, LocalDate date);
 
     List<CareSessionResponse> getSessionsBySubscription(Long subscriptionId);
 

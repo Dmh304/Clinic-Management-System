@@ -363,7 +363,7 @@ export default function ServiceRegistrationsPage() {
             rules={[{ required: true, message: 'Vui lòng chọn ngày giờ' }, clinicTimeRule]}
           >
             <DatePicker
-              showTime={{ format: 'HH:mm', minuteStep: 5 }}
+              showTime={{ format: 'HH:mm', minuteStep: 5, hideDisabledOptions: true }}
               format="DD/MM/YYYY HH:mm"
               style={{ width: '100%' }}
               placeholder="Chọn ngày và giờ"
@@ -432,7 +432,7 @@ export default function ServiceRegistrationsPage() {
             rules={[{ required: true, message: 'Vui lòng chọn ngày giờ' }, clinicTimeRule]}
           >
             <DatePicker
-              showTime={{ format: 'HH:mm', minuteStep: 5 }}
+              showTime={{ format: 'HH:mm', minuteStep: 5, hideDisabledOptions: true }}
               format="DD/MM/YYYY HH:mm"
               style={{ width: '100%' }}
               placeholder="Chọn ngày và giờ"

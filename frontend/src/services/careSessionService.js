@@ -10,8 +10,8 @@ export const careSessionService = {
   getAll: (date) =>
     axiosClient.get('/v1/care-sessions', { params: date ? { date } : {} }),
 
-  getQueue: () =>
-    axiosClient.get('/v1/care-sessions/queue'),
+  getQueue: (date) =>
+    axiosClient.get('/v1/care-sessions/queue', { params: date ? { date } : {} }),
 
   getBySubscription: (subscriptionId) =>
     axiosClient.get(`/v1/care-sessions/subscription/${subscriptionId}`),

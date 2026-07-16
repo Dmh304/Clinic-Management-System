@@ -48,10 +48,13 @@ public class CareSessionController {
         return ResponseEntity.ok(ApiResponse.success(careSessionService.getAllSessions(date)));
     }
 
-    /** Hàng đợi của điều dưỡng đang đăng nhập */
+    /** Hàng đợi của điều dưỡng đang đăng nhập — truyền date để xem ngày trước/sau (mọi trạng thái);
+     *  không truyền date thì trả toàn bộ buổi đang chờ (BOOKED) bất kể ngày. */
     @GetMapping("/queue")
-    public ResponseEntity<ApiResponse<List<CareSessionResponse>>> getNurseQueue(Authentication authentication) {
-        return ResponseEntity.ok(ApiResponse.success(careSessionService.getNurseQueue(authentication.getName())));
+    public ResponseEntity<ApiResponse<List<CareSessionResponse>>> getNurseQueue(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.success(careSessionService.getNurseQueue(authentication.getName(), date)));
     }
 
     /** Danh sách buổi theo gói đăng ký */
