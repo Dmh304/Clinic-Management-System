@@ -10,6 +10,7 @@ import com.ecms.entity.MedicalRecord;
 import com.ecms.exception.ResourceNotFoundException;
 import com.ecms.repository.DoctorRepository;
 import com.ecms.repository.EyeglassPrescriptionRepository;
+import com.ecms.repository.LensTypeRepository;
 import com.ecms.repository.MedicalRecordRepository;
 import com.ecms.service.EyeglassPrescriptionService;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
     private final EyeglassPrescriptionRepository eyeglassPrescriptionRepository;
     private final MedicalRecordRepository medicalRecordRepository;
     private final DoctorRepository doctorRepository;
+    private final LensTypeRepository lensTypeRepository;
 
     // Tạo mới một đơn kính từ dữ liệu nhập của bác sĩ
     @Override
@@ -43,6 +45,9 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
             throw new IllegalStateException("Bạn không có quyền kê đơn cho bệnh án này");
         }
 
+        com.ecms.entity.LensType lensType = lensTypeRepository.findById(request.getLensTypeId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy loại tròng kính"));
+
         EyeglassPrescription prescription = EyeglassPrescription.builder()
                 .medicalRecord(record)
                 .doctor(doctor)
@@ -56,7 +61,7 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
                 .osAxis(request.getOsAxis())
                 .osAdd(request.getOsAdd())
                 .pd(request.getPd())
-                .lensType(request.getLensType())
+                .lensType(lensType)
                 .notes(request.getNotes())
                 .status("DISPENSED")
                 .build();
@@ -135,7 +140,8 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
                 .osAxis(p.getOsAxis())
                 .osAdd(p.getOsAdd())
                 .pd(p.getPd())
-                .lensType(p.getLensType())
+                .lensTypeId(p.getLensType() != null ? p.getLensType().getId() : null)
+                .lensTypeName(p.getLensType() != null ? p.getLensType().getName() : null)
                 .notes(p.getNotes())
                 .status(p.getStatus())
                 .createdAt(p.getCreatedAt())

@@ -60,8 +60,9 @@ public class EyeglassPrescription {
     @Column(name = "pd", precision = 5, scale = 2)
     private BigDecimal pd;
 
-    @Column(name = "lens_type")
-    private String lensType; // Single Vision, Progressive, Specialty
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "lens_type_id")
+    private LensType lensType; // Map to LensType entity
 
     @Column(columnDefinition = "NVARCHAR(500)")
     private String notes;

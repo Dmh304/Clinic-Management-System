@@ -28,7 +28,8 @@ public class EyeglassPrescriptionResponse {
     private BigDecimal osAdd;
 
     private BigDecimal pd;
-    private String lensType;
+    private Long lensTypeId;
+    private String lensTypeName;
     private String notes;
     private String status;
     private LocalDateTime createdAt;
