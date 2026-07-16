@@ -4,7 +4,7 @@
 // Lễ tân nhập họ tên, số điện thoại, email (bắt buộc) và ngày sinh, giới tính, địa chỉ (tùy chọn).
 // Sau khi đăng ký thành công, hiển thị thông tin bệnh nhân vừa tạo cùng thông tin đăng nhập mặc định.
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Form,
@@ -90,6 +90,19 @@ export default function WalkInRegistrationPage() {
       setLoading(false)
     }
   }
+
+  // Khi mở form tạo mới, mang sẵn từ khoá đã tìm sang Bước 2 để lễ tân đỡ nhập lại
+  // (tránh nhập nhầm gây lệch dữ liệu). Đặt trong effect để chạy SAU khi form đã mount
+  // (form chỉ render khi formUnlocked = true). Nếu từ khoá là SĐT thì điền ô SĐT, ngược
+  // lại coi là họ tên.
+  useEffect(() => {
+    if (!formUnlocked) return
+    const kw = searchKeyword.trim()
+    if (!kw) return
+    const isPhone = /^[0-9]{6,11}$/.test(kw)
+    form.setFieldsValue(isPhone ? { phone: kw } : { fullName: kw })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formUnlocked])
 
   // Xóa trạng thái bệnh nhân vừa tạo và reset form để lễ tân có thể đăng ký bệnh nhân tiếp theo.
   const handleRegisterAnother = () => {
@@ -347,10 +360,15 @@ export default function WalkInRegistrationPage() {
             </>
           ) : (
             <>
+              {/* Người lớn: CCCD & email BẮT BUỘC — email tự sinh không gửi được
+                  nhắc lịch/PR dịch vụ; CCCD là định danh chính của hồ sơ. */}
               <Form.Item
                 label="CCCD"
                 name="cccd"
-                rules={[{ pattern: /^[0-9]{12}$/, message: 'CCCD phải có đúng 12 chữ số' }]}
+                rules={[
+                  { required: true, message: 'Vui lòng nhập CCCD' },
+                  { pattern: /^[0-9]{12}$/, message: 'CCCD phải có đúng 12 chữ số' },
+                ]}
               >
                 <Input placeholder="012345678901" maxLength={12} />
               </Form.Item>
@@ -358,6 +376,7 @@ export default function WalkInRegistrationPage() {
                 label="Email"
                 name="email"
                 rules={[
+                  { required: true, message: 'Vui lòng nhập email để bệnh nhân nhận nhắc lịch & tạo tài khoản' },
                   { type: 'email', message: 'Email không hợp lệ' },
                   {
                     validator: (_, value) => {

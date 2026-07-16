@@ -8,6 +8,7 @@
  * DucTKHHE204463 / Le Thi Bich Ngan - HE204710
  */
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import dayjs from 'dayjs'
 import {
@@ -27,8 +28,40 @@ import {
 } from '../../store/slices/appointmentSlice'
 import { doctorService } from '../../services/doctorService'
 import { appointmentService } from '../../services/appointmentService'
+import { careSessionService } from '../../services/careSessionService'
 import axiosClient from '../../api/axiosClient'
 import AppointmentDetailModal from '../../components/receptionist/AppointmentDetailModal'
+
+// Trạng thái buổi khám dịch vụ (care session) — khác vòng đời với lịch hẹn khám bác sĩ
+const CARE_SESSION_STATUS_CONFIG = {
+  BOOKED:      { color: 'gold',       label: 'Chờ khám' },
+  IN_PROGRESS: { color: 'processing', label: 'Đang khám' },
+  COMPLETED:   { color: 'green',      label: 'Hoàn thành' },
+  CHECKED_OUT: { color: 'default',    label: 'Đã check-out' },
+  CANCELLED:   { color: 'red',        label: 'Đã hủy' },
+}
+
+// Chuyển 1 buổi khám dịch vụ (care session) về dạng hàng bảng dùng chung với lịch hẹn khám bác sĩ,
+// để lễ tân thấy được đầy đủ bệnh nhân đến khám hôm nay (cả khám bác sĩ lẫn đến dùng dịch vụ chăm sóc).
+function careSessionToRow(s) {
+  return {
+    id: `cs-${s.id}`,
+    careSessionId: s.id,
+    isCareSession: true,
+    patientName: s.patientName,
+    patientPhone: s.patientPhone,
+    appointmentTime: s.scheduledDateTime,
+    timeSlot: formatTime(s.scheduledDateTime),
+    queueNumber: s.sessionNumber,
+    doctorId: null,
+    doctorName: s.nurseName ? `ĐD. ${s.nurseName}` : null,
+    serviceName: s.serviceName,
+    status: s.status,
+    notes: s.notes,
+    bookedByName: null,
+    cancelReason: null,
+  }
+}
 
 // Cấu hình màu/nhãn cho Tag trạng thái trong bảng (chế độ Ngày)
 const STATUS_CONFIG = {
@@ -72,6 +105,7 @@ function formatTime(dt) {
 
 export default function AppointmentManagementPage() {
   const dispatch = useDispatch()
+  const navigate = useNavigate()
   const { list, loading, error, dashboard } = useSelector((s) => s.appointment)
 
   // ── Chế độ xem & điều hướng ──
@@ -91,6 +125,9 @@ export default function AppointmentManagementPage() {
 
   // ── Modal chi tiết dùng chung 3 chế độ ──
   const [detail, setDetail] = useState(null)
+
+  // Buổi khám dịch vụ (đến dùng dịch vụ chăm sóc, không phải khám bác sĩ) trong ngày đang xem
+  const [careSessions, setCareSessions] = useState([])
 
   // Ngày đang xem ở chế độ Ngày (dạng 'YYYY-MM-DD') — cho phép xem hôm qua/hôm sau
   const dayParam = anchorDate.format('YYYY-MM-DD')
@@ -120,6 +157,7 @@ export default function AppointmentManagementPage() {
     if (viewMode === 'day') {
       dispatch(fetchDayAppointments(dayParam))
       dispatch(fetchDashboard(dayParam))
+      careSessionService.getAll(dayParam).then((res) => setCareSessions(res.data || [])).catch(() => setCareSessions([]))
     }
   }, [dispatch, viewMode, dayParam])
 
@@ -153,10 +191,17 @@ export default function AppointmentManagementPage() {
   const reload = () => {
     dispatch(fetchDayAppointments(dayParam))
     dispatch(fetchDashboard(dayParam))
+    careSessionService.getAll(dayParam).then((res) => setCareSessions(res.data || [])).catch(() => setCareSessions([]))
   }
 
+  // Gộp lịch hẹn khám bác sĩ + buổi khám dịch vụ chăm sóc thành 1 danh sách chung cho lễ tân
+  const combinedList = useMemo(
+    () => [...list, ...careSessions.map(careSessionToRow)],
+    [list, careSessions],
+  )
+
   const filtered =
-    filterStatus === 'ALL' ? list : list.filter((a) => a.status === filterStatus)
+    filterStatus === 'ALL' ? combinedList : combinedList.filter((a) => a.status === filterStatus)
 
   // "STT hàng đợi" là độc lập theo TỪNG BÁC SĨ trong ngày (BR-13) — sắp lại để
   // các lịch hẹn của cùng 1 bác sĩ nằm liền kề nhau, tránh trông như 1 hàng đợi
@@ -170,7 +215,7 @@ export default function AppointmentManagementPage() {
       const qa = a.queueNumber ?? Number.MAX_SAFE_INTEGER
       const qb = b.queueNumber ?? Number.MAX_SAFE_INTEGER
       if (qa !== qb) return qa - qb
-      return (a.id ?? 0) - (b.id ?? 0)
+      return new Date(a.appointmentTime) - new Date(b.appointmentTime)
     })
     return arr
   }, [filtered])
@@ -271,6 +316,7 @@ export default function AppointmentManagementPage() {
       render: (name, record) => (
         <span>
           {name}
+          {record.isCareSession && <Tag color="cyan" style={{ marginLeft: 6 }}>Đến khám dịch vụ</Tag>}
           {record.bookedByName && <Tag color="purple" style={{ marginLeft: 6 }}>Đặt hộ</Tag>}
           {record.notes && <span title="Có ghi chú triệu chứng" style={{ marginLeft: 6 }}>📝</span>}
         </span>
@@ -287,10 +333,13 @@ export default function AppointmentManagementPage() {
         </span>
       ),
       dataIndex: 'queueNumber', key: 'queueNumber', width: 130,
-      render: (q) => (q ? <Tag color="blue">#{q}</Tag> : '—'),
+      render: (q, record) => {
+        if (!q) return '—'
+        return record.isCareSession ? <Tag color="cyan">Buổi #{q}</Tag> : <Tag color="blue">#{q}</Tag>
+      },
     },
     {
-      title: 'Bác sĩ', dataIndex: 'doctorName', key: 'doctorName',
+      title: 'Bác sĩ / Điều dưỡng', dataIndex: 'doctorName', key: 'doctorName',
       render: (name) => name || <span style={{ color: '#94a3b8' }}>Chưa phân công</span>,
     },
     {
@@ -300,7 +349,7 @@ export default function AppointmentManagementPage() {
     {
       title: 'Trạng thái', dataIndex: 'status', key: 'status', width: 170,
       render: (status, record) => {
-        const cfg = STATUS_CONFIG[status] || {}
+        const cfg = (record.isCareSession ? CARE_SESSION_STATUS_CONFIG[status] : STATUS_CONFIG[status]) || {}
         return (
           <div>
             <Tag color={cfg.color}>{cfg.label}</Tag>
@@ -316,7 +365,11 @@ export default function AppointmentManagementPage() {
     {
       title: 'Hành động', key: 'action', width: 240,
       // stopPropagation để không mở modal chi tiết khi bấm nút thao tác
-      render: (_, record) => (
+      render: (_, record) => {
+        if (record.isCareSession) {
+          return <span style={{ color: '#94a3b8', fontSize: 12 }}>Xem tại "Check-out buổi khám"</span>
+        }
+        return (
         <Space onClick={(e) => e.stopPropagation()}>
           {record.status === 'PENDING' && (
             <>
@@ -346,9 +399,28 @@ export default function AppointmentManagementPage() {
               </Button>
             </>
           )}
-
+          {record.status === 'WAITING' && (
+            <Button size="small" type="primary"
+              style={{ backgroundColor: '#8b5cf6', borderColor: '#8b5cf6' }}
+              onClick={() => dispatch(changeAppointmentStatus({ id: record.id, status: 'IN_PROGRESS' }))
+                .unwrap()
+                .then(() => { message.success('Bắt đầu khám'); dispatch(fetchDashboard(dayParam)) })
+                .catch((err) => message.error(err))
+              }>
+              Bắt đầu khám
+            </Button>
+          )}
+          {record.status === 'COMPLETED' && (
+            <Button size="small" type="primary"
+              icon={<CheckCircleOutlined />}
+              style={{ backgroundColor: '#10b981', borderColor: '#10b981' }}
+              onClick={() => navigate('/receptionist/invoice', { state: { appointmentId: record.id } })}>
+              Thu phí & HĐ
+            </Button>
+          )}
         </Space>
-      ),
+        )
+      },
     },
   ]
 

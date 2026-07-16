@@ -24,6 +24,7 @@ public class ServiceCategory {
     @Column(name = "display_order")
     private Integer displayOrder;
 
+    @Builder.Default
     @OneToMany(mappedBy = "category", fetch = FetchType.LAZY)
     @OrderBy("isPopular DESC, displayOrder ASC")
     private List<ClinicService> services = new ArrayList<>();

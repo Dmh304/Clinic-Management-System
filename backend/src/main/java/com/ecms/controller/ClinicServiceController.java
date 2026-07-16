@@ -1,5 +1,6 @@
 package com.ecms.controller;
 
+import com.ecms.dto.request.CounterServiceRegistrationRequest;
 import com.ecms.dto.request.ScheduleClinicVisitRequest;
 import com.ecms.dto.request.ServicePackageRequest;
 import com.ecms.dto.request.ServiceRegistrationRequest;
@@ -81,6 +82,17 @@ public class ClinicServiceController {
             Authentication authentication) {
         return ResponseEntity.ok(ApiResponse.success("Đã đặt buổi đến phòng khám",
                 clinicServiceService.scheduleClinicVisit(id, request, authentication.getName())));
+    }
+
+    /** Đăng ký dịch vụ cho khách đến trực tiếp quầy — RECEPTIONIST / ADMIN.
+     *  Tạo đăng ký + gói + buổi đầu tiên trong một lần. */
+    @PostMapping("/registrations/counter")
+    public ResponseEntity<ApiResponse<CareSessionResponse>> registerServiceAtCounter(
+            @Valid @RequestBody CounterServiceRegistrationRequest request,
+            Authentication authentication) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Đã đăng ký dịch vụ và đặt buổi đầu tiên",
+                        clinicServiceService.registerServiceAtCounter(request, authentication.getName())));
     }
 
     // ── Manager CRUD ──────────────────────────────────────────────

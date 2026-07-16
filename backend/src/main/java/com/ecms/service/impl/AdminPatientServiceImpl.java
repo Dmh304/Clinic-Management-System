@@ -99,7 +99,7 @@ public class AdminPatientServiceImpl implements AdminPatientService {
     }
 
     private Long resolveActorId(String actorEmail) {
-        return userRepository.findByEmail(actorEmail).map(User::getId).orElse(null);
+        return userRepository.findByEmail(actorEmail).map(user -> user.getId()).orElse(null);
     }
 
     private PatientAccountResponse toResponse(User user) {

@@ -1,3 +1,6 @@
+// Entity ánh xạ bảng "staffs": hồ sơ nhân viên cho các role không có bảng riêng
+// (RECEPTIONIST, PHARMACIST, NURSE, MANAGER, ADMIN).
+// Bảng "doctors" và "lab_technicians" dùng cho DOCTOR/LAB_TECHNICIAN tương ứng.
 package com.ecms.entity;
 
 import jakarta.persistence.*;
@@ -16,19 +19,19 @@ public class Staff {
     private Long id;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id", unique = true, nullable = false)
     private User user;
 
-    @Column(name = "employee_code", length = 20, nullable = false, unique = true)
+    @Column(name = "employee_code", nullable = false, unique = true, length = 20)
     private String employeeCode;
 
     @Column(name = "full_name", columnDefinition = "NVARCHAR(100)", nullable = false)
     private String fullName;
 
-    @Column(columnDefinition = "NVARCHAR(100)")
+    @Column(name = "department", columnDefinition = "NVARCHAR(100)")
     private String department;
 
-    @Column(columnDefinition = "NVARCHAR(100)")
+    @Column(name = "position", columnDefinition = "NVARCHAR(100)", nullable = false)
     private String position;
 
     @Column(name = "phone_number", length = 20)
@@ -37,10 +40,10 @@ public class Staff {
     @Column(name = "hire_date")
     private LocalDate hireDate;
 
-    @Column(length = 20)
+    @Column(name = "status", nullable = false, length = 20)
     private String status;
 
-    @Column(name = "created_at")
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "updated_at")
@@ -48,7 +51,7 @@ public class Staff {
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
+        if (createdAt == null) createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
         if (status == null) status = "ACTIVE";
     }
