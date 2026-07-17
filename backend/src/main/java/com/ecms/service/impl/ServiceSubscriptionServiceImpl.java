@@ -75,6 +75,7 @@ public class ServiceSubscriptionServiceImpl implements ServiceSubscriptionServic
                 throw new IllegalArgumentException("Giá trị đơn hàng chưa đạt mức tối thiểu để áp dụng mã giảm giá");
             }
 
+            BigDecimal priceBeforeDiscount = finalPrice;
             if ("PERCENTAGE".equals(discount.getType())) {
                 BigDecimal discountAmount = finalPrice.multiply(discount.getValue()).divide(BigDecimal.valueOf(100));
                 finalPrice = finalPrice.subtract(discountAmount);
@@ -83,6 +84,10 @@ public class ServiceSubscriptionServiceImpl implements ServiceSubscriptionServic
             }
 
             discount.setUsedCount(discount.getUsedCount() + 1);
+            // UC-43 ALT-2: luỹ kế số tiền đã giảm để xem hiệu quả campaign
+            BigDecimal granted = discount.getTotalDiscountGranted() != null
+                    ? discount.getTotalDiscountGranted() : BigDecimal.ZERO;
+            discount.setTotalDiscountGranted(granted.add(priceBeforeDiscount.subtract(finalPrice)));
             discountCampaignRepository.save(discount);
         }
 

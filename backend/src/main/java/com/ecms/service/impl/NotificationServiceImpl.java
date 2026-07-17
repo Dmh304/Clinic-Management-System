@@ -37,6 +37,17 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     @Transactional
+    public void createForRole(String role, String message, Long relatedAppointmentId) {
+        notificationRepository.save(Notification.builder()
+                .message(message)
+                .targetRole(role)
+                .relatedAppointmentId(relatedAppointmentId)
+                .isRead(false)
+                .build());
+    }
+
+    @Override
+    @Transactional
     public void createForUser(Long userId, String message, Long relatedAppointmentId) {
         if (userId == null) {
             return; // bệnh nhân vãng lai không có tài khoản -> bỏ qua, không tạo thông báo

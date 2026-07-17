@@ -261,6 +261,23 @@ public class SecurityConfig {
                                                 .hasAnyRole("MANAGER", "ADMIN")
 
                                                 // ══════════════════════════════════════════════════════════════════
+                                                // ── Rooms (UC-58) & Room Roster (UC-59) ───────────────────────────
+                                                // ══════════════════════════════════════════════════════════════════
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/rooms/by-type/**",
+                                                                "/api/v1/rooms/by-service/**")
+                                                .hasAnyRole("MANAGER", "RECEPTIONIST", "ADMIN")
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/rooms/**")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers(HttpMethod.POST, "/api/v1/rooms")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers(HttpMethod.PUT, "/api/v1/rooms/**")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers(HttpMethod.DELETE, "/api/v1/rooms/**")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers("/api/v1/room-roster/**")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+
+                                                // ══════════════════════════════════════════════════════════════════
                                                 // ── Subscriptions ─────────────────────────────────────────────────
                                                 // ══════════════════════════════════════════════════════════════════
                                                 // Specific routes FIRST, wildcard LAST
@@ -285,12 +302,16 @@ public class SecurityConfig {
                                                 .hasAnyRole("MANAGER", "ADMIN")
                                                 .requestMatchers(HttpMethod.POST, "/api/v1/care-sessions")
                                                 .hasRole("PATIENT")
+                                                .requestMatchers(HttpMethod.PATCH, "/api/v1/care-sessions/*/check-in")
+                                                .hasAnyRole("RECEPTIONIST", "MANAGER", "ADMIN")
                                                 .requestMatchers(HttpMethod.PATCH, "/api/v1/care-sessions/*/start")
                                                 .hasRole("NURSE")
                                                 .requestMatchers(HttpMethod.PATCH, "/api/v1/care-sessions/*/complete")
                                                 .hasRole("NURSE")
                                                 .requestMatchers(HttpMethod.PATCH,
                                                                 "/api/v1/care-sessions/*/assign-nurse")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers(HttpMethod.POST, "/api/v1/care-sessions/auto-assign")
                                                 .hasAnyRole("MANAGER", "ADMIN")
                                                 .requestMatchers(HttpMethod.PATCH, "/api/v1/care-sessions/*/checkout")
                                                 .hasAnyRole("RECEPTIONIST", "MANAGER", "ADMIN")

@@ -323,6 +323,7 @@ CREATE TABLE care_sessions (
     subscription_id     BIGINT          NOT NULL,
     patient_id          BIGINT          NOT NULL,
     nurse_id            BIGINT          NULL,
+    room_id             BIGINT          NULL,
     scheduled_date_time DATETIME2       NOT NULL,
     status              NVARCHAR(20)    NOT NULL DEFAULT 'BOOKED',
     session_number      INT             NULL,
@@ -350,6 +351,7 @@ CREATE TABLE appointments (
     patient_id       BIGINT          NOT NULL,
     doctor_id        BIGINT          NULL,
     service_id       BIGINT          NULL,
+    room_id          BIGINT          NULL,
     appointment_time DATETIME2       NOT NULL,
     time_slot        NVARCHAR(100)   NULL,
     type             NVARCHAR(20)    NULL,
@@ -802,6 +804,79 @@ CREATE TABLE feedbacks (
     CONSTRAINT CK_feedbacks_rating CHECK (rating BETWEEN 1 AND 5),
     CONSTRAINT CK_feedbacks_status CHECK (status IN ('PENDING', 'APPROVED', 'HIDDEN'))
 );
+GO
+
+-- ----------------------------------------------------------------------------
+-- 31. rooms — danh mục phòng vật lý (UC-58)
+-- room_type: DOCTOR (khám tổng hợp, phẫu thuật...) | NURSE (chăm sóc & phục hồi) | LAB (xét nghiệm)
+-- ----------------------------------------------------------------------------
+CREATE TABLE rooms (
+    id         BIGINT          NOT NULL IDENTITY(1,1),
+    name       NVARCHAR(100)   NOT NULL,
+    room_type  NVARCHAR(20)    NOT NULL,
+    capacity   INT             NOT NULL DEFAULT 1,
+    is_active  BIT             NOT NULL DEFAULT 1,
+    created_at DATETIME2       NOT NULL DEFAULT GETDATE(),
+    updated_at DATETIME2       NULL,
+    CONSTRAINT PK_rooms PRIMARY KEY (id),
+    CONSTRAINT CK_rooms_room_type CHECK (room_type IN ('DOCTOR', 'NURSE', 'LAB'))
+);
+GO
+CREATE UNIQUE INDEX UQ_rooms_name_type ON rooms(name, room_type);
+GO
+
+-- room_id trên appointments/care_sessions được khai báo từ đầu (mục 12-13) nhưng chỉ ràng buộc
+-- FK ở đây vì rooms được tạo sau — tránh lỗi "bảng chưa tồn tại" khi chạy tuần tự từ trên xuống.
+ALTER TABLE appointments ADD CONSTRAINT FK_appointments_room FOREIGN KEY (room_id) REFERENCES rooms(id);
+GO
+ALTER TABLE care_sessions ADD CONSTRAINT FK_care_sessions_room FOREIGN KEY (room_id) REFERENCES rooms(id);
+GO
+
+-- ----------------------------------------------------------------------------
+-- 32. room_services — mapping phòng ↔ dịch vụ/loại xét nghiệm mà phòng phục vụ (UC-58)
+-- 1 dịch vụ có thể có nhiều phòng (A/B/C); 1 phòng chỉ map 1 dịch vụ tại 1 thời điểm.
+-- ----------------------------------------------------------------------------
+CREATE TABLE room_services (
+    id         BIGINT          NOT NULL IDENTITY(1,1),
+    room_id    BIGINT          NOT NULL,
+    service_id BIGINT          NOT NULL,
+    created_at DATETIME2       NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT PK_room_services PRIMARY KEY (id),
+    CONSTRAINT FK_room_services_room FOREIGN KEY (room_id) REFERENCES rooms(id),
+    CONSTRAINT FK_room_services_service FOREIGN KEY (service_id) REFERENCES services(id),
+    CONSTRAINT UQ_room_services UNIQUE (room_id, service_id)
+);
+GO
+
+-- ----------------------------------------------------------------------------
+-- 33. staff_room_assignments — phân công nhân sự vào phòng theo ngày (UC-59)
+-- Bản ghi standing (is_override = 0) có hiệu lực từ effective_from tới khi có bản ghi
+-- standing mới hơn của cùng nhân sự. Bản ghi override (is_override = 1) chỉ áp dụng đúng
+-- override_date, hôm sau quay lại phân công standing (ALT-1).
+-- ----------------------------------------------------------------------------
+CREATE TABLE staff_room_assignments (
+    id             BIGINT          NOT NULL IDENTITY(1,1),
+    staff_user_id  BIGINT          NOT NULL,
+    room_id        BIGINT          NOT NULL,
+    effective_from DATE            NULL,
+    is_override    BIT             NOT NULL DEFAULT 0,
+    override_date  DATE            NULL,
+    assigned_by    BIGINT          NOT NULL,
+    created_at     DATETIME2       NOT NULL DEFAULT GETDATE(),
+    updated_at     DATETIME2       NULL,
+    CONSTRAINT PK_staff_room_assignments PRIMARY KEY (id),
+    CONSTRAINT FK_staff_room_assignments_staff FOREIGN KEY (staff_user_id) REFERENCES users(id),
+    CONSTRAINT FK_staff_room_assignments_room FOREIGN KEY (room_id) REFERENCES rooms(id),
+    CONSTRAINT FK_staff_room_assignments_assigned_by FOREIGN KEY (assigned_by) REFERENCES users(id),
+    CONSTRAINT CK_staff_room_assignments_override CHECK (
+        (is_override = 0 AND override_date IS NULL AND effective_from IS NOT NULL)
+        OR (is_override = 1 AND override_date IS NOT NULL)
+    )
+);
+GO
+CREATE UNIQUE INDEX UQ_staff_room_assignments_standing ON staff_room_assignments(staff_user_id, effective_from) WHERE is_override = 0;
+GO
+CREATE UNIQUE INDEX UQ_staff_room_assignments_override ON staff_room_assignments(staff_user_id, override_date) WHERE is_override = 1;
 GO
 
 -- ============================================================================

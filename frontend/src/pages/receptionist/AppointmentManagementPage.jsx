@@ -48,6 +48,7 @@ function careSessionToRow(s) {
     id: `cs-${s.id}`,
     careSessionId: s.id,
     isCareSession: true,
+    checkedIn: s.checkedIn,
     patientName: s.patientName,
     patientPhone: s.patientPhone,
     appointmentTime: s.scheduledDateTime,
@@ -61,6 +62,19 @@ function careSessionToRow(s) {
     bookedByName: null,
     cancelReason: null,
   }
+}
+
+// Quy về 1 "nhóm trạng thái" dùng chung cho cả lịch hẹn khám bác sĩ và buổi khám dịch vụ —
+// 2 nguồn dữ liệu này dùng 2 bộ mã status khác nhau (WAITING/BOOKED, COMPLETED/CHECKED_OUT...)
+// nhưng hiển thị cùng nhãn tiếng Việt ("Chờ khám", "Hoàn thành"...), nên cần gộp lại để ô
+// thống kê và dropdown lọc phản ánh đúng cả 2 loại, không chỉ riêng lịch hẹn.
+function getStatusBucket(record) {
+  if (record.isCareSession) {
+    if (record.status === 'BOOKED') return 'WAITING'
+    if (record.status === 'CHECKED_OUT') return 'COMPLETED'
+    return record.status // IN_PROGRESS | COMPLETED | CANCELLED đã trùng mã
+  }
+  return record.status
 }
 
 // Cấu hình màu/nhãn cho Tag trạng thái trong bảng (chế độ Ngày)
@@ -106,7 +120,7 @@ function formatTime(dt) {
 export default function AppointmentManagementPage() {
   const dispatch = useDispatch()
   const navigate = useNavigate()
-  const { list, loading, error, dashboard } = useSelector((s) => s.appointment)
+  const { list, loading, error } = useSelector((s) => s.appointment)
 
   // ── Chế độ xem & điều hướng ──
   const [viewMode, setViewMode] = useState('day')
@@ -201,7 +215,23 @@ export default function AppointmentManagementPage() {
   )
 
   const filtered =
-    filterStatus === 'ALL' ? combinedList : combinedList.filter((a) => a.status === filterStatus)
+    filterStatus === 'ALL' ? combinedList : combinedList.filter((a) => getStatusBucket(a) === filterStatus)
+
+  // Thống kê hợp nhất cả lịch hẹn khám bác sĩ lẫn buổi khám dịch vụ, theo cùng "nhóm trạng thái"
+  // ở trên — thay cho dashboard.* (chỉ tính riêng lịch hẹn, khiến số liệu lệch với bảng hiển thị).
+  const mergedStats = useMemo(() => {
+    const s = { total: combinedList.length, pending: 0, confirmed: 0, waiting: 0, inProgress: 0, completed: 0, cancelled: 0 }
+    for (const r of combinedList) {
+      const bucket = getStatusBucket(r)
+      if (bucket === 'PENDING') s.pending++
+      else if (bucket === 'CONFIRMED') s.confirmed++
+      else if (bucket === 'WAITING') s.waiting++
+      else if (bucket === 'IN_PROGRESS') s.inProgress++
+      else if (bucket === 'COMPLETED') s.completed++
+      else if (bucket === 'CANCELLED') s.cancelled++
+    }
+    return s
+  }, [combinedList])
 
   // "STT hàng đợi" là độc lập theo TỪNG BÁC SĨ trong ngày (BR-13) — sắp lại để
   // các lịch hẹn của cùng 1 bác sĩ nằm liền kề nhau, tránh trông như 1 hàng đợi
@@ -276,6 +306,16 @@ export default function AppointmentManagementPage() {
         dispatch(fetchDashboard(dayParam))
       })
       .catch((err) => message.error(err))
+  }
+
+  const handleCheckInCareSession = async (id) => {
+    try {
+      await careSessionService.checkIn(id)
+      message.success('Check-in thành công — buổi đã sẵn sàng cho điều dưỡng')
+      careSessionService.getAll(dayParam).then((res) => setCareSessions(res.data || []))
+    } catch (err) {
+      message.error(err.response?.data?.message || 'Check-in thất bại')
+    }
   }
 
   const handleCancel = (id) => {
@@ -367,7 +407,28 @@ export default function AppointmentManagementPage() {
       // stopPropagation để không mở modal chi tiết khi bấm nút thao tác
       render: (_, record) => {
         if (record.isCareSession) {
-          return <span style={{ color: '#94a3b8', fontSize: 12 }}>Xem tại "Check-out buổi khám"</span>
+          // Chỉ trỏ sang trang Check-out khi buổi đã COMPLETED — trang đó chỉ liệt kê
+          // đúng trạng thái này, trỏ sớm hơn sẽ khiến lễ tân vào thấy trống, gây hiểu nhầm.
+          if (record.status === 'COMPLETED') {
+            return <span style={{ color: '#94a3b8', fontSize: 12 }}>Xem tại "Check-out buổi khám"</span>
+          }
+          // Khách phải check-in tại quầy trước khi vào hàng đợi điều dưỡng — cùng luồng
+          // check-in đã có ở lịch khám bác sĩ (CONFIRMED → Check-in → WAITING).
+          if (record.status === 'BOOKED' && !record.checkedIn) {
+            return (
+              <Button size="small" type="primary" icon={<LoginOutlined />}
+                onClick={(e) => { e.stopPropagation(); handleCheckInCareSession(record.careSessionId) }}>
+                Check-in
+              </Button>
+            )
+          }
+          const pendingLabel = {
+            BOOKED: 'Đã check-in, chờ điều dưỡng thực hiện',
+            IN_PROGRESS: 'Điều dưỡng đang thực hiện',
+            CHECKED_OUT: 'Đã check-out',
+            CANCELLED: 'Đã hủy',
+          }[record.status] || '—'
+          return <span style={{ color: '#cbd5e1', fontSize: 12 }}>{pendingLabel}</span>
         }
         return (
         <Space onClick={(e) => e.stopPropagation()}>
@@ -498,17 +559,22 @@ export default function AppointmentManagementPage() {
             )}
           </div>
 
-          {/* Thống kê của ngày đang xem */}
-          {dashboard && (
-            <Row gutter={12} style={{ marginBottom: 16 }}>
+          {/* Thống kê của ngày đang xem — gộp cả lịch hẹn khám bác sĩ lẫn buổi khám dịch vụ,
+              không dùng dashboard.* nữa vì API đó chỉ tính riêng lịch hẹn. */}
+          <Row gutter={12} style={{ marginBottom: 16 }}>
               {[
-                { label: 'Tổng', value: dashboard.total, color: '#6366f1' },
-                { label: 'Chờ xác nhận', value: dashboard.pending, color: '#f59e0b' },
-                { label: 'Đã xác nhận', value: dashboard.confirmed, color: '#3b82f6' },
-                { label: 'Chờ khám', value: dashboard.waiting, color: '#06b6d4' },
-                { label: 'Đang khám', value: dashboard.inProgress, color: '#8b5cf6' },
-                { label: 'Hoàn thành', value: dashboard.completed, color: '#10b981' },
-                { label: 'Đã hủy', value: dashboard.cancelled, color: '#ef4444' },
+                { label: 'Tổng', value: mergedStats.total, color: '#6366f1' },
+                { label: 'Chờ xác nhận', value: mergedStats.pending, color: '#f59e0b' },
+                { label: 'Đã xác nhận', value: mergedStats.confirmed, color: '#3b82f6' },
+                { label: 'Chờ khám', value: mergedStats.waiting, color: '#06b6d4' },
+                { label: 'Đang khám', value: mergedStats.inProgress, color: '#8b5cf6' },
+                { label: 'Hoàn thành', value: mergedStats.completed, color: '#10b981' },
+                { label: 'Đã hủy', value: mergedStats.cancelled, color: '#ef4444' },
+                {
+                  label: 'Đến khám dịch vụ',
+                  value: careSessions.filter(s => s.status !== 'CANCELLED').length,
+                  color: '#0891b2',
+                },
               ].map(({ label, value, color }) => (
                 <Col key={label} flex="1">
                   <Card size="small" style={{ textAlign: 'center', borderTop: `3px solid ${color}` }}>
@@ -520,8 +586,7 @@ export default function AppointmentManagementPage() {
                   </Card>
                 </Col>
               ))}
-            </Row>
-          )}
+          </Row>
 
       <Card>
         <Space style={{ marginBottom: 16 }}>

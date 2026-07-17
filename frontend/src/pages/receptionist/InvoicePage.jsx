@@ -38,6 +38,7 @@ import {
 import { appointmentService } from '../../services/appointmentService'
 import { invoiceService } from '../../services/invoiceService'
 import { clinicServiceService } from '../../services/clinicServiceService'
+import { discountService } from '../../services/discountService'
 import { medicineService } from '../../services/medicineService'
 
 const { Title, Text } = Typography
@@ -104,6 +105,12 @@ export default function InvoicePage() {
   const [form]                        = Form.useForm()
   const [items, setItems]             = useState([])
   const [discount, setDiscount]       = useState(0)
+  // UC-43: mã giảm giá áp dụng cho hoá đơn — appliedDiscountCode chỉ khớp discountCode
+  // khi đã bấm "Áp dụng" thành công, dùng để quyết định có gửi discountCode lên server không.
+  const [discountCode, setDiscountCode]             = useState('')
+  const [appliedDiscountCode, setAppliedDiscountCode] = useState('')
+  const [discountCodeError, setDiscountCodeError]   = useState('')
+  const [applyingCode, setApplyingCode]             = useState(false)
   const [submitting, setSubmitting]   = useState(false)
   const [qrLoading, setQrLoading]     = useState(false)
   const [qrKey, setQrKey]             = useState(0)
@@ -227,6 +234,9 @@ export default function InvoicePage() {
       : [{ itemType: 'SERVICE', description: '', quantity: 1, unitPrice: 0 }]
     setItems(prefill)
     setDiscount(0)
+    setDiscountCode('')
+    setAppliedDiscountCode('')
+    setDiscountCodeError('')
     form.setFieldsValue({ paymentMethod: 'CASH', paymentReference: BANK_ACCOUNT, notes: '' })
     setCreateModal({ open: true, appointment: appt })
   }
@@ -236,6 +246,9 @@ export default function InvoicePage() {
     form.resetFields()
     setItems([])
     setDiscount(0)
+    setDiscountCode('')
+    setAppliedDiscountCode('')
+    setDiscountCodeError('')
   }
 
   // ─── Item editing ─────────────────────────────────────────────────────────────
@@ -282,6 +295,25 @@ export default function InvoicePage() {
   // BR-11: Tổng thanh toán = tạm tính − giảm giá (không âm)
   const grandTotal   = Math.max(0, totalAmount - (discount || 0))
 
+  // UC-43: xem trước mức giảm của mã trước khi xác nhận — không tăng lượt dùng ở bước này,
+  // chỉ redeem thật khi hoá đơn được tạo (handleSubmit).
+  const handleApplyDiscountCode = async () => {
+    if (!discountCode.trim()) return
+    setApplyingCode(true)
+    setDiscountCodeError('')
+    try {
+      const res = await discountService.quote(discountCode.trim(), totalAmount)
+      setDiscount(res.data.discountAmount)
+      setAppliedDiscountCode(discountCode.trim())
+      message.success(`Đã áp dụng mã "${discountCode.trim()}" — giảm ${Number(res.data.discountAmount).toLocaleString('vi-VN')}đ`)
+    } catch (err) {
+      setDiscountCodeError(err.response?.data?.message || 'Mã giảm giá không hợp lệ')
+      setAppliedDiscountCode('')
+    } finally {
+      setApplyingCode(false)
+    }
+  }
+
   // ─── Submit ───────────────────────────────────────────────────────────────────
 
   const handleSubmit = async () => {
@@ -314,6 +346,7 @@ export default function InvoicePage() {
         paymentMethod: values.paymentMethod,
         paymentReference: values.paymentReference || null,
         discountAmount: discount || 0,
+        discountCode: appliedDiscountCode === discountCode.trim() && appliedDiscountCode ? appliedDiscountCode : null,
         notes: values.notes || null,
         items: items.map((it) => ({
           itemType: it.itemType,
@@ -833,6 +866,30 @@ export default function InvoicePage() {
               <div style={{ color: '#64748b', fontSize: 14 }}>
                 Tạm tính: <Text strong>{fmt(totalAmount)}</Text>
               </div>
+
+              {/* UC-43: áp dụng mã chương trình giảm giá — tự tính mức giảm, ghi đè nhập tay */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 14, color: '#64748b' }}>Mã giảm giá:</span>
+                <Input
+                  size="small"
+                  placeholder="VD: SUMMER2025"
+                  value={discountCode}
+                  onChange={(e) => { setDiscountCode(e.target.value); setDiscountCodeError('') }}
+                  onPressEnter={handleApplyDiscountCode}
+                  style={{ width: 160 }}
+                  status={discountCodeError ? 'error' : ''}
+                />
+                <Button size="small" loading={applyingCode} onClick={handleApplyDiscountCode} disabled={!discountCode.trim()}>
+                  Áp dụng
+                </Button>
+              </div>
+              {discountCodeError && (
+                <div style={{ color: '#dc2626', fontSize: 12 }}>{discountCodeError}</div>
+              )}
+              {appliedDiscountCode && appliedDiscountCode === discountCode.trim() && (
+                <div style={{ color: '#16a34a', fontSize: 12 }}>✓ Đã áp dụng mã "{appliedDiscountCode}"</div>
+              )}
+
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 14, color: '#64748b' }}>Giảm giá (đ):</span>
                 <InputNumber
@@ -840,7 +897,7 @@ export default function InvoicePage() {
                   min={0}
                   max={totalAmount}
                   value={discount}
-                  onChange={(v) => setDiscount(v ?? 0)}
+                  onChange={(v) => { setDiscount(v ?? 0); setAppliedDiscountCode('') }}
                   formatter={(v) => v?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                   parser={(v) => v?.replace(/,/g, '')}
                   style={{ width: 140 }}

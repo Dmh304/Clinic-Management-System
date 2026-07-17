@@ -14,6 +14,10 @@ const STATUS_INFO = {
 // Chỉ những buổi còn thao tác được (chưa bắt đầu / đang khám dở) mới cho vào trang thực hiện
 const ACTIONABLE_STATUSES = new Set(['BOOKED', 'IN_PROGRESS'])
 
+// UC-31 POST-1: "queue refreshed in real time" — polling nhẹ, cùng chu kỳ với chuông
+// thông báo (NotificationBell) trong hệ thống, không dùng websocket.
+const POLL_INTERVAL_MS = 30000
+
 export default function CareQueuePage() {
   const [sessions, setSessions] = useState([])
   const [loading, setLoading] = useState(true)
@@ -21,22 +25,26 @@ export default function CareQueuePage() {
   const [anchorDate, setAnchorDate] = useState(dayjs().startOf('day'))
   const navigate = useNavigate()
 
-  const fetchQueue = async (date = anchorDate) => {
-    setLoading(true)
+  const fetchQueue = async (date = anchorDate, { silent = false } = {}) => {
+    if (!silent) setLoading(true)
     setError('')
     try {
       const res = await careSessionService.getQueue(date.format('YYYY-MM-DD'))
       setSessions(res.data || [])
     } catch {
-      setError('Không thể tải hàng đợi')
+      if (!silent) setError('Không thể tải hàng đợi')
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchQueue(anchorDate)
+    // Chỉ polling khi đang xem đúng ngày hôm nay — xem ngày khác thì dữ liệu tĩnh, không cần.
+    if (!anchorDate.isSame(dayjs(), 'day')) return
+    const timer = setInterval(() => fetchQueue(anchorDate, { silent: true }), POLL_INTERVAL_MS)
+    return () => clearInterval(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [anchorDate])
 
@@ -120,17 +128,32 @@ export default function CareQueuePage() {
                       <div style={{ fontWeight: 700, color: '#1e293b', marginBottom: 4 }}>{s.patientName}</div>
                       <div style={{ fontSize: 13, color: '#64748b' }}>
                         {s.serviceName} • Buổi {s.sessionNumber}/{s.totalSessions} • {formatTime(s.scheduledDateTime)}
+                        {s.durationMinutes != null && ` • ${s.durationMinutes} phút`}
                       </div>
                       {s.notes && <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>Ghi chú: {s.notes}</div>}
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    {s.isIncident && (
+                      <span style={{ background: '#fef3c7', color: '#b45309', padding: '4px 10px', borderRadius: 10, fontSize: 12, fontWeight: 600 }}>⚠️ Sự cố</span>
+                    )}
+                    {s.status === 'BOOKED' && !s.checkedIn && (
+                      <span style={{ background: '#fee2e2', color: '#dc2626', padding: '4px 10px', borderRadius: 10, fontSize: 12, fontWeight: 600 }}>Chưa check-in</span>
+                    )}
                     <span style={{ background: info.bg, color: info.color, padding: '4px 10px', borderRadius: 10, fontSize: 12, fontWeight: 600 }}>{info.label}</span>
                     {ACTIONABLE_STATUSES.has(s.status) && (
-                      <button onClick={() => navigate(`/nurse/deliver/${s.id}`)}
-                        style={{ background: '#2563eb', color: '#fff', border: 'none', padding: '9px 18px', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 14 }}>
-                        {s.status === 'IN_PROGRESS' ? 'Tiếp tục' : 'Bắt đầu khám'}
-                      </button>
+                      s.status === 'BOOKED' && !s.checkedIn ? (
+                        <button disabled
+                          title="Bệnh nhân cần check-in tại quầy lễ tân trước"
+                          style={{ background: '#e2e8f0', color: '#94a3b8', border: 'none', padding: '9px 18px', borderRadius: 8, cursor: 'not-allowed', fontWeight: 700, fontSize: 14 }}>
+                          Chờ check-in
+                        </button>
+                      ) : (
+                        <button onClick={() => navigate(`/nurse/deliver/${s.id}`)}
+                          style={{ background: '#2563eb', color: '#fff', border: 'none', padding: '9px 18px', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 14 }}>
+                          {s.status === 'IN_PROGRESS' ? 'Tiếp tục' : 'Bắt đầu khám'}
+                        </button>
+                      )
                     )}
                   </div>
                 </div>

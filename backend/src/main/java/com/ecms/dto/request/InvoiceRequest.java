@@ -15,7 +15,11 @@ public class InvoiceRequest {
     private List<InvoiceItemRequest> items;
 
     // Số tiền giảm giá do lễ tân áp dụng (BR-11: Total = phí − Discount). Có thể null = 0.
+    // Bỏ qua nếu discountCode được cung cấp — khi đó server tự tính từ chương trình giảm giá.
     private BigDecimal discountAmount;
+
+    // UC-43: mã chương trình giảm giá (voucher) muốn áp dụng cho hoá đơn này — tuỳ chọn.
+    private String discountCode;
 
     // CASH hoặc VIET_QR
     private String paymentMethod;

@@ -18,4 +18,8 @@ export const discountService = {
 
   delete: (id) =>
     axiosClient.delete(`/v1/discount-campaigns/${id}`),
+
+  // UC-43: xem trước mức giảm của 1 mã cho 1 số tiền — không tăng lượt dùng
+  quote: (code, amount) =>
+    axiosClient.get('/v1/discount-campaigns/quote', { params: { code, amount } }),
 }

@@ -71,6 +71,8 @@ import ManageDoctorsPage from '../pages/manager/ManageDoctorsPage'
 import ManageDiscountCampaignsPage from '../pages/manager/ManageDiscountCampaignsPage'
 import AssignNursePage from '../pages/manager/AssignNursePage'
 import ReassignAppointmentPage from '../pages/manager/ReassignAppointmentPage'
+import RoomManagementPage from '../pages/manager/RoomManagementPage'
+import RoomRosterPage from '../pages/manager/RoomRosterPage'
 
 import AdminDashboardPage from '../pages/admin/AdminDashboardPage'
 import UserManagementPage from '../pages/admin/UserManagementPage'
@@ -191,6 +193,8 @@ export default function AppRouter() {
         <Route path="/manager/discount-campaigns" element={<WithHeader><ManageDiscountCampaignsPage /></WithHeader>} />
         <Route path="/manager/assign-nurse" element={<WithHeader><AssignNursePage /></WithHeader>} />
         <Route path="/manager/reassign-appointment" element={<WithHeader><ReassignAppointmentPage /></WithHeader>} />
+        <Route path="/manager/rooms" element={<WithHeader><RoomManagementPage /></WithHeader>} />
+        <Route path="/manager/room-roster" element={<WithHeader><RoomRosterPage /></WithHeader>} />
         <Route path="/manager/daily-schedule" element={<WithHeader><DailySchedulePage /></WithHeader>} />
       </Route>
 

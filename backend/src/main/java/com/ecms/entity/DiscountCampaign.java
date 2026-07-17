@@ -51,6 +51,10 @@ public class DiscountCampaign {
     @Column(name = "used_count", nullable = false)
     private Integer usedCount;
 
+    /** Tổng số tiền đã giảm luỹ kế qua các lần áp dụng — phục vụ xem hiệu quả campaign (UC-43 ALT-2). */
+    @Column(name = "total_discount_granted", nullable = false, precision = 14, scale = 2)
+    private BigDecimal totalDiscountGranted;
+
     @Column(name = "is_active", nullable = false)
     private Boolean isActive;
 
@@ -65,6 +69,7 @@ public class DiscountCampaign {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
         if (this.usedCount == null) this.usedCount = 0;
+        if (this.totalDiscountGranted == null) this.totalDiscountGranted = BigDecimal.ZERO;
         if (this.isActive == null) this.isActive = true;
     }
 

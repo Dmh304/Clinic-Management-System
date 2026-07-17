@@ -756,6 +756,46 @@ SET IDENTITY_INSERT feedbacks OFF;
 GO
 
 -- ============================================================================
+-- 24. rooms + room_services + staff_room_assignments (UC-58/UC-59)
+--    room_type: DOCTOR (khám tổng quát A/B, phẫu thuật) | NURSE (chăm sóc & phục hồi) | LAB (xét nghiệm/chẩn đoán hình ảnh)
+-- ============================================================================
+SET IDENTITY_INSERT rooms ON;
+
+INSERT INTO rooms (id, name, room_type, capacity, is_active, created_at) VALUES
+(1, N'Phòng khám tổng quát A',              N'DOCTOR', 1, 1, GETDATE()),
+(2, N'Phòng khám tổng quát B',              N'DOCTOR', 1, 1, GETDATE()),
+(3, N'Phòng phẫu thuật',                    N'DOCTOR', 1, 1, GETDATE()),
+(4, N'Phòng chăm sóc & phục hồi 1',         N'NURSE',  1, 1, GETDATE()),
+(5, N'Phòng chăm sóc & phục hồi 2',         N'NURSE',  1, 1, GETDATE()),
+(6, N'Phòng xét nghiệm & chẩn đoán hình ảnh', N'LAB',  1, 1, GETDATE());
+
+SET IDENTITY_INSERT rooms OFF;
+GO
+
+-- room_services: Phòng khám tổng quát A/B phục vụ "Khám tổng quát mắt" (service 9, 2 phòng A/B
+-- cùng dịch vụ); Phòng phẫu thuật phục vụ "Phẫu thuật đục thủy tinh thể" (service 8); 2 phòng
+-- Chăm sóc & phục hồi phục vụ chung mọi gói CARE (service 1-5); Phòng xét nghiệm phục vụ các
+-- dịch vụ đo/chụp/xét nghiệm (service 6,7,10,11,12,13,14).
+INSERT INTO room_services (room_id, service_id, created_at) VALUES
+(1, 9, GETDATE()),
+(2, 9, GETDATE()),
+(3, 8, GETDATE()),
+(4, 1, GETDATE()), (4, 2, GETDATE()), (4, 3, GETDATE()), (4, 4, GETDATE()), (4, 5, GETDATE()),
+(5, 1, GETDATE()), (5, 2, GETDATE()), (5, 3, GETDATE()), (5, 4, GETDATE()), (5, 5, GETDATE()),
+(6, 6, GETDATE()), (6, 7, GETDATE()), (6, 10, GETDATE()), (6, 11, GETDATE()), (6, 12, GETDATE()), (6, 13, GETDATE()), (6, 14, GETDATE());
+GO
+
+-- staff_room_assignments: phân công standing (không override) hiệu lực từ đầu năm — mỗi bác
+-- sĩ/điều dưỡng/KTV giữ nguyên phòng cho tới khi Manager (user 2) đổi qua UC-59.
+INSERT INTO staff_room_assignments (staff_user_id, room_id, effective_from, is_override, override_date, assigned_by, created_at) VALUES
+(3,  1, '2026-01-01', 0, NULL, 2, GETDATE()), -- BS. Nguyễn Văn An → Phòng khám tổng quát A
+(4,  2, '2026-01-01', 0, NULL, 2, GETDATE()), -- BS. Trần Thị Bình → Phòng khám tổng quát B
+(5,  3, '2026-01-01', 0, NULL, 2, GETDATE()), -- BS. Lê Minh Châu (chuyên phẫu thuật) → Phòng phẫu thuật
+(15, 4, '2026-01-01', 0, NULL, 2, GETDATE()), -- Andrea Lê (điều dưỡng) → Phòng chăm sóc & phục hồi 1
+(9,  6, '2026-01-01', 0, NULL, 2, GETDATE()); -- Đặng Kỹ Thuật Viên (lab) → Phòng xét nghiệm & chẩn đoán hình ảnh
+GO
+
+-- ============================================================================
 -- Tóm tắt
 -- ============================================================================
 PRINT N'';
@@ -773,6 +813,7 @@ PRINT N'  invoices                      : 4 (+8 details, tất cả PAID)';
 PRINT N'  subscriptions                 : 2 (+3 care_sessions) | service_registrations : 2';
 PRINT N'  notifications                 : 5   | blog_posts : 3 | audit_logs : 5';
 PRINT N'  doctor_schedules              : 7   | feedbacks : 3 | verification_tokens : 2';
+PRINT N'  rooms                         : 6 (UC-58) | room_services : 19 | staff_room_assignments : 5 (UC-59)';
 PRINT N'';
 PRINT N'  ─── TÀI KHOẢN ĐĂNG NHẬP (mật khẩu chung: Password@123) ───';
 PRINT N'  ADMIN         : mh3k42k6@gmail.com';

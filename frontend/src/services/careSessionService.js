@@ -13,17 +13,26 @@ export const careSessionService = {
   getQueue: (date) =>
     axiosClient.get('/v1/care-sessions/queue', { params: date ? { date } : {} }),
 
+  getById: (id) =>
+    axiosClient.get(`/v1/care-sessions/${id}`),
+
   getBySubscription: (subscriptionId) =>
     axiosClient.get(`/v1/care-sessions/subscription/${subscriptionId}`),
 
-  assignNurse: (id, nurseId) =>
-    axiosClient.patch(`/v1/care-sessions/${id}/assign-nurse`, { nurseId }),
+  assignNurse: (id, nurseId, override = false) =>
+    axiosClient.patch(`/v1/care-sessions/${id}/assign-nurse`, { nurseId, override }),
+
+  autoAssignRemaining: (date) =>
+    axiosClient.post('/v1/care-sessions/auto-assign', null, { params: { date } }),
+
+  checkIn: (id) =>
+    axiosClient.patch(`/v1/care-sessions/${id}/check-in`),
 
   start: (id) =>
     axiosClient.patch(`/v1/care-sessions/${id}/start`),
 
-  complete: (id, nurseNotes) =>
-    axiosClient.patch(`/v1/care-sessions/${id}/complete`, { nurseNotes }),
+  complete: (id, nurseNotes, isIncident = false) =>
+    axiosClient.patch(`/v1/care-sessions/${id}/complete`, { nurseNotes, isIncident }),
 
   checkout: (id) =>
     axiosClient.patch(`/v1/care-sessions/${id}/checkout`),

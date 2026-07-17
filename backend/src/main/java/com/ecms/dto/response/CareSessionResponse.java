@@ -16,6 +16,8 @@ public class CareSessionResponse {
     private String patientPhone;
     private Long nurseId;
     private String nurseName;
+    private Long roomId;
+    private String roomName;
     private LocalDateTime scheduledDateTime;
     private String status;
     private Integer sessionNumber;
@@ -23,7 +25,13 @@ public class CareSessionResponse {
     private Integer remainingSessions;
     private String notes;
     private String nurseNotes;
+    private Boolean checkedIn;
+    private LocalDateTime checkInAt;
+    private LocalDateTime startedAt;
     private LocalDateTime completedAt;
+    /** Số phút thực hiện — tính từ startedAt/completedAt, null nếu chưa hoàn thành. */
+    private Long durationMinutes;
+    private Boolean isIncident;
     private LocalDateTime assignedAt;
     private LocalDateTime createdAt;
 }

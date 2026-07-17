@@ -78,7 +78,7 @@ export default function ManageDiscountCampaignsPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
-                {['Tên chương trình', 'Loại', 'Giá trị', 'Hiệu lực', 'Đã dùng', 'Trạng thái', 'Thao tác'].map(h => (
+                {['Tên chương trình', 'Loại', 'Giá trị', 'Hiệu lực', 'Đã dùng', 'Đã giảm', 'Trạng thái', 'Thao tác'].map(h => (
                   <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>{h}</th>
                 ))}
               </tr>
@@ -105,6 +105,9 @@ export default function ManageDiscountCampaignsPage() {
                     </td>
                     <td style={{ padding: '12px 12px', fontSize: 13 }}>
                       {c.usedCount}{c.maxUsageCount ? `/${c.maxUsageCount}` : ''}
+                    </td>
+                    <td style={{ padding: '12px 12px', fontSize: 13, color: '#16a34a', fontWeight: 600 }}>
+                      {Number(c.totalDiscountGranted || 0).toLocaleString('vi-VN')}₫
                     </td>
                     <td style={{ padding: '12px 12px' }}>
                       <span style={{ background: active ? '#dcfce7' : '#f3f4f6', color: active ? '#16a34a' : '#6b7280', padding: '2px 8px', borderRadius: 10, fontSize: 12, fontWeight: 600 }}>

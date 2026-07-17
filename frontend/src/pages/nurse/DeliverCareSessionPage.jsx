@@ -8,17 +8,15 @@ export default function DeliverCareSessionPage() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
   const [nurseNotes, setNurseNotes] = useState('')
+  const [isIncident, setIsIncident] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    // Get sessions and find the one by id
-    Promise.all([careSessionService.getQueue(), careSessionService.getMy()]).then(([queueRes, myRes]) => {
-      const all = [...(queueRes.data || []), ...(myRes.data || [])]
-      const found = all.find(s => String(s.id) === String(id))
-      if (found) setSession(found)
-      else setError('Không tìm thấy buổi khám')
-    }).finally(() => setLoading(false))
+    careSessionService.getById(id)
+      .then(res => setSession(res.data))
+      .catch(err => setError(err.response?.data?.message || 'Không tìm thấy buổi khám'))
+      .finally(() => setLoading(false))
   }, [id])
 
   const handleStart = async () => {
@@ -42,7 +40,7 @@ export default function DeliverCareSessionPage() {
     setProcessing(true)
     setError('')
     try {
-      await careSessionService.complete(id, nurseNotes)
+      await careSessionService.complete(id, nurseNotes, isIncident)
       alert('Hoàn thành buổi khám thành công!')
       navigate('/nurse/queue')
     } catch (err) {
@@ -81,7 +79,13 @@ export default function DeliverCareSessionPage() {
                 <InfoRow label="Buổi số" value={`${session.sessionNumber}/${session.totalSessions}`} />
                 <InfoRow label="Lịch hẹn" value={formatDT(session.scheduledDateTime)} />
                 <InfoRow label="Trạng thái" value={session.status === 'BOOKED' ? 'Chờ khám' : 'Đang thực hiện'} />
+                <InfoRow label="Check-in" value={session.checkedIn ? '✓ Đã check-in' : '✗ Chưa check-in'} />
               </div>
+              {session.status === 'BOOKED' && !session.checkedIn && (
+                <div style={{ marginTop: 12, padding: '10px 12px', background: '#fee2e2', borderRadius: 8, fontSize: 13, color: '#dc2626' }}>
+                  Bệnh nhân chưa check-in tại quầy lễ tân — chưa thể bắt đầu buổi khám này.
+                </div>
+              )}
               {session.notes && (
                 <div style={{ marginTop: 12, padding: '10px 12px', background: '#fffbeb', borderRadius: 8, fontSize: 13, color: '#92400e' }}>
                   <strong>Ghi chú BN:</strong> {session.notes}
@@ -95,11 +99,18 @@ export default function DeliverCareSessionPage() {
                 placeholder="Nhập kết quả khám, tình trạng bệnh nhân, lưu ý..."
                 style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 14, outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} />
 
+              {session.status === 'IN_PROGRESS' && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, fontSize: 13, color: '#b45309', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={isIncident} onChange={e => setIsIncident(e.target.checked)} />
+                  ⚠️ Đánh dấu có sự cố/phản ứng bất thường trong buổi khám (báo Clinic Manager xem xét)
+                </label>
+              )}
+
               <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
                 {session.status === 'BOOKED' && (
-                  <button onClick={handleStart} disabled={processing}
-                    style={{ flex: 1, background: processing ? '#93c5fd' : '#2563eb', color: '#fff', border: 'none', padding: '12px', borderRadius: 8, fontWeight: 700, fontSize: 15, cursor: processing ? 'not-allowed' : 'pointer' }}>
-                    {processing ? '...' : '▶ Bắt đầu khám'}
+                  <button onClick={handleStart} disabled={processing || !session.checkedIn}
+                    style={{ flex: 1, background: (processing || !session.checkedIn) ? '#93c5fd' : '#2563eb', color: '#fff', border: 'none', padding: '12px', borderRadius: 8, fontWeight: 700, fontSize: 15, cursor: (processing || !session.checkedIn) ? 'not-allowed' : 'pointer' }}>
+                    {processing ? '...' : !session.checkedIn ? 'Chờ check-in' : '▶ Bắt đầu khám'}
                   </button>
                 )}
                 {session.status === 'IN_PROGRESS' && (

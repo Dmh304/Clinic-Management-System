@@ -1,11 +1,13 @@
 package com.ecms.service.impl;
 
 import com.ecms.dto.request.InvoiceRequest;
+import com.ecms.dto.response.DiscountApplicationResponse;
 import com.ecms.dto.response.InvoiceResponse;
 import com.ecms.entity.*;
 import com.ecms.exception.ResourceNotFoundException;
 import com.ecms.repository.AppointmentRepository;
 import com.ecms.repository.InvoiceRepository;
+import com.ecms.service.DiscountCampaignService;
 import com.ecms.service.InvoiceService;
 import com.ecms.service.InvoicePdfService;
 import lombok.RequiredArgsConstructor;
@@ -49,6 +51,7 @@ public class InvoiceServiceImpl implements InvoiceService {
     // Dùng để gửi email HTML khi lễ tân hoặc bệnh nhân yêu cầu gửi hóa đơn
     private final JavaMailSender mailSender;
     private final InvoicePdfService invoicePdfService;
+    private final DiscountCampaignService discountCampaignService;
 
     // Lấy tất cả hóa đơn (không kèm items) — dùng cho bảng lịch sử hóa đơn
     @Override
@@ -145,10 +148,17 @@ public class InvoiceServiceImpl implements InvoiceService {
         BigDecimal subTotal = serviceFee.add(labFee).add(medicineFee);
 
         // BR-11: Total = Examination fee + Lab fee + Medicine fee − Discount.
+        // UC-43: nếu có discountCode, hệ thống tự xác thực + tính mức giảm từ chương trình
+        // giảm giá (ưu tiên hơn số tiền nhập tay); ngược lại giữ hành vi cũ (lễ tân tự nhập).
+        BigDecimal discount;
+        if (request.getDiscountCode() != null && !request.getDiscountCode().isBlank()) {
+            DiscountApplicationResponse applied = discountCampaignService.redeemForOrder(
+                    request.getDiscountCode(), subTotal);
+            discount = applied.getDiscountAmount();
+        } else {
+            discount = request.getDiscountAmount() != null ? request.getDiscountAmount() : BigDecimal.ZERO;
+        }
         // Giới hạn discount trong [0, subTotal] để tổng tiền không âm và không vượt quá phí.
-        BigDecimal discount = request.getDiscountAmount() != null
-                ? request.getDiscountAmount()
-                : BigDecimal.ZERO;
         if (discount.compareTo(BigDecimal.ZERO) < 0) {
             discount = BigDecimal.ZERO;
         } else if (discount.compareTo(subTotal) > 0) {

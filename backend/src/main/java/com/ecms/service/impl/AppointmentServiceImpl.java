@@ -16,10 +16,13 @@ import com.ecms.repository.ClinicServiceRepository;
 import com.ecms.repository.DoctorRepository;
 import com.ecms.repository.MedicalRecordRepository;
 import com.ecms.repository.PatientRepository;
+import com.ecms.repository.RoomRepository;
 import com.ecms.repository.UserRepository;
+import com.ecms.dto.response.StaffRoomAssignmentResponse;
 import com.ecms.service.AppointmentService;
 import com.ecms.service.EmailService;
 import com.ecms.service.NotificationService;
+import com.ecms.service.RoomRosterService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -77,6 +80,23 @@ public class AppointmentServiceImpl implements AppointmentService {
         private final NotificationService notificationService;
         private final EmailService emailService;
         private final MedicalRecordRepository medicalRecordRepository;
+        private final RoomRosterService roomRosterService;
+        private final RoomRepository roomRepository;
+
+        /** UC-58/UC-59: phòng của bác sĩ cho 1 ngày khám — best-effort, không chặn luồng đặt/xác nhận
+         *  lịch nếu bác sĩ chưa được phân công phòng nào (trả về null). */
+        private Room resolveRoomForDoctor(Doctor doctor, LocalDate date) {
+                try {
+                        if (doctor == null || doctor.getUser() == null || date == null) return null;
+                        StaffRoomAssignmentResponse resolved = roomRosterService
+                                        .resolveRoomForStaffOnDate(doctor.getUser().getId(), date);
+                        return resolved != null ? roomRepository.findById(resolved.getRoomId()).orElse(null) : null;
+                } catch (Exception e) {
+                        log.warn("UC-59: Không resolve được phòng cho bác sĩ {} ngày {}: {}",
+                                        doctor.getId(), date, e.getMessage());
+                        return null;
+                }
+        }
 
         @Override
         @Transactional(readOnly = true)
@@ -230,6 +250,7 @@ public class AppointmentServiceImpl implements AppointmentService {
 
                         validateDoctorCapacity(doctorId, appointment.getAppointmentDate());
                         appointment.setDoctor(doctor);
+                        appointment.setRoom(resolveRoomForDoctor(doctor, appointment.getAppointmentDate()));
 
                         // Lưu vết lý do đổi bác sĩ vào notes (giữ nguyên note gốc) — giống luồng chuyển
                         // lịch
@@ -348,6 +369,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                                 .patient(targetPatient)
                                 .bookedBy(bookedByUserId)
                                 .doctor(doctor)
+                                .room(resolveRoomForDoctor(doctor, appointmentTime.toLocalDate()))
                                 .clinicService(clinicService)
                                 .appointmentTime(appointmentTime)
                                 .timeSlot(appointmentTime.toLocalTime().format(SLOT_FMT))
@@ -510,6 +532,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                 Appointment appointment = Appointment.builder()
                                 .patient(patient)
                                 .doctor(doctor)
+                                .room(resolveRoomForDoctor(doctor, appointmentDate))
                                 .clinicService(clinicService)
                                 .appointmentTime(walkInTime)
                                 .timeSlot(walkInTime.toLocalTime().format(SLOT_FMT))
@@ -573,11 +596,20 @@ public class AppointmentServiceImpl implements AppointmentService {
                         }
 
                         appointment.setDoctor(doctor);
+                        LocalDate roomTargetDate = (request.getNewAppointmentTime() != null
+                                        ? request.getNewAppointmentTime()
+                                        : appointment.getAppointmentTime()).toLocalDate();
+                        appointment.setRoom(resolveRoomForDoctor(doctor, roomTargetDate));
                 }
 
                 if (request.getNewAppointmentTime() != null) {
                         appointment.setAppointmentTime(request.getNewAppointmentTime());
                         appointment.setTimeSlot(request.getNewAppointmentTime().toLocalTime().toString());
+                        // Bác sĩ không đổi nhưng ngày khám đổi sang ngày khác → phòng có thể khác (roster theo ngày).
+                        if (!doctorChanged && appointment.getDoctor() != null) {
+                                appointment.setRoom(resolveRoomForDoctor(appointment.getDoctor(),
+                                                request.getNewAppointmentTime().toLocalDate()));
+                        }
                 }
 
                 // UC-18: fix bug overwrite notes — append lý do chuyển lịch, giữ nguyên note
@@ -1021,6 +1053,8 @@ public class AppointmentServiceImpl implements AppointmentService {
                                 .patientAddress(patient != null ? patient.getAddress() : null)
                                 .doctorId(a.getDoctor() != null ? a.getDoctor().getId() : null)
                                 .doctorName(a.getDoctor() != null ? a.getDoctor().getFullName() : null)
+                                .roomId(a.getRoom() != null ? a.getRoom().getId() : null)
+                                .roomName(a.getRoom() != null ? a.getRoom().getName() : null)
                                 .serviceId(a.getClinicService() != null ? a.getClinicService().getId() : null)
                                 .serviceName(a.getClinicService() != null ? a.getClinicService().getServiceName()
                                                 : null)

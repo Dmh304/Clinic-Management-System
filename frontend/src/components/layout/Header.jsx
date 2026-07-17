@@ -38,6 +38,8 @@ const MANAGER_LINKS = [
   { label: 'Chương trình giảm giá', to: '/manager/discount-campaigns' },
   { label: 'Phân công điều dưỡng', to: '/manager/assign-nurse' },
   { label: 'Chuyển lịch hẹn', to: '/manager/reassign-appointment' },
+  { label: 'Danh mục phòng', to: '/manager/rooms' },
+  { label: 'Phân công phòng', to: '/manager/room-roster' },
 ].map(x => ({ ...x, icon: MGR_ICON }))
 
 const PUBLIC_LINKS = [
