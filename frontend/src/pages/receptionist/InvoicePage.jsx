@@ -6,15 +6,20 @@
  *  1. Lễ tân chọn lịch hẹn COMPLETED chưa có hóa đơn từ tab "Tạo hóa đơn"
  *  2. Nhập các khoản phí (dịch vụ, xét nghiệm, thuốc, kính...)
  *  3. Chọn phương thức thanh toán: Tiền mặt hoặc QR Code (VietQR)
- *     - Nếu chọn QR Code: hiển thị mã QR để bệnh nhân quét và chuyển khoản
- *  4. Xác nhận thu tiền → hóa đơn được tạo (DRAFT) và phát hành ngay (ISSUED)
- *  5. Tab "Lịch sử hóa đơn": xem chi tiết, in hoặc gửi email hóa đơn
+ *     - Tiền mặt: lễ tân cầm tiền → tạo hóa đơn (DRAFT) và phát hành ngay (ISSUED)
+ *     - QR Code: tạo hóa đơn nháp trước để có mã INV-yyyyMMdd-XXXX → sinh mã QR mang
+ *       chính mã đó làm nội dung chuyển khoản → chờ ngân hàng xác nhận. Hóa đơn CHỈ
+ *       chuyển sang PAID khi cổng thanh toán bắn webhook báo tiền đã vào tài khoản,
+ *       lễ tân không tự xác nhận thay ngân hàng.
+ *  4. Tab "Lịch sử hóa đơn": xem chi tiết, in hoặc gửi email hóa đơn
  *
  * State quản lý qua Redux (invoiceSlice):
  *  - list: danh sách hóa đơn, loading: trạng thái tải
  *
  * Tích hợp:
  *  - VietQR Image API: sinh mã QR chuyển khoản theo thông tin ngân hàng từ .env
+ *  - Payment webhook (backend, UC-22): cổng thanh toán báo tiền về → tự gạch nợ;
+ *    trang này polling GET /payments/invoice/{id}/status mỗi 3 giây để cập nhật UI
  *  - JavaMailSender (backend): gửi email HTML hóa đơn đến bệnh nhân
  *  - window.print(): in hóa đơn trực tiếp từ trình duyệt
  */
@@ -30,13 +35,14 @@ import {
 import {
   PlusOutlined, DeleteOutlined, ReloadOutlined,
   CheckCircleOutlined, SearchOutlined, FileTextOutlined,
-  DollarOutlined, PrinterOutlined, MailOutlined,
+  DollarOutlined, PrinterOutlined, MailOutlined, QrcodeOutlined,
 } from '@ant-design/icons'
 import {
   fetchAllInvoices, createInvoice, issueInvoice, cancelInvoice,
 } from '../../store/slices/invoiceSlice'
 import { appointmentService } from '../../services/appointmentService'
 import { invoiceService } from '../../services/invoiceService'
+import { paymentService } from '../../services/paymentService'
 import { clinicServiceService } from '../../services/clinicServiceService'
 import { medicineService } from '../../services/medicineService'
 
@@ -48,11 +54,25 @@ const BANK_ID      = import.meta.env.VITE_BANK_ID      || '970436'   // Vietcomb
 const BANK_ACCOUNT = import.meta.env.VITE_BANK_ACCOUNT || '1234567890'
 const BANK_NAME    = import.meta.env.VITE_BANK_NAME    || 'PHONG KHAM MAT'
 
-// Tạo URL mã QR VietQR theo chuẩn Napas — bệnh nhân quét bằng app ngân hàng để chuyển khoản
-const buildVietQrUrl = (amount, description, bankAccount = BANK_ACCOUNT) =>
-  `https://img.vietqr.io/image/${BANK_ID}-${bankAccount}-compact2.png` +
+// Chu kỳ hỏi backend xem tiền đã về chưa, tính bằng ms
+const POLL_INTERVAL_MS = 3000
+
+// Ngưỡng dừng polling nếu bệnh nhân không chuyển khoản (10 phút).
+// Đây CHỈ là giới hạn phía giao diện để trình duyệt không hỏi backend vô hạn —
+// không phải hạn thanh toán. Bệnh nhân chuyển tiền muộn hơn thì webhook vẫn gạch nợ
+// bình thường, lễ tân mở lại hóa đơn sẽ thấy đã thanh toán.
+const POLL_TIMEOUT_MS = 10 * 60 * 1000
+
+// Nội dung chuyển khoản BẮT BUỘC chứa mã hóa đơn: webhook của cổng thanh toán dò
+// đúng chuỗi này trong nội dung để biết tiền vào là của hóa đơn nào.
+const buildTransferContent = (invoiceCode) => `Thanh toan ${invoiceCode}`
+
+// Tạo URL mã QR VietQR theo chuẩn Napas — bệnh nhân quét bằng app ngân hàng để chuyển khoản.
+// Số tài khoản luôn là tài khoản phòng khám trong .env; addInfo là mã hóa đơn để đối soát tự động.
+const buildVietQrUrl = (amount, invoiceCode) =>
+  `https://img.vietqr.io/image/${BANK_ID}-${BANK_ACCOUNT}-compact2.png` +
   `?amount=${Math.round(amount)}` +
-  `&addInfo=${encodeURIComponent(description)}` +
+  `&addInfo=${encodeURIComponent(buildTransferContent(invoiceCode))}` +
   `&accountName=${encodeURIComponent(BANK_NAME)}`
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -77,9 +97,11 @@ const INVOICE_STATUS_CFG = {
 }
 
 const PAYMENT_STATUS_CFG = {
-  UNPAID:         { color: 'orange', label: 'Chưa thanh toán' },
-  PAID:           { color: 'green',  label: 'Đã thanh toán' },
-  PAYMENT_FAILED: { color: 'red',    label: 'Thất bại' },
+  UNPAID:          { color: 'orange', label: 'Chưa thanh toán' },
+  // Đã sinh mã QR, đang chờ cổng thanh toán báo tiền về (ThangNBHE201024)
+  PENDING_PAYMENT: { color: 'blue',   label: 'Chờ chuyển khoản' },
+  PAID:            { color: 'green',  label: 'Đã thanh toán' },
+  PAYMENT_FAILED:  { color: 'red',    label: 'Thất bại' },
 }
 
 const fmt = (amount) =>
@@ -108,8 +130,16 @@ export default function InvoicePage() {
   const [qrLoading, setQrLoading]     = useState(false)
   const [qrKey, setQrKey]             = useState(0)
 
-  const paymentMethod    = Form.useWatch('paymentMethod', form)
-  const paymentReference = Form.useWatch('paymentReference', form)
+  // ── Trạng thái luồng thanh toán QR tự động (ThangNBHE201024) ────────────────
+  // pendingInvoice: hóa đơn nháp đã tạo, đang chờ bệnh nhân chuyển khoản.
+  // Mã QR chỉ được sinh SAU khi có hóa đơn, vì nội dung chuyển khoản phải chứa
+  // mã hóa đơn thì webhook của cổng mới biết tiền vào là của hóa đơn nào.
+  const [pendingInvoice, setPendingInvoice] = useState(null)
+  // Đã quá 10 phút không thấy tiền về → ngừng hỏi backend, chờ lễ tân thao tác tiếp
+  const [pollTimedOut, setPollTimedOut]     = useState(false)
+  const [checkingNow, setCheckingNow]       = useState(false)
+
+  const paymentMethod = Form.useWatch('paymentMethod', form)
 
   // Autocomplete: dịch vụ khám / xét nghiệm (CLINICAL) và danh mục thuốc
   const [availableServices, setAvailableServices] = useState([])
@@ -164,7 +194,7 @@ export default function InvoicePage() {
                   ? [{ itemType: 'SERVICE', description: targetAppt.serviceName, quantity: 1, unitPrice: targetAppt.servicePrice ?? 0 }]
                   : [{ itemType: 'SERVICE', description: '', quantity: 1, unitPrice: 0 }]
                 setItems(prefill)
-                form.setFieldsValue({ paymentMethod: 'CASH', paymentReference: BANK_ACCOUNT, notes: '' })
+                form.setFieldsValue({ paymentMethod: 'CASH', paymentReference: '', notes: '' })
                 setCreateModal({ open: true, appointment: targetAppt })
               }
             }, 300)
@@ -227,7 +257,7 @@ export default function InvoicePage() {
       : [{ itemType: 'SERVICE', description: '', quantity: 1, unitPrice: 0 }]
     setItems(prefill)
     setDiscount(0)
-    form.setFieldsValue({ paymentMethod: 'CASH', paymentReference: BANK_ACCOUNT, notes: '' })
+    form.setFieldsValue({ paymentMethod: 'CASH', paymentReference: '', notes: '' })
     setCreateModal({ open: true, appointment: appt })
   }
 
@@ -236,6 +266,10 @@ export default function InvoicePage() {
     form.resetFields()
     setItems([])
     setDiscount(0)
+    // Dừng polling trạng thái thanh toán khi đóng modal (ThangNBHE201024).
+    // Hóa đơn nháp chưa thanh toán vẫn nằm ở tab Lịch sử để lễ tân xử lý tiếp.
+    setPendingInvoice(null)
+    setPollTimedOut(false)
   }
 
   // ─── Item editing ─────────────────────────────────────────────────────────────
@@ -284,46 +318,72 @@ export default function InvoicePage() {
 
   // ─── Submit ───────────────────────────────────────────────────────────────────
 
-  const handleSubmit = async () => {
+  // Kiểm tra hợp lệ dùng chung cho cả hai luồng tiền mặt và QR.
+  // Trả về values của form nếu hợp lệ, null nếu có lỗi (đã hiện cảnh báo).
+  const validateInvoiceForm = async () => {
     let values
-    try { values = await form.validateFields() } catch { return }
+    try { values = await form.validateFields() } catch { return null }
 
-    if (!items.length) { message.warning('Vui lòng thêm ít nhất một khoản phí'); return }
+    if (!items.length) { message.warning('Vui lòng thêm ít nhất một khoản phí'); return null }
     if (items.some((it) => !it.description?.trim())) {
       message.warning('Vui lòng nhập mô tả cho tất cả các khoản phí')
-      return
+      return null
     }
     const descs = items.map((it) => it.description.trim().toLowerCase())
     if (descs.length !== new Set(descs).size) {
       message.warning('Có khoản phí bị trùng nhau, vui lòng kiểm tra lại')
-      return
+      return null
     }
     if (items.some((it) => (it.unitPrice ?? 0) <= 0)) {
       message.warning('Đơn giá phải lớn hơn 0 cho tất cả các khoản phí')
-      return
+      return null
     }
     if ((discount || 0) < 0 || (discount || 0) > totalAmount) {
       message.warning('Số tiền giảm giá phải từ 0 đến tổng tạm tính')
-      return
+      return null
     }
+    return values
+  }
+
+  const buildInvoicePayload = (values) => ({
+    appointmentId: createModal.appointment.id,
+    paymentMethod: values.paymentMethod,
+    paymentReference: values.paymentReference || null,
+    discountAmount: discount || 0,
+    notes: values.notes || null,
+    items: items.map((it) => ({
+      itemType: it.itemType,
+      description: it.description,
+      quantity: it.quantity ?? 1,
+      unitPrice: it.unitPrice ?? 0,
+    })),
+  })
+
+  // UC-22/UC-23 (BP-4): thu tiền xong thì gửi hóa đơn điện tử vào email bệnh nhân.
+  // Lỗi gửi email (bệnh nhân chưa có email, SMTP timeout...) chỉ cảnh báo,
+  // không làm hỏng luồng thu phí đã hoàn tất.
+  const sendInvoiceEmailQuietly = async (invoiceId) => {
+    try {
+      await invoiceService.sendEmail(invoiceId)
+      message.success('Đã gửi hóa đơn vào email bệnh nhân')
+    } catch (err) {
+      const isTimeout = err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')
+      const serverMsg = err?.response?.data?.message
+      message.warning(
+        serverMsg
+          || (isTimeout ? 'Hóa đơn đã phát hành nhưng gửi email bị quá thời gian chờ' : 'Hóa đơn đã phát hành nhưng chưa gửi được email cho bệnh nhân')
+      )
+    }
+  }
+
+  // Luồng TIỀN MẶT: lễ tân cầm tiền trên tay nên tạo và phát hành ngay trong một bước.
+  const handleSubmit = async () => {
+    const values = await validateInvoiceForm()
+    if (!values) return
 
     setSubmitting(true)
     try {
-      const payload = {
-        appointmentId: createModal.appointment.id,
-        paymentMethod: values.paymentMethod,
-        paymentReference: values.paymentReference || null,
-        discountAmount: discount || 0,
-        notes: values.notes || null,
-        items: items.map((it) => ({
-          itemType: it.itemType,
-          description: it.description,
-          quantity: it.quantity ?? 1,
-          unitPrice: it.unitPrice ?? 0,
-        })),
-      }
-
-      const created = await dispatch(createInvoice(payload)).unwrap()
+      const created = await dispatch(createInvoice(buildInvoicePayload(values))).unwrap()
 
       await dispatch(issueInvoice({
         id: created.id,
@@ -332,21 +392,7 @@ export default function InvoicePage() {
       })).unwrap()
 
       message.success(`Hóa đơn ${created.invoiceCode} đã được phát hành thành công`)
-
-      // UC-22/UC-23 (BP-4): tạo & phát hành xong thì gửi hóa đơn điện tử vào email
-      // bệnh nhân luôn. Lỗi gửi email (bệnh nhân chưa có email, SMTP timeout...)
-      // chỉ cảnh báo, không làm hỏng luồng thu phí đã hoàn tất.
-      try {
-        await invoiceService.sendEmail(created.id)
-        message.success('Đã gửi hóa đơn vào email bệnh nhân')
-      } catch (err) {
-        const isTimeout = err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')
-        const serverMsg = err?.response?.data?.message
-        message.warning(
-          serverMsg
-            || (isTimeout ? 'Hóa đơn đã phát hành nhưng gửi email bị quá thời gian chờ' : 'Hóa đơn đã phát hành nhưng chưa gửi được email cho bệnh nhân')
-        )
-      }
+      await sendInvoiceEmailQuietly(created.id)
 
       handleCloseCreate()
       dispatch(fetchAllInvoices())
@@ -355,6 +401,87 @@ export default function InvoicePage() {
       message.error(typeof err === 'string' ? err : 'Có lỗi xảy ra, vui lòng thử lại')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  // Luồng QR (ThangNBHE201024): KHÔNG phát hành ngay.
+  // Chỉ tạo hóa đơn nháp để có mã hóa đơn, rồi sinh mã QR mang đúng mã đó làm nội dung
+  // chuyển khoản. Hóa đơn chỉ chuyển sang PAID khi cổng thanh toán bắn webhook báo
+  // tiền đã thực sự vào tài khoản phòng khám — lễ tân không tự xác nhận thay ngân hàng.
+  const handleCreateQrInvoice = async () => {
+    const values = await validateInvoiceForm()
+    if (!values) return
+
+    setSubmitting(true)
+    try {
+      const created = await dispatch(createInvoice(buildInvoicePayload(values))).unwrap()
+      setPendingInvoice(created)
+      setPollTimedOut(false)
+      setQrLoading(true)
+      dispatch(fetchAllInvoices())
+      message.success(`Đã tạo hóa đơn ${created.invoiceCode}. Mời bệnh nhân quét mã QR.`)
+    } catch (err) {
+      message.error(typeof err === 'string' ? err : 'Không thể tạo hóa đơn, vui lòng thử lại')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // Xử lý chung khi phát hiện hóa đơn đã được thanh toán, dùng cho cả polling tự động
+  // lẫn nút "Kiểm tra lại" thủ công.
+  const onPaymentConfirmed = async (invoice) => {
+    message.success(`Đã nhận thanh toán cho hóa đơn ${invoice.invoiceCode}`)
+    await sendInvoiceEmailQuietly(invoice.id)
+    handleCloseCreate()
+    dispatch(fetchAllInvoices())
+    void refreshAppointments()
+  }
+
+  // Polling: hỏi backend mỗi 3 giây xem cổng thanh toán đã báo tiền về chưa.
+  // Tự dừng sau POLL_TIMEOUT_MS để không hỏi vô hạn khi bệnh nhân bỏ đi giữa chừng;
+  // dọn interval khi đóng modal.
+  useEffect(() => {
+    if (!pendingInvoice || pollTimedOut) return
+
+    let cancelled = false
+    const deadline = Date.now() + POLL_TIMEOUT_MS
+
+    const checkStatus = async () => {
+      if (Date.now() > deadline) {
+        // Hết giờ chờ: chỉ dừng polling. Hóa đơn vẫn ở PENDING_PAYMENT và webhook
+        // vẫn gạch nợ nếu bệnh nhân chuyển khoản muộn — không có tiền nào bị bỏ rơi.
+        if (!cancelled) setPollTimedOut(true)
+        return
+      }
+      try {
+        const res = await paymentService.getStatus(pendingInvoice.id)
+        if (cancelled || !res?.data?.paid) return
+        await onPaymentConfirmed(pendingInvoice)
+      } catch {
+        // Lỗi mạng tạm thời: bỏ qua, vòng polling kế tiếp sẽ thử lại.
+      }
+    }
+
+    const timer = setInterval(checkStatus, POLL_INTERVAL_MS)
+    return () => { cancelled = true; clearInterval(timer) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingInvoice, pollTimedOut, dispatch, refreshAppointments])
+
+  // Kiểm tra thủ công sau khi đã hết giờ chờ tự động
+  const handleCheckPaymentNow = async () => {
+    if (!pendingInvoice) return
+    setCheckingNow(true)
+    try {
+      const res = await paymentService.getStatus(pendingInvoice.id)
+      if (res?.data?.paid) {
+        await onPaymentConfirmed(pendingInvoice)
+      } else {
+        message.info('Ngân hàng chưa báo tiền về cho hóa đơn này')
+      }
+    } catch {
+      message.error('Không kiểm tra được trạng thái thanh toán')
+    } finally {
+      setCheckingNow(false)
     }
   }
 
@@ -641,17 +768,36 @@ export default function InvoicePage() {
         onCancel={handleCloseCreate}
         width={780}
         footer={[
-          <Button key="back" onClick={handleCloseCreate}>Hủy bỏ</Button>,
-          <Button
-            key="submit"
-            type="primary"
-            icon={<CheckCircleOutlined />}
-            loading={submitting}
-            onClick={handleSubmit}
-            style={{ backgroundColor: '#10b981', borderColor: '#10b981' }}
-          >
-            Xác nhận thu tiền & Phát hành
+          <Button key="back" onClick={handleCloseCreate}>
+            {pendingInvoice ? 'Đóng' : 'Hủy bỏ'}
           </Button>,
+          // Luồng QR: nút tạo hóa đơn + sinh mã QR. Sau khi có mã QR thì ẩn nút đi,
+          // vì việc xác nhận thanh toán do cổng ngân hàng quyết định chứ không phải lễ tân.
+          paymentMethod === 'VIET_QR'
+            ? (!pendingInvoice && (
+              <Button
+                key="qr"
+                type="primary"
+                icon={<QrcodeOutlined />}
+                loading={submitting}
+                onClick={handleCreateQrInvoice}
+                style={{ backgroundColor: '#10b981', borderColor: '#10b981' }}
+              >
+                Tạo mã QR & chờ chuyển khoản
+              </Button>
+            ))
+            : (
+              <Button
+                key="submit"
+                type="primary"
+                icon={<CheckCircleOutlined />}
+                loading={submitting}
+                onClick={handleSubmit}
+                style={{ backgroundColor: '#10b981', borderColor: '#10b981' }}
+              >
+                Xác nhận thu tiền & Phát hành
+              </Button>
+            ),
         ]}
         destroyOnClose
       >
@@ -861,18 +1007,43 @@ export default function InvoicePage() {
                     name="paymentMethod"
                     rules={[{ required: true, message: 'Vui lòng chọn phương thức' }]}
                   >
-                    <Select options={PAYMENT_METHOD_OPTS} />
+                    {/* Đã sinh mã QR thì khóa lựa chọn: đổi phương thức lúc này sẽ
+                        lệch với mã QR bệnh nhân đang quét dở. */}
+                    <Select options={PAYMENT_METHOD_OPTS} disabled={!!pendingInvoice} />
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item label="Mã ngân hàng (nếu có)" name="paymentReference">
-                    <Input placeholder="Mã giao dịch ngân hàng..." />
-                  </Form.Item>
+                  {/* Luồng QR không cho nhập tay mã giao dịch: mã tham chiếu do chính
+                      ngân hàng gửi về qua webhook, nhập tay sẽ sai lệch khi đối soát. */}
+                  {paymentMethod !== 'VIET_QR' && (
+                    <Form.Item label="Mã giao dịch ngân hàng (nếu có)" name="paymentReference">
+                      <Input placeholder="Mã giao dịch ngân hàng..." />
+                    </Form.Item>
+                  )}
                 </Col>
               </Row>
 
-              {/* ── VietQR block ── */}
-              {paymentMethod === 'VIET_QR' && grandTotal > 0 && (
+              {/* ── VietQR block (ThangNBHE201024) ──────────────────────────────
+                  Mã QR chỉ hiện SAU khi hóa đơn nháp đã được tạo, vì nội dung chuyển
+                  khoản phải mang mã hóa đơn thì webhook cổng thanh toán mới đối soát
+                  tự động được. Trước đó chỉ hiện hướng dẫn. */}
+              {paymentMethod === 'VIET_QR' && !pendingInvoice && (
+                <div style={{
+                  padding: '12px 16px',
+                  background: '#eff6ff',
+                  borderRadius: 12,
+                  border: '1px solid #bfdbfe',
+                  marginBottom: 16,
+                  fontSize: 13,
+                  color: '#1e40af',
+                }}>
+                  Nhấn <Text strong>“Tạo mã QR & chờ chuyển khoản”</Text> để phát sinh mã hóa đơn.
+                  Mã QR sẽ mang mã hóa đơn làm nội dung chuyển khoản, giúp hệ thống tự xác nhận
+                  khi tiền về tài khoản phòng khám.
+                </div>
+              )}
+
+              {paymentMethod === 'VIET_QR' && pendingInvoice && (
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -888,12 +1059,10 @@ export default function InvoicePage() {
                     <img
                       key={qrKey}
                       src={buildVietQrUrl(
-                        grandTotal,
-                        `Thanh toan ${createModal.appointment?.patientName ?? ''}`,
-                        paymentReference?.trim() || BANK_ACCOUNT
+                        pendingInvoice.totalAmount ?? grandTotal,
+                        pendingInvoice.invoiceCode
                       )}
                       alt="VietQR"
-                      onLoadStart={() => setQrLoading(true)}
                       onLoad={() => setQrLoading(false)}
                       onError={() => setQrLoading(false)}
                       style={{ width: 300, height: 300, borderRadius: 8, boxShadow: '0 2px 8px #0001', display: 'block' }}
@@ -907,10 +1076,66 @@ export default function InvoicePage() {
                     </Text>
                     <div style={{ fontSize: 13, color: '#374151', lineHeight: 2 }}>
                       <div><Text type="secondary">Ngân hàng:</Text> <Text strong>{BANK_NAME}</Text></div>
-                      <div><Text type="secondary">STK:</Text> <Text strong>{paymentReference?.trim() || BANK_ACCOUNT}</Text></div>
-                      <div><Text type="secondary">Số tiền:</Text> <Text strong style={{ color: '#10b981' }}>{fmt(grandTotal)}</Text></div>
-                      <div><Text type="secondary">Nội dung:</Text> <Text strong>Thanh toan {createModal.appointment?.patientName ?? ''}</Text></div>
+                      <div><Text type="secondary">STK:</Text> <Text strong>{BANK_ACCOUNT}</Text></div>
+                      <div><Text type="secondary">Số tiền:</Text> <Text strong style={{ color: '#10b981' }}>{fmt(pendingInvoice.totalAmount ?? grandTotal)}</Text></div>
+                      <div>
+                        <Text type="secondary">Nội dung:</Text>{' '}
+                        <Text strong copyable>{buildTransferContent(pendingInvoice.invoiceCode)}</Text>
+                      </div>
                     </div>
+
+                    {/* Trạng thái chờ: polling backend mỗi 3 giây, tự dừng sau 10 phút */}
+                    {!pollTimedOut ? (
+                      <>
+                        <div style={{
+                          marginTop: 12,
+                          padding: '8px 12px',
+                          background: '#fff',
+                          borderRadius: 8,
+                          border: '1px dashed #86efac',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 10,
+                        }}>
+                          <Spin size="small" />
+                          <Text style={{ fontSize: 13, color: '#15803d' }}>
+                            Đang chờ ngân hàng xác nhận chuyển khoản...
+                          </Text>
+                        </div>
+                        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 6 }}>
+                          Hóa đơn sẽ tự chuyển sang “Đã thanh toán” ngay khi tiền vào tài khoản.
+                          Giữ nguyên nội dung chuyển khoản để hệ thống đối soát đúng.
+                        </Text>
+                      </>
+                    ) : (
+                      <div style={{
+                        marginTop: 12,
+                        padding: '8px 12px',
+                        background: '#fffbeb',
+                        borderRadius: 8,
+                        border: '1px dashed #fcd34d',
+                      }}>
+                        <Text style={{ fontSize: 13, color: '#b45309' }}>
+                          Đã quá 10 phút chưa thấy tiền về — tạm dừng kiểm tra tự động.
+                        </Text>
+                        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
+                          Hóa đơn <Text strong>{pendingInvoice.invoiceCode}</Text> vẫn còn hiệu lực.
+                          Bệnh nhân chuyển khoản muộn thì hệ thống vẫn tự gạch nợ — mở lại hóa đơn
+                          ở tab “Lịch sử hóa đơn” để xem. Nếu bệnh nhân đổi sang trả tiền mặt,
+                          hãy hủy hóa đơn này rồi tạo lại với phương thức Tiền mặt.
+                        </Text>
+                        <Button
+                          size="small"
+                          type="primary"
+                          loading={checkingNow}
+                          onClick={handleCheckPaymentNow}
+                          style={{ marginTop: 8 }}
+                        >
+                          Kiểm tra lại ngay
+                        </Button>
+                      </div>
+                    )}
+
                     <Button
                       size="small"
                       icon={<ReloadOutlined />}

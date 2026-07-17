@@ -64,6 +64,19 @@ spring.mail.properties.mail.smtp.starttls.enable=true
 app.frontend-base-url=${FRONTEND_BASE_URL:http://localhost:5173}
 
 # ============================================================
+# Payment webhook (UC-22 — thanh toán VietQR tự động) — ThangNBHE201024
+# ============================================================
+# API key cổng thanh toán phải gửi kèm mỗi webhook: "Authorization: Apikey <key>".
+# Sinh chuỗi ngẫu nhiên và khai báo y hệt ở trang cấu hình webhook của SePay.
+# Nếu để trống, hệ thống TỪ CHỐI mọi webhook (không cho chạy webhook không bảo vệ).
+#
+# Muốn thử luồng thanh toán khi chạy local: gọi thẳng /api/v1/payments/webhook bằng curl
+# kèm chính key này (xem docs/payment-webhook-demo.md). Hệ thống cố ý KHÔNG có endpoint
+# giả lập bỏ qua xác thực — một cửa sau như vậy chỉ cần bật nhầm một lần là ai biết URL
+# cũng tự đánh dấu hóa đơn đã thanh toán được.
+payment.webhook.api-key=${PAYMENT_WEBHOOK_API_KEY:ecms-local-demo-key-change-me}
+
+# ============================================================
 # Swagger / OpenAPI
 # ============================================================
 springdoc.swagger-ui.path=/swagger-ui.html

@@ -171,7 +171,12 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .paymentMethod(request.getPaymentMethod())
                 .paymentReference(request.getPaymentReference())
                 .status("DRAFT")
-                .paymentStatus("UNPAID")
+                // ThangNBHE201024 — hóa đơn QR nằm ở PENDING_PAYMENT ngay khi tạo: mã QR đã
+                // đưa cho bệnh nhân quét, hệ thống đang chờ cổng thanh toán báo tiền về.
+                // Chỉ webhook mới được đẩy sang PAID (xem PaymentServiceImpl).
+                // Hóa đơn tiền mặt giữ UNPAID cho đến khi lễ tân phát hành.
+                .paymentStatus("VIET_QR".equals(request.getPaymentMethod())
+                        ? "PENDING_PAYMENT" : "UNPAID")
                 .notes(request.getNotes())
                 .build();
 
@@ -197,6 +202,21 @@ public class InvoiceServiceImpl implements InvoiceService {
 
         if (!"DRAFT".equals(invoice.getStatus())) {
             throw new IllegalStateException("Chỉ hóa đơn ở trạng thái DRAFT mới được phát hành");
+        }
+
+        // ThangNBHE201024 — chặn phát hành tay hóa đơn QR đang chờ ngân hàng (UC-22).
+        // Hóa đơn QR nằm ở PENDING_PAYMENT: tiền chỉ được coi là đã thu khi cổng thanh toán
+        // bắn webhook về (PaymentServiceImpl). Nếu vẫn cho gọi endpoint này với VIET_QR thì
+        // lễ tân đánh dấu PAID được mà không cần ngân hàng xác nhận — đúng lỗ hổng mà cả
+        // luồng webhook sinh ra để bịt.
+        // Vẫn cho phép chuyển sang CASH: bệnh nhân bỏ QR quay lại trả tiền mặt là hợp lệ,
+        // và khi đó có lễ tân cầm tiền chịu trách nhiệm.
+        boolean waitingForBank = "PENDING_PAYMENT".equals(invoice.getPaymentStatus());
+        String effectiveMethod = paymentMethod != null ? paymentMethod : invoice.getPaymentMethod();
+        if (waitingForBank && "VIET_QR".equals(effectiveMethod)) {
+            throw new IllegalStateException(
+                    "Hóa đơn QR chỉ được xác nhận thanh toán bởi cổng ngân hàng. "
+                            + "Nếu bệnh nhân trả tiền mặt, hãy phát hành lại với phương thức Tiền mặt.");
         }
 
         if (paymentMethod != null) {

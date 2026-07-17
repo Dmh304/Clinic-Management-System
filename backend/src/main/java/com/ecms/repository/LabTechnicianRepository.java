@@ -20,7 +20,6 @@ public interface LabTechnicianRepository extends JpaRepository<LabTechnician, Lo
     Optional<LabTechnician> findByEmail(String email);
     Optional<LabTechnician> findByUserId(Long userId);
     boolean existsByUserId(Long userId);
-}
 
     /**
      * Tìm kiếm danh sách các kỹ thuật viên theo trạng thái làm việc

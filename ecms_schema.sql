@@ -628,6 +628,40 @@ CREATE TABLE invoice_details (
 GO
 
 -- ----------------------------------------------------------------------------
+-- 22b. payment_transactions — nhật ký biến động số dư từ cổng thanh toán (UC-22)
+-- ThangNBHE201024
+-- Cổng (SePay) gọi webhook mỗi khi tài khoản phòng khám có tiền vào; hệ thống dò mã
+-- hóa đơn trong nội dung chuyển khoản rồi tự gạch nợ.
+-- gateway_txn_id UNIQUE: chặn xử lý trùng khi cổng retry cùng một giao dịch.
+-- invoice_id NULL: giao dịch không khớp hóa đơn vẫn được lưu để kế toán đối soát tay.
+-- ----------------------------------------------------------------------------
+CREATE TABLE payment_transactions (
+    id                   BIGINT          NOT NULL IDENTITY(1,1),
+    gateway_txn_id       NVARCHAR(100)   NOT NULL,
+    gateway              NVARCHAR(50)    NULL,
+    invoice_id           BIGINT          NULL,
+    matched_invoice_code NVARCHAR(30)    NULL,
+    amount               DECIMAL(12,2)   NULL,
+    content              NVARCHAR(500)   NULL,
+    account_number       NVARCHAR(50)    NULL,
+    reference_code       NVARCHAR(100)   NULL,
+    transfer_type        NVARCHAR(10)    NULL,
+    status               NVARCHAR(20)    NOT NULL DEFAULT 'UNMATCHED',
+    note                 NVARCHAR(500)   NULL,
+    raw_payload          NVARCHAR(MAX)   NULL,
+    transaction_date     DATETIME2       NULL,
+    received_at          DATETIME2       NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT PK_payment_transactions PRIMARY KEY (id),
+    CONSTRAINT UQ_payment_transactions_txn_id UNIQUE (gateway_txn_id),
+    CONSTRAINT FK_payment_transactions_invoice FOREIGN KEY (invoice_id) REFERENCES invoices(id),
+    CONSTRAINT CK_payment_transactions_status CHECK (status IN
+        ('MATCHED', 'UNMATCHED', 'AMOUNT_MISMATCH', 'DUPLICATE', 'IGNORED'))
+);
+GO
+CREATE INDEX IX_payment_transactions_invoice ON payment_transactions (invoice_id);
+GO
+
+-- ----------------------------------------------------------------------------
 -- 23. notifications — thông báo ở chuông (UC-13), tách biệt audit_logs
 -- target_user_id: nhắm riêng 1 user; target_role: broadcast theo vai trò
 -- ----------------------------------------------------------------------------
