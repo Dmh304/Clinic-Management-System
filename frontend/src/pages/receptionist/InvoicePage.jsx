@@ -111,6 +111,14 @@ const PAYMENT_STATUS_CFG = {
   PAYMENT_FAILED:  { color: 'red',    label: 'Thất bại' },
 }
 
+// Tình trạng gửi email hóa đơn — khớp Invoice.emailStatus ở backend
+const EMAIL_STATUS_CFG = {
+  NOT_SENT: { color: 'default',    label: 'Chưa gửi' },
+  SENDING:  { color: 'processing', label: 'Đang gửi' },
+  SENT:     { color: 'green',      label: 'Đã gửi' },
+  FAILED:   { color: 'red',        label: 'Gửi lỗi' },
+}
+
 const fmt = (amount) =>
   amount != null
     ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount)
@@ -461,12 +469,18 @@ export default function InvoicePage() {
     const values = await validateInvoiceForm()
     if (!values) return
 
-    setSubmitting(true)
-    try {
-      const created = await dispatch(createInvoice(buildInvoicePayload(values))).unwrap()
-      message.success(`Đã tạo hóa đơn ${created.invoiceCode} — chờ nhận tiền mặt.`)
-      // Thông báo/gửi email cho bệnh nhân biết có hóa đơn cần thanh toán
-      await sendInvoiceEmailQuietly(created.id)
+      // UC-22/UC-23 (BP-4): tạo & phát hành xong thì gửi hóa đơn điện tử vào email
+      // bệnh nhân. Việc gửi chạy nền; tình trạng gửi hiển thị ở cột "Gửi email".
+      // Lỗi (bệnh nhân chưa có email) chỉ cảnh báo, không làm hỏng luồng thu phí.
+      try {
+        await invoiceService.sendEmail(created.id)
+        message.success('Đang gửi hóa đơn vào email bệnh nhân…')
+      } catch (err) {
+        const serverMsg = err?.response?.data?.message
+        message.warning(
+          serverMsg || 'Hóa đơn đã phát hành nhưng chưa gửi được email cho bệnh nhân'
+        )
+      }
 
       handleCloseCreate()
       dispatch(fetchAllInvoices())
@@ -633,17 +647,16 @@ export default function InvoicePage() {
     }
     setEmailSending(true)
     try {
+      // Backend nhận yêu cầu và trả về ngay; email được gửi nền, tình trạng
+      // gửi (Đang gửi → Đã gửi / Gửi lỗi) cập nhật trong bảng sau vài giây.
       await invoiceService.sendEmail(inv.id)
-      // HĐ chưa thanh toán → email chứa mã QR để bệnh nhân trả; đã thanh toán → biên nhận
-      message.success(inv.paymentStatus !== 'PAID'
-        ? `Đã gửi mã QR thanh toán đến ${inv.patientEmail}`
-        : `Đã gửi hóa đơn đến ${inv.patientEmail}`)
+      message.success(`Đang gửi hóa đơn đến ${inv.patientEmail}…`)
+      dispatch(fetchAllInvoices())
+      // Làm mới lại sau ít giây để cập nhật kết quả gửi cuối cùng (SENT/FAILED)
+      setTimeout(() => dispatch(fetchAllInvoices()), 4000)
     } catch (err) {
-      const isTimeout = err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')
       const serverMsg = err?.response?.data?.message
-      message.error(
-        serverMsg || (isTimeout ? 'Hết thời gian chờ — máy chủ SMTP không phản hồi' : 'Không thể gửi email')
-      )
+      message.error(serverMsg || 'Không thể gửi email')
     } finally {
       setEmailSending(false)
     }
@@ -726,6 +739,13 @@ export default function InvoicePage() {
       },
     },
     {
+      title: 'Gửi email', dataIndex: 'emailStatus', key: 'emailStatus', width: 110,
+      render: (s) => {
+        const c = EMAIL_STATUS_CFG[s] || EMAIL_STATUS_CFG.NOT_SENT
+        return <Tag color={c.color}>{c.label}</Tag>
+      },
+    },
+    {
       title: 'Ngày tạo', dataIndex: 'createdAt', key: 'createdAt', width: 145,
       // Mặc định xếp hóa đơn mới nhất lên đầu; lễ tân bấm để đảo chiều
       sorter: (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0),
@@ -734,7 +754,7 @@ export default function InvoicePage() {
         d ? new Date(d).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : '—',
     },
     {
-      title: 'Hành động', key: 'action', width: 155,
+      title: 'Hành động', key: 'action', width: 215,
       render: (_, record) => (
         <Space>
           <Button size="small" icon={<FileTextOutlined />}
@@ -748,14 +768,13 @@ export default function InvoicePage() {
             }}>
             Chi tiết
           </Button>
-          {/* Hóa đơn tiền mặt chờ thu → nút xác nhận đã nhận đủ tiền để chốt PAID */}
-          {record.status === 'DRAFT' && record.paymentMethod === 'CASH' && record.paymentStatus !== 'PAID' && (
-            <Popconfirm title="Xác nhận đã nhận đủ tiền mặt?" onConfirm={() => handleConfirmCash(record.id)}
-              okText="Đã nhận" cancelText="Chưa">
-              <Button size="small" type="primary" style={{ backgroundColor: '#10b981', borderColor: '#10b981' }}>
-                Đã nhận tiền
+          {record.status === 'ISSUED' && (
+            <Tooltip title={record.emailStatus === 'SENT' ? 'Gửi lại email hóa đơn' : 'Gửi email hóa đơn'}>
+              <Button size="small" icon={<MailOutlined />} loading={emailSending}
+                onClick={() => handleSendEmail(record)}>
+                {record.emailStatus === 'FAILED' ? 'Gửi lại' : 'Gửi'}
               </Button>
-            </Popconfirm>
+            </Tooltip>
           )}
           {record.status === 'DRAFT' && (
             <Popconfirm title="Hủy hóa đơn này?" onConfirm={() => handleCancelInvoice(record.id)}

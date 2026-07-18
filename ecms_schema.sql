@@ -204,9 +204,10 @@ CREATE TABLE service_categories (
     name          NVARCHAR(300)   NOT NULL,
     slug          NVARCHAR(200)   NULL,
     display_order INT             NOT NULL DEFAULT 0,
-    CONSTRAINT PK_service_categories PRIMARY KEY (id),
-    CONSTRAINT UQ_service_categories_slug UNIQUE (slug)
+    CONSTRAINT PK_service_categories PRIMARY KEY (id)
 );
+GO
+CREATE UNIQUE INDEX UQ_service_categories_slug ON service_categories(slug) WHERE slug IS NOT NULL;
 GO
 
 -- ----------------------------------------------------------------------------
@@ -500,7 +501,8 @@ CREATE TABLE eyeglass_prescriptions (
     CONSTRAINT PK_eyeglass_prescriptions PRIMARY KEY (id),
     CONSTRAINT FK_eyeglass_prescriptions_medical_record FOREIGN KEY (medical_record_id) REFERENCES medical_records(id),
     CONSTRAINT FK_eyeglass_prescriptions_doctor FOREIGN KEY (doctor_id) REFERENCES doctors(id),
-    CONSTRAINT FK_eyeglass_prescriptions_patient FOREIGN KEY (patient_id) REFERENCES patients(id)
+    CONSTRAINT FK_eyeglass_prescriptions_patient FOREIGN KEY (patient_id) REFERENCES patients(id),
+    CONSTRAINT CK_eyeglass_prescriptions_status CHECK (status IN ('PENDING', 'DISPENSED', 'SKIPPED'))
 );
 GO
 
@@ -588,6 +590,8 @@ CREATE TABLE invoices (
     payment_reference  NVARCHAR(100)   NULL,
     payment_status     NVARCHAR(20)    NOT NULL DEFAULT 'UNPAID',
     pdf_url            NVARCHAR(500)   NULL,
+    email_status       NVARCHAR(20)    NULL DEFAULT 'NOT_SENT',
+    email_sent_at      DATETIME2       NULL,
     notes              NVARCHAR(MAX)   NULL,
     issued_by          BIGINT          NULL,
     generated_at       DATETIME2       NULL,
@@ -601,9 +605,17 @@ CREATE TABLE invoices (
     CONSTRAINT FK_invoices_issued_by FOREIGN KEY (issued_by) REFERENCES users(id),
     CONSTRAINT CK_invoices_payment_method CHECK (payment_method IN ('CASH', 'VIET_QR', 'OTHER')),
     CONSTRAINT CK_invoices_payment_status CHECK (payment_status IN ('UNPAID', 'PENDING_PAYMENT', 'PAID', 'PAYMENT_FAILED')),
-    CONSTRAINT CK_invoices_status CHECK (status IN ('DRAFT', 'ISSUED', 'CANCELLED'))
+    CONSTRAINT CK_invoices_status CHECK (status IN ('DRAFT', 'ISSUED', 'CANCELLED')),
+    CONSTRAINT CK_invoices_email_status CHECK (email_status IN ('NOT_SENT', 'SENDING', 'SENT', 'FAILED'))
 );
 GO
+
+-- Migration cho DB đã tồn tại (ddl-auto=none nên chạy tay):
+--   ALTER TABLE invoices ADD email_status NVARCHAR(20) NULL DEFAULT 'NOT_SENT', email_sent_at DATETIME2 NULL;
+--   GO
+--   ALTER TABLE invoices ADD CONSTRAINT CK_invoices_email_status
+--       CHECK (email_status IN ('NOT_SENT', 'SENDING', 'SENT', 'FAILED'));
+--   GO
 CREATE UNIQUE INDEX UQ_invoices_invoice_code ON invoices(invoice_code) WHERE invoice_code IS NOT NULL;
 GO
 
@@ -624,7 +636,7 @@ CREATE TABLE invoice_details (
     created_at  DATETIME2       NOT NULL DEFAULT GETDATE(),
     CONSTRAINT PK_invoice_details PRIMARY KEY (id),
     CONSTRAINT FK_invoice_details_invoice FOREIGN KEY (invoice_id) REFERENCES invoices(id),
-    CONSTRAINT CK_invoice_details_item_type CHECK (item_type IN ('SERVICE', 'LAB', 'MEDICINE', 'GLASSES', 'OTHER')),
+    CONSTRAINT CK_invoice_details_item_type CHECK (item_type IN ('SERVICE', 'MEDICINE', 'GLASSES', 'LAB', 'OTHER')),
     CONSTRAINT CK_invoice_details_status CHECK (status IN ('ACTIVE', 'CANCELLED'))
 );
 GO

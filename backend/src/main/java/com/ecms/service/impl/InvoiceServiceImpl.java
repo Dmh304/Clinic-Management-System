@@ -12,23 +12,15 @@ import com.ecms.repository.PrescriptionRepository;
 import com.ecms.service.InvoiceService;
 import com.ecms.service.InvoicePdfService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import jakarta.mail.internet.MimeMessage;
 import java.math.BigDecimal;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.stream.Collectors;
 
 /**
@@ -52,23 +44,6 @@ public class InvoiceServiceImpl implements InvoiceService {
 
     private final InvoiceRepository invoiceRepository;
     private final AppointmentRepository appointmentRepository;
-    // ThangNBHE201024 — gợi ý khoản phí: lấy thuốc bác sĩ đã kê theo bệnh án của lịch hẹn
-    private final MedicalRecordRepository medicalRecordRepository;
-    private final PrescriptionRepository prescriptionRepository;
-    // Lấy xét nghiệm/cận lâm sàng (chụp/đo/soi) đã chỉ định để đưa vào hóa đơn
-    private final LabOrderRepository labOrderRepository;
-    // Gửi thông báo "Yêu cầu thanh toán" cho bệnh nhân (UC-22)
-    private final com.ecms.service.NotificationService notificationService;
-
-    // Thông tin tài khoản nhận tiền — để sinh mã QR VietQR trong email hóa đơn chưa thanh toán
-    @Value("${payment.bank.id:970436}")
-    private String bankId;
-    @Value("${payment.bank.account:1234567890}")
-    private String bankAccount;
-    @Value("${payment.bank.account-name:PHONG KHAM MAT}")
-    private String bankAccountName;
-    // Dùng để gửi email HTML khi lễ tân hoặc bệnh nhân yêu cầu gửi hóa đơn
-    private final JavaMailSender mailSender;
     private final InvoicePdfService invoicePdfService;
 
     // Lấy tất cả hóa đơn (không kèm items) — dùng cho bảng lịch sử hóa đơn
@@ -425,6 +400,8 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .paymentReference(i.getPaymentReference())
                 .status(i.getStatus())
                 .paymentStatus(i.getPaymentStatus())
+                .emailStatus(i.getEmailStatus())
+                .emailSentAt(i.getEmailSentAt())
                 .issuedBy(i.getIssuedBy())
                 .notes(i.getNotes())
                 .paidAt(i.getPaidAt())
@@ -434,13 +411,15 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     /**
-     * Gửi hóa đơn điện tử qua email đến bệnh nhân.
-     * Tạo MimeMessage với nội dung HTML được sinh bởi buildEmailHtml().
+     * Chuẩn bị gửi hóa đơn điện tử (đồng bộ, nhanh).
+     * Kiểm tra bệnh nhân có email và đánh dấu tình trạng gửi = SENDING.
+     * Việc gửi SMTP thực tế do InvoiceMailDispatcher chạy nền để không treo
+     * thread request (nguyên nhân "không nhận response" khi SMTP chậm).
      * Ném IllegalStateException nếu bệnh nhân chưa có email trong hồ sơ.
      */
     @Override
-    @Transactional(readOnly = true)
-    public void sendInvoiceEmail(Long id) {
+    @Transactional
+    public void markEmailSending(Long id) {
         Invoice invoice = invoiceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Hóa đơn không tồn tại: " + id));
 
@@ -449,120 +428,26 @@ public class InvoiceServiceImpl implements InvoiceService {
             throw new IllegalStateException("Bệnh nhân chưa có địa chỉ email");
         }
 
-        // Hóa đơn chưa thanh toán → email là "yêu cầu thanh toán" kèm mã QR; đã thanh toán
-        // → email là "biên nhận". Đổi tiêu đề cho khớp nội dung.
-        boolean unpaid = !"PAID".equals(invoice.getPaymentStatus());
-        String subject = unpaid
-                ? "Yêu cầu thanh toán hóa đơn - " + invoice.getInvoiceCode()
-                : "Hóa đơn khám bệnh - " + invoice.getInvoiceCode();
-
-        try {
-            MimeMessage mime = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(mime, true, "UTF-8");
-            helper.setTo(patient.getEmail());
-            helper.setSubject(subject);
-            helper.setText(buildEmailHtml(invoice, unpaid), true);
-            mailSender.send(mime);
-        } catch (Exception e) {
-            throw new RuntimeException("Không thể gửi email: " + e.getMessage(), e);
-        }
+        invoice.setEmailStatus("SENDING");
+        invoiceRepository.save(invoice);
     }
 
-    // Gửi thông báo "Yêu cầu thanh toán" vào chuông của bệnh nhân (nếu có tài khoản).
-    // Tách riêng, KHÔNG phụ thuộc email/SMTP — gọi ngay khi tạo hóa đơn QR để bệnh nhân
-    // vào "Hóa đơn của tôi" quét mã trả tiền. Lỗi tạo thông báo không được chặn luồng chính.
-    private void notifyPaymentRequested(Invoice invoice) {
-        Patient p = invoice.getPatient();
-        if (p == null || p.getUser() == null) return;
-        try {
-            Long apptId = invoice.getAppointment() != null ? invoice.getAppointment().getId() : null;
-            notificationService.createForUser(p.getUser().getId(),
-                    "Bạn có hóa đơn " + invoice.getInvoiceCode()
-                            + " cần thanh toán. Vào 'Hóa đơn của tôi' để quét mã QR.", apptId);
-        } catch (Exception e) {
-            // Bỏ qua nếu tạo thông báo lỗi
+    /**
+     * Cập nhật tình trạng gửi email sau khi worker nền gửi xong.
+     * status = SENT (kèm thời điểm gửi) hoặc FAILED (để lễ tân gửi lại).
+     */
+    @Override
+    @Transactional
+    public void markEmailStatus(Long id, String status) {
+        Invoice invoice = invoiceRepository.findById(id).orElse(null);
+        if (invoice == null) {
+            return;
         }
-    }
-
-    // Sinh URL mã QR VietQR (chuẩn Napas) cho một hóa đơn — bệnh nhân quét để chuyển khoản.
-    // Nội dung chuyển khoản BẮT BUỘC bắt đầu bằng "SEVQR" (yêu cầu của SePay + VietinBank để
-    // nhận được biến động số dư) và chứa mã hóa đơn để webhook đối soát tự động (UC-22).
-    private String buildVietQrUrl(Invoice inv) {
-        String content = "SEVQR " + inv.getInvoiceCode();
-        long amount = inv.getTotalAmount() != null ? inv.getTotalAmount().longValue() : 0L;
-        return "https://img.vietqr.io/image/" + bankId + "-" + bankAccount + "-compact2.png"
-                + "?amount=" + amount
-                + "&addInfo=" + URLEncoder.encode(content, StandardCharsets.UTF_8)
-                + "&accountName=" + URLEncoder.encode(bankAccountName, StandardCharsets.UTF_8);
-    }
-
-    // Tạo nội dung email HTML với bảng chi tiết khoản phí và tổng tiền.
-    // unpaid = true → chèn thêm khối mã QR + thông tin chuyển khoản để bệnh nhân thanh toán.
-    private String buildEmailHtml(Invoice inv, boolean unpaid) {
-        NumberFormat vnd = NumberFormat.getInstance(new Locale("vi", "VN"));
-        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
-        Appointment appt = inv.getAppointment();
-
-        // Khối QR chỉ hiện khi hóa đơn chưa thanh toán
-        String qrBlock = "";
-        if (unpaid) {
-            String qrUrl = buildVietQrUrl(inv);
-            String content = "SEVQR " + inv.getInvoiceCode();
-            qrBlock = "<div style='margin:8px 0 20px;padding:20px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;text-align:center'>"
-                    + "<h3 style='margin:0 0 12px;color:#15803d;font-size:16px'>Quét mã QR để thanh toán</h3>"
-                    + "<img src='" + qrUrl + "' alt='VietQR' width='240' height='240' style='display:block;margin:0 auto 12px;border-radius:8px' />"
-                    + "<table style='width:100%;font-size:13px;color:#374151'>"
-                    + "<tr><td style='padding:2px 0;text-align:left'>Ngân hàng (mã):</td><td style='padding:2px 0;text-align:right'><strong>" + bankId + "</strong></td></tr>"
-                    + "<tr><td style='padding:2px 0;text-align:left'>Số tài khoản:</td><td style='padding:2px 0;text-align:right'><strong>" + bankAccount + "</strong></td></tr>"
-                    + "<tr><td style='padding:2px 0;text-align:left'>Chủ tài khoản:</td><td style='padding:2px 0;text-align:right'><strong>" + bankAccountName + "</strong></td></tr>"
-                    + "<tr><td style='padding:2px 0;text-align:left'>Số tiền:</td><td style='padding:2px 0;text-align:right'><strong style='color:#10b981'>" + vnd.format(inv.getTotalAmount()) + "₫</strong></td></tr>"
-                    + "<tr><td style='padding:2px 0;text-align:left'>Nội dung CK:</td><td style='padding:2px 0;text-align:right'><strong>" + content + "</strong></td></tr>"
-                    + "</table>"
-                    + "<p style='margin:12px 0 0;font-size:12px;color:#64748b'>Vui lòng giữ nguyên nội dung chuyển khoản để hệ thống tự xác nhận thanh toán.</p>"
-                    + "</div>";
+        invoice.setEmailStatus(status);
+        if ("SENT".equals(status)) {
+            invoice.setEmailSentAt(LocalDateTime.now());
         }
-
-        StringBuilder items = new StringBuilder();
-        for (InvoiceItem item : inv.getItems()) {
-            items.append("<tr>")
-                 .append("<td style='padding:6px 8px;border-bottom:1px solid #e2e8f0'>").append(item.getDescription()).append("</td>")
-                 .append("<td style='padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:center'>").append(item.getQuantity()).append("</td>")
-                 .append("<td style='padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:right'>").append(vnd.format(item.getUnitPrice())).append("₫</td>")
-                 .append("<td style='padding:6px 8px;border-bottom:1px solid #e2e8f0;text-align:right'>").append(vnd.format(item.getSubTotal())).append("₫</td>")
-                 .append("</tr>");
-        }
-
-        return "<!DOCTYPE html><html><head><meta charset='UTF-8'></head><body style='font-family:Arial,sans-serif;color:#1e293b;margin:0;padding:0'>"
-             + "<div style='max-width:600px;margin:24px auto;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden'>"
-             + "<div style='background:#4f46e5;color:#fff;padding:24px 32px'>"
-             + "<h2 style='margin:0;font-size:20px'>" + (unpaid ? "Yêu cầu thanh toán hóa đơn" : "Hóa đơn khám bệnh") + "</h2>"
-             + "<p style='margin:4px 0 0;opacity:.85'>Mã hóa đơn: <strong>" + inv.getInvoiceCode() + "</strong></p></div>"
-             + "<div style='padding:24px 32px'>"
-             + "<table style='width:100%;margin-bottom:16px'><tr>"
-             + "<td><strong>Bệnh nhân:</strong> " + (inv.getPatient() != null ? inv.getPatient().getFullName() : "") + "<br>"
-             + "<strong>SĐT:</strong> " + (inv.getPatient() != null ? inv.getPatient().getPhone() : "") + "</td>"
-             + "<td style='text-align:right'><strong>Bác sĩ:</strong> " + (appt != null && appt.getDoctor() != null ? appt.getDoctor().getFullName() : "—") + "<br>"
-             + "<strong>Ngày thanh toán:</strong> " + (inv.getPaidAt() != null ? inv.getPaidAt().format(dtf) : "—") + "</td>"
-             + "</tr></table>"
-             + "<table style='width:100%;border-collapse:collapse;margin-bottom:16px'>"
-             + "<thead><tr style='background:#f8fafc'>"
-             + "<th style='padding:8px;text-align:left;border-bottom:2px solid #e2e8f0'>Dịch vụ / Thuốc</th>"
-             + "<th style='padding:8px;text-align:center;border-bottom:2px solid #e2e8f0'>SL</th>"
-             + "<th style='padding:8px;text-align:right;border-bottom:2px solid #e2e8f0'>Đơn giá</th>"
-             + "<th style='padding:8px;text-align:right;border-bottom:2px solid #e2e8f0'>Thành tiền</th>"
-             + "</tr></thead><tbody>" + items + "</tbody></table>"
-             + "<div style='text-align:right;padding:12px 0;border-top:2px solid #e2e8f0'>"
-             + (inv.getDiscountAmount() != null && inv.getDiscountAmount().compareTo(BigDecimal.ZERO) > 0
-                    ? "<div style='color:#64748b;font-size:14px;margin-bottom:4px'>Tạm tính: " + vnd.format(inv.getSubTotal()) + "₫</div>"
-                      + "<div style='color:#dc2626;font-size:14px;margin-bottom:6px'>Giảm giá: −" + vnd.format(inv.getDiscountAmount()) + "₫</div>"
-                    : "")
-             + "<span style='font-size:18px;font-weight:700;color:#10b981'>" + (unpaid ? "Số tiền cần thanh toán: " : "Tổng cộng: ") + vnd.format(inv.getTotalAmount()) + "₫</span></div>"
-             + qrBlock
-             + (unpaid ? "" : "<p style='color:#64748b;font-size:13px'>Phương thức: " + ("CASH".equals(inv.getPaymentMethod()) ? "Tiền mặt" : "QR Code") + "</p>")
-             + "</div>"
-             + "<div style='background:#f8fafc;padding:16px 32px;text-align:center;color:#64748b;font-size:13px'>"
-             + "Cảm ơn quý khách đã tin tưởng sử dụng dịch vụ của chúng tôi.</div></div>"
-             + "</body></html>";
+        invoiceRepository.save(invoice);
     }
 
     // Xuất hóa đơn dạng byte[] PDF theo id — load từ DB rồi delegate
