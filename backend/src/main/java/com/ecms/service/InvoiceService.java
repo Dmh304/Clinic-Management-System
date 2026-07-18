@@ -25,6 +25,10 @@ public interface InvoiceService {
     // Tạo hóa đơn nháp (DRAFT) từ thông tin lịch hẹn và danh sách khoản phí
     InvoiceResponse createInvoice(InvoiceRequest request);
 
+    // ThangNBHE201024 — Gợi ý khoản phí cho lịch hẹn (dịch vụ khám đã đặt + thuốc bác sĩ
+    // đã kê) để đổ sẵn vào modal tạo hóa đơn. Không tạo hóa đơn, chỉ trả danh sách gợi ý.
+    List<InvoiceRequest.InvoiceItemRequest> getSuggestedItems(Long appointmentId);
+
     // Phát hành hóa đơn (DRAFT → ISSUED) sau khi thu tiền thành công
     InvoiceResponse issueInvoice(Long id, String paymentMethod, String paymentReference);
 

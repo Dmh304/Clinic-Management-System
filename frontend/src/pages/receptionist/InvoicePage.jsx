@@ -30,7 +30,7 @@ import { useLocation } from 'react-router-dom'
 import {
   Table, Tag, Button, Space, Typography, Card, message,
   Modal, Form, Input, Select, InputNumber, Tabs, Divider,
-  Descriptions, Popconfirm, Row, Col, Statistic, Spin, Tooltip, AutoComplete,
+  Descriptions, Popconfirm, Row, Col, Statistic, Spin, Tooltip, AutoComplete, Segmented,
 } from 'antd'
 import {
   PlusOutlined, DeleteOutlined, ReloadOutlined,
@@ -57,15 +57,19 @@ const BANK_NAME    = import.meta.env.VITE_BANK_NAME    || 'PHONG KHAM MAT'
 // Chu kỳ hỏi backend xem tiền đã về chưa, tính bằng ms
 const POLL_INTERVAL_MS = 3000
 
+// Chu kỳ tự tải lại danh sách ở tab "Lịch sử hóa đơn" khi còn hóa đơn chờ thanh toán.
+// Dài hơn polling mã QR vì đây là tải cả danh sách, không cần realtime tới từng giây.
+const HISTORY_POLL_MS = 5000
+
 // Ngưỡng dừng polling nếu bệnh nhân không chuyển khoản (10 phút).
 // Đây CHỈ là giới hạn phía giao diện để trình duyệt không hỏi backend vô hạn —
 // không phải hạn thanh toán. Bệnh nhân chuyển tiền muộn hơn thì webhook vẫn gạch nợ
 // bình thường, lễ tân mở lại hóa đơn sẽ thấy đã thanh toán.
 const POLL_TIMEOUT_MS = 10 * 60 * 1000
 
-// Nội dung chuyển khoản BẮT BUỘC chứa mã hóa đơn: webhook của cổng thanh toán dò
-// đúng chuỗi này trong nội dung để biết tiền vào là của hóa đơn nào.
-const buildTransferContent = (invoiceCode) => `Thanh toan ${invoiceCode}`
+// Nội dung chuyển khoản BẮT BUỘC bắt đầu bằng "SEVQR" (SePay + VietinBank mới nhận được
+// biến động số dư) và chứa mã hóa đơn để webhook dò ra tiền vào là của hóa đơn nào.
+const buildTransferContent = (invoiceCode) => `SEVQR ${invoiceCode}`
 
 // Tạo URL mã QR VietQR theo chuẩn Napas — bệnh nhân quét bằng app ngân hàng để chuyển khoản.
 // Số tài khoản luôn là tài khoản phòng khám trong .env; addInfo là mã hóa đơn để đối soát tự động.
@@ -90,8 +94,11 @@ const ITEM_TYPE_OPTS = [
   { label: 'Khác', value: 'OTHER' },
 ]
 
+// Nhãn loại khoản phí để hiển thị trong bảng chi tiết hóa đơn
+const ITEM_TYPE_LABEL = Object.fromEntries(ITEM_TYPE_OPTS.map((o) => [o.value, o.label]))
+
 const INVOICE_STATUS_CFG = {
-  DRAFT:     { color: 'gold',  label: 'Nháp' },
+  DRAFT:     { color: 'gold',  label: 'Chưa phát hành' },
   ISSUED:    { color: 'green', label: 'Đã phát hành' },
   CANCELLED: { color: 'red',   label: 'Đã hủy' },
 }
@@ -120,6 +127,9 @@ export default function InvoicePage() {
   const [apptLoading, setApptLoading]         = useState(true)
   const [apptSearch, setApptSearch]           = useState('')
   const [invoiceSearch, setInvoiceSearch]     = useState('')
+  const [activeTab, setActiveTab]             = useState('pending')
+  // Tách lịch sử hóa đơn: 'unpaid' = chưa thanh toán, 'paid' = đã thanh toán
+  const [historyFilter, setHistoryFilter]     = useState('unpaid')
 
   // Modal tạo hóa đơn
   const [createModal, setCreateModal] = useState({ open: false, appointment: null })
@@ -135,6 +145,8 @@ export default function InvoicePage() {
   // Mã QR chỉ được sinh SAU khi có hóa đơn, vì nội dung chuyển khoản phải chứa
   // mã hóa đơn thì webhook của cổng mới biết tiền vào là của hóa đơn nào.
   const [pendingInvoice, setPendingInvoice] = useState(null)
+  // Đang tải gợi ý khoản phí (dịch vụ khám + thuốc bác sĩ đã kê) khi mở modal thu phí
+  const [suggestLoading, setSuggestLoading] = useState(false)
   // Đã quá 10 phút không thấy tiền về → ngừng hỏi backend, chờ lễ tân thao tác tiếp
   const [pollTimedOut, setPollTimedOut]     = useState(false)
   const [checkingNow, setCheckingNow]       = useState(false)
@@ -187,16 +199,30 @@ export default function InvoicePage() {
         if (appointmentId) {
           const targetAppt = appointments.find((a) => a.id === appointmentId)
           if (targetAppt && targetAppt.status === 'COMPLETED') {
-            // Delay một chút để đảm bảo state đã được cập nhật
+            // Delay một chút để đảm bảo state đã được cập nhật, rồi mở modal kèm gợi ý
+            // khoản phí (dịch vụ khám + thuốc bác sĩ đã kê) như khi bấm nút thu phí.
             setTimeout(() => {
-              if (isMounted) {
-                const prefill = targetAppt.serviceName
-                  ? [{ itemType: 'SERVICE', description: targetAppt.serviceName, quantity: 1, unitPrice: targetAppt.servicePrice ?? 0 }]
-                  : [{ itemType: 'SERVICE', description: '', quantity: 1, unitPrice: 0 }]
-                setItems(prefill)
-                form.setFieldsValue({ paymentMethod: 'CASH', paymentReference: '', notes: '' })
-                setCreateModal({ open: true, appointment: targetAppt })
-              }
+              if (!isMounted) return
+              const basePrefill = targetAppt.serviceName
+                ? [{ itemType: 'SERVICE', description: targetAppt.serviceName, quantity: 1, unitPrice: targetAppt.servicePrice ?? 0 }]
+                : [{ itemType: 'SERVICE', description: '', quantity: 1, unitPrice: 0 }]
+              setItems(basePrefill)
+              form.setFieldsValue({ paymentMethod: 'CASH', paymentReference: '', notes: '' })
+              setCreateModal({ open: true, appointment: targetAppt })
+
+              setSuggestLoading(true)
+              invoiceService.getSuggestedItems(targetAppt.id)
+                .then((res) => {
+                  const suggested = (res.data ?? []).map((it) => ({
+                    itemType: it.itemType,
+                    description: it.description,
+                    quantity: it.quantity ?? 1,
+                    unitPrice: Number(it.unitPrice) || 0,
+                  }))
+                  if (isMounted && suggested.length) setItems(suggested)
+                })
+                .catch(() => {})
+                .finally(() => { if (isMounted) setSuggestLoading(false) })
             }, 300)
           }
         }
@@ -249,16 +275,58 @@ export default function InvoicePage() {
       )
     : invoices
 
+  // Tách lịch sử thành 2 phần: đã thanh toán (PAID) và chưa thanh toán (còn lại).
+  // Hóa đơn ĐÃ HỦY bị loại khỏi cả hai — coi như đã bỏ đi, không còn cần xử lý.
+  const paidInvoices   = filteredInvoices.filter((i) => i.paymentStatus === 'PAID' && i.status !== 'CANCELLED')
+  const unpaidInvoices = filteredInvoices.filter((i) => i.paymentStatus !== 'PAID' && i.status !== 'CANCELLED')
+  const shownInvoices  = historyFilter === 'paid' ? paidInvoices : unpaidInvoices
+
+  // Còn hóa đơn nào đang chờ tiền về không? Chỉ những hóa đơn này mới có thể tự đổi
+  // trạng thái khi cổng thanh toán báo về, nên chỉ polling khi thực sự có việc để chờ.
+  const hasPendingPayment = invoices.some(
+    (inv) => inv.status !== 'CANCELLED'
+      && (inv.paymentStatus === 'UNPAID' || inv.paymentStatus === 'PENDING_PAYMENT')
+  )
+
+  // Tự cập nhật tab "Lịch sử hóa đơn": khi đang mở tab này và còn hóa đơn chưa thanh toán,
+  // định kỳ tải lại danh sách để hóa đơn tự chuyển sang "Đã thanh toán" ngay khi webhook
+  // của cổng gạch nợ — lễ tân không cần bấm "Làm mới". Dừng ngay khi rời tab hoặc không
+  // còn hóa đơn nào chờ, tránh gọi API vô ích.
+  useEffect(() => {
+    if (activeTab !== 'history' || !hasPendingPayment) return
+    const timer = setInterval(() => dispatch(fetchAllInvoices()), HISTORY_POLL_MS)
+    return () => clearInterval(timer)
+  }, [activeTab, hasPendingPayment, dispatch])
+
   // ─── Modal helpers ────────────────────────────────────────────────────────────
 
-  const handleOpenCreate = (appt) => {
-    const prefill = appt.serviceName
+  // Mở modal thu phí: hiện ngay dịch vụ khám đã đặt cho đỡ chờ, rồi gọi API gợi ý để đổ
+  // thêm thuốc bác sĩ đã kê (UC-27). Lỗi API thì giữ nguyên prefill cơ bản.
+  const handleOpenCreate = async (appt) => {
+    const basePrefill = appt.serviceName
       ? [{ itemType: 'SERVICE', description: appt.serviceName, quantity: 1, unitPrice: appt.servicePrice ?? 0 }]
       : [{ itemType: 'SERVICE', description: '', quantity: 1, unitPrice: 0 }]
-    setItems(prefill)
+    setItems(basePrefill)
     setDiscount(0)
     form.setFieldsValue({ paymentMethod: 'CASH', paymentReference: '', notes: '' })
     setCreateModal({ open: true, appointment: appt })
+
+    setSuggestLoading(true)
+    try {
+      const res = await invoiceService.getSuggestedItems(appt.id)
+      const suggested = (res.data ?? []).map((it) => ({
+        itemType: it.itemType,
+        description: it.description,
+        quantity: it.quantity ?? 1,
+        unitPrice: Number(it.unitPrice) || 0,
+      }))
+      // Gợi ý đã bao gồm dịch vụ khám, nên thay thế hẳn prefill cơ bản
+      if (suggested.length) setItems(suggested)
+    } catch {
+      // Không lấy được gợi ý → giữ prefill cơ bản, lễ tân tự thêm thuốc bằng "+ Thêm khoản phí"
+    } finally {
+      setSuggestLoading(false)
+    }
   }
 
   const handleCloseCreate = () => {
@@ -274,7 +342,7 @@ export default function InvoicePage() {
 
   // ─── Item editing ─────────────────────────────────────────────────────────────
 
-  const addItem    = () => setItems((p) => [...p, { itemType: 'OTHER', description: '', quantity: 1, unitPrice: 0 }])
+  const addItem    = (itemType = 'OTHER') => setItems((p) => [...p, { itemType, description: '', quantity: 1, unitPrice: 0 }])
   const removeItem = (idx) => setItems((p) => p.filter((_, i) => i !== idx))
   const updateItem = (idx, field, val) =>
     setItems((p) => p.map((it, i) => (i === idx ? { ...it, [field]: val } : it)))
@@ -294,21 +362,31 @@ export default function InvoicePage() {
     return null
   }
 
-  const handleAddServiceFromInfo = () => {
+  // Khôi phục hóa đơn gốc: đổ lại đầy đủ khoản phí auto-đổ (dịch vụ khám + xét nghiệm +
+  // thuốc đã kê), ghi đè mọi chỉnh sửa hiện tại. Dùng khi lễ tân lỡ sửa/xóa muốn về nguyên bản.
+  const handleRestoreOriginal = async () => {
     const appt = createModal.appointment
-    if (!appt?.serviceName) return
-    const alreadyExists = items.some(
-      (it) => it.itemType === 'SERVICE' && it.description === appt.serviceName
-    )
-    if (alreadyExists) {
-      message.warning('Dịch vụ khám này đã có trong danh sách khoản phí')
-      return
+    if (!appt?.id) return
+    setSuggestLoading(true)
+    try {
+      const res = await invoiceService.getSuggestedItems(appt.id)
+      const suggested = (res.data ?? []).map((it) => ({
+        itemType: it.itemType,
+        description: it.description,
+        quantity: it.quantity ?? 1,
+        unitPrice: Number(it.unitPrice) || 0,
+      }))
+      if (suggested.length) {
+        setItems(suggested)
+        message.success('Đã khôi phục hóa đơn gốc')
+      } else {
+        message.info('Không có khoản phí gốc để khôi phục')
+      }
+    } catch {
+      message.error('Không khôi phục được hóa đơn gốc')
+    } finally {
+      setSuggestLoading(false)
     }
-    setItems((prev) => [
-      ...prev,
-      { itemType: 'SERVICE', description: appt.serviceName, quantity: 1, unitPrice: appt.servicePrice ?? 0 },
-    ])
-    message.success('Đã thêm dịch vụ khám vào khoản phí')
   }
 
   const calcSubtotal = (it) => (it.quantity ?? 1) * (it.unitPrice ?? 0)
@@ -376,7 +454,9 @@ export default function InvoicePage() {
     }
   }
 
-  // Luồng TIỀN MẶT: lễ tân cầm tiền trên tay nên tạo và phát hành ngay trong một bước.
+  // Luồng TIỀN MẶT: tạo hóa đơn ở trạng thái "Chờ nhận tiền" (chưa phát hành), KHÔNG đánh dấu
+  // đã thanh toán ngay. Bệnh nhân xem được và có thể yêu cầu hủy trước khi trả tiền. Lễ tân
+  // bấm "Đã nhận tiền" (bảng lịch sử) để chốt khi thực nhận đủ tiền mặt.
   const handleSubmit = async () => {
     const values = await validateInvoiceForm()
     if (!values) return
@@ -384,14 +464,8 @@ export default function InvoicePage() {
     setSubmitting(true)
     try {
       const created = await dispatch(createInvoice(buildInvoicePayload(values))).unwrap()
-
-      await dispatch(issueInvoice({
-        id: created.id,
-        paymentMethod: values.paymentMethod,
-        paymentReference: values.paymentReference || null,
-      })).unwrap()
-
-      message.success(`Hóa đơn ${created.invoiceCode} đã được phát hành thành công`)
+      message.success(`Đã tạo hóa đơn ${created.invoiceCode} — chờ nhận tiền mặt.`)
+      // Thông báo/gửi email cho bệnh nhân biết có hóa đơn cần thanh toán
       await sendInvoiceEmailQuietly(created.id)
 
       handleCloseCreate()
@@ -420,6 +494,9 @@ export default function InvoicePage() {
       setQrLoading(true)
       dispatch(fetchAllInvoices())
       message.success(`Đã tạo hóa đơn ${created.invoiceCode}. Mời bệnh nhân quét mã QR.`)
+      // Tự gửi email kèm mã QR + thông tin chuyển khoản cho bệnh nhân (nếu có email).
+      // Lỗi SMTP chỉ cảnh báo, không làm hỏng luồng tạo hóa đơn.
+      await sendInvoiceEmailQuietly(created.id)
     } catch (err) {
       message.error(typeof err === 'string' ? err : 'Không thể tạo hóa đơn, vui lòng thử lại')
     } finally {
@@ -498,6 +575,19 @@ export default function InvoicePage() {
     }
   }
 
+  // Lễ tân xác nhận đã nhận đủ tiền mặt → phát hành hóa đơn (Chờ nhận tiền → Đã thanh toán)
+  const handleConfirmCash = async (id) => {
+    try {
+      await dispatch(issueInvoice({ id, paymentMethod: 'CASH', paymentReference: null })).unwrap()
+      message.success('Đã xác nhận nhận tiền — hóa đơn đã thanh toán')
+      dispatch(fetchAllInvoices())
+      void refreshAppointments()
+      await sendInvoiceEmailQuietly(id)   // gửi biên nhận cho bệnh nhân
+    } catch (err) {
+      message.error(typeof err === 'string' ? err : 'Không thể xác nhận')
+    }
+  }
+
   // ─── In hóa đơn PDF (ThangNBHE201024) ───────────────────────────────────────
   // Gọi API GET /{id}/pdf để lấy file PDF từ backend, tạo Blob URL rồi mở tab mới.
   // Trình duyệt tự hiển thị PDF viewer và cho phép người dùng in hoặc tải về.
@@ -544,7 +634,10 @@ export default function InvoicePage() {
     setEmailSending(true)
     try {
       await invoiceService.sendEmail(inv.id)
-      message.success(`Đã gửi hóa đơn đến ${inv.patientEmail}`)
+      // HĐ chưa thanh toán → email chứa mã QR để bệnh nhân trả; đã thanh toán → biên nhận
+      message.success(inv.paymentStatus !== 'PAID'
+        ? `Đã gửi mã QR thanh toán đến ${inv.patientEmail}`
+        : `Đã gửi hóa đơn đến ${inv.patientEmail}`)
     } catch (err) {
       const isTimeout = err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')
       const serverMsg = err?.response?.data?.message
@@ -623,13 +716,20 @@ export default function InvoicePage() {
     },
     {
       title: 'TT thanh toán', dataIndex: 'paymentStatus', key: 'paymentStatus', width: 140,
-      render: (s) => {
+      render: (s, record) => {
+        // Hóa đơn tiền mặt chưa thu → "Chờ nhận tiền" (thay vì "Chưa thanh toán")
+        if (s === 'UNPAID' && record.paymentMethod === 'CASH') {
+          return <Tag color="gold">Chờ nhận tiền</Tag>
+        }
         const c = PAYMENT_STATUS_CFG[s] || {}
         return <Tag color={c.color}>{c.label}</Tag>
       },
     },
     {
       title: 'Ngày tạo', dataIndex: 'createdAt', key: 'createdAt', width: 145,
+      // Mặc định xếp hóa đơn mới nhất lên đầu; lễ tân bấm để đảo chiều
+      sorter: (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0),
+      defaultSortOrder: 'descend',
       render: (d) =>
         d ? new Date(d).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : '—',
     },
@@ -648,6 +748,15 @@ export default function InvoicePage() {
             }}>
             Chi tiết
           </Button>
+          {/* Hóa đơn tiền mặt chờ thu → nút xác nhận đã nhận đủ tiền để chốt PAID */}
+          {record.status === 'DRAFT' && record.paymentMethod === 'CASH' && record.paymentStatus !== 'PAID' && (
+            <Popconfirm title="Xác nhận đã nhận đủ tiền mặt?" onConfirm={() => handleConfirmCash(record.id)}
+              okText="Đã nhận" cancelText="Chưa">
+              <Button size="small" type="primary" style={{ backgroundColor: '#10b981', borderColor: '#10b981' }}>
+                Đã nhận tiền
+              </Button>
+            </Popconfirm>
+          )}
           {record.status === 'DRAFT' && (
             <Popconfirm title="Hủy hóa đơn này?" onConfirm={() => handleCancelInvoice(record.id)}
               okText="Hủy HĐ" cancelText="Không">
@@ -694,7 +803,8 @@ export default function InvoicePage() {
       </Row>
 
       <Tabs
-        defaultActiveKey="pending"
+        activeKey={activeTab}
+        onChange={setActiveTab}
         items={[
           {
             key: 'pending',
@@ -745,14 +855,35 @@ export default function InvoicePage() {
                     onClick={() => dispatch(fetchAllInvoices())} loading={invoiceLoading}>
                     Làm mới
                   </Button>
+                  {hasPendingPayment && (
+                    <Tooltip title={`Tự tải lại mỗi ${HISTORY_POLL_MS / 1000} giây khi còn hóa đơn chờ thanh toán`}>
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        <Spin size="small" style={{ marginRight: 6 }} />
+                        Đang chờ thanh toán, tự cập nhật...
+                      </Text>
+                    </Tooltip>
+                  )}
                 </Space>
+
+                <Segmented
+                  value={historyFilter}
+                  onChange={setHistoryFilter}
+                  style={{ marginBottom: 16 }}
+                  options={[
+                    { label: `Chưa thanh toán (${unpaidInvoices.length})`, value: 'unpaid' },
+                    { label: `Đã thanh toán (${paidInvoices.length})`, value: 'paid' },
+                  ]}
+                />
+
                 <Table
                   columns={invoiceColumns}
-                  dataSource={filteredInvoices}
+                  dataSource={shownInvoices}
                   rowKey="id"
                   loading={invoiceLoading}
                   pagination={{ pageSize: 10, showSizeChanger: false }}
-                  locale={{ emptyText: 'Chưa có hóa đơn nào' }}
+                  locale={{ emptyText: historyFilter === 'paid'
+                    ? 'Chưa có hóa đơn đã thanh toán'
+                    : 'Không có hóa đơn chưa thanh toán' }}
                   scroll={{ x: 1200 }}
                 />
               </Card>
@@ -795,7 +926,7 @@ export default function InvoicePage() {
                 onClick={handleSubmit}
                 style={{ backgroundColor: '#10b981', borderColor: '#10b981' }}
               >
-                Xác nhận thu tiền & Phát hành
+                Lập hóa đơn (chờ nhận tiền)
               </Button>
             ),
         ]}
@@ -821,14 +952,14 @@ export default function InvoicePage() {
                   ? (
                     <Space size={8} align="center">
                       <Text>{createModal.appointment.serviceName}</Text>
-                      <Tooltip title="Nhấn để thêm nhanh vào khoản phí">
+                      <Tooltip title="Đổ lại đầy đủ khoản phí gốc: dịch vụ khám + xét nghiệm + thuốc đã kê">
                         <Tag
-                          icon={<PlusOutlined />}
+                          icon={<ReloadOutlined />}
                           color="purple"
-                          onClick={handleAddServiceFromInfo}
+                          onClick={handleRestoreOriginal}
                           style={{ cursor: 'pointer', userSelect: 'none', marginInlineEnd: 0 }}
                         >
-                          Thêm vào phí
+                          Khôi phục hóa đơn gốc
                         </Tag>
                       </Tooltip>
                     </Space>
@@ -839,137 +970,156 @@ export default function InvoicePage() {
 
             <Divider style={{ margin: '12px 0' }}>Các khoản phí</Divider>
 
-            {/* Items rows */}
+            {suggestLoading && (
+              <div style={{ marginBottom: 8 }}>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  <Spin size="small" style={{ marginRight: 6 }} />
+                  Đang lấy dịch vụ khám và thuốc bác sĩ đã kê...
+                </Text>
+              </div>
+            )}
+
+            {/* Khoản phí nhóm theo từng loại (Dịch vụ khám / Xét nghiệm / Thuốc / Kính / Khác) */}
             <div style={{ marginBottom: 12 }}>
-              <Row gutter={8} style={{ fontWeight: 600, fontSize: 12, color: '#64748b', marginBottom: 6 }}>
-                <Col flex="130px">Loại</Col>
-                <Col flex="auto">Mô tả dịch vụ / thuốc</Col>
-                <Col flex="68px" style={{ textAlign: 'right' }}>SL</Col>
-                <Col flex="115px" style={{ textAlign: 'right' }}>Đơn giá (đ)</Col>
-                <Col flex="115px" style={{ textAlign: 'right' }}>Thành tiền</Col>
-                <Col flex="36px" />
-              </Row>
+              {ITEM_TYPE_OPTS.map(({ value: type, label }) => {
+                const rows = items
+                  .map((it, idx) => ({ it, idx }))
+                  .filter((x) => x.it.itemType === type)
+                const catalog = catalogForType(type)
+                const placeholder =
+                  type === 'MEDICINE' ? 'Nhập hoặc chọn thuốc...' :
+                  type === 'LAB'      ? 'Nhập hoặc chọn xét nghiệm / cận lâm sàng...' :
+                  type === 'SERVICE'  ? 'Nhập hoặc chọn dịch vụ khám...' :
+                  type === 'GLASSES'  ? 'Loại kính, thông số...' : 'Mô tả khoản phí...'
+                const notFound =
+                  type === 'MEDICINE' ? 'Không tìm thấy thuốc' :
+                  type === 'LAB'      ? 'Không tìm thấy xét nghiệm' : 'Không tìm thấy dịch vụ'
+                const addLabel =
+                  type === 'SERVICE'  ? 'dịch vụ khám' :
+                  type === 'LAB'      ? 'xét nghiệm' :
+                  type === 'MEDICINE' ? 'thuốc' :
+                  type === 'GLASSES'  ? 'kính' : 'khoản khác'
 
-              {items.map((item, idx) => (
-                <Row key={idx} gutter={8} style={{ marginBottom: 8 }} align="middle">
-                  <Col flex="130px">
-                    <Select
-                      size="small"
-                      value={item.itemType}
-                      onChange={(v) => updateItem(idx, 'itemType', v)}
-                      options={ITEM_TYPE_OPTS}
-                      style={{ width: '100%' }}
-                    />
-                  </Col>
-                  <Col flex="auto">
-                    {(() => {
-                      const catalog = catalogForType(item.itemType)
-                      // GLASSES / OTHER: không có danh mục → nhập tay
-                      if (!catalog) {
-                        return (
-                          <Input
-                            size="small"
-                            value={item.description}
-                            onChange={(e) => updateItem(idx, 'description', e.target.value)}
-                            status={!item.description?.trim() ? 'error' : ''}
-                            placeholder={item.itemType === 'GLASSES' ? 'Loại kính, thông số...' : 'Mô tả khoản phí...'}
+                return (
+                  <div key={type} style={{ marginBottom: 14 }}>
+                    {/* Tiêu đề nhóm */}
+                    <div style={{
+                      fontWeight: 700, fontSize: 13, color: '#4f46e5', marginBottom: 6,
+                      paddingLeft: 8, borderLeft: '3px solid #6366f1',
+                    }}>
+                      {label}
+                    </div>
+
+                    {/* Header cột — chỉ hiện khi nhóm có dòng */}
+                    {rows.length > 0 && (
+                      <Row gutter={8} wrap={false} style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>
+                        <Col flex="auto" style={{ minWidth: 0 }}>Mô tả</Col>
+                        <Col flex="60px" style={{ textAlign: 'right' }}>SL</Col>
+                        <Col flex="110px" style={{ textAlign: 'right' }}>Đơn giá (đ)</Col>
+                        <Col flex="110px" style={{ textAlign: 'right' }}>Thành tiền</Col>
+                        <Col flex="32px" />
+                      </Row>
+                    )}
+
+                    {rows.map(({ it: item, idx }) => (
+                      <Row key={idx} gutter={8} wrap={false} style={{ marginBottom: 6 }} align="middle">
+                        <Col flex="auto" style={{ minWidth: 0 }}>
+                          {catalog ? (
+                            <AutoComplete
+                              size="small"
+                              value={item.description}
+                              onChange={(v) => updateItem(idx, 'description', v)}
+                              onSelect={(v, option) => {
+                                const isDup = items.some((it, i) =>
+                                  i !== idx && it.description?.trim().toLowerCase() === v.trim().toLowerCase()
+                                )
+                                if (isDup) {
+                                  message.warning('Khoản phí này đã có trong danh sách')
+                                  return
+                                }
+                                setItems((prev) => prev.map((it, i) =>
+                                  i === idx ? { ...it, description: v, unitPrice: option.price ?? 0 } : it
+                                ))
+                              }}
+                              options={catalog
+                                .filter((c) =>
+                                  !items.some((it, i) =>
+                                    i !== idx &&
+                                    it.description?.trim().toLowerCase() === c.name.trim().toLowerCase()
+                                  )
+                                )
+                                .map((c) => ({
+                                  value: c.name,
+                                  label: (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                                      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {c.name}
+                                      </span>
+                                      <Text type="secondary" style={{ fontSize: 11, flexShrink: 0, color: '#10b981', fontWeight: 600 }}>
+                                        {fmt(c.price)}
+                                      </Text>
+                                    </div>
+                                  ),
+                                  price: c.price ?? 0,
+                                }))}
+                              filterOption={(input, option) =>
+                                option.value.toLowerCase().includes(input.toLowerCase())
+                              }
+                              placeholder={placeholder}
+                              style={{ width: '100%' }}
+                              allowClear
+                              status={!item.description?.trim() ? 'error' : ''}
+                              notFoundContent={<Text type="secondary" style={{ fontSize: 12 }}>{notFound}</Text>}
+                            />
+                          ) : (
+                            <Input
+                              size="small"
+                              value={item.description}
+                              onChange={(e) => updateItem(idx, 'description', e.target.value)}
+                              status={!item.description?.trim() ? 'error' : ''}
+                              placeholder={placeholder}
+                            />
+                          )}
+                        </Col>
+                        <Col flex="60px">
+                          <InputNumber
+                            size="small" min={1}
+                            value={item.quantity}
+                            onChange={(v) => updateItem(idx, 'quantity', v)}
+                            style={{ width: '100%' }}
                           />
-                        )
-                      }
-                      const placeholder =
-                        item.itemType === 'MEDICINE' ? 'Nhập hoặc chọn thuốc...' :
-                        item.itemType === 'LAB'      ? 'Nhập hoặc chọn xét nghiệm / cận lâm sàng...' :
-                                                       'Nhập hoặc chọn dịch vụ khám...'
-                      const notFound =
-                        item.itemType === 'MEDICINE' ? 'Không tìm thấy thuốc' :
-                        item.itemType === 'LAB'      ? 'Không tìm thấy xét nghiệm' :
-                                                       'Không tìm thấy dịch vụ'
-                      return (
-                        <AutoComplete
-                          size="small"
-                          value={item.description}
-                          onChange={(v) => updateItem(idx, 'description', v)}
-                          onSelect={(v, option) => {
-                            const isDup = items.some((it, i) =>
-                              i !== idx && it.description?.trim().toLowerCase() === v.trim().toLowerCase()
-                            )
-                            if (isDup) {
-                              message.warning('Khoản phí này đã có trong danh sách')
-                              return
-                            }
-                            setItems((prev) => prev.map((it, i) =>
-                              i === idx ? { ...it, description: v, unitPrice: option.price ?? 0 } : it
-                            ))
-                          }}
-                          options={catalog
-                            .filter((c) =>
-                              !items.some((it, i) =>
-                                i !== idx &&
-                                it.description?.trim().toLowerCase() === c.name.trim().toLowerCase()
-                              )
-                            )
-                            .map((c) => ({
-                              value: c.name,
-                              label: (
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {c.name}
-                                  </span>
-                                  <Text type="secondary" style={{ fontSize: 11, flexShrink: 0, color: '#10b981', fontWeight: 600 }}>
-                                    {fmt(c.price)}
-                                  </Text>
-                                </div>
-                              ),
-                              price: c.price ?? 0,
-                            }))}
-                          filterOption={(input, option) =>
-                            option.value.toLowerCase().includes(input.toLowerCase())
-                          }
-                          placeholder={placeholder}
-                          style={{ width: '100%' }}
-                          allowClear
-                          status={!item.description?.trim() ? 'error' : ''}
-                          notFoundContent={<Text type="secondary" style={{ fontSize: 12 }}>{notFound}</Text>}
-                        />
-                      )
-                    })()}
-                  </Col>
-                  <Col flex="68px">
-                    <InputNumber
-                      size="small" min={1}
-                      value={item.quantity}
-                      onChange={(v) => updateItem(idx, 'quantity', v)}
-                      style={{ width: '100%' }}
-                    />
-                  </Col>
-                  <Col flex="115px">
-                    <InputNumber
-                      size="small" min={1}
-                      value={item.unitPrice}
-                      onChange={(v) => updateItem(idx, 'unitPrice', v)}
-                      formatter={(v) => v?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                      parser={(v) => v?.replace(/,/g, '')}
-                      style={{ width: '100%', borderColor: (item.unitPrice ?? 0) <= 0 ? '#ff4d4f' : undefined }}
-                      status={(item.unitPrice ?? 0) <= 0 ? 'error' : ''}
-                    />
-                  </Col>
-                  <Col flex="115px" style={{ textAlign: 'right' }}>
-                    <Text>{fmt(calcSubtotal(item))}</Text>
-                  </Col>
-                  <Col flex="36px" style={{ textAlign: 'center' }}>
-                    <Button
-                      size="small" type="text" danger
-                      icon={<DeleteOutlined />}
-                      onClick={() => removeItem(idx)}
-                      disabled={items.length === 1}
-                    />
-                  </Col>
-                </Row>
-              ))}
+                        </Col>
+                        <Col flex="110px">
+                          <InputNumber
+                            size="small" min={1}
+                            value={item.unitPrice}
+                            onChange={(v) => updateItem(idx, 'unitPrice', v)}
+                            formatter={(v) => v?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                            parser={(v) => v?.replace(/,/g, '')}
+                            style={{ width: '100%', borderColor: (item.unitPrice ?? 0) <= 0 ? '#ff4d4f' : undefined }}
+                            status={(item.unitPrice ?? 0) <= 0 ? 'error' : ''}
+                          />
+                        </Col>
+                        <Col flex="110px" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <Text>{fmt(calcSubtotal(item))}</Text>
+                        </Col>
+                        <Col flex="32px" style={{ textAlign: 'center' }}>
+                          <Button
+                            size="small" type="text" danger
+                            icon={<DeleteOutlined />}
+                            onClick={() => removeItem(idx)}
+                          />
+                        </Col>
+                      </Row>
+                    ))}
 
-              <Button size="small" icon={<PlusOutlined />} onClick={addItem} style={{ marginTop: 4 }}>
-                Thêm khoản phí
-              </Button>
+                    <Button size="small" type="dashed" icon={<PlusOutlined />}
+                      onClick={() => addItem(type)} style={{ marginTop: 2 }}>
+                      Thêm {addLabel}
+                    </Button>
+                  </div>
+                )
+              })}
             </div>
 
             <Divider style={{ margin: '12px 0' }} />
@@ -1163,13 +1313,16 @@ export default function InvoicePage() {
         onCancel={() => setDetailModal({ open: false, invoice: null })}
         footer={
           <Space>
-            <Button
-              icon={<PrinterOutlined />}
-              loading={printLoading}
-              onClick={() => handlePrint(detailModal.invoice)}
-            >
-              In hóa đơn (PDF)
-            </Button>
+            {/* Chỉ in hóa đơn khi đã thanh toán — hóa đơn chưa phát hành không có gì để in */}
+            {detailModal.invoice?.paymentStatus === 'PAID' && (
+              <Button
+                icon={<PrinterOutlined />}
+                loading={printLoading}
+                onClick={() => handlePrint(detailModal.invoice)}
+              >
+                In hóa đơn (PDF)
+              </Button>
+            )}
             <Button
               icon={<MailOutlined />}
               loading={emailSending}
@@ -1177,7 +1330,7 @@ export default function InvoicePage() {
               disabled={!detailModal.invoice?.patientEmail}
               title={detailModal.invoice?.patientEmail || 'Bệnh nhân chưa có email'}
             >
-              Gửi email
+              {detailModal.invoice?.paymentStatus !== 'PAID' ? 'Gửi mã QR qua email' : 'Gửi email'}
             </Button>
             <Button onClick={() => setDetailModal({ open: false, invoice: null })}>Đóng</Button>
           </Space>
@@ -1214,6 +1367,53 @@ export default function InvoicePage() {
 
             <Divider style={{ margin: '12px 0' }}>Chi tiết khoản phí</Divider>
 
+            {detailModal.invoice.items?.length > 0 ? (
+              <Table
+                size="small"
+                style={{ marginBottom: 16 }}
+                dataSource={detailModal.invoice.items}
+                rowKey={(_, i) => i}
+                pagination={false}
+                columns={[
+                  {
+                    title: 'Loại', dataIndex: 'itemType', width: 100,
+                    render: (t) => ITEM_TYPE_LABEL[t] || t || '—',
+                  },
+                  { title: 'Mô tả', dataIndex: 'description', render: (d) => d || '—' },
+                  { title: 'SL', dataIndex: 'quantity', width: 55, align: 'right' },
+                  {
+                    title: 'Đơn giá', dataIndex: 'unitPrice', width: 120, align: 'right',
+                    render: (v) => fmt(v),
+                  },
+                  {
+                    title: 'Thành tiền', dataIndex: 'subtotal', width: 130, align: 'right',
+                    render: (v, r) => <Text strong>{fmt(v ?? (r.quantity ?? 1) * (r.unitPrice ?? 0))}</Text>,
+                  },
+                ]}
+                summary={(rows) => {
+                  const total = rows.reduce((s, r) => {
+                    const sub = r.subtotal != null ? Number(r.subtotal)
+                      : (r.quantity ?? 1) * (r.unitPrice ?? 0)
+                    return s + sub
+                  }, 0)
+                  return (
+                    <Table.Summary.Row>
+                      <Table.Summary.Cell index={0} colSpan={4} align="right">
+                        <Text strong>Cộng khoản phí</Text>
+                      </Table.Summary.Cell>
+                      <Table.Summary.Cell index={1} align="right">
+                        <Text strong style={{ color: '#10b981' }}>{fmt(total)}</Text>
+                      </Table.Summary.Cell>
+                    </Table.Summary.Row>
+                  )
+                }}
+              />
+            ) : (
+              <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
+                Không có chi tiết khoản phí
+              </Text>
+            )}
+
             <Row gutter={12} style={{ marginBottom: 16 }}>
               {[
                 { label: 'Phí khám', value: detailModal.invoice.serviceFee, bg: '#f0fdf4', color: '#16a34a' },
@@ -1248,6 +1448,38 @@ export default function InvoicePage() {
                 {fmt(detailModal.invoice.totalAmount)}
               </Text>
             </div>
+
+            {/* Hóa đơn chưa thanh toán → hiện mã QR để bệnh nhân quét trả tiền */}
+            {detailModal.invoice.paymentStatus !== 'PAID'
+              && detailModal.invoice.status !== 'CANCELLED' && (
+              <div style={{
+                marginTop: 16, padding: 16, display: 'flex', gap: 20, alignItems: 'center',
+                flexWrap: 'wrap', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8,
+              }}>
+                <img
+                  src={buildVietQrUrl(detailModal.invoice.totalAmount, detailModal.invoice.invoiceCode)}
+                  alt="VietQR"
+                  style={{ width: 220, height: 220, borderRadius: 8, boxShadow: '0 2px 8px #0001', flexShrink: 0 }}
+                />
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <Text strong style={{ display: 'block', marginBottom: 10, color: '#15803d', fontSize: 14 }}>
+                    Quét mã để thanh toán
+                  </Text>
+                  <div style={{ fontSize: 13, color: '#374151', lineHeight: 2 }}>
+                    <div><Text type="secondary">Ngân hàng:</Text> <Text strong>{BANK_NAME}</Text></div>
+                    <div><Text type="secondary">STK:</Text> <Text strong copyable>{BANK_ACCOUNT}</Text></div>
+                    <div><Text type="secondary">Số tiền:</Text> <Text strong style={{ color: '#10b981' }}>{fmt(detailModal.invoice.totalAmount)}</Text></div>
+                    <div>
+                      <Text type="secondary">Nội dung:</Text>{' '}
+                      <Text strong copyable>{buildTransferContent(detailModal.invoice.invoiceCode)}</Text>
+                    </div>
+                  </div>
+                  <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 8 }}>
+                    Giữ nguyên nội dung chuyển khoản để hệ thống tự xác nhận thanh toán.
+                  </Text>
+                </div>
+              </div>
+            )}
           </>
         )}
       </Modal>

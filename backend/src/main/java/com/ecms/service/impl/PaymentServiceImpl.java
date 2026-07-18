@@ -43,6 +43,8 @@ public class PaymentServiceImpl implements PaymentService {
 
     private final InvoiceRepository invoiceRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
+    // Gửi thông báo "Thanh toán thành công" cho bệnh nhân (UC-22)
+    private final com.ecms.service.NotificationService notificationService;
 
     // API key cổng thanh toán phải gửi kèm header: Authorization: Apikey <key>
     @Value("${payment.webhook.api-key:}")
@@ -178,6 +180,21 @@ public class PaymentServiceImpl implements PaymentService {
         txn.setStatus("MATCHED");
         txn.setNote("Đã tự động gạch nợ hóa đơn " + invoiceCode);
         paymentTransactionRepository.save(txn);
+
+        // Thông báo "Thanh toán thành công" cho bệnh nhân (nếu có tài khoản). Lỗi tạo thông báo
+        // không được làm hỏng việc gạch nợ đã hoàn tất → bọc try/catch.
+        try {
+            Long patientUserId = (invoice.getPatient() != null && invoice.getPatient().getUser() != null)
+                    ? invoice.getPatient().getUser().getId() : null;
+            if (patientUserId != null) {
+                Long apptId = invoice.getAppointment() != null ? invoice.getAppointment().getId() : null;
+                notificationService.createForUser(patientUserId,
+                        "Thanh toán thành công hóa đơn " + invoiceCode + ". Cảm ơn quý khách!", apptId);
+            }
+        } catch (Exception e) {
+            log.warn("Không tạo được thông báo thanh toán thành công cho hóa đơn {}: {}",
+                    invoiceCode, e.getMessage());
+        }
 
         log.info("Tự động xác nhận thanh toán. invoiceCode={} amount={} gatewayTxnId={}",
                 invoiceCode, received, gatewayTxnId);

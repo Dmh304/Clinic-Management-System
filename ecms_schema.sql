@@ -514,6 +514,7 @@ CREATE TABLE lab_orders (
     medical_record_id BIGINT          NOT NULL,
     ordered_by        BIGINT          NULL,
     assigned_to       BIGINT          NULL,
+    service_id        BIGINT          NULL,   -- ThangNBHE201024: dịch vụ xét nghiệm (chụp/đo/soi) để đưa vào hóa đơn (UC-22)
     notes             NVARCHAR(MAX)   NULL,
     priority          NVARCHAR(20)    NOT NULL CONSTRAINT DF_lab_orders_priority DEFAULT 'PRIMARY',
     status            NVARCHAR(20)    NOT NULL DEFAULT 'PENDING',
@@ -526,6 +527,7 @@ CREATE TABLE lab_orders (
     CONSTRAINT FK_lab_orders_medical_record FOREIGN KEY (medical_record_id) REFERENCES medical_records(id),
     CONSTRAINT FK_lab_orders_ordered_by FOREIGN KEY (ordered_by) REFERENCES doctors(id),
     CONSTRAINT FK_lab_orders_assigned_to FOREIGN KEY (assigned_to) REFERENCES lab_technicians(id),
+    CONSTRAINT FK_lab_orders_service FOREIGN KEY (service_id) REFERENCES services(id),
     CONSTRAINT CK_lab_orders_priority CHECK (priority IN ('PRIMARY', 'WARNING', 'EMERGENCY')),
     CONSTRAINT CK_lab_orders_status CHECK (status IN ('PENDING', 'IN_PROGRESS', 'SUBMITTED', 'REJECTED', 'APPROVED'))
 );
@@ -622,7 +624,7 @@ CREATE TABLE invoice_details (
     created_at  DATETIME2       NOT NULL DEFAULT GETDATE(),
     CONSTRAINT PK_invoice_details PRIMARY KEY (id),
     CONSTRAINT FK_invoice_details_invoice FOREIGN KEY (invoice_id) REFERENCES invoices(id),
-    CONSTRAINT CK_invoice_details_item_type CHECK (item_type IN ('SERVICE', 'MEDICINE', 'GLASSES', 'OTHER')),
+    CONSTRAINT CK_invoice_details_item_type CHECK (item_type IN ('SERVICE', 'LAB', 'MEDICINE', 'GLASSES', 'OTHER')),
     CONSTRAINT CK_invoice_details_status CHECK (status IN ('ACTIVE', 'CANCELLED'))
 );
 GO
