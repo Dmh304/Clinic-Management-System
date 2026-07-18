@@ -1,17 +1,33 @@
 import { useEffect, useState } from 'react'
 import { Modal, Spin, message, Empty } from 'antd'
 import { invoiceService } from '../../services/invoiceService'
+import { paymentService } from '../../services/paymentService'
+
+// ── Cấu hình tài khoản nhận tiền của phòng khám (khớp backend payment.bank.* + .env) ──
+const BANK_ID      = import.meta.env.VITE_BANK_ID      || '970436'
+const BANK_ACCOUNT = import.meta.env.VITE_BANK_ACCOUNT || '1234567890'
+const BANK_NAME    = import.meta.env.VITE_BANK_NAME    || 'PHONG KHAM MAT'
+
+// Nội dung chuyển khoản bắt đầu bằng "SEVQR" (SePay + VietinBank) + chứa mã hóa đơn để
+// webhook tự đối soát (UC-22)
+const buildTransferContent = (code) => `SEVQR ${code}`
+const buildVietQrUrl = (amount, code) =>
+  `https://img.vietqr.io/image/${BANK_ID}-${BANK_ACCOUNT}-compact2.png` +
+  `?amount=${Math.round(amount || 0)}` +
+  `&addInfo=${encodeURIComponent(buildTransferContent(code))}` +
+  `&accountName=${encodeURIComponent(BANK_NAME)}`
 
 const INVOICE_STATUS = {
-  DRAFT:     { label: 'Nháp',         color: '#d97706', bg: '#fef3c7' },
+  DRAFT:     { label: 'Chưa phát hành', color: '#d97706', bg: '#fef3c7' },
   ISSUED:    { label: 'Đã phát hành', color: '#16a34a', bg: '#dcfce7' },
   CANCELLED: { label: 'Đã hủy',       color: '#dc2626', bg: '#fee2e2' },
 }
 
 const PAYMENT_STATUS = {
-  UNPAID:         { label: 'Chưa thanh toán', color: '#d97706', bg: '#fef3c7' },
-  PAID:           { label: 'Đã thanh toán',   color: '#16a34a', bg: '#dcfce7' },
-  PAYMENT_FAILED: { label: 'Thất bại',        color: '#dc2626', bg: '#fee2e2' },
+  UNPAID:          { label: 'Chưa thanh toán', color: '#d97706', bg: '#fef3c7' },
+  PENDING_PAYMENT: { label: 'Chờ chuyển khoản', color: '#2563eb', bg: '#dbeafe' },
+  PAID:            { label: 'Đã thanh toán',   color: '#16a34a', bg: '#dcfce7' },
+  PAYMENT_FAILED:  { label: 'Thất bại',        color: '#dc2626', bg: '#fee2e2' },
 }
 
 const PAYMENT_METHOD = {
@@ -38,8 +54,8 @@ const StatusBadge = ({ map, value }) => {
 }
 
 const TAB_ALL      = 'ALL'
+const TAB_UNPAID   = 'UNPAID'   // lọc theo trạng thái thanh toán, không phải status hóa đơn
 const TAB_ISSUED   = 'ISSUED'
-const TAB_CANCELLED = 'CANCELLED'
 
 export default function MyInvoicesPage() {
   const [invoices, setInvoices]     = useState([])
@@ -49,20 +65,67 @@ export default function MyInvoicesPage() {
   const [detailLoading, setDetailLoading] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(null)
   const [emailSending, setEmailSending] = useState(null)
+  // Hóa đơn đang thanh toán bằng QR (mở modal QR + polling trạng thái)
+  const [payModal, setPayModal] = useState(null)
 
-  useEffect(() => {
+  const reloadInvoices = () =>
     invoiceService.getMy()
       .then(res => setInvoices(res.data || []))
       .catch(() => message.error('Không thể tải danh sách hóa đơn'))
-      .finally(() => setLoading(false))
+
+  useEffect(() => {
+    reloadInvoices().finally(() => setLoading(false))
   }, [])
 
-  const filtered = invoices.filter(inv => {
+  // Đang mở modal QR: hỏi backend mỗi 3 giây xem cổng thanh toán đã báo tiền về chưa.
+  // Tiền về → tự đóng modal, báo thành công và tải lại danh sách.
+  useEffect(() => {
+    if (!payModal) return
+    let cancelled = false
+    const check = async () => {
+      try {
+        const res = await paymentService.getStatus(payModal.id)
+        if (cancelled || !res?.data?.paid) return
+        message.success(`Đã thanh toán hóa đơn ${payModal.invoiceCode}`)
+        setPayModal(null)
+        void reloadInvoices()
+      } catch { /* lỗi mạng tạm thời: vòng sau thử lại */ }
+    }
+    const timer = setInterval(check, 3000)
+    return () => { cancelled = true; clearInterval(timer) }
+  }, [payModal])
+
+  // Bệnh nhân yêu cầu hủy một hóa đơn chưa thanh toán (hủy hóa đơn nháp).
+  const handleRequestCancel = (inv) => {
+    Modal.confirm({
+      title: 'Yêu cầu hủy hóa đơn',
+      content: `Bạn có chắc muốn hủy hóa đơn ${inv.invoiceCode} (${fmt(inv.totalAmount)})?`,
+      okText: 'Xác nhận hủy',
+      okButtonProps: { danger: true },
+      cancelText: 'Không',
+      onOk: async () => {
+        try {
+          await invoiceService.cancel(inv.id)
+          message.success('Đã hủy hóa đơn')
+          await reloadInvoices()
+        } catch (err) {
+          const serverMsg = err?.response?.data?.message
+          message.error(serverMsg || 'Không thể hủy hóa đơn')
+        }
+      },
+    })
+  }
+
+  // Bệnh nhân không thấy hóa đơn ĐÃ HỦY — đó là hóa đơn lễ tân bỏ đi, không liên quan.
+  const visibleInvoices = invoices.filter(i => i.status !== 'CANCELLED')
+
+  const filtered = visibleInvoices.filter(inv => {
     if (activeTab === TAB_ALL) return true
+    if (activeTab === TAB_UNPAID) return inv.paymentStatus !== 'PAID'
     return inv.status === activeTab
   })
 
-  const totalPaid = invoices
+  const totalPaid = visibleInvoices
     .filter(i => i.paymentStatus === 'PAID')
     .reduce((s, i) => s + (i.totalAmount ?? 0), 0)
 
@@ -118,9 +181,9 @@ export default function MyInvoicesPage() {
   }
 
   const tabs = [
-    { key: TAB_ALL,       label: 'Tất cả',       count: invoices.length },
-    { key: TAB_ISSUED,    label: 'Đã phát hành', count: invoices.filter(i => i.status === 'ISSUED').length },
-    { key: TAB_CANCELLED, label: 'Đã hủy',       count: invoices.filter(i => i.status === 'CANCELLED').length },
+    { key: TAB_ALL,    label: 'Tất cả',        count: visibleInvoices.length },
+    { key: TAB_UNPAID, label: 'Chưa thanh toán', count: visibleInvoices.filter(i => i.paymentStatus !== 'PAID').length },
+    { key: TAB_ISSUED, label: 'Đã phát hành',  count: visibleInvoices.filter(i => i.status === 'ISSUED').length },
   ]
 
   return (
@@ -141,8 +204,8 @@ export default function MyInvoicesPage() {
         {/* ── Stats ── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, margin: '24px 0' }}>
           {[
-            { label: 'Tổng hóa đơn',     value: invoices.length, unit: 'hóa đơn', color: '#6366f1' },
-            { label: 'Đã thanh toán',     value: invoices.filter(i => i.paymentStatus === 'PAID').length, unit: 'hóa đơn', color: '#16a34a' },
+            { label: 'Tổng hóa đơn',     value: visibleInvoices.length, unit: 'hóa đơn', color: '#6366f1' },
+            { label: 'Đã thanh toán',     value: visibleInvoices.filter(i => i.paymentStatus === 'PAID').length, unit: 'hóa đơn', color: '#16a34a' },
             { label: 'Tổng tiền đã trả',  value: fmt(totalPaid), unit: null, color: '#0ea5e9' },
           ].map(s => (
             <div key={s.label} style={{
@@ -199,7 +262,9 @@ export default function MyInvoicesPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                       <span style={{ fontWeight: 700, fontSize: 15, color: '#6366f1' }}>{inv.invoiceCode}</span>
                       <StatusBadge map={INVOICE_STATUS} value={inv.status} />
-                      <StatusBadge map={PAYMENT_STATUS} value={inv.paymentStatus} />
+                      {inv.paymentStatus === 'UNPAID' && inv.paymentMethod === 'CASH'
+                        ? <StatusBadge map={{ CASH_PENDING: { label: 'Chờ nhận tiền', color: '#d97706', bg: '#fef3c7' } }} value="CASH_PENDING" />
+                        : <StatusBadge map={PAYMENT_STATUS} value={inv.paymentStatus} />}
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '6px 24px', marginTop: 10 }}>
@@ -219,7 +284,17 @@ export default function MyInvoicesPage() {
                         Đã thanh toán {fmtDate(inv.paidAt)}
                       </p>
                     )}
-                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 10 }}>
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 10, flexWrap: 'wrap' }}>
+                      {inv.paymentStatus !== 'PAID' && inv.status !== 'CANCELLED' && (
+                        <ActionBtn onClick={() => setPayModal(inv)} color="#10b981">
+                          Thanh toán QR
+                        </ActionBtn>
+                      )}
+                      {inv.paymentStatus !== 'PAID' && inv.status !== 'CANCELLED' && (
+                        <ActionBtn onClick={() => handleRequestCancel(inv)} color="#dc2626">
+                          Yêu cầu hủy
+                        </ActionBtn>
+                      )}
                       <ActionBtn onClick={() => handleOpenDetail(inv)} color="#6366f1">
                         Chi tiết
                       </ActionBtn>
@@ -358,6 +433,55 @@ export default function MyInvoicesPage() {
                 <strong>Ghi chú:</strong> {detail.notes}
               </div>
             )}
+          </div>
+        )}
+      </Modal>
+
+      {/* ── Modal thanh toán QR (UC-22) ── */}
+      <Modal
+        open={!!payModal}
+        onCancel={() => setPayModal(null)}
+        footer={null}
+        title={
+          <span style={{ fontSize: 16, fontWeight: 700, color: '#1e293b' }}>
+            Thanh toán hóa đơn {payModal?.invoiceCode}
+          </span>
+        }
+        width={640}
+      >
+        {payModal && (
+          <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            {/* Trái: mã QR */}
+            <img
+              src={buildVietQrUrl(payModal.totalAmount, payModal.invoiceCode)}
+              alt="VietQR"
+              style={{ width: 260, height: 260, borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', flexShrink: 0 }}
+            />
+
+            {/* Phải: thông tin chuyển khoản + trạng thái chờ */}
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div style={{
+                fontSize: 13, color: '#374151',
+                background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '12px 14px', lineHeight: 1.9,
+              }}>
+                <div><span style={{ color: '#64748b' }}>Ngân hàng (mã):</span> <strong>{BANK_ID}</strong></div>
+                <div><span style={{ color: '#64748b' }}>Số tài khoản:</span> <strong>{BANK_ACCOUNT}</strong></div>
+                <div><span style={{ color: '#64748b' }}>Chủ tài khoản:</span> <strong>{BANK_NAME}</strong></div>
+                <div><span style={{ color: '#64748b' }}>Số tiền:</span> <strong style={{ color: '#10b981' }}>{fmt(payModal.totalAmount)}</strong></div>
+                <div><span style={{ color: '#64748b' }}>Nội dung:</span> <strong>{buildTransferContent(payModal.invoiceCode)}</strong></div>
+              </div>
+              <div style={{
+                marginTop: 12, display: 'flex', alignItems: 'center', gap: 8,
+                color: '#15803d', fontSize: 13,
+              }}>
+                <Spin size="small" />
+                Đang chờ xác nhận thanh toán...
+              </div>
+              <p style={{ marginTop: 8, fontSize: 12, color: '#94a3b8' }}>
+                Quét mã bằng app ngân hàng và giữ nguyên nội dung chuyển khoản. Hóa đơn sẽ tự
+                chuyển sang "Đã thanh toán" ngay khi tiền vào tài khoản.
+              </p>
+            </div>
           </div>
         )}
       </Modal>

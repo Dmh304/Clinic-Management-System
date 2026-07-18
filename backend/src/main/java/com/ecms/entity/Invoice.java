@@ -70,7 +70,8 @@ public class Invoice {
     @Column(name = "payment_reference", length = 100)
     private String paymentReference;
 
-    // UNPAID | PAID | PAYMENT_FAILED
+    // UNPAID | PENDING_PAYMENT | PAID | PAYMENT_FAILED
+    // PENDING_PAYMENT: đã sinh mã QR, đang chờ cổng thanh toán báo tiền về (UC-22)
     @Column(name = "payment_status", nullable = false, length = 20)
     private String paymentStatus;
 

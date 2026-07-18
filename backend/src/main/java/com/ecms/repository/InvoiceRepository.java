@@ -54,6 +54,15 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
             """)
     List<Invoice> searchInvoices(@Param("keyword") String keyword);
 
+    // ThangNBHE201024 — tra hóa đơn theo mã, dùng khi webhook cổng thanh toán dò mã
+    // hóa đơn trong nội dung chuyển khoản để tự động gạch nợ (UC-22).
+    Optional<Invoice> findByInvoiceCode(String invoiceCode);
+
+    // ThangNBHE201024 — các hóa đơn của một lịch hẹn theo trạng thái, mới nhất trước.
+    // Dùng khi tạo hóa đơn mới: nếu lịch hẹn từng có hóa đơn CANCELLED thì đổ lại đúng
+    // khoản phí của hóa đơn đã hủy gần nhất (hủy rồi tạo lại khôi phục nguyên trạng).
+    List<Invoice> findByAppointment_IdAndStatusOrderByCreatedAtDesc(Long appointmentId, String status);
+
     // Đếm số hóa đơn đã tạo trong ngày để sinh mã tự động (INV-yyyyMMdd-XXXX)
     @Query("""
             SELECT COUNT(i) FROM Invoice i

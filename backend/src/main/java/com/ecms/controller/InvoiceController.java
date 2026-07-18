@@ -90,6 +90,15 @@ public class InvoiceController {
                 ApiResponse.success(invoiceService.getInvoiceByAppointmentId(appointmentId)));
     }
 
+    // ThangNBHE201024 — Gợi ý khoản phí cho lịch hẹn: dịch vụ khám đã đặt + thuốc bác sĩ
+    // đã kê (UC-27). Frontend gọi khi mở modal "Thu phí" để đổ sẵn, lễ tân không nhập tay.
+    @GetMapping("/appointment/{appointmentId}/suggested-items")
+    public ResponseEntity<ApiResponse<List<InvoiceRequest.InvoiceItemRequest>>> getSuggestedItems(
+            @PathVariable Long appointmentId) {
+        return ResponseEntity.ok(
+                ApiResponse.success(invoiceService.getSuggestedItems(appointmentId)));
+    }
+
     // Tạo hóa đơn nháp (DRAFT) từ danh sách khoản phí do lễ tân nhập
     @PostMapping
     public ResponseEntity<ApiResponse<InvoiceResponse>> createInvoice(
