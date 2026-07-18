@@ -11,6 +11,7 @@ import com.ecms.repository.MedicalRecordRepository;
 import com.ecms.repository.PrescriptionRepository;
 import com.ecms.service.InvoiceService;
 import com.ecms.service.InvoicePdfService;
+import com.ecms.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,6 +45,10 @@ public class InvoiceServiceImpl implements InvoiceService {
 
     private final InvoiceRepository invoiceRepository;
     private final AppointmentRepository appointmentRepository;
+    private final MedicalRecordRepository medicalRecordRepository;
+    private final PrescriptionRepository prescriptionRepository;
+    private final LabOrderRepository labOrderRepository;
+    private final NotificationService notificationService;
     private final InvoicePdfService invoicePdfService;
 
     // Lấy tất cả hóa đơn (không kèm items) — dùng cho bảng lịch sử hóa đơn
@@ -371,6 +376,18 @@ public class InvoiceServiceImpl implements InvoiceService {
         String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         long count = invoiceRepository.countByDatePrefix(dateStr);
         return String.format("INV-%s-%04d", dateStr, count + 1);
+    }
+
+    private void notifyPaymentRequested(Invoice invoice) {
+        Patient p = invoice.getPatient();
+        if (p == null || p.getUser() == null) return;
+        try {
+            Long apptId = invoice.getAppointment() != null ? invoice.getAppointment().getId() : null;
+            notificationService.createForUser(p.getUser().getId(),
+                    "Bạn có hóa đơn " + invoice.getInvoiceCode()
+                            + " cần thanh toán. Vào 'Hóa đơn của tôi' để quét mã QR.", apptId);
+        } catch (Exception e) {
+        }
     }
 
     // Chuyển Invoice entity → DTO (không kèm items) — dùng cho danh sách
