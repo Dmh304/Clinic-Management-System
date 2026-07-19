@@ -8,6 +8,22 @@ import java.time.LocalDateTime;
  */
 public interface EmailService {
 
+    // Le Thi Bich Ngan - HE204710 | Tạo: 18/07/2026
+    // Chức năng: khai báo API gửi email xác nhận đặt lịch — bổ sung cho luồng
+    // đặt lịch online (UC-11) để bệnh nhân nhận được email ngay sau khi đặt
+    // thành công, thay vì chỉ thấy trạng thái PENDING trên UI.
+    /**
+     * Gửi email xác nhận ngay sau khi bệnh nhân đặt lịch khám thành công (online).
+     *
+     * @param toEmail         email người nhận (tài khoản đặt lịch)
+     * @param patientName     tên người được khám (có thể khác người đặt nếu đặt hộ)
+     * @param doctorName      tên bác sĩ phụ trách
+     * @param appointmentTime thời gian khám
+     * @param serviceName     tên dịch vụ đã chọn (có thể null nếu đặt khám thường)
+     */
+    void sendBookingConfirmation(String toEmail, String patientName, String doctorName,
+            LocalDateTime appointmentTime, String serviceName);
+
     /**
      * Gửi email nhắc lịch hẹn sắp tới cho bệnh nhân.
      *

@@ -13,11 +13,11 @@ import { useDispatch, useSelector } from 'react-redux'
 import dayjs from 'dayjs'
 import {
   Table, Tag, Select, Button, Space, Typography, Card,
-  message, Modal, Form, Statistic, Row, Col, Segmented, Input,
+  message, Modal, Form, Statistic, Row, Col, Segmented, Input, DatePicker,
 } from 'antd'
 import {
   ReloadOutlined, CheckCircleOutlined, LoginOutlined,
-  CloseCircleOutlined, BellOutlined,
+  CloseCircleOutlined, BellOutlined, SwapOutlined,
 } from '@ant-design/icons'
 import {
   fetchDayAppointments,
@@ -97,6 +97,11 @@ const STATUS_INFO = {
   CANCELLED:   { label: 'Đã huỷ',       color: '#dc2626', bg: '#fee2e2' },
 }
 
+// Giờ làm việc phòng khám — đồng bộ với backend CLINIC_OPEN_TIME/CLINIC_CLOSE_TIME
+// (07:30–17:00), dùng để giới hạn DatePicker ở modal "Đổi lịch".
+const CLINIC_OPEN_HOUR = 7
+const CLINIC_CLOSE_HOUR = 17
+
 const WEEKDAY_SHORT = ['CN', 'Th 2', 'Th 3', 'Th 4', 'Th 5', 'Th 6', 'Th 7']
 const VIEW_LABELS = [
   { label: 'Ngày', value: 'day' },
@@ -109,6 +114,24 @@ function startOfWeekMonday(d) {
   const dow = d.day()
   const diff = dow === 0 ? -6 : 1 - dow
   return d.add(diff, 'day').startOf('day')
+}
+
+// Bỏ dấu tiếng Việt để tìm không phân biệt dấu (lễ tân gõ nhanh, thường không gõ dấu)
+function stripDiacritics(s) {
+  return (s || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+}
+
+// Tìm theo tên hoặc SĐT bệnh nhân — dùng chung cho cả 3 chế độ Ngày/Tuần/Tháng
+function matchesSearch(record, query) {
+  const q = stripDiacritics(query.trim())
+  if (!q) return true
+  const haystack = stripDiacritics(`${record.patientName || ''} ${record.patientPhone || ''}`)
+  return haystack.includes(q)
 }
 
 function formatTime(dt) {
@@ -126,11 +149,32 @@ export default function AppointmentManagementPage() {
   const [viewMode, setViewMode] = useState('day')
   const [anchorDate, setAnchorDate] = useState(dayjs().startOf('day'))
   const [filterStatus, setFilterStatus] = useState('ALL')
+  const [searchText, setSearchText] = useState('')
   const [doctors, setDoctors] = useState([])
   const [confirmModal, setConfirmModal] = useState({ open: false, appointment: null })
   const [confirmLoading, setConfirmLoading] = useState(false)
   const [selectedDoctorId, setSelectedDoctorId] = useState(null)
   const [changeReason, setChangeReason] = useState('')
+
+  // ── Đổi lịch hẹn (UC-18, lễ tân) ──
+  const [rescheduleModal, setRescheduleModal] = useState({ open: false, appointment: null })
+  const [rescheduleDoctorId, setRescheduleDoctorId] = useState(null)
+  const [rescheduleTime, setRescheduleTime] = useState(null)
+  const [rescheduleReason, setRescheduleReason] = useState('')
+  const [rescheduleSaving, setRescheduleSaving] = useState(false)
+
+  // Le Thi Bich Ngan - HE204710 | Tạo: 19/07/2026 | BR-05 (huỷ lịch — điều
+  // kiện ≥1h chỉ áp dụng khi bệnh nhân tự huỷ, không áp dụng cho lễ tân)
+  // Chức năng: state cho modal "Huỷ lịch hẹn" có ô nhập lý do — trước đây nút
+  // Hủy của lễ tân gọi thẳng changeAppointmentStatus (PATCH /status), một API
+  // generic không lưu lý do và không gửi email cho bệnh nhân. Nay đổi sang gọi
+  // đúng appointmentService.cancelAppointment(id, reason) để lý do được lưu
+  // vào cancelReason và bệnh nhân nhận được email thông báo huỷ (xem
+  // AppointmentServiceImpl.cancelAppointment() ở backend).
+  // ── Huỷ lịch hẹn (lễ tân nhập lý do để bệnh nhân nhận được trong email thông báo huỷ) ──
+  const [cancelModal, setCancelModal] = useState({ open: false, appointment: null })
+  const [cancelReasonInput, setCancelReasonInput] = useState('')
+  const [cancelSaving, setCancelSaving] = useState(false)
 
   // ── Chế độ Tuần/Tháng (fetch trực tiếp) ──
   const [rangeAppointments, setRangeAppointments] = useState([])
@@ -214,8 +258,11 @@ export default function AppointmentManagementPage() {
     [list, careSessions],
   )
 
-  const filtered =
-    filterStatus === 'ALL' ? combinedList : combinedList.filter((a) => getStatusBucket(a) === filterStatus)
+  const filtered = (
+    filterStatus === 'ALL' ? combinedList
+      : filterStatus === 'CARE_SESSION' ? combinedList.filter((a) => a.isCareSession)
+        : combinedList.filter((a) => getStatusBucket(a) === filterStatus)
+  ).filter((a) => matchesSearch(a, searchText))
 
   // Thống kê hợp nhất cả lịch hẹn khám bác sĩ lẫn buổi khám dịch vụ, theo cùng "nhóm trạng thái"
   // ở trên — thay cho dashboard.* (chỉ tính riêng lịch hẹn, khiến số liệu lệch với bảng hiển thị).
@@ -318,25 +365,33 @@ export default function AppointmentManagementPage() {
     }
   }
 
-  const handleCancel = (id) => {
-    dispatch(changeAppointmentStatus({ id, status: 'CANCELLED' }))
-      .unwrap()
-      .then(() => {
-        message.success('Đã hủy lịch hẹn')
-        dispatch(fetchDashboard(dayParam))
-      })
-      .catch((err) => message.error(err))
+  // Le Thi Bich Ngan - HE204710 | Tạo: 19/07/2026
+  // Chức năng: mở modal huỷ lịch (thay Modal.confirm cũ) để lễ tân nhập lý do
+  // huỷ trước khi xác nhận.
+  // Dùng đúng endpoint cancelAppointment (có ghi cancelReason + gửi email thông báo huỷ
+  // cho bệnh nhân) thay vì updateStatus chung chung (không lưu lý do, không gửi email).
+  const showCancelConfirm = (record) => {
+    setCancelReasonInput('')
+    setCancelModal({ open: true, appointment: record })
   }
 
-  const showCancelConfirm = (record) => {
-    Modal.confirm({
-      title: 'Xác nhận hủy lịch hẹn',
-      content: `Bạn có chắc muốn hủy lịch hẹn của ${record.patientName || 'bệnh nhân này'} không?`,
-      okText: 'Hủy lịch',
-      cancelText: 'Không',
-      okType: 'danger',
-      onOk: () => handleCancel(record.id),
-    })
+  // Le Thi Bich Ngan - HE204710 | Tạo: 19/07/2026 | BR-05 (huỷ lịch)
+  // Chức năng: gọi PATCH /v1/appointments/{id}/cancel kèm lý do lễ tân vừa
+  // nhập — endpoint này ghi cancelReason/cancelledAt/cancelledBy và gửi email
+  // sendCancellationNotice cho bệnh nhân (khác hẳn updateStatus cũ trước đây).
+  const handleCancel = async () => {
+    const appointment = cancelModal.appointment
+    setCancelSaving(true)
+    try {
+      await appointmentService.cancelAppointment(appointment.id, cancelReasonInput.trim() || null)
+      message.success('Đã hủy lịch hẹn')
+      setCancelModal({ open: false, appointment: null })
+      reload()
+    } catch (err) {
+      message.error(err.response?.data?.message || 'Không thể hủy lịch hẹn')
+    } finally {
+      setCancelSaving(false)
+    }
   }
 
   // UC-13: gửi nhắc lịch thủ công cho 1 lịch hẹn (ALT-1)
@@ -346,6 +401,45 @@ export default function AppointmentManagementPage() {
       message.success('Đã gửi nhắc lịch')
     } catch {
       message.error('Không thể gửi nhắc lịch')
+    }
+  }
+
+  // UC-18: lễ tân đổi lịch hẹn (ngày/giờ và/hoặc bác sĩ) ngay tại quầy — thay
+  // cho thao tác 2 bước "Hủy rồi đặt lại". Giữ nguyên trạng thái hiện tại của
+  // lịch hẹn (không đưa về PENDING) vì lễ tân xử lý xong ngay lúc này.
+  const handleOpenReschedule = (record) => {
+    setRescheduleDoctorId(record.doctorId ?? null)
+    setRescheduleTime(null)
+    setRescheduleReason('')
+    setRescheduleModal({ open: true, appointment: record })
+  }
+
+  const handleReschedule = async () => {
+    const original = rescheduleModal.appointment
+    if (!rescheduleTime) {
+      message.error('Vui lòng chọn ngày giờ khám mới')
+      return
+    }
+    const originalDoctorId = original?.doctorId ?? null
+    const doctorChanged = originalDoctorId != null && rescheduleDoctorId !== originalDoctorId
+    if (doctorChanged && !rescheduleReason.trim()) {
+      message.error('Vui lòng nhập lý do khi đổi sang bác sĩ khác')
+      return
+    }
+    setRescheduleSaving(true)
+    try {
+      await appointmentService.reassignAppointment(original.id, {
+        doctorId: doctorChanged ? rescheduleDoctorId : null,
+        newAppointmentTime: rescheduleTime.format('YYYY-MM-DDTHH:mm:ss'),
+        reason: rescheduleReason.trim() || null,
+      })
+      message.success('Đổi lịch hẹn thành công')
+      setRescheduleModal({ open: false, appointment: null })
+      reload()
+    } catch (err) {
+      message.error(err.response?.data?.message || 'Đổi lịch hẹn thất bại')
+    } finally {
+      setRescheduleSaving(false)
     }
   }
 
@@ -390,9 +484,20 @@ export default function AppointmentManagementPage() {
       title: 'Trạng thái', dataIndex: 'status', key: 'status', width: 170,
       render: (status, record) => {
         const cfg = (record.isCareSession ? CARE_SESSION_STATUS_CONFIG[status] : STATUS_CONFIG[status]) || {}
+        // Bệnh nhân chưa check-in mà giờ hẹn đã trôi qua: chỉ cảnh báo để lễ tân tự
+        // quyết định (vẫn nhận khám hoặc bấm Hủy) — hệ thống chỉ tự động hủy hẳn khi
+        // đến giờ đóng cửa phòng khám (cron 17:05).
+        const isOverdue = !record.isCareSession
+          && (status === 'PENDING' || status === 'CONFIRMED')
+          && dayjs(record.appointmentTime).isBefore(dayjs())
         return (
           <div>
             <Tag color={cfg.color}>{cfg.label}</Tag>
+            {isOverdue && (
+              <Tag color="volcano" style={{ marginTop: 4 }} title="Đã quá giờ hẹn nhưng bệnh nhân chưa check-in">
+                Quá giờ hẹn
+              </Tag>
+            )}
             {status === 'CANCELLED' && record.cancelReason && (
               <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4, whiteSpace: 'normal', lineHeight: 1.3 }}>
                 Lý do: {record.cancelReason}
@@ -403,7 +508,7 @@ export default function AppointmentManagementPage() {
       },
     },
     {
-      title: 'Hành động', key: 'action', width: 240,
+      title: 'Hành động', key: 'action', width: 260,
       // stopPropagation để không mở modal chi tiết khi bấm nút thao tác
       render: (_, record) => {
         if (record.isCareSession) {
@@ -431,12 +536,16 @@ export default function AppointmentManagementPage() {
           return <span style={{ color: '#cbd5e1', fontSize: 12 }}>{pendingLabel}</span>
         }
         return (
-        <Space onClick={(e) => e.stopPropagation()}>
+        <Space onClick={(e) => e.stopPropagation()} wrap size={[6, 6]}>
           {record.status === 'PENDING' && (
             <>
               <Button size="small" type="primary" icon={<CheckCircleOutlined />}
                 onClick={() => handleOpenConfirm(record)}>
                 Xác nhận
+              </Button>
+              <Button size="small" icon={<SwapOutlined />}
+                onClick={() => handleOpenReschedule(record)}>
+                Đổi lịch
               </Button>
               <Button size="small" danger icon={<CloseCircleOutlined />}
                 onClick={() => showCancelConfirm(record)}>
@@ -450,6 +559,10 @@ export default function AppointmentManagementPage() {
                 onClick={() => handleCheckIn(record.id)}>
                 Check-in
               </Button>
+              <Button size="small" icon={<SwapOutlined />}
+                onClick={() => handleOpenReschedule(record)}>
+                Đổi lịch
+              </Button>
               <Button size="small" icon={<BellOutlined />}
                 onClick={() => handleSendReminder(record.id)}>
                 Nhắc lịch
@@ -461,15 +574,23 @@ export default function AppointmentManagementPage() {
             </>
           )}
           {record.status === 'WAITING' && (
-            <Button size="small" type="primary"
-              style={{ backgroundColor: '#8b5cf6', borderColor: '#8b5cf6' }}
-              onClick={() => dispatch(changeAppointmentStatus({ id: record.id, status: 'IN_PROGRESS' }))
-                .unwrap()
-                .then(() => { message.success('Bắt đầu khám'); dispatch(fetchDashboard(dayParam)) })
-                .catch((err) => message.error(err))
-              }>
-              Bắt đầu khám
-            </Button>
+            <>
+              <Button size="small" type="primary"
+                style={{ backgroundColor: '#8b5cf6', borderColor: '#8b5cf6' }}
+                onClick={() => dispatch(changeAppointmentStatus({ id: record.id, status: 'IN_PROGRESS' }))
+                  .unwrap()
+                  .then(() => { message.success('Bắt đầu khám'); dispatch(fetchDashboard(dayParam)) })
+                  .catch((err) => message.error(err))
+                }>
+                Bắt đầu khám
+              </Button>
+              {/* Khách đã check-in nhưng có việc đột xuất cần đổi giờ/bác sĩ ngay —
+                  dùng lại modal/luồng reassign chung, giữ nguyên trạng thái WAITING. */}
+              <Button size="small" icon={<SwapOutlined />}
+                onClick={() => handleOpenReschedule(record)}>
+                Đổi lịch
+              </Button>
+            </>
           )}
           {record.status === 'COMPLETED' && (
             <Button size="small" type="primary"
@@ -491,9 +612,9 @@ export default function AppointmentManagementPage() {
   })
 
   // ── Lọc theo bác sĩ + nhóm theo ngày cho lưới Tuần/Tháng ──
-  const rangeFiltered = filterDoctor
-    ? rangeAppointments.filter((a) => String(a.doctorId) === filterDoctor)
-    : rangeAppointments
+  const rangeFiltered = rangeAppointments
+    .filter((a) => !filterDoctor || String(a.doctorId) === filterDoctor)
+    .filter((a) => matchesSearch(a, searchText))
   const rangeDoctors = useMemo(
     () => [...new Map(rangeAppointments.filter((a) => a.doctorName).map((a) => [a.doctorId, a.doctorName])).entries()]
       .map(([id, name]) => ({ id, name })),
@@ -547,21 +668,28 @@ export default function AppointmentManagementPage() {
 
       {viewMode === 'day' ? (
         <>
-          {/* Điều hướng ngày: xem hôm qua / hôm nay / hôm sau */}
-          <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-            <Space>
+          {/* Tìm bệnh nhân (đầu dòng) + điều hướng ngày (cuối dòng) trên cùng 1 hàng */}
+          <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Input.Search
+              allowClear
+              placeholder="Tìm bệnh nhân theo tên hoặc số điện thoại..."
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              style={{ maxWidth: 360, flex: '1 1 240px' }}
+            />
+            <Space wrap>
               <Button onClick={goPrev}>‹ Ngày trước</Button>
               <Button onClick={goToday} type="primary" ghost disabled={isAnchorToday}>Hôm nay</Button>
               <Button onClick={goNext}>Ngày sau ›</Button>
+              {!isAnchorToday && (
+                <Tag color="blue">Đang xem ngày {anchorDate.format('DD/MM/YYYY')}</Tag>
+              )}
             </Space>
-            {!isAnchorToday && (
-              <Tag color="blue">Đang xem ngày {anchorDate.format('DD/MM/YYYY')}</Tag>
-            )}
           </div>
 
-          {/* Thống kê của ngày đang xem — gộp cả lịch hẹn khám bác sĩ lẫn buổi khám dịch vụ,
-              không dùng dashboard.* nữa vì API đó chỉ tính riêng lịch hẹn. */}
-          <Row gutter={12} style={{ marginBottom: 16 }}>
+          {/* Thống kê lịch hẹn khám bác sĩ của ngày đang xem — không dùng dashboard.*
+              nữa vì API đó chỉ tính riêng lịch hẹn, khiến số liệu lệch với bảng. */}
+          <Row gutter={12} style={{ marginBottom: 12 }}>
               {[
                 { label: 'Tổng', value: mergedStats.total, color: '#6366f1' },
                 { label: 'Chờ xác nhận', value: mergedStats.pending, color: '#f59e0b' },
@@ -570,11 +698,6 @@ export default function AppointmentManagementPage() {
                 { label: 'Đang khám', value: mergedStats.inProgress, color: '#8b5cf6' },
                 { label: 'Hoàn thành', value: mergedStats.completed, color: '#10b981' },
                 { label: 'Đã hủy', value: mergedStats.cancelled, color: '#ef4444' },
-                {
-                  label: 'Đến khám dịch vụ',
-                  value: careSessions.filter(s => s.status !== 'CANCELLED').length,
-                  color: '#0891b2',
-                },
               ].map(({ label, value, color }) => (
                 <Col key={label} flex="1">
                   <Card size="small" style={{ textAlign: 'center', borderTop: `3px solid ${color}` }}>
@@ -588,8 +711,24 @@ export default function AppointmentManagementPage() {
               ))}
           </Row>
 
+          {/* Thống kê buổi khám dịch vụ (chăm sóc) — tách riêng dòng dưới (khác luồng
+              trạng thái với lịch hẹn khám bác sĩ ở trên), nhưng vẫn cùng cỡ 1/7 với các
+              ô phía trên cho đồng đều — 6 Col rỗng còn lại để giữ đúng chiều rộng. */}
+          <Row gutter={12} style={{ marginBottom: 16 }}>
+            <Col flex="1">
+              <Card size="small" style={{ textAlign: 'center', borderTop: '3px solid #0891b2' }}>
+                <Statistic
+                  title={<span style={{ fontSize: 11 }}>Đến khám dịch vụ</span>}
+                  value={careSessions.filter(s => s.status !== 'CANCELLED').length}
+                  styles={{ value: { fontSize: 20, color: '#0891b2' } }}
+                />
+              </Card>
+            </Col>
+            {Array.from({ length: 6 }).map((_, i) => <Col key={i} flex="1" />)}
+          </Row>
+
       <Card>
-        <Space style={{ marginBottom: 16 }}>
+        <Space style={{ marginBottom: 16 }} wrap>
           <Select
             value={filterStatus}
             onChange={setFilterStatus}
@@ -600,6 +739,7 @@ export default function AppointmentManagementPage() {
                 label: c.label,
                 value: v,
               })),
+              { label: 'Đến khám dịch vụ', value: 'CARE_SESSION' },
             ]}
           />
           <Button icon={<ReloadOutlined />} onClick={reload} loading={loading}>
@@ -631,9 +771,16 @@ export default function AppointmentManagementPage() {
         </>
       ) : (
         <>
-          {/* Toolbar điều hướng Tuần/Tháng */}
+          {/* Tìm bệnh nhân (đầu dòng) + điều hướng Tuần/Tháng (cuối dòng) trên cùng 1 hàng */}
           <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Space>
+            <Input.Search
+              allowClear
+              placeholder="Tìm bệnh nhân theo tên hoặc số điện thoại..."
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              style={{ maxWidth: 360, flex: '1 1 240px' }}
+            />
+            <Space wrap>
               <Button onClick={goPrev}>‹</Button>
               <Button onClick={goToday} type="primary" ghost>Hôm nay</Button>
               <Button onClick={goNext}>›</Button>
@@ -743,6 +890,118 @@ export default function AppointmentManagementPage() {
             </Form>
           )
         })()}
+      </Modal>
+
+      {/* Modal đổi lịch hẹn (UC-18, lễ tân) */}
+      <Modal
+        title="Đổi lịch hẹn"
+        open={rescheduleModal.open}
+        onOk={handleReschedule}
+        onCancel={() => setRescheduleModal({ open: false, appointment: null })}
+        confirmLoading={rescheduleSaving}
+        okText="Xác nhận đổi lịch"
+        cancelText="Hủy"
+      >
+        {rescheduleModal.appointment && (
+          <div style={{ marginBottom: 16 }}>
+            <p style={{ margin: '0 0 4px' }}><strong>Bệnh nhân:</strong> {rescheduleModal.appointment.patientName}</p>
+            <p style={{ margin: '0 0 4px' }}>
+              <strong>Lịch hiện tại:</strong> {rescheduleModal.appointment.timeSlot} — {dayjs(rescheduleModal.appointment.appointmentTime).format('DD/MM/YYYY')}
+              {rescheduleModal.appointment.doctorName && ` • BS. ${rescheduleModal.appointment.doctorName}`}
+            </p>
+          </div>
+        )}
+        {(() => {
+          const originalDoctorId = rescheduleModal.appointment?.doctorId ?? null
+          const doctorChanged = originalDoctorId != null && rescheduleDoctorId !== originalDoctorId
+          return (
+            <Form layout="vertical">
+              <Form.Item label="Ngày giờ khám mới" required>
+                <DatePicker
+                  showTime={{ format: 'HH:mm', minuteStep: 5 }}
+                  format="DD/MM/YYYY HH:mm"
+                  value={rescheduleTime}
+                  onChange={setRescheduleTime}
+                  style={{ width: '100%' }}
+                  disabledDate={(d) => d && d.isBefore(dayjs(), 'day')}
+                  disabledTime={() => ({
+                    disabledHours: () => {
+                      const hours = []
+                      for (let h = 0; h < 24; h++) {
+                        if (h < CLINIC_OPEN_HOUR || h > CLINIC_CLOSE_HOUR) hours.push(h)
+                      }
+                      return hours
+                    },
+                    disabledMinutes: (h) => {
+                      const mins = new Set()
+                      if (h === CLINIC_OPEN_HOUR) for (let m = 0; m < 30; m++) mins.add(m) // trước 07:30
+                      if (h === CLINIC_CLOSE_HOUR) for (let m = 1; m < 60; m++) mins.add(m) // sau 17:00
+                      return [...mins]
+                    },
+                  })}
+                />
+              </Form.Item>
+              <Form.Item label="Đổi bác sĩ (không bắt buộc)">
+                <Select
+                  allowClear
+                  placeholder="Giữ nguyên bác sĩ hiện tại"
+                  value={rescheduleDoctorId}
+                  onChange={(v) => setRescheduleDoctorId(v ?? null)}
+                  options={doctors.map((d) => ({
+                    label: `${d.fullName}${d.specialization ? ` — ${d.specialization}` : ''}`,
+                    value: d.id,
+                  }))}
+                />
+              </Form.Item>
+              {doctorChanged && (
+                <Form.Item
+                  label="Lý do đổi bác sĩ"
+                  required
+                  validateStatus={rescheduleReason.trim() ? '' : 'error'}
+                  help={rescheduleReason.trim() ? '' : 'Bắt buộc nhập lý do khi đổi sang bác sĩ khác'}
+                >
+                  <Input.TextArea
+                    rows={2}
+                    value={rescheduleReason}
+                    onChange={(e) => setRescheduleReason(e.target.value)}
+                    placeholder="VD: Bác sĩ cũ không còn giờ trống trong khung mới..."
+                    maxLength={500}
+                    showCount
+                  />
+                </Form.Item>
+              )}
+            </Form>
+          )
+        })()}
+      </Modal>
+
+      {/* Le Thi Bich Ngan - HE204710 | Tạo: 19/07/2026
+          Modal huỷ lịch hẹn — lý do nhập ở đây được gửi kèm trong email thông báo huỷ cho bệnh nhân */}
+      <Modal
+        title="Xác nhận hủy lịch hẹn"
+        open={cancelModal.open}
+        onOk={handleCancel}
+        onCancel={() => setCancelModal({ open: false, appointment: null })}
+        confirmLoading={cancelSaving}
+        okText="Hủy lịch"
+        cancelText="Không"
+        okButtonProps={{ danger: true }}
+      >
+        {cancelModal.appointment && (
+          <p>Bạn có chắc muốn hủy lịch hẹn của <strong>{cancelModal.appointment.patientName || 'bệnh nhân này'}</strong> không?</p>
+        )}
+        <Form layout="vertical">
+          <Form.Item label="Lý do hủy (không bắt buộc, sẽ gửi kèm email báo cho bệnh nhân)">
+            <Input.TextArea
+              rows={2}
+              value={cancelReasonInput}
+              onChange={(e) => setCancelReasonInput(e.target.value)}
+              placeholder="VD: Bác sĩ đột xuất nghỉ, phòng khám tạm ngưng nhận khách..."
+              maxLength={500}
+              showCount
+            />
+          </Form.Item>
+        </Form>
       </Modal>
 
       {/* Modal chi tiết lịch hẹn (read-only, dùng chung 3 chế độ) */}

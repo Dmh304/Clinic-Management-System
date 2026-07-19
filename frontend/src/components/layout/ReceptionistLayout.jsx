@@ -176,7 +176,7 @@ export default function ReceptionistLayout() {
               {user?.fullName ?? user?.email}
             </span>
             {/* UC-13: chuông thông báo cạnh tên người dùng */}
-            <NotificationBell viewAllPath="/receptionist/notifications" />
+            <NotificationBell viewAllPath="/receptionist/notifications" placement="right" />
           </div>
 
           <button

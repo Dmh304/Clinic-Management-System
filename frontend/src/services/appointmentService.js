@@ -71,6 +71,20 @@ export const appointmentService = {
   rescheduleAppointment: (id, newAppointmentTime) =>
     axiosClient.patch(`/v1/appointments/${id}/reschedule`, { newAppointmentTime }),
 
+  // Le Thi Bich Ngan - HE204710 | Tạo: 18/07/2026
+  // Chức năng: gọi API reassign (đổi bác sĩ/giờ tại quầy) — không gắn BR số cụ
+  // thể, hỗ trợ UC-18. Dùng cho modal "Đổi lịch hẹn" trong AppointmentManagementPage.
+  /* UC-18: Lễ tân/Manager đổi lịch hẹn (bác sĩ mới và/hoặc giờ mới) — không bắt
+     buộc phải đổi cả hai, cần ít nhất 1 trong 3: doctorId / newAppointmentTime / reason.
+     Khác rescheduleAppointment (bệnh nhân tự đổi, luôn về lại PENDING): reassign
+     giữ nguyên trạng thái hiện tại vì lễ tân xử lý trực tiếp tại quầy. */
+  reassignAppointment: (id, { doctorId, newAppointmentTime, reason } = {}) =>
+    axiosClient.patch(`/v1/appointments/${id}/reassign`, {
+      doctorId: doctorId || null,
+      newAppointmentTime: newAppointmentTime || null,
+      reason: reason || null,
+    }),
+
   /* Lấy chi tiết 1 lịch hẹn theo id (dùng cho modal chi tiết / mở từ thông báo) */
   getById: (id) =>
     axiosClient.get(`/v1/appointments/${id}`),

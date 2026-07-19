@@ -206,8 +206,16 @@ public class SecurityConfig {
                                                 .hasAnyRole("PATIENT", "ADMIN", "RECEPTIONIST")
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/appointments/daily-schedule")
                                                 .hasAnyRole("ADMIN", "DOCTOR", "RECEPTIONIST", "MANAGER")
+                                                // RECEPTIONIST được thêm vào đây: lễ tân là đầu mối đổi lịch
+                                                // (đổi giờ/bác sĩ) khi khách đã tới quầy — không chỉ MANAGER.
                                                 .requestMatchers(HttpMethod.PATCH, "/api/v1/appointments/*/reassign")
-                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .hasAnyRole("MANAGER", "ADMIN", "RECEPTIONIST")
+                                                .requestMatchers(HttpMethod.PATCH, "/api/v1/appointments/*/cancel")
+                                                .hasAnyRole("PATIENT", "RECEPTIONIST", "ADMIN", "MANAGER")
+                                                .requestMatchers(HttpMethod.PATCH, "/api/v1/appointments/*/reschedule")
+                                                .hasAnyRole("PATIENT", "RECEPTIONIST", "ADMIN", "MANAGER")
+                                                .requestMatchers(HttpMethod.PATCH, "/api/v1/appointments/*/notes")
+                                                .hasAnyRole("RECEPTIONIST", "ADMIN", "MANAGER")
                                                 // Wildcard: covers all other /appointments/** (no PATIENT here)
                                                 .requestMatchers("/api/v1/appointments/**")
                                                 .hasAnyRole("ADMIN", "DOCTOR", "RECEPTIONIST", "MANAGER")
@@ -353,19 +361,11 @@ public class SecurityConfig {
                                                 .requestMatchers(HttpMethod.PATCH, "/api/v1/doctors/*/avatar")
                                                 .hasAnyRole("MANAGER", "ADMIN")
 
-                                                // ── Appointments ───────────────────────────────────────────────
-                                                .requestMatchers(HttpMethod.GET, "/api/v1/appointments/daily-schedule")
-                                                .hasAnyRole("ADMIN", "DOCTOR", "RECEPTIONIST", "MANAGER")
-                                                .requestMatchers(HttpMethod.PATCH, "/api/v1/appointments/*/reassign")
-                                                .hasAnyRole("MANAGER", "ADMIN")
-                                                .requestMatchers(HttpMethod.PATCH, "/api/v1/appointments/*/cancel")
-                                                .hasAnyRole("PATIENT", "RECEPTIONIST", "ADMIN", "MANAGER")
-                                                .requestMatchers(HttpMethod.PATCH, "/api/v1/appointments/*/reschedule")
-                                                .hasAnyRole("PATIENT", "RECEPTIONIST", "ADMIN", "MANAGER")
-                                                .requestMatchers(HttpMethod.PATCH, "/api/v1/appointments/*/notes")
-                                                .hasAnyRole("RECEPTIONIST", "ADMIN", "MANAGER")
-                                                .requestMatchers("/api/v1/appointments/**")
-                                                .hasAnyRole("ADMIN", "DOCTOR", "RECEPTIONIST", "MANAGER")
+                                                // (Appointments: đã gộp toàn bộ rule vào khối duy nhất phía trên —
+                                                // trước đây có 1 bản sao y hệt ở đây khiến các rule wildcard
+                                                // "/appointments/**" đứng TRƯỚC che mất rule /cancel /reschedule
+                                                // của PATIENT trong khối phía trên, vì Spring Security khớp theo
+                                                // đúng thứ tự khai báo — matcher nào khớp trước dùng luôn rule đó.)
 
                                                 // ── Patients ───────────────────────────────────────────────────
                                                 .requestMatchers("/api/v1/patients/**")

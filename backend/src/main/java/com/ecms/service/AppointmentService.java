@@ -100,7 +100,23 @@ public interface AppointmentService {
     /**
      * Tự động huỷ các lịch hẹn quá hạn mà bệnh nhân không đến khám (no-show):
      * các lịch còn ở trạng thái PENDING/CONFIRMED nhưng giờ khám đã trôi qua
-     * (thuộc ngày trước đó). Trả về số lịch hẹn đã huỷ. Dùng cho cron job.
+     * (thuộc ngày trước đó). Trả về số lịch hẹn đã huỷ. Dùng cho cron job chạy
+     * 00:05 mỗi ngày — lưới an toàn dọn nốt các lịch WAITING/IN_PROGRESS bị bỏ
+     * dở qua đêm.
      */
     int autoCancelNoShowAppointments();
+
+    // Le Thi Bich Ngan - HE204710 | Tạo: 18/07/2026
+    // Chức năng: khai báo API huỷ no-show NGAY khi phòng khám đóng cửa, tách
+    // riêng khỏi autoCancelNoShowAppointments() (chỉ chạy nửa đêm) — không gắn
+    // BR cụ thể, là cải tiến vận hành cho cron no-show sẵn có.
+    /**
+     * Tự động huỷ các lịch hẹn HÔM NAY còn PENDING/CONFIRMED (bệnh nhân chưa
+     * check-in) mà giờ khám đã trôi qua tính đến thời điểm gọi — dùng cho cron
+     * chạy lúc phòng khám đóng cửa (17:05) để không phải chờ tới nửa đêm mới
+     * huỷ. KHÔNG đụng tới WAITING/IN_PROGRESS vì đó là các ca đang khám dở, huỷ
+     * ngay lúc đóng cửa là sai (bác sĩ có thể đang khám trễ giờ bình thường).
+     * Trả về số lịch hẹn đã huỷ.
+     */
+    int autoCancelOverdueTodayAppointments();
 }

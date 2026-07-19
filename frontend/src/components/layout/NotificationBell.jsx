@@ -11,6 +11,43 @@ import { appointmentService } from '../../services/appointmentService'
 import AppointmentDetailModal from '../receptionist/AppointmentDetailModal'
 
 const POLL_INTERVAL = 30000
+const PANEL_WIDTH = 320
+const PANEL_MAX_HEIGHT = 420
+const GAP = 8
+const EDGE_PADDING = 8
+
+// Tính vị trí dropdown bám theo đúng vị trí thực tế của chuông (không hardcode
+// góc màn hình), đồng thời kẹp trong viewport để không bao giờ tràn ra ngoài.
+// - placement="right": bung sang phải chuông (dùng cho chuông nằm trong sidebar
+//   hẹp, không có chỗ mở xuống dưới — vd sidebar Lễ tân).
+// - placement="bottom" (mặc định): mở ngay bên dưới chuông, căn theo cạnh phải
+//   của chuông (kiểu dropdown thông thường trên thanh header).
+function computePanelStyle(placement, rect) {
+  if (!rect) return { position: 'fixed', top: 16, right: 16 }
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+
+  if (placement === 'right') {
+    let left = rect.right + GAP
+    // Không đủ chỗ bên phải (hiếm) -> bung sang trái chuông thay vì tràn ra ngoài
+    if (left + PANEL_WIDTH > vw - EDGE_PADDING) {
+      left = Math.max(EDGE_PADDING, rect.left - PANEL_WIDTH - GAP)
+    }
+    let top = Math.min(rect.top, vh - PANEL_MAX_HEIGHT - EDGE_PADDING)
+    top = Math.max(EDGE_PADDING, top)
+    return { position: 'fixed', top, left }
+  }
+
+  let left = rect.right - PANEL_WIDTH
+  if (left < EDGE_PADDING) left = EDGE_PADDING
+  if (left + PANEL_WIDTH > vw - EDGE_PADDING) left = vw - PANEL_WIDTH - EDGE_PADDING
+  let top = rect.bottom + GAP
+  if (top + PANEL_MAX_HEIGHT > vh - EDGE_PADDING) {
+    // Không đủ chỗ bên dưới -> mở lên trên chuông thay vì tràn ra ngoài
+    top = Math.max(EDGE_PADDING, rect.top - PANEL_MAX_HEIGHT - GAP)
+  }
+  return { position: 'fixed', top, left }
+}
 
 // Thời gian tương đối tiếng Việt
 function timeAgo(dateStr) {
@@ -27,7 +64,7 @@ function timeAgo(dateStr) {
   return new Date(dateStr).toLocaleDateString('vi-VN')
 }
 
-export default function NotificationBell({ viewAllPath, iconColor = '#64748b' }) {
+export default function NotificationBell({ viewAllPath, iconColor = '#64748b', placement = 'bottom' }) {
   const navigate = useNavigate()
   const { user } = useSelector((s) => s.auth)
   const isPatient = user?.role === 'PATIENT'
@@ -36,6 +73,7 @@ export default function NotificationBell({ viewAllPath, iconColor = '#64748b' })
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(false)
   const [detail, setDetail] = useState(null) // appointment hiển thị trong modal
+  const [panelStyle, setPanelStyle] = useState(null)
   const wrapRef = useRef(null)
 
   const loadCount = async () => {
@@ -74,6 +112,23 @@ export default function NotificationBell({ viewAllPath, iconColor = '#64748b' })
     document.addEventListener('mousedown', onClickOutside)
     return () => document.removeEventListener('mousedown', onClickOutside)
   }, [])
+
+  // Tính vị trí dropdown bám theo chuông (đọc ref ngoài render, trong effect) —
+  // chạy lại khi mở dropdown, và khi cửa sổ đổi kích thước/cuộn lúc đang mở, để
+  // panel luôn bám đúng theo chuông và không tràn ra ngoài viewport.
+  useEffect(() => {
+    if (!open) return
+    const updatePosition = () => {
+      if (wrapRef.current) setPanelStyle(computePanelStyle(placement, wrapRef.current.getBoundingClientRect()))
+    }
+    updatePosition()
+    window.addEventListener('resize', updatePosition)
+    window.addEventListener('scroll', updatePosition, true)
+    return () => {
+      window.removeEventListener('resize', updatePosition)
+      window.removeEventListener('scroll', updatePosition, true)
+    }
+  }, [open, placement])
 
   const toggle = () => {
     const next = !open
@@ -133,10 +188,10 @@ export default function NotificationBell({ viewAllPath, iconColor = '#64748b' })
         )}
       </button>
 
-      {open && (
+      {open && panelStyle && (
         <div style={{
-          position: 'fixed', top: 16, right: 16,
-          width: 320, maxHeight: 420, overflowY: 'auto',
+          ...panelStyle,
+          width: PANEL_WIDTH, maxHeight: PANEL_MAX_HEIGHT, overflowY: 'auto',
           background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12,
           boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 300,
         }}>

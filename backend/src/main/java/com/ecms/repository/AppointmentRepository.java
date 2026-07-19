@@ -298,6 +298,18 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
         boolean existsByDoctor_IdAndAppointmentTimeAndStatusNot(
                         Long doctorId, LocalDateTime appointmentTime, AppointmentStatus status);
 
+        // Le Thi Bich Ngan - HE204710 | Tạo: 18/07/2026
+        // Chức năng: query kiểm tra double-book khi lễ tân reassign lịch hẹn
+        // (đổi bác sĩ/giờ) — không gắn BR số cụ thể, hỗ trợ trực tiếp validation
+        // "không đặt trùng khung giờ bác sĩ" đã áp dụng từ lúc đặt lịch (BR liên
+        // quan tới BR-04) sang cả luồng đổi lịch của lễ tân.
+        /**
+         * Như trên nhưng loại trừ chính lịch hẹn đang được sửa (id) — dùng khi
+         * reassign/đổi lịch để không tự đối chiếu trùng với chính nó.
+         */
+        boolean existsByDoctor_IdAndAppointmentTimeAndStatusNotAndIdNot(
+                        Long doctorId, LocalDateTime appointmentTime, AppointmentStatus status, Long id);
+
         /**
          * UC-13: lịch hẹn cần nhắc — đúng trạng thái, nằm trong khoảng thời gian
          * [start, end] và chưa gửi nhắc (reminder_sent = false). Dùng cho cron job
