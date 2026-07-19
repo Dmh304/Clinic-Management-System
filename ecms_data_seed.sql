@@ -49,10 +49,10 @@ VALUES
 (15, N'andreale389@gmail.com',  @pw, N'Andrea Lê',          N'0901000099', '2004-04-10', 'FEMALE',
      N'15 Lê Văn Sỹ, Q3, TP.HCM',        N'Điều dưỡng',    7, 'ACTIVE', 'LOCAL', GETDATE()),
 
-(16, N'trangthangtuong@gmail.com', @pw_demo, N'Trang Thắng Tường', N'0920000002', '2001-11-12', 'MALE',
+(16, N'trangthangtuong@gmail.com', @pw, N'Trang Thắng Tường', N'0920000002', '2001-11-12', 'MALE',
      N'88 Nguyễn Trãi, Q5, TP.HCM', NULL, 8, 'ACTIVE', 'LOCAL', GETDATE()),
 
-(17, N'thanggamer2k24@gmail.com', @pw, N'Ngô Thắng',      N'0971254653', '2006-12-02', 'MALE',
+(18, N'thanggamer2k24@gmail.com', @pw, N'Ngô Thắng',      N'0971254653', '2006-12-02', 'MALE',
      N'Đông Anh, Hà Nội',                N'Ban giám đốc',  2, 'ACTIVE', 'LOCAL', GETDATE()),
 -- ===== Nhân viên (email ảo @ecms.vn) =====
 (2,  N'manager@ecms.vn',        @pw, N'Trần Thị Quản Lý',   N'0901000002', '1988-07-20', 'FEMALE',
@@ -146,7 +146,8 @@ VALUES
 (2, 7,  N'EMP002', N'Hoàng Lễ Tân',       N'Lễ tân',      N'Lễ tân viên',  N'0901000007', '2023-03-01', 'ACTIVE', GETDATE()),
 (3, 8,  N'EMP003', N'Vũ Dược Sĩ',         N'Nhà thuốc',   N'Dược sĩ',      N'0901000008', '2021-06-10', 'ACTIVE', GETDATE()),
 (4, 15, N'EMP004', N'Andrea Lê',          N'Điều dưỡng',  N'Điều dưỡng viên', N'0901000099', '2024-09-20', 'ACTIVE', GETDATE()),
-(5, 17, N'EMP005', N'Ngô Bách Thắng',     N'Lễ tân',      N'Lễ tân viên',  N'0967000017', '2025-01-06', 'ACTIVE', GETDATE());
+(5, 17, N'EMP005', N'Ngô Bách Thắng',     N'Lễ tân',      N'Lễ tân viên',  N'0967000017', '2025-01-06', 'ACTIVE', GETDATE()),
+(6, 18, N'EMP006', N'Ngô Thắng',          N'Ban giám đốc', N'Quản lý',     N'0971254653', '2025-07-01', 'ACTIVE', GETDATE());
 
 SET IDENTITY_INSERT staffs OFF;
 GO
