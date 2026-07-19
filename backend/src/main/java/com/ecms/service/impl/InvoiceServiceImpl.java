@@ -172,10 +172,6 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .paymentMethod(request.getPaymentMethod())
                 .paymentReference(request.getPaymentReference())
                 .status("DRAFT")
-                // ThangNBHE201024 — hóa đơn QR nằm ở PENDING_PAYMENT ngay khi tạo: mã QR đã
-                // đưa cho bệnh nhân quét, hệ thống đang chờ cổng thanh toán báo tiền về.
-                // Chỉ webhook mới được đẩy sang PAID (xem PaymentServiceImpl).
-                // Hóa đơn tiền mặt giữ UNPAID cho đến khi lễ tân phát hành.
                 .paymentStatus("VIET_QR".equals(request.getPaymentMethod())
                         ? "PENDING_PAYMENT" : "UNPAID")
                 .notes(request.getNotes())
@@ -350,7 +346,23 @@ public class InvoiceServiceImpl implements InvoiceService {
         invoice.setPaymentStatus("PAID");
         invoice.setPaidAt(LocalDateTime.now());
 
+        // UC-23 POST-3: khi hóa đơn đã thu tiền, đảm bảo lượt khám ở trạng thái COMPLETED.
+        markAppointmentCompleted(invoice);
+
         return toResponseWithItems(invoiceRepository.save(invoice));
+    }
+
+    // UC-23 POST-3 — chốt lượt khám sang COMPLETED khi hóa đơn được thanh toán.
+    // Thường lịch hẹn đã COMPLETED từ lúc bác sĩ khóa bệnh án; ở đây chỉ set bù cho
+    // chắc chắn và không đụng vào lịch đã CANCELLED. Lịch hẹn đang nằm trong
+    // persistence context nên thay đổi được flush tự động.
+    private void markAppointmentCompleted(Invoice invoice) {
+        Appointment appt = invoice.getAppointment();
+        if (appt == null) return;
+        if (appt.getStatus() != AppointmentStatus.CANCELLED
+                && appt.getStatus() != AppointmentStatus.COMPLETED) {
+            appt.setStatus(AppointmentStatus.COMPLETED);
+        }
     }
 
     @Override

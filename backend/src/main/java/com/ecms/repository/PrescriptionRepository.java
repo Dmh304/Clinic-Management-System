@@ -7,6 +7,7 @@ import com.ecms.entity.PrescriptionStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -19,4 +20,10 @@ public interface PrescriptionRepository extends JpaRepository<Prescription, Long
 
     // Lấy danh sách đơn thuốc theo hồ sơ bệnh án
     List<Prescription> findByMedicalRecordId(Long medicalRecordId);
+
+    // UC-49: đếm đơn thuốc theo trạng thái (vd PENDING) cho dashboard vận hành
+    long countByStatus(PrescriptionStatus status);
+
+    // UC-52: đơn thuốc tạo trong khoảng thời gian — tính số đơn theo bác sĩ
+    List<Prescription> findByCreatedAtBetween(LocalDateTime from, LocalDateTime to);
 }

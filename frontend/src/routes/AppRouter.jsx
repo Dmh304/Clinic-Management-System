@@ -35,6 +35,7 @@ import BookCareSessionPage from '../pages/patient/BookCareSessionPage'
 import MyCareSessionsPage from '../pages/patient/MyCareSessionsPage'
 import MyAppointmentsPage from '../pages/patient/MyAppointmentsPage'
 import MyInvoicesPage from '../pages/patient/MyInvoicesPage'
+import FeedbackPage from '../pages/patient/FeedbackPage'
 
 
 
@@ -66,6 +67,9 @@ import PharmacyInvoicePage from '../pages/pharmacy/PharmacyInvoicePage'
 import ManagerDashboard from '../pages/manager/ManagerDashboard'
 import RevenueReportPage from '../pages/manager/RevenueReportPage'
 import StaffPerformancePage from '../pages/manager/StaffPerformancePage'
+import PatientStatisticsPage from '../pages/manager/PatientStatisticsPage'
+import FeedbackReportPage from '../pages/manager/FeedbackReportPage'
+import PayrollPage from '../pages/manager/PayrollPage'
 import ManageServicePackagesPage from '../pages/manager/ManageServicePackagesPage'
 import ManageDoctorsPage from '../pages/manager/ManageDoctorsPage'
 import ManageDiscountCampaignsPage from '../pages/manager/ManageDiscountCampaignsPage'
@@ -138,6 +142,7 @@ export default function AppRouter() {
         <Route path="/patient/care-sessions" element={<WithHeader><MyCareSessionsPage /></WithHeader>} />
         <Route path="/patient/appointments" element={<WithHeader><MyAppointmentsPage /></WithHeader>} />
         <Route path="/patient/invoices" element={<WithHeader><MyInvoicesPage /></WithHeader>} />
+        <Route path="/patient/feedback" element={<WithHeader><FeedbackPage /></WithHeader>} />
       </Route>
 
       {/* ── Doctor ── */}
@@ -186,6 +191,9 @@ export default function AppRouter() {
         <Route path="/manager/dashboard" element={<ManagerDashboard />} />
         <Route path="/manager/revenue" element={<RevenueReportPage />} />
         <Route path="/manager/staff" element={<StaffPerformancePage />} />
+        <Route path="/manager/patient-statistics" element={<PatientStatisticsPage />} />
+        <Route path="/manager/feedback-report" element={<FeedbackReportPage />} />
+        <Route path="/manager/payroll" element={<PayrollPage />} />
         <Route path="/manager/service-packages" element={<WithHeader><ManageServicePackagesPage /></WithHeader>} />
         <Route path="/manager/doctors" element={<WithHeader><ManageDoctorsPage /></WithHeader>} />
         <Route path="/manager/discount-campaigns" element={<WithHeader><ManageDiscountCampaignsPage /></WithHeader>} />

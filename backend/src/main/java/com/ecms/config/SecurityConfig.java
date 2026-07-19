@@ -370,6 +370,12 @@ public class SecurityConfig {
                                                 .requestMatchers("/api/v1/notifications/**")
                                                 .authenticated()
                                                 // ── Admin: audit log (UC-57) ────────────────────────────────────
+                                                .requestMatchers("/api/v1/feedbacks/**")
+                                                .hasRole("PATIENT")
+                                                .requestMatchers("/api/v1/reports/**")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers("/api/v1/payroll/**")
+                                                .hasAnyRole("MANAGER", "ADMIN")
                                                 .requestMatchers("/api/v1/admin/**")
                                                 .hasRole("ADMIN")
 
