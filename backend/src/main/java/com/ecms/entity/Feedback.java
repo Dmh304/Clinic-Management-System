@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * UC-48: Đánh giá của bệnh nhân sau buổi khám (mỗi lịch hẹn tối đa 1 feedback — BR-21).
@@ -50,6 +52,11 @@ public class Feedback {
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
+
+    // UC-48: điểm đánh giá riêng cho từng người tham gia (bác sĩ, lễ tân, KTV)
+    @Builder.Default
+    @OneToMany(mappedBy = "feedback", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<FeedbackParticipantRating> participantRatings = new ArrayList<>();
 
     @PrePersist
     protected void onCreate() {

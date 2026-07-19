@@ -1,116 +1,217 @@
-// UC-51: Thống kê bệnh nhân theo kỳ.
+// UC-51: Thống kê bệnh nhân — lượt khám, mới/cũ, trạng thái lịch, theo bác sĩ, top chẩn đoán.
 import { useEffect, useState } from 'react'
+import { FiRefreshCw, FiDownload, FiCalendar, FiUsers, FiUserPlus, FiTrendingUp, FiTrendingDown, FiMinus, FiMoreHorizontal, FiActivity } from 'react-icons/fi'
+import { FaNotesMedical, FaHistory } from 'react-icons/fa'
 import { reportService, downloadBlob } from '../../services/reportService'
 
-// Biểu đồ cột ngang thuần CSS (không cần thư viện)
-function BarChart({ data, color = '#4f46e5' }) {
-  const rows = Array.isArray(data) ? data : Object.entries(data || {}).map(([label, value]) => ({ label, value }))
-  const max = Math.max(1, ...rows.map((r) => Number(r.value) || 0))
-  if (rows.length === 0) return <p style={{ color: '#64748b' }}>Không có dữ liệu</p>
+// Bảng màu theo DESIGN.md
+const C = { primary: '#7c3aed', secondary: '#00687a', tertiary: '#b45309', error: '#ba1a1a', success: '#10b981', ink: '#121c2a', muted: '#4a4455', border: '#e5e7eb', track: '#f1f5f9' }
+const STATUS_COLOR = { COMPLETED: C.primary, IN_PROGRESS: C.secondary, WAITING: '#f59e0b', CONFIRMED: '#a78bfa', CANCELLED: C.error, PENDING: '#94a3b8' }
+const DOC_COLORS = [C.primary, C.secondary, '#f59e0b', '#0ea5e9', '#ec4899']
+const DX_COLORS = ['#b45309', C.primary, C.secondary, C.tertiary, '#64748b']
+
+const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+const initials = (name) => (name || '').replace(/^BS\.?\s*/i, '').split(' ').filter(Boolean).slice(-2).map((w) => w[0]).join('').toUpperCase()
+
+const card = { background: '#fff', borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: '0 2px 4px rgba(0,0,0,0.04)' }
+const bar = (color, pct) => (
+  <div style={{ background: C.track, height: 10, borderRadius: 999, overflow: 'hidden' }}>
+    <div style={{ width: `${Math.max(3, pct)}%`, height: '100%', background: color, borderRadius: 999 }} />
+  </div>
+)
+
+function Trend({ delta }) {
+  if (delta == null) return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: C.muted, fontSize: 12 }}><FiMinus size={14} /> Ổn định</span>
+  const good = delta >= 0
+  const Icon = good ? FiTrendingUp : FiTrendingDown
+  const color = good ? C.success : C.error
+  return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color, fontSize: 12, fontWeight: 600 }}><Icon size={14} /> {good ? '+' : ''}{delta}% so với kỳ trước</span>
+}
+
+function Metric({ label, value, color, Icon, iconBg, delta }) {
   return (
-    <div>
-      {rows.map((r) => (
-        <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-          <div style={{ width: 150, fontSize: 13, textAlign: 'right', color: '#334155' }} title={r.label}>
-            {String(r.label).length > 22 ? String(r.label).slice(0, 22) + '…' : r.label}
-          </div>
-          <div style={{ flex: 1, background: '#f1f5f9', borderRadius: 4, height: 20, position: 'relative' }}>
-            <div style={{ width: `${(Number(r.value) / max) * 100}%`, background: color, height: '100%', borderRadius: 4 }} />
-          </div>
-          <div style={{ width: 44, fontSize: 13, fontWeight: 600 }}>{r.value}</div>
+    <div style={{ ...card, padding: 24, flex: '1 1 200px', minWidth: 200 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <div style={{ color: C.muted, fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', fontWeight: 600, marginBottom: 8 }}>{label}</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color }}>{value}</div>
         </div>
-      ))}
+        <div style={{ width: 48, height: 48, borderRadius: 10, background: iconBg, color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon size={22} /></div>
+      </div>
+      <div style={{ marginTop: 16 }}><Trend delta={delta} /></div>
     </div>
   )
 }
 
-const th = { textAlign: 'left', padding: 8, borderBottom: '2px solid #e2e8f0', background: '#f8fafc' }
-const td = { padding: 8, borderBottom: '1px solid #e2e8f0' }
-const stat = { flex: '1 1 160px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: '16px 20px' }
-const big = { fontSize: 26, fontWeight: 700, color: '#4f46e5' }
-
-function firstOfMonth() {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
-}
-function today() {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function CountTable({ title, obj }) {
-  const rows = Object.entries(obj || {})
-  return (
-    <div style={{ flex: '1 1 260px' }}>
-      <h4>{title}</h4>
-      <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-        <thead><tr><th style={th}>Mục</th><th style={{ ...th, textAlign: 'right' }}>Số lượng</th></tr></thead>
-        <tbody>
-          {rows.length === 0 ? <tr><td style={td} colSpan={2}>Không có dữ liệu</td></tr>
-            : rows.map(([k, v]) => <tr key={k}><td style={td}>{k}</td><td style={{ ...td, textAlign: 'right' }}>{v}</td></tr>)}
-        </tbody>
-      </table>
-    </div>
-  )
-}
+function firstOfMonth() { const d = new Date(); return iso(new Date(d.getFullYear(), d.getMonth(), 1)) }
+function todayStr() { return iso(new Date()) }
 
 export default function PatientStatisticsPage() {
   const [from, setFrom] = useState(firstOfMonth())
-  const [to, setTo] = useState(today())
+  const [to, setTo] = useState(todayStr())
   const [data, setData] = useState(null)
+  const [prev, setPrev] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   const load = async () => {
     setLoading(true); setError('')
     try {
-      const res = await reportService.patientStatistics(from, to)
-      setData(res.data || {})
-    } catch (e) {
-      setError(e?.response?.data?.message || 'Không tải được thống kê')
-    } finally { setLoading(false) }
+      const f = new Date(from), t = new Date(to)
+      const len = Math.max(1, Math.round((t - f) / 86400000) + 1)
+      const pt = new Date(f); pt.setDate(f.getDate() - 1)
+      const pf = new Date(pt); pf.setDate(pt.getDate() - len + 1)
+      const [cur, pr] = await Promise.all([
+        reportService.patientStatistics(from, to),
+        reportService.patientStatistics(iso(pf), iso(pt)),
+      ])
+      setData(cur.data || {}); setPrev(pr.data || {})
+    } catch (e) { setError(e?.response?.data?.message || 'Không tải được thống kê') }
+    finally { setLoading(false) }
   }
-
   useEffect(() => { load() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  return (
-    <div style={{ padding: 24 }}>
-      <h2>Thống kê bệnh nhân</h2>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', marginBottom: 16 }}>
-        <label>Từ ngày<br /><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
-        <label>Đến ngày<br /><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
-        <button onClick={load} disabled={loading} style={{ padding: '6px 16px' }}>{loading ? 'Đang tải…' : 'Xem'}</button>
-        <button onClick={async () => { const blob = await reportService.exportPatientStatistics(from, to); downloadBlob(blob, 'thong-ke-benh-nhan.csv') }}
-          style={{ padding: '6px 16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: 4 }}>
-          Xuất Excel
-        </button>
-      </div>
-      {error && <div style={{ color: '#dc2626', marginBottom: 12 }}>{error}</div>}
+  const delta = (cur, p) => (p ? Math.round(((cur - p) / p) * 100) : null)
+  const statusEntries = Object.entries(data?.appointmentsByStatus || {})
+  const totalAppt = data?.totalAppointments || statusEntries.reduce((s, [, v]) => s + v, 0) || 1
+  const docEntries = Object.entries(data?.appointmentsByDoctor || {})
+  const maxDoc = Math.max(1, ...docEntries.map(([, v]) => v))
+  const diagnoses = data?.topDiagnoses || []
+  const maxDx = Math.max(1, ...diagnoses.map((d) => d.count))
+  const newPct = data && data.distinctPatients ? Math.round((data.newPatients / data.distinctPatients) * 100) : 0
 
-      {data && (
-        <>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginBottom: 24 }}>
-            <div style={stat}><div style={big}>{data.totalAppointments}</div><div style={{ color: '#64748b' }}>Tổng lượt khám</div></div>
-            <div style={stat}><div style={big}>{data.distinctPatients}</div><div style={{ color: '#64748b' }}>Bệnh nhân</div></div>
-            <div style={stat}><div style={big}>{data.newPatients}</div><div style={{ color: '#64748b' }}>Bệnh nhân mới</div></div>
-            <div style={stat}><div style={big}>{data.returningPatients}</div><div style={{ color: '#64748b' }}>Bệnh nhân cũ</div></div>
+  const dateBox = (label, value, onChange) => (
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <span style={{ fontSize: 10, textTransform: 'uppercase', fontWeight: 700, color: C.muted }}>{label}</span>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+        <FiCalendar size={14} color={C.primary} />
+        <input type="date" value={value} onChange={(e) => onChange(e.target.value)} style={{ border: 'none', background: 'transparent', outline: 'none', fontWeight: 700, color: C.ink, fontSize: 13 }} />
+      </span>
+    </div>
+  )
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#f8f9ff', color: C.ink }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16, padding: '20px 32px' }}>
+        <div>
+          <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em' }}>Thống kê bệnh nhân</div>
+          <div style={{ color: C.muted, fontSize: 14 }}>Phân tích dữ liệu bệnh nhân thực tế theo thời gian</div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#eff4ff', border: `1px solid ${C.border}`, borderRadius: 12, padding: '8px 16px' }}>
+            {dateBox('Từ ngày', from, setFrom)}
+            <div style={{ width: 1, height: 32, background: C.border }} />
+            {dateBox('Đến ngày', to, setTo)}
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 32 }}>
-            <div style={{ flex: '1 1 320px' }}>
-              <h4>Lịch hẹn theo trạng thái</h4>
-              <BarChart data={data.appointmentsByStatus} color="#4f46e5" />
+          <button onClick={load} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: 8, background: C.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '10px 20px', fontWeight: 600, cursor: 'pointer' }}>
+            <FiRefreshCw size={16} /> {loading ? 'Đang tải…' : 'Tải lại'}
+          </button>
+          <button onClick={async () => { const blob = await reportService.exportPatientStatistics(from, to); downloadBlob(blob, 'thong-ke-benh-nhan.csv') }}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, background: C.success, color: '#fff', border: 'none', borderRadius: 12, padding: '10px 20px', fontWeight: 600, cursor: 'pointer' }}>
+            <FiDownload size={16} /> Xuất Excel
+          </button>
+        </div>
+      </div>
+
+      <div style={{ padding: '0 32px 32px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+        {error && <div style={{ color: C.error }}>{error}</div>}
+
+        {data && (
+          <>
+            {/* 4 thẻ */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24 }}>
+              <Metric label="Tổng lượt khám" value={data.totalAppointments} color={C.primary} Icon={FaNotesMedical} iconBg="#f3e8ff" delta={delta(data.totalAppointments, prev?.totalAppointments)} />
+              <Metric label="Bệnh nhân" value={data.distinctPatients} color={C.secondary} Icon={FiUsers} iconBg="#cffafe" delta={delta(data.distinctPatients, prev?.distinctPatients)} />
+              <Metric label="Bệnh nhân mới" value={data.newPatients} color={C.tertiary} Icon={FiUserPlus} iconBg="#ffedd5" delta={delta(data.newPatients, prev?.newPatients)} />
+              <Metric label="Bệnh nhân cũ" value={data.returningPatients} color={C.error} Icon={FaHistory} iconBg="#ffdad6" delta={delta(data.returningPatients, prev?.returningPatients)} />
             </div>
-            <div style={{ flex: '1 1 320px' }}>
-              <h4>Lịch hẹn theo bác sĩ</h4>
-              <BarChart data={data.appointmentsByDoctor} color="#0ea5e9" />
+
+            {/* 2 biểu đồ */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 24 }}>
+              {/* Trạng thái */}
+              <div style={{ ...card, padding: 24 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                  <div style={{ fontSize: 18, fontWeight: 700 }}>Lịch hẹn theo trạng thái</div>
+                  <FiMoreHorizontal color="#94a3b8" />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {statusEntries.length === 0 ? <div style={{ color: '#94a3b8' }}>Không có dữ liệu</div> : statusEntries.map(([k, v]) => {
+                    const pct = Math.round((v / totalAppt) * 100)
+                    return (
+                      <div key={k}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
+                          <span style={{ color: C.muted }}>{k}</span>
+                          <span style={{ fontWeight: 700 }}>{v} ({pct}%)</span>
+                        </div>
+                        {bar(STATUS_COLOR[k] || '#94a3b8', pct)}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Theo bác sĩ */}
+              <div style={{ ...card, padding: 24 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                  <div style={{ fontSize: 18, fontWeight: 700 }}>Lịch hẹn theo bác sĩ</div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  {docEntries.length === 0 ? <div style={{ color: '#94a3b8' }}>Không có dữ liệu</div> : docEntries.map(([name, v], i) => (
+                    <div key={name} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                      <div style={{ width: 44, height: 44, borderRadius: '50%', flexShrink: 0, background: `${DOC_COLORS[i % DOC_COLORS.length]}22`, color: DOC_COLORS[i % DOC_COLORS.length], display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13 }}>{initials(name) || 'BS'}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 6 }}>
+                          <span style={{ fontWeight: 700, fontSize: 14 }}>BS. {name}</span>
+                          <span style={{ fontSize: 18, fontWeight: 800, color: DOC_COLORS[i % DOC_COLORS.length] }}>{v}</span>
+                        </div>
+                        {bar(DOC_COLORS[i % DOC_COLORS.length], (v / maxDoc) * 100)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
-            <div style={{ flex: '1 1 320px' }}>
-              <h4>Top chẩn đoán</h4>
-              <BarChart data={(data.topDiagnoses || []).map((d) => ({ label: d.diagnosis, value: d.count }))} color="#f59e0b" />
+
+            {/* Top chẩn đoán + ghi chú */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,2fr) minmax(0,1fr)', gap: 24 }}>
+              <div style={{ ...card, padding: 24 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+                  <div style={{ padding: 8, background: '#fff7ed', color: C.tertiary, borderRadius: 10, display: 'flex' }}><FiActivity size={18} /></div>
+                  <div style={{ fontSize: 18, fontWeight: 700 }}>Top 5 chẩn đoán phổ biến nhất</div>
+                </div>
+                {diagnoses.length === 0 ? <div style={{ color: '#94a3b8' }}>Không có dữ liệu</div> : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
+                    {diagnoses.map((d, i) => (
+                      <div key={i} style={{ borderLeft: `4px solid ${DX_COLORS[i % DX_COLORS.length]}`, paddingLeft: 16 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, gap: 8 }}>
+                          <span style={{ fontWeight: 700, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={d.diagnosis}>{d.diagnosis}</span>
+                          <span style={{ background: `${DX_COLORS[i % DX_COLORS.length]}22`, color: DX_COLORS[i % DX_COLORS.length], fontSize: 12, fontWeight: 600, padding: '2px 10px', borderRadius: 999, whiteSpace: 'nowrap' }}>{d.count} ca</span>
+                        </div>
+                        {bar(DX_COLORS[i % DX_COLORS.length], (d.count / maxDx) * 100)}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Ghi chú phân tích */}
+              <div style={{ background: `linear-gradient(135deg, ${C.primary}, #630ed4)`, color: '#fff', borderRadius: 12, padding: 24, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div>
+                  <FiTrendingUp size={40} style={{ marginBottom: 12 }} />
+                  <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Ghi chú phân tích</div>
+                  <p style={{ opacity: 0.9, lineHeight: 1.6, fontSize: 14 }}>
+                    Trong kỳ có <b>{data.totalAppointments}</b> lượt khám của <b>{data.distinctPatients}</b> bệnh nhân,
+                    trong đó bệnh nhân mới chiếm <b>{newPct}%</b>. {newPct >= 50
+                      ? 'Nguồn bệnh nhân mới đang tốt — nên tập trung chuyển đổi họ thành khách tái khám qua các gói dịch vụ.'
+                      : 'Tỉ lệ bệnh nhân cũ cao — dấu hiệu giữ chân khách tốt; cân nhắc đẩy mạnh thu hút bệnh nhân mới.'}
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
-        </>
-      )}
+          </>
+        )}
+      </div>
     </div>
   )
 }

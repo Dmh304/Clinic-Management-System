@@ -5,6 +5,8 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
+import java.util.List;
+
 /**
  * UC-48: Dữ liệu bệnh nhân gửi lên khi đánh giá sau buổi khám.
  */
@@ -22,4 +24,15 @@ public class FeedbackRequest {
     private String content;
 
     private Boolean isAnonymous;
+
+    // Điểm đánh giá riêng cho từng người tham gia (tùy chọn)
+    private List<ParticipantRating> participantRatings;
+
+    @Data
+    public static class ParticipantRating {
+        private String role;   // DOCTOR | RECEPTIONIST | LAB_TECHNICIAN
+        private String name;
+        @Min(1) @Max(5)
+        private Integer rating;
+    }
 }
