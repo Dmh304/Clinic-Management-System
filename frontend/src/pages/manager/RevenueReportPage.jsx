@@ -1,6 +1,6 @@
 // UC-50: Báo cáo doanh thu theo kỳ (dịch vụ / bác sĩ / phương thức thanh toán).
 import { useEffect, useState } from 'react'
-import { reportService } from '../../services/reportService'
+import { reportService, downloadBlob } from '../../services/reportService'
 
 const vnd = (v) => (v == null ? '0' : Number(v).toLocaleString('vi-VN')) + '₫'
 const th = { textAlign: 'left', padding: 8, borderBottom: '2px solid #e2e8f0', background: '#f8fafc' }
@@ -60,6 +60,10 @@ export default function RevenueReportPage() {
         <label>Từ ngày<br /><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
         <label>Đến ngày<br /><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
         <button onClick={load} disabled={loading} style={{ padding: '6px 16px' }}>{loading ? 'Đang tải…' : 'Xem'}</button>
+        <button onClick={async () => { const blob = await reportService.exportRevenue(from, to); downloadBlob(blob, 'bao-cao-doanh-thu.csv') }}
+          style={{ padding: '6px 16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: 4 }}>
+          Xuất Excel
+        </button>
       </div>
       {error && <div style={{ color: '#dc2626', marginBottom: 12 }}>{error}</div>}
 

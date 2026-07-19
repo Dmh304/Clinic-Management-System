@@ -52,8 +52,14 @@ public class PayrollServiceImpl implements PayrollService {
     private final AppointmentRepository appointmentRepository;
     private final AuditLogService auditLogService;
 
-    @Value("${payroll.doctor.rate-per-visit:0}")
+    @Value("${payroll.doctor.rate-per-visit:50000}")
     private BigDecimal doctorRatePerVisit;
+
+    // Lương cơ bản mặc định theo vai trò (Quản lý vẫn điều chỉnh tay từng dòng nếu cần)
+    @Value("${payroll.base-salary.doctor:15000000}")
+    private BigDecimal baseSalaryDoctor;
+    @Value("${payroll.base-salary.staff:8000000}")
+    private BigDecimal baseSalaryStaff;
 
     @Override
     @Transactional
@@ -88,6 +94,7 @@ public class PayrollServiceImpl implements PayrollService {
             if (!isActive(d.getStatus())) continue;
             long completed = appointmentRepository.countByDateAndStatusAndDoctorId(
                     start, end, AppointmentStatus.COMPLETED, d.getId());
+            BigDecimal base = nz(baseSalaryDoctor);
             BigDecimal bonus = rate.multiply(BigDecimal.valueOf(completed));
             items.add(PayrollItem.builder()
                     .period(period)
@@ -95,11 +102,11 @@ public class PayrollServiceImpl implements PayrollService {
                     .staffRefId(d.getId())
                     .staffName(d.getFullName())
                     .role(d.getSpecialization())
-                    .baseSalary(BigDecimal.ZERO)
+                    .baseSalary(base)
                     .activityCount((int) completed)
                     .performanceBonus(bonus)
                     .deduction(BigDecimal.ZERO)
-                    .netPay(bonus)
+                    .netPay(base.add(bonus))
                     .locked(false)
                     .build());
         }
@@ -107,17 +114,18 @@ public class PayrollServiceImpl implements PayrollService {
         // Nhân viên khác (bảng staffs): base/bonus mặc định 0 để Quản lý nhập tay
         for (Staff s : staffRepository.findAll()) {
             if (!isActive(s.getStatus())) continue;
+            BigDecimal baseStaff = nz(baseSalaryStaff);
             items.add(PayrollItem.builder()
                     .period(period)
                     .staffType("STAFF")
                     .staffRefId(s.getId())
                     .staffName(s.getFullName())
                     .role(s.getPosition() != null ? s.getPosition() : s.getDepartment())
-                    .baseSalary(BigDecimal.ZERO)
+                    .baseSalary(baseStaff)
                     .activityCount(0)
                     .performanceBonus(BigDecimal.ZERO)
                     .deduction(BigDecimal.ZERO)
-                    .netPay(BigDecimal.ZERO)
+                    .netPay(baseStaff)
                     .locked(false)
                     .build());
         }

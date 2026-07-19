@@ -7,6 +7,7 @@ import com.ecms.entity.Feedback;
 import com.ecms.entity.Invoice;
 import com.ecms.entity.LabOrderStatus;
 import com.ecms.entity.MedicalRecord;
+import com.ecms.entity.MedicalRecordStatus;
 import com.ecms.entity.Patient;
 import com.ecms.entity.Prescription;
 import com.ecms.entity.PrescriptionStatus;
@@ -22,7 +23,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.servlet.http.HttpServletResponse;
+
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -202,20 +208,43 @@ public class ReportServiceImpl implements ReportService {
 
         List<Appointment> appts = appointmentRepository.findByAppointmentTimeBetween(start, end);
         List<Prescription> prescriptions = prescriptionRepository.findByCreatedAtBetween(start, end);
+        List<MedicalRecord> records = medicalRecordRepository.findByCreatedAtBetween(start, end);
 
-        // Đếm số bệnh nhân đã khám (lịch COMPLETED) theo bác sĩ
+        // Đếm số bệnh nhân đã khám (lịch COMPLETED) + tỉ lệ đúng giờ theo bác sĩ.
+        // Đúng giờ = có check-in và giờ check-in không trễ hơn giờ hẹn.
         Map<Long, Long> seenByDoctor = new LinkedHashMap<>();
+        Map<Long, long[]> onTimeByDoctor = new LinkedHashMap<>(); // [đúng giờ, tổng có check-in]
         for (Appointment a : appts) {
-            if (a.getStatus() == AppointmentStatus.COMPLETED && a.getDoctor() != null) {
-                seenByDoctor.merge(a.getDoctor().getId(), 1L, Long::sum);
+            if (a.getStatus() != AppointmentStatus.COMPLETED || a.getDoctor() == null) continue;
+            Long did = a.getDoctor().getId();
+            seenByDoctor.merge(did, 1L, Long::sum);
+            if (a.getCheckInTime() != null && a.getAppointmentTime() != null) {
+                long[] agg = onTimeByDoctor.computeIfAbsent(did, k -> new long[2]);
+                agg[1] += 1;
+                if (!a.getCheckInTime().isAfter(a.getAppointmentTime())) agg[0] += 1;
             }
         }
+
         // Đếm số đơn thuốc theo bác sĩ (qua hồ sơ bệnh án)
         Map<Long, Long> presByDoctor = new LinkedHashMap<>();
         for (Prescription p : prescriptions) {
             if (p.getMedicalRecord() != null && p.getMedicalRecord().getDoctor() != null) {
                 presByDoctor.merge(p.getMedicalRecord().getDoctor().getId(), 1L, Long::sum);
             }
+        }
+
+        // Thời gian khám trung bình theo bác sĩ = trung bình (lockedAt − createdAt) của các
+        // bệnh án đã hoàn tất trong kỳ (lockedAt là mốc bác sĩ khóa hồ sơ khi kết thúc khám).
+        Map<Long, long[]> durByDoctor = new LinkedHashMap<>(); // [tổng phút, số ca]
+        for (MedicalRecord mr : records) {
+            if (mr.getStatus() != MedicalRecordStatus.COMPLETED || mr.getDoctor() == null) continue;
+            LocalDateTime endTs = mr.getLockedAt() != null ? mr.getLockedAt() : mr.getUpdatedAt();
+            if (mr.getCreatedAt() == null || endTs == null) continue;
+            long minutes = Duration.between(mr.getCreatedAt(), endTs).toMinutes();
+            if (minutes < 0) continue;
+            long[] agg = durByDoctor.computeIfAbsent(mr.getDoctor().getId(), k -> new long[2]);
+            agg[0] += minutes;
+            agg[1] += 1;
         }
 
         List<Map<String, Object>> result = new ArrayList<>();
@@ -225,9 +254,15 @@ public class ReportServiceImpl implements ReportService {
             row.put("doctorName", d.getFullName());
             row.put("patientsSeen", seenByDoctor.getOrDefault(d.getId(), 0L));
             row.put("prescriptionVolume", presByDoctor.getOrDefault(d.getId(), 0L));
-            // Chưa lưu mốc thời gian khám → không tính được, trả null để không bịa số
-            row.put("avgConsultationMinutes", null);
-            row.put("onTimeRate", null);
+
+            long[] dur = durByDoctor.get(d.getId());
+            row.put("avgConsultationMinutes", dur != null && dur[1] > 0
+                    ? Math.round((double) dur[0] / dur[1]) : null);
+
+            long[] ot = onTimeByDoctor.get(d.getId());
+            row.put("onTimeRate", ot != null && ot[1] > 0
+                    ? (double) ot[0] / ot[1] : null);
+
             result.add(row);
         }
         return result;
@@ -283,5 +318,104 @@ public class ReportServiceImpl implements ReportService {
 
     private static BigDecimal nz(BigDecimal v) {
         return v != null ? v : BigDecimal.ZERO;
+    }
+
+    // ─────────────────────────── Xuất Excel (CSV UTF-8) ───────────────────────────
+
+    @Override
+    @Transactional(readOnly = true)
+    @SuppressWarnings("unchecked")
+    public void exportRevenueCsv(LocalDate from, LocalDate to, HttpServletResponse response) throws IOException {
+        Map<String, Object> r = revenueReport(from, to);
+        List<String[]> rows = new ArrayList<>();
+        rows.add(new String[] { "Bao cao doanh thu", from + " -> " + to });
+        rows.add(new String[] { "Tong doanh thu", String.valueOf(r.get("totalRevenue")) });
+        rows.add(new String[] { "So hoa don", String.valueOf(r.get("invoiceCount")) });
+        rows.add(new String[] {});
+        rows.add(new String[] { "Theo nhom dich vu", "Doanh thu" });
+        ((Map<String, Object>) r.get("byServiceCategory"))
+                .forEach((k, v) -> rows.add(new String[] { k, String.valueOf(v) }));
+        rows.add(new String[] {});
+        rows.add(new String[] { "Theo bac si", "Doanh thu" });
+        ((Map<String, Object>) r.get("byDoctor"))
+                .forEach((k, v) -> rows.add(new String[] { k, String.valueOf(v) }));
+        rows.add(new String[] {});
+        rows.add(new String[] { "Theo phuong thuc thanh toan", "Doanh thu" });
+        ((Map<String, Object>) r.get("byPaymentMethod"))
+                .forEach((k, v) -> rows.add(new String[] { k, String.valueOf(v) }));
+        writeCsv(response, "revenue-report.csv", rows);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    @SuppressWarnings("unchecked")
+    public void exportPatientStatisticsCsv(LocalDate from, LocalDate to, HttpServletResponse response) throws IOException {
+        Map<String, Object> r = patientStatistics(from, to);
+        List<String[]> rows = new ArrayList<>();
+        rows.add(new String[] { "Thong ke benh nhan", from + " -> " + to });
+        rows.add(new String[] { "Tong luot kham", String.valueOf(r.get("totalAppointments")) });
+        rows.add(new String[] { "So benh nhan", String.valueOf(r.get("distinctPatients")) });
+        rows.add(new String[] { "Benh nhan moi", String.valueOf(r.get("newPatients")) });
+        rows.add(new String[] { "Benh nhan cu", String.valueOf(r.get("returningPatients")) });
+        rows.add(new String[] {});
+        rows.add(new String[] { "Lich hen theo trang thai", "So luong" });
+        ((Map<String, Object>) r.get("appointmentsByStatus"))
+                .forEach((k, v) -> rows.add(new String[] { k, String.valueOf(v) }));
+        rows.add(new String[] {});
+        rows.add(new String[] { "Lich hen theo bac si", "So luong" });
+        ((Map<String, Object>) r.get("appointmentsByDoctor"))
+                .forEach((k, v) -> rows.add(new String[] { k, String.valueOf(v) }));
+        rows.add(new String[] {});
+        rows.add(new String[] { "Top chan doan", "So ca" });
+        for (Map<String, Object> d : (List<Map<String, Object>>) r.get("topDiagnoses")) {
+            rows.add(new String[] { String.valueOf(d.get("diagnosis")), String.valueOf(d.get("count")) });
+        }
+        writeCsv(response, "patient-statistics.csv", rows);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    @SuppressWarnings("unchecked")
+    public void exportFeedbackCsv(LocalDate from, LocalDate to, HttpServletResponse response) throws IOException {
+        Map<String, Object> r = feedbackReport(from, to);
+        List<String[]> rows = new ArrayList<>();
+        rows.add(new String[] { "Bao cao danh gia", from + " -> " + to });
+        rows.add(new String[] { "Diem trung binh", String.valueOf(r.get("averageRating")) });
+        rows.add(new String[] { "So phan hoi", String.valueOf(r.get("totalResponses")) });
+        rows.add(new String[] { "Ti le phan hoi", String.valueOf(r.get("responseRate")) });
+        rows.add(new String[] {});
+        rows.add(new String[] { "Bac si", "So phan hoi", "Diem TB" });
+        for (Map<String, Object> row : (List<Map<String, Object>>) r.get("byDoctor")) {
+            rows.add(new String[] { String.valueOf(row.get("doctorName")),
+                    String.valueOf(row.get("responses")), String.valueOf(row.get("averageRating")) });
+        }
+        writeCsv(response, "feedback-report.csv", rows);
+    }
+
+    // Ghi CSV UTF-8 kèm BOM để Excel mở đúng tiếng Việt.
+    private void writeCsv(HttpServletResponse response, String filename, List<String[]> rows) throws IOException {
+        response.setContentType("text/csv; charset=UTF-8");
+        response.setHeader("Content-Disposition", "attachment; filename=" + filename);
+        PrintWriter w = response.getWriter();
+        w.write('﻿'); // BOM để Excel nhận UTF-8
+        for (String[] row : rows) {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < row.length; i++) {
+                if (i > 0) sb.append(',');
+                sb.append(csvCell(row[i]));
+            }
+            sb.append("\r\n");
+            w.write(sb.toString());
+        }
+        w.flush();
+    }
+
+    private String csvCell(String v) {
+        if (v == null) return "";
+        String s = v.replace("\"", "\"\"");
+        if (s.contains(",") || s.contains("\"") || s.contains("\n") || s.contains("\r")) {
+            s = "\"" + s + "\"";
+        }
+        return s;
     }
 }
