@@ -19,4 +19,24 @@ export const reportService = {
   staffPerformance: (from, to) => axiosClient.get('/v1/reports/staff-performance', range(from, to)),
   // UC-53
   feedbackReport: (from, to) => axiosClient.get('/v1/reports/feedback', range(from, to)),
+
+  // ── Xuất Excel (CSV UTF-8) — trả về Blob ──
+  exportRevenue: (from, to) =>
+    axiosClient.get('/v1/reports/revenue/export', { ...range(from, to), responseType: 'blob' }),
+  exportPatientStatistics: (from, to) =>
+    axiosClient.get('/v1/reports/patient-statistics/export', { ...range(from, to), responseType: 'blob' }),
+  exportFeedback: (from, to) =>
+    axiosClient.get('/v1/reports/feedback/export', { ...range(from, to), responseType: 'blob' }),
+}
+
+// Tải Blob về máy dưới dạng file
+export function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 60000)
 }

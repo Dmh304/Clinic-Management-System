@@ -1,6 +1,28 @@
 // UC-51: Thống kê bệnh nhân theo kỳ.
 import { useEffect, useState } from 'react'
-import { reportService } from '../../services/reportService'
+import { reportService, downloadBlob } from '../../services/reportService'
+
+// Biểu đồ cột ngang thuần CSS (không cần thư viện)
+function BarChart({ data, color = '#4f46e5' }) {
+  const rows = Array.isArray(data) ? data : Object.entries(data || {}).map(([label, value]) => ({ label, value }))
+  const max = Math.max(1, ...rows.map((r) => Number(r.value) || 0))
+  if (rows.length === 0) return <p style={{ color: '#64748b' }}>Không có dữ liệu</p>
+  return (
+    <div>
+      {rows.map((r) => (
+        <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+          <div style={{ width: 150, fontSize: 13, textAlign: 'right', color: '#334155' }} title={r.label}>
+            {String(r.label).length > 22 ? String(r.label).slice(0, 22) + '…' : r.label}
+          </div>
+          <div style={{ flex: 1, background: '#f1f5f9', borderRadius: 4, height: 20, position: 'relative' }}>
+            <div style={{ width: `${(Number(r.value) / max) * 100}%`, background: color, height: '100%', borderRadius: 4 }} />
+          </div>
+          <div style={{ width: 44, fontSize: 13, fontWeight: 600 }}>{r.value}</div>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 const th = { textAlign: 'left', padding: 8, borderBottom: '2px solid #e2e8f0', background: '#f8fafc' }
 const td = { padding: 8, borderBottom: '1px solid #e2e8f0' }
@@ -58,6 +80,10 @@ export default function PatientStatisticsPage() {
         <label>Từ ngày<br /><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
         <label>Đến ngày<br /><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
         <button onClick={load} disabled={loading} style={{ padding: '6px 16px' }}>{loading ? 'Đang tải…' : 'Xem'}</button>
+        <button onClick={async () => { const blob = await reportService.exportPatientStatistics(from, to); downloadBlob(blob, 'thong-ke-benh-nhan.csv') }}
+          style={{ padding: '6px 16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: 4 }}>
+          Xuất Excel
+        </button>
       </div>
       {error && <div style={{ color: '#dc2626', marginBottom: 12 }}>{error}</div>}
 
@@ -69,18 +95,18 @@ export default function PatientStatisticsPage() {
             <div style={stat}><div style={big}>{data.newPatients}</div><div style={{ color: '#64748b' }}>Bệnh nhân mới</div></div>
             <div style={stat}><div style={big}>{data.returningPatients}</div><div style={{ color: '#64748b' }}>Bệnh nhân cũ</div></div>
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 24 }}>
-            <CountTable title="Lịch hẹn theo trạng thái" obj={data.appointmentsByStatus} />
-            <CountTable title="Lịch hẹn theo bác sĩ" obj={data.appointmentsByDoctor} />
-            <div style={{ flex: '1 1 260px' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 32 }}>
+            <div style={{ flex: '1 1 320px' }}>
+              <h4>Lịch hẹn theo trạng thái</h4>
+              <BarChart data={data.appointmentsByStatus} color="#4f46e5" />
+            </div>
+            <div style={{ flex: '1 1 320px' }}>
+              <h4>Lịch hẹn theo bác sĩ</h4>
+              <BarChart data={data.appointmentsByDoctor} color="#0ea5e9" />
+            </div>
+            <div style={{ flex: '1 1 320px' }}>
               <h4>Top chẩn đoán</h4>
-              <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-                <thead><tr><th style={th}>Chẩn đoán</th><th style={{ ...th, textAlign: 'right' }}>Số ca</th></tr></thead>
-                <tbody>
-                  {(data.topDiagnoses || []).length === 0 ? <tr><td style={td} colSpan={2}>Không có dữ liệu</td></tr>
-                    : data.topDiagnoses.map((d, i) => <tr key={i}><td style={td}>{d.diagnosis}</td><td style={{ ...td, textAlign: 'right' }}>{d.count}</td></tr>)}
-                </tbody>
-              </table>
+              <BarChart data={(data.topDiagnoses || []).map((d) => ({ label: d.diagnosis, value: d.count }))} color="#f59e0b" />
             </div>
           </div>
         </>

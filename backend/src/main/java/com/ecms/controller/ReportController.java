@@ -2,6 +2,7 @@ package com.ecms.controller;
 
 import com.ecms.dto.response.ApiResponse;
 import com.ecms.service.ReportService;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -66,6 +68,34 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         LocalDate[] range = defaultRange(from, to);
         return ResponseEntity.ok(ApiResponse.success(reportService.feedbackReport(range[0], range[1])));
+    }
+
+    // ── Xuất Excel (CSV UTF-8) ──────────────────────────────────────────────
+    @GetMapping("/revenue/export")
+    public void exportRevenue(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            HttpServletResponse response) throws IOException {
+        LocalDate[] range = defaultRange(from, to);
+        reportService.exportRevenueCsv(range[0], range[1], response);
+    }
+
+    @GetMapping("/patient-statistics/export")
+    public void exportPatientStatistics(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            HttpServletResponse response) throws IOException {
+        LocalDate[] range = defaultRange(from, to);
+        reportService.exportPatientStatisticsCsv(range[0], range[1], response);
+    }
+
+    @GetMapping("/feedback/export")
+    public void exportFeedback(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            HttpServletResponse response) throws IOException {
+        LocalDate[] range = defaultRange(from, to);
+        reportService.exportFeedbackCsv(range[0], range[1], response);
     }
 
     // Mặc định: từ đầu tháng hiện tại tới hôm nay

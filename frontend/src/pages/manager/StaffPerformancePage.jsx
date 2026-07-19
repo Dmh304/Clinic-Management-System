@@ -63,14 +63,15 @@ export default function StaffPerformancePage() {
               <td style={td}>{r.role || '—'}</td>
               <td style={{ ...td, textAlign: 'right' }}>{r.patientsSeen}</td>
               <td style={{ ...td, textAlign: 'right' }}>{r.prescriptionVolume}</td>
-              <td style={{ ...td, textAlign: 'right' }}>{r.avgConsultationMinutes ?? 'N/A'}</td>
-              <td style={{ ...td, textAlign: 'right' }}>{r.onTimeRate ?? 'N/A'}</td>
+              <td style={{ ...td, textAlign: 'right' }}>{r.avgConsultationMinutes != null ? `${r.avgConsultationMinutes} phút` : '—'}</td>
+              <td style={{ ...td, textAlign: 'right' }}>{r.onTimeRate != null ? `${(r.onTimeRate * 100).toFixed(0)}%` : '—'}</td>
             </tr>
           ))}
         </tbody>
       </table>
       <p style={{ color: '#94a3b8', fontSize: 12, marginTop: 10 }}>
-        * TG khám trung bình và tỉ lệ đúng giờ chưa khả dụng do hệ thống chưa lưu mốc bắt đầu/kết thúc buổi khám.
+        * TG khám TB = trung bình (thời điểm khóa bệnh án − thời điểm mở bệnh án) của các ca đã hoàn tất.
+        Tỉ lệ đúng giờ = tỉ lệ lịch hẹn có giờ check-in không trễ hơn giờ hẹn. Dấu "—" nghĩa là chưa có dữ liệu trong kỳ.
       </p>
     </div>
   )

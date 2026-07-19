@@ -1,6 +1,6 @@
 // UC-53: Báo cáo tổng hợp đánh giá của bệnh nhân.
 import { useEffect, useState } from 'react'
-import { reportService } from '../../services/reportService'
+import { reportService, downloadBlob } from '../../services/reportService'
 
 const th = { textAlign: 'left', padding: 8, borderBottom: '2px solid #e2e8f0', background: '#f8fafc' }
 const td = { padding: 8, borderBottom: '1px solid #e2e8f0' }
@@ -44,6 +44,10 @@ export default function FeedbackReportPage() {
         <label>Từ ngày<br /><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
         <label>Đến ngày<br /><input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
         <button onClick={load} disabled={loading} style={{ padding: '6px 16px' }}>{loading ? 'Đang tải…' : 'Xem'}</button>
+        <button onClick={async () => { const blob = await reportService.exportFeedback(from, to); downloadBlob(blob, 'bao-cao-danh-gia.csv') }}
+          style={{ padding: '6px 16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: 4 }}>
+          Xuất Excel
+        </button>
       </div>
       {error && <div style={{ color: '#dc2626', marginBottom: 12 }}>{error}</div>}
 
