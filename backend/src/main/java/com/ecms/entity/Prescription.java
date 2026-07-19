@@ -38,6 +38,7 @@ public class Prescription {
     @Column(columnDefinition = "NVARCHAR(500)")
     private String notes;
 
+    @Builder.Default
     @OneToMany(mappedBy = "prescription", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PrescriptionItem> items = new ArrayList<>();
 

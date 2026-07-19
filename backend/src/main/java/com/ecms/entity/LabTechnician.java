@@ -12,13 +12,11 @@ import java.time.LocalDateTime;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "lab_technicians")
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class LabTechnician {
 
     /* ID định danh duy nhất của kỹ thuật viên (Tự động tăng) */
@@ -31,11 +29,11 @@ public class LabTechnician {
      * hệ thống
      */
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", unique = true)
+    @JoinColumn(name = "user_id", unique = true, nullable = false)
     private User user;
 
     /* Mã kỹ thuật viên xét nghiệm */
-    @Column(name = "lab_tech_code", nullable = false)
+    @Column(name = "lab_tech_code", nullable = false, unique = true, length = 20)
     private String labTechCode;
 
     /* Họ và tên đầy đủ của kỹ thuật viên */
@@ -43,7 +41,7 @@ public class LabTechnician {
     private String fullName;
 
     /* Số chứng chỉ hành nghề hoặc giấy phép hoạt động chuyên môn */
-    @Column(name = "license_number")
+    @Column(name = "license_number", length = 100)
     private String licenseNumber;
 
     /* Chuyên khoa */
@@ -51,19 +49,19 @@ public class LabTechnician {
     private String specialization;
 
     /* Số điện thoại liên hệ */
-    @Column(name = "phone_number")
-    private String phoneNumber;
+    @Column(name = "phone_number", length = 15)
+    private String phone;
 
     /* Địa chỉ email */
     @Column(name = "email")
     private String email;
 
     /* Trạng thái hoạt động của kỹ thuật viên */
-    @Column(name = "status")
+    @Column(name = "status", nullable = false, length = 20)
     private String status;
 
     /* Thời điểm hồ sơ kỹ thuật viên được tạo trên hệ thống */
-    @Column(name = "created_at")
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
     /* Thời điểm cập nhật thông tin hồ sơ gần nhất */
@@ -73,7 +71,8 @@ public class LabTechnician {
     /* Tự động gán thời điểm tạo hồ sơ trước khi lưu vào cơ sở dữ liệu lần đầu */
     @PrePersist
     private void prePersist() {
-        createdAt = LocalDateTime.now();
+        if (createdAt == null) createdAt = LocalDateTime.now();
+        if (status == null) status = "ACTIVE";
     }
 
     /*

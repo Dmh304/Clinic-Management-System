@@ -20,9 +20,6 @@ import com.ecms.dto.response.AppointmentDashboardResponse;
 import com.ecms.dto.response.AppointmentResponse;
 import com.ecms.dto.response.SlotAvailabilityResponse;
 import com.ecms.entity.AppointmentStatus;
-import com.ecms.entity.Doctor;
-import com.ecms.entity.Patient;
-import com.ecms.entity.User;
 import com.ecms.repository.DoctorRepository;
 import com.ecms.repository.PatientRepository;
 import com.ecms.repository.UserRepository;
@@ -139,7 +136,7 @@ public class AppointmentController {
                         @AuthenticationPrincipal UserDetails userDetails) {
                 // UC-15: lấy id của nhân viên (Lễ tân) đang đăng nhập để lưu vào check_in_by
                 Long checkInByUserId = userDetails != null
-                                ? userRepository.findByEmail(userDetails.getUsername()).map(User::getId).orElse(null)
+                                ? userRepository.findByEmail(userDetails.getUsername()).map(user -> user.getId()).orElse(null)
                                 : null;
                 return ResponseEntity.ok(
                                 ApiResponse.success(appointmentService.checkInAppointment(id, checkInByUserId)));
@@ -182,7 +179,7 @@ public class AppointmentController {
                         @AuthenticationPrincipal UserDetails userDetails) {
                 // Theo USER (không phải patientId) để gồm cả lịch đặt hộ người thân
                 Long userId = userDetails != null
-                                ? userRepository.findByEmail(userDetails.getUsername()).map(User::getId).orElse(null)
+                                ? userRepository.findByEmail(userDetails.getUsername()).map(user -> user.getId()).orElse(null)
                                 : null;
                 return ResponseEntity.ok(
                                 ApiResponse.success(appointmentService.getMyAppointments(userId)));
@@ -293,31 +290,10 @@ public class AppointmentController {
 
         /* Tìm kiếm và trả về ID của Bác sĩ dựa trên Email tài khoản đăng nhập */
         private Long resolveDoctorId(UserDetails userDetails) {
-                if (userDetails == null) {
-                        return null;
-                }
-                return doctorRepository.findByEmail(userDetails.getUsername()).map(Doctor::getId).orElse(null);
-        }
-
-        /**
-         * Tìm kiếm và trả về ID của Bệnh nhân dựa trên Email tài khoản đăng nhập
-         * Cơ chế tìm kiếm 2 bước:
-         * 1. Tìm thông qua tài khoản User liên kết (Đối với bệnh nhân đăng ký tài khoản
-         * hệ thống)
-         * 2. Nếu không thấy, tìm kiếm trực tiếp bằng email trong bảng Patient (Đối với
-         * bệnh nhân vãng lai/walk-in được lưu email)
-         */
-        private Long resolvePatientId(UserDetails userDetails) {
-                if (userDetails == null) {
-                        return null;
-                }
-                return patientRepository.findByUser_Email(userDetails.getUsername())
-                                .map(Patient::getId)
-                                .orElseGet(() ->
-                                // Fallback: tìm theo email trực tiếp trong bảng patients (dành cho ca walk-in
-                                // trước đó)
-                                patientRepository.findByEmail(userDetails.getUsername())
-                                                .map(Patient::getId)
-                                                .orElse(null));
+                if (userDetails == null) return null;
+                return userRepository.findByEmail(userDetails.getUsername())
+                        .flatMap(u -> doctorRepository.findByUserId(u.getId()))
+                        .map(doctor -> doctor.getId())
+                        .orElse(null);
         }
 }

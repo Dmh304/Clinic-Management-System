@@ -13,6 +13,7 @@ public class CareSessionResponse {
     private Long patientId;
     private String patientName;
     private String patientCode;
+    private String patientPhone;
     private Long nurseId;
     private String nurseName;
     private LocalDateTime scheduledDateTime;
