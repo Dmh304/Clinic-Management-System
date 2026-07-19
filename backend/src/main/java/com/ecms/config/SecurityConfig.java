@@ -112,6 +112,20 @@ public class SecurityConfig {
                                                 .hasRole("ADMIN")
 
                                                 // ══════════════════════════════════════════════════════════════════
+                                                // ── Payments: webhook cổng thanh toán (UC-22) — ThangNBHE201024 ───
+                                                // ══════════════════════════════════════════════════════════════════
+                                                // Cổng thanh toán (SePay) gọi từ server của họ nên không có JWT của ECMS.
+                                                // Endpoint này buộc phải permitAll để qua được filter chain; việc xác thực
+                                                // do PaymentService đảm nhiệm bằng API key dùng chung:
+                                                // header Authorization: Apikey <payment.webhook.api-key>.
+                                                // Chưa cấu hình key thì mọi webhook đều bị từ chối.
+                                                .requestMatchers(HttpMethod.POST, "/api/v1/payments/webhook")
+                                                .permitAll()
+                                                // Tra cứu trạng thái thanh toán vẫn yêu cầu đăng nhập như mọi API khác
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/payments/invoice/*/status")
+                                                .hasAnyRole("ADMIN", "RECEPTIONIST", "MANAGER", "PATIENT")
+
+                                                // ══════════════════════════════════════════════════════════════════
                                                 // ── Doctors: GET list public ───────────────────────────────────────
                                                 // ══════════════════════════════════════════════════════════════════
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/doctors")
@@ -356,6 +370,12 @@ public class SecurityConfig {
                                                 .requestMatchers("/api/v1/notifications/**")
                                                 .authenticated()
                                                 // ── Admin: audit log (UC-57) ────────────────────────────────────
+                                                .requestMatchers("/api/v1/feedbacks/**")
+                                                .hasRole("PATIENT")
+                                                .requestMatchers("/api/v1/reports/**")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers("/api/v1/payroll/**")
+                                                .hasAnyRole("MANAGER", "ADMIN")
                                                 .requestMatchers("/api/v1/admin/**")
                                                 .hasRole("ADMIN")
 

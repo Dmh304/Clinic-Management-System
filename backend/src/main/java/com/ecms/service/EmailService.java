@@ -20,6 +20,18 @@ public interface EmailService {
             LocalDateTime appointmentTime);
 
     /**
+     * UC-12 (POST-2): Gửi email xác nhận đã tiếp nhận yêu cầu đặt lịch online.
+     * Lịch đang ở trạng thái PENDING, chờ lễ tân duyệt.
+     *
+     * @param toEmail         email bệnh nhân
+     * @param patientName     tên bệnh nhân
+     * @param doctorName      tên bác sĩ (có thể null)
+     * @param appointmentTime thời gian khám đã chọn
+     */
+    void sendAppointmentConfirmation(String toEmail, String patientName, String doctorName,
+            LocalDateTime appointmentTime);
+
+    /**
      * Gửi email thông báo lịch hẹn đã bị huỷ.
      *
      * @param toEmail         email người nhận

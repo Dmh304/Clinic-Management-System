@@ -516,6 +516,7 @@ CREATE TABLE lab_orders (
     medical_record_id BIGINT          NOT NULL,
     ordered_by        BIGINT          NULL,
     assigned_to       BIGINT          NULL,
+    service_id        BIGINT          NULL,   -- ThangNBHE201024: dịch vụ xét nghiệm (chụp/đo/soi) để đưa vào hóa đơn (UC-22)
     notes             NVARCHAR(MAX)   NULL,
     priority          NVARCHAR(20)    NOT NULL CONSTRAINT DF_lab_orders_priority DEFAULT 'PRIMARY',
     status            NVARCHAR(20)    NOT NULL DEFAULT 'PENDING',
@@ -528,6 +529,7 @@ CREATE TABLE lab_orders (
     CONSTRAINT FK_lab_orders_medical_record FOREIGN KEY (medical_record_id) REFERENCES medical_records(id),
     CONSTRAINT FK_lab_orders_ordered_by FOREIGN KEY (ordered_by) REFERENCES doctors(id),
     CONSTRAINT FK_lab_orders_assigned_to FOREIGN KEY (assigned_to) REFERENCES lab_technicians(id),
+    CONSTRAINT FK_lab_orders_service FOREIGN KEY (service_id) REFERENCES services(id),
     CONSTRAINT CK_lab_orders_priority CHECK (priority IN ('PRIMARY', 'WARNING', 'EMERGENCY')),
     CONSTRAINT CK_lab_orders_status CHECK (status IN ('PENDING', 'IN_PROGRESS', 'SUBMITTED', 'REJECTED', 'APPROVED'))
 );
@@ -588,6 +590,8 @@ CREATE TABLE invoices (
     payment_reference  NVARCHAR(100)   NULL,
     payment_status     NVARCHAR(20)    NOT NULL DEFAULT 'UNPAID',
     pdf_url            NVARCHAR(500)   NULL,
+    email_status       NVARCHAR(20)    NULL DEFAULT 'NOT_SENT',
+    email_sent_at      DATETIME2       NULL,
     notes              NVARCHAR(MAX)   NULL,
     issued_by          BIGINT          NULL,
     generated_at       DATETIME2       NULL,
@@ -601,9 +605,17 @@ CREATE TABLE invoices (
     CONSTRAINT FK_invoices_issued_by FOREIGN KEY (issued_by) REFERENCES users(id),
     CONSTRAINT CK_invoices_payment_method CHECK (payment_method IN ('CASH', 'VIET_QR', 'OTHER')),
     CONSTRAINT CK_invoices_payment_status CHECK (payment_status IN ('UNPAID', 'PENDING_PAYMENT', 'PAID', 'PAYMENT_FAILED')),
-    CONSTRAINT CK_invoices_status CHECK (status IN ('DRAFT', 'ISSUED', 'CANCELLED'))
+    CONSTRAINT CK_invoices_status CHECK (status IN ('DRAFT', 'ISSUED', 'CANCELLED')),
+    CONSTRAINT CK_invoices_email_status CHECK (email_status IN ('NOT_SENT', 'SENDING', 'SENT', 'FAILED'))
 );
 GO
+
+-- Migration cho DB đã tồn tại (ddl-auto=none nên chạy tay):
+--   ALTER TABLE invoices ADD email_status NVARCHAR(20) NULL DEFAULT 'NOT_SENT', email_sent_at DATETIME2 NULL;
+--   GO
+--   ALTER TABLE invoices ADD CONSTRAINT CK_invoices_email_status
+--       CHECK (email_status IN ('NOT_SENT', 'SENDING', 'SENT', 'FAILED'));
+--   GO
 CREATE UNIQUE INDEX UQ_invoices_invoice_code ON invoices(invoice_code) WHERE invoice_code IS NOT NULL;
 GO
 
@@ -627,6 +639,40 @@ CREATE TABLE invoice_details (
     CONSTRAINT CK_invoice_details_item_type CHECK (item_type IN ('SERVICE', 'MEDICINE', 'GLASSES', 'LAB', 'OTHER')),
     CONSTRAINT CK_invoice_details_status CHECK (status IN ('ACTIVE', 'CANCELLED'))
 );
+GO
+
+-- ----------------------------------------------------------------------------
+-- 22b. payment_transactions — nhật ký biến động số dư từ cổng thanh toán (UC-22)
+-- ThangNBHE201024
+-- Cổng (SePay) gọi webhook mỗi khi tài khoản phòng khám có tiền vào; hệ thống dò mã
+-- hóa đơn trong nội dung chuyển khoản rồi tự gạch nợ.
+-- gateway_txn_id UNIQUE: chặn xử lý trùng khi cổng retry cùng một giao dịch.
+-- invoice_id NULL: giao dịch không khớp hóa đơn vẫn được lưu để kế toán đối soát tay.
+-- ----------------------------------------------------------------------------
+CREATE TABLE payment_transactions (
+    id                   BIGINT          NOT NULL IDENTITY(1,1),
+    gateway_txn_id       NVARCHAR(100)   NOT NULL,
+    gateway              NVARCHAR(50)    NULL,
+    invoice_id           BIGINT          NULL,
+    matched_invoice_code NVARCHAR(30)    NULL,
+    amount               DECIMAL(12,2)   NULL,
+    content              NVARCHAR(500)   NULL,
+    account_number       NVARCHAR(50)    NULL,
+    reference_code       NVARCHAR(100)   NULL,
+    transfer_type        NVARCHAR(10)    NULL,
+    status               NVARCHAR(20)    NOT NULL DEFAULT 'UNMATCHED',
+    note                 NVARCHAR(500)   NULL,
+    raw_payload          NVARCHAR(MAX)   NULL,
+    transaction_date     DATETIME2       NULL,
+    received_at          DATETIME2       NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT PK_payment_transactions PRIMARY KEY (id),
+    CONSTRAINT UQ_payment_transactions_txn_id UNIQUE (gateway_txn_id),
+    CONSTRAINT FK_payment_transactions_invoice FOREIGN KEY (invoice_id) REFERENCES invoices(id),
+    CONSTRAINT CK_payment_transactions_status CHECK (status IN
+        ('MATCHED', 'UNMATCHED', 'AMOUNT_MISMATCH', 'DUPLICATE', 'IGNORED'))
+);
+GO
+CREATE INDEX IX_payment_transactions_invoice ON payment_transactions (invoice_id);
 GO
 
 -- ----------------------------------------------------------------------------

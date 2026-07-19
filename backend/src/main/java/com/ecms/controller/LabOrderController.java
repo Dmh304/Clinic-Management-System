@@ -208,8 +208,10 @@ public class LabOrderController {
     }
 
     /**
-     * Lấy danh sách kỹ thuật viên xét nghiệm đang hoạt động
-     * Chỉ bác sĩ mới được phép truy cập endpoint này
+     * Lấy danh sách kỹ thuật viên xét nghiệm đang hoạt động.
+     * Phân quyền (DOCTOR, ADMIN) khai báo tập trung trong SecurityConfig như mọi endpoint
+     * khác của hệ thống — không dùng @PreAuthorize vì method security chưa được bật,
+     * annotation đó sẽ bị bỏ qua âm thầm và tạo cảm giác an toàn giả.
      */
     @GetMapping("/technicians")
     public ResponseEntity<ApiResponse<List<LabTechnicianResponse>>> getActiveLabTechnicians() {
