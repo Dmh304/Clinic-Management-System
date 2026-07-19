@@ -32,6 +32,7 @@ axiosClient.interceptors.response.use(
         window.location.href = '/login'
       }
     }
+    // 403: không xóa token, không redirect — chỉ để component tự xử lý message lỗi
     return Promise.reject(err)
   }
 )

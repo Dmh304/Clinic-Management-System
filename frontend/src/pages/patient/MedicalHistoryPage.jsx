@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Author: TuanTD
  *  
  * * Màn hình: Quản lý và Xem Lịch sử / Chi tiết Hồ sơ bệnh án điện tử (EMR) dành cho Bệnh nhân
@@ -19,6 +19,9 @@ import { emrService } from '../../services/emrService'
 import { appointmentService } from '../../services/appointmentService'
 import { prescriptionService } from '../../services/prescriptionService'
 import { eyeglassPrescriptionService } from '../../services/eyeglassPrescriptionService'
+import { generateLabResultPdf, buildPdfDataFromLabResult } from '../../utils/labResultPdf'
+import { labService } from '../../services/labService'
+
 import { PrinterOutlined } from '@ant-design/icons'
 
 const { TextArea } = Input
@@ -135,6 +138,33 @@ export default function MedicalHistoryPage() {
 
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 10
+  const [pdfLoading, setPdfLoading] = useState(false)
+
+  const handleDownloadLabPdf = async () => {
+    if (!emr?.id) return
+    setPdfLoading(true)
+    try {
+      const ordersRes = await labService.getLabOrdersForMedicalRecordAsPatient(emr.id)   // ← đổi ở đây
+      const approvedOrders = (ordersRes.data ?? []).filter((o) => o.status === 'APPROVED')
+
+      if (approvedOrders.length === 0) {
+        message.warning('Hồ sơ này chưa có kết quả xét nghiệm nào được duyệt')
+        return
+      }
+
+      const latestOrder = approvedOrders.reduce((latest, cur) =>
+        new Date(cur.completedAt ?? cur.createdAt) > new Date(latest.completedAt ?? latest.createdAt) ? cur : latest
+      )
+
+      const resultRes = await labService.getLabResults(latestOrder.id)
+      const pdfData = buildPdfDataFromLabResult(resultRes.data)
+      await generateLabResultPdf(pdfData, `ket-qua-xet-nghiem-emr-${emr.id}`)
+    } catch (err) {
+      message.error(err?.response?.data?.message || 'Tạo file PDF thất bại, vui lòng thử lại')
+    } finally {
+      setPdfLoading(false)
+    }
+  }
   /**
    * Hàm Tiện Ích: Ánh xạ chuyển đổi cấu trúc thuộc tính từ DTO của Server (API)
    * sang cấu trúc các trường (name) tương thích hoàn toàn với Form Ant Design
@@ -433,6 +463,15 @@ export default function MedicalHistoryPage() {
 
           {/* Hệ thống nút hành động điều hướng quay lại */}
           <div style={{ display: 'flex', gap: 8 }}>
+            {!!emr && emr.labImageUrls?.length >= 0 && emr.vaL != null && (
+              <Button
+                onClick={handleDownloadLabPdf}
+                loading={pdfLoading}
+                style={{ fontSize: 12, borderColor: '#0d9488', color: '#0d9488' }}
+              >
+                Tải PDF kết quả XN
+              </Button>
+            )}
             <Button onClick={() => navigate('/patient/history')} style={{ fontSize: 12 }}>
               {'← Quay lại danh sách lịch khám'}
             </Button>

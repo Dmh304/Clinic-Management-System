@@ -253,6 +253,16 @@ public class AppointmentController {
         }
 
         /**
+         * Dừng ca khám giữa chừng — Appointment chuyển CANCELLED, MedicalRecord (nếu
+         * có) chuyển CANCELLED (trừ khi đã COMPLETED)
+         */
+        @PostMapping("/{id}/abandon")
+        public ResponseEntity<ApiResponse<AppointmentResponse>> abandonExam(@PathVariable Long id) {
+                return ResponseEntity.ok(
+                                ApiResponse.success("Đã dừng ca khám", appointmentService.abandonExam(id)));
+        }
+
+        /**
          * UC-13: Gửi nhắc lịch thủ công cho 1 lịch hẹn (bỏ qua cửa sổ 24h) —
          * RECEPTIONIST/ADMIN
          */

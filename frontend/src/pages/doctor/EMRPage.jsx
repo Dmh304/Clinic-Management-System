@@ -14,6 +14,7 @@ import { labService } from '../../services/labService'
 import DrugPrescriptionForm from './components/DrugPrescriptionForm'
 import EyeglassPrescriptionForm from './components/EyeglassPrescriptionForm'
 import useConfirmAction from '../../hooks/useConfirmAction'
+import { appointmentService } from '../../services/appointmentService'
 
 const { TextArea } = Input
 const { Panel } = Collapse
@@ -159,6 +160,7 @@ export default function EMRPage() {
   const [searchText, setSearchText] = useState('')                 // từ khóa tìm kiếm theo bệnh án tại màn hình danh sách tổng
   const [statusFilter, setStatusFilter] = useState('ALL')  // 'ALL' | 'DRAFT' | 'IN_PROGRESS' | 'COMPLETED'
   const [currentPage, setCurrentPage] = useState(1)
+  const [abandoning, setAbandoning] = useState(false)
   const pageSize = 10
     // ---- Lab order modal state ----
   const [labModal,       setLabModal]       = useState(false)
@@ -168,21 +170,49 @@ export default function EMRPage() {
   const [labTechnicians,    setLabTechnicians]    = useState([])   // danh sách dịch vụ XN từ backend
   const [loadingLabTechs,  setLoadingLabTechs]  = useState(false)
   const [creatingOrder,  setCreatingOrder]  = useState(false)
-  
-// Load danh sách Lab Technician khi mở modal
-const openLabModal = async () => {
-  setLabModal(true)
-  if (labTechnicians.length > 0) return
-  setLoadingLabTechs(true)
-  try {
-    const res = await labService.getActiveLabTechnicians()
-    setLabTechnicians(res.data ?? [])
-  } catch {
-    message.error('Không thể tải danh sách kỹ thuật viên')
-  } finally {
-    setLoadingLabTechs(false)
+
+  /**
+  * Dừng khám ngay trong màn hình EMR — dùng chung API abandonExam với Dashboard.
+  * Sau khi hủy, appointment + EMR chuyển CANCELLED, điều hướng bác sĩ quay về hàng chờ.
+  */
+  const handleAbandonExamInEMR = () => {
+    confirmAction({
+      type: 'warning',
+      title: 'Xác nhận dừng khám',
+      description: 'Lịch hẹn và Hồ sơ bệnh án sẽ được chuyển sang trạng thái Đã hủy (chỉ xem, không thể chỉnh sửa).',
+      details: [
+        { label: 'Bệnh nhân', value: emr?.patientName ?? '—' },
+      ],
+      confirmText: 'Dừng khám',
+      onConfirm: async () => {
+        setAbandoning(true)
+        try {
+          await appointmentService.abandonExam(appointmentId)
+          message.success('Đã dừng ca khám')
+          navigate('/doctor/dashboard')
+        } catch (err) {
+          message.error(err?.response?.data?.message || 'Không thể dừng khám. Vui lòng thử lại.')
+        } finally {
+          setAbandoning(false)
+        }
+      },
+    })
   }
-}
+
+  // Load danh sách Lab Technician khi mở modal
+  const openLabModal = async () => {
+    setLabModal(true)
+    if (labTechnicians.length > 0) return
+    setLoadingLabTechs(true)
+    try {
+      const res = await labService.getActiveLabTechnicians()
+      setLabTechnicians(res.data ?? [])
+    } catch {
+      message.error('Không thể tải danh sách kỹ thuật viên')
+    } finally {
+      setLoadingLabTechs(false)
+    }
+  }
 
 /**
    * Logic tạo lab order thực sự — được gọi sau khi user xác nhận trong dialog
@@ -380,7 +410,7 @@ const openLabModal = async () => {
         ...(values.chiefComplaint ? [{ label: 'Lý do khám', value: values.chiefComplaint }] : []),
       ],
       confirmText: 'Lưu nháp',
-      onConfirm: () => executeSave('IN_PROGRESS'),
+      onConfirm: () => executeSave('DRAFT'),
     })
   }
 
@@ -454,7 +484,7 @@ const openLabModal = async () => {
    */
   const currentDoctorId = user?.doctorId ?? user?.id
   const isOwner = emr?.doctorId != null && emr.doctorId === currentDoctorId
-  const isReadOnly = !!emr && (emr.status === 'COMPLETED' || !isOwner)
+  const isReadOnly = !!emr && (emr.status === 'COMPLETED' || emr.status === 'CANCELLED' || !isOwner)
 
   // Render khi Bác sĩ CHƯA CHỌN bệnh nhân nào
   if (!appointmentId) {
@@ -487,6 +517,7 @@ const openLabModal = async () => {
               { key: 'DRAFT',      label: 'Nháp' },
               { key: 'IN_PROGRESS',label: 'Đang khám' },
               { key: 'COMPLETED',  label: 'Hoàn thành' },
+              { key: 'CANCELLED',  label: 'Đã hủy'},
             ].map((tab) => (
               <button
                 key={tab.key}
@@ -646,17 +677,17 @@ const openLabModal = async () => {
 
         {/* Hệ thống nút điều hướng */}
         <div style={{ display: 'flex', gap: 8 }}>
-        {originalAppointmentId && (
-          <Button type="primary" onClick={() => navigate(`/doctor/emr?appointmentId=${originalAppointmentId}&patientId=${patientId}`)} style={{ backgroundColor: '#0d9488', borderColor: '#0d9488', fontSize: 12}}
-        >
-          ← Quay lại bệnh án hiện tại
-        </Button>
-        )}
-        <Button onClick={() => from === 'list' ? navigate('/doctor/emr') : navigate('/doctor/dashboard')} style={{ fontSize: 12 }}>
-          {from === 'list' ? '← Quay lại danh sách bệnh án' : '← Quay lại hàng chờ'}
-        </Button>
-        </div>
-      </div>
+          {originalAppointmentId && (
+            <Button type="primary" onClick={() => navigate(`/doctor/emr?appointmentId=${originalAppointmentId}&patientId=${patientId}`)} style={{ backgroundColor: '#0d9488', borderColor: '#0d9488', fontSize: 12}}>
+              ← Quay lại bệnh án hiện tại
+            </Button>
+          )}
+          <Button onClick={() => from === 'list' ? navigate('/doctor/emr') : navigate('/doctor/dashboard')} style={{ fontSize: 12 }}>
+            {from === 'list' ? '← Quay lại danh sách bệnh án' : '← Quay lại hàng chờ'}
+          </Button>
+          </div>
+          </div>
+        
 
       <Spin spinning={loading}>
         {!loading && (
@@ -819,6 +850,14 @@ const openLabModal = async () => {
                 )}
 
                 <div style={{ display: 'flex', gap: 10 }}>
+                  <Button
+                    danger
+                    onClick={handleAbandonExamInEMR}
+                    loading={abandoning}
+                    style={{ fontSize: 13 }}
+                  >
+                    Dừng khám
+                  </Button>
                   <Button onClick={handleSaveDraft} loading={saving} style={{ fontSize: 13 }}>
                     Lưu nháp
                   </Button>
@@ -831,7 +870,7 @@ const openLabModal = async () => {
                     Hoàn thành khám
                   </Button>
                 </div>
-             </div>
+            </div>
             )}
           </div>
 
@@ -950,7 +989,6 @@ const openLabModal = async () => {
           </div>
         </div>
       </Modal>
-
-    </div>  
+      </div>
   )
 }

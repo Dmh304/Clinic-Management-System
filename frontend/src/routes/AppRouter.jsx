@@ -34,6 +34,7 @@ import MySubscriptionsPage from '../pages/patient/MySubscriptionsPage'
 import BookCareSessionPage from '../pages/patient/BookCareSessionPage'
 import MyCareSessionsPage from '../pages/patient/MyCareSessionsPage'
 import MyAppointmentsPage from '../pages/patient/MyAppointmentsPage'
+import PatientLabResults from '../pages/patient/PatientLabResults'
 
 
 
@@ -131,6 +132,7 @@ export default function AppRouter() {
         <Route path="/patient/dashboard" element={<PatientDashboard />} />
         <Route path="/patient/booking" element={<BookingPage />} />
         <Route path="/patient/history" element={<MedicalHistoryPage />} />
+        <Route path="/patient/lab-results" element={<PatientLabResults />} />
         <Route path="/patient/prescription" element={<WithHeader><PrescriptionViewPage /></WithHeader>} />
         <Route path="/patient/subscriptions" element={<WithHeader><MySubscriptionsPage /></WithHeader>} />
         <Route path="/patient/book-session" element={<WithHeader><BookCareSessionPage /></WithHeader>} />
@@ -171,6 +173,8 @@ export default function AppRouter() {
       <Route element={<ProtectedRoute allowedRoles={['LAB_TECHNICIAN']} />}>
         <Route path="/lab/queue" element={<LabQueuePage />} />
         <Route path="/lab/result-entry" element={<LabResultEntryPage />} />
+        <Route path="/lab/eyeglass-queue" element={<EyeglassPrescriptionQueue/>}/>
+        <Route path="/lab/eyeglass-detail" element={<EyeglassPrescriptionDetail/> }/>
       </Route>
 
       {/* ── Pharmacy ── */}

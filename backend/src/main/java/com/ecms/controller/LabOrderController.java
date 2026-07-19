@@ -42,255 +42,283 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @RestController
 @RequestMapping("/api/v1/lab")
 @RequiredArgsConstructor
 public class LabOrderController {
 
-    /* Service xử lý nghiệp vụ xét nghiệm */
-    private final LabOrderService labOrderService;
+        /* Service xử lý nghiệp vụ xét nghiệm */
+        private final LabOrderService labOrderService;
 
-    /* Repository dùng để truy xuất thông tin bác sĩ */
-    private final DoctorRepository doctorRepository;
+        /* Repository dùng để truy xuất thông tin bác sĩ */
+        private final DoctorRepository doctorRepository;
 
-    /* Repository dùng để truy xuất thông tin kỹ thuật viên xét nghiệm */
-    private final LabTechnicianRepository labTechnicianRepository;
+        /* Repository dùng để truy xuất thông tin kỹ thuật viên xét nghiệm */
+        private final LabTechnicianRepository labTechnicianRepository;
 
-    /* Repository dùng để truy xuất thông tin bệnh nhân */
-    private final PatientRepository patientRepository;
+        /* Repository dùng để truy xuất thông tin bệnh nhân */
+        private final PatientRepository patientRepository;
 
-    /**
-     * Tạo phiếu chỉ định xét nghiệm mới.
-     *
-     * Quy trình:
-     * 1. Lấy thông tin tài khoản đang đăng nhập
-     * 2. Xác định ID bác sĩ từ email đăng nhập
-     * 3. Gọi service tạo phiếu xét nghiệm
-     */
-    @PostMapping
-    public ResponseEntity<ApiResponse<LabOrderResponse>> createLabOrder(
-            @RequestBody LabOrderRequest request,
-            @AuthenticationPrincipal UserDetails userDetails) {
+        /**
+         * Tạo phiếu chỉ định xét nghiệm mới.
+         *
+         * Quy trình:
+         * 1. Lấy thông tin tài khoản đang đăng nhập
+         * 2. Xác định ID bác sĩ từ email đăng nhập
+         * 3. Gọi service tạo phiếu xét nghiệm
+         */
+        @PostMapping
+        public ResponseEntity<ApiResponse<LabOrderResponse>> createLabOrder(
+                        @RequestBody LabOrderRequest request,
+                        @AuthenticationPrincipal UserDetails userDetails) {
 
-        Long doctorId = resolveDoctorId(userDetails);
+                Long doctorId = resolveDoctorId(userDetails);
 
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        labOrderService.createLabOrder(request, doctorId)));
-    }
-
-    /**
-     * Lấy danh sách các phiếu xét nghiệm đang chờ xử lý
-     * dành cho kỹ thuật viên xét nghiệm
-     */
-    @GetMapping("/queue")
-    public ResponseEntity<ApiResponse<List<LabOrderResponse>>> getLabOrderQueue(
-            @AuthenticationPrincipal UserDetails userDetails) {
-
-        Long labTechnicianId = resolveLabTechnicianId(userDetails);
-
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        labOrderService.getLabQueue(labTechnicianId)));
-    }
-
-    /**
-     * Đánh dấu bắt đầu thực hiện xét nghiệm
-     *
-     * Khi được gọi:
-     * - Phiếu xét nghiệm chuyển sang trạng thái IN_PROGRESS
-     * - Ghi nhận kỹ thuật viên đang xử lý
-     */
-    @PutMapping("/{id}/start")
-    public ResponseEntity<ApiResponse<LabOrderResponse>> startLabOrder(
-            @PathVariable Long id,
-            @AuthenticationPrincipal UserDetails userDetails) {
-
-        Long labTechnicianId = resolveLabTechnicianId(userDetails);
-
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        labOrderService.startLabOrder(id, labTechnicianId)));
-    }
-
-    /**
-     * Gửi kết quả xét nghiệm chính thức
-     *
-     * Sau khi gửi:
-     * - Không còn là bản nháp
-     * - Chờ bác sĩ duyệt kết quả
-     */
-    @PutMapping("/{id}/result")
-    public ResponseEntity<ApiResponse<LabOrderResponse>> submitResult(
-            @PathVariable Long id,
-            @RequestBody LabResultRequest request,
-            @AuthenticationPrincipal UserDetails userDetails) {
-
-        Long labTechnicianId = resolveLabTechnicianId(userDetails);
-
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        labOrderService.submitLabResult(id, request, labTechnicianId)));
-    }
-
-    /**
-     * Lấy toàn bộ phiếu xét nghiệm thuộc một hồ sơ bệnh án
-     */
-    @GetMapping("/emr/{medicalRecordId}")
-    public ResponseEntity<ApiResponse<List<LabOrderResponse>>> getLabOrdersForMedicalRecord(
-            @PathVariable Long medicalRecordId) {
-
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        labOrderService.getLabOrdersForMedicalRecord(medicalRecordId)));
-    }
-
-    /**
-     * Xem kết quả xét nghiệm
-     */
-    @GetMapping("/{id}/results")
-    public ResponseEntity<ApiResponse<LabResultResponse>> getLabResults(
-            @PathVariable Long id,
-            @AuthenticationPrincipal UserDetails userDetails) {
-
-        Long currentUserId = resolveDoctorId(userDetails);
-        String role = "DOCTOR";
-
-        // Nếu không phải bác sĩ thì kiểm tra kỹ thuật viên
-        if (currentUserId == null) {
-            currentUserId = resolveLabTechnicianId(userDetails);
-            role = "LAB_TECHNICIAN";
+                return ResponseEntity.ok(
+                                ApiResponse.success(
+                                                labOrderService.createLabOrder(request, doctorId)));
         }
 
-        // Nếu vẫn không tìm thấy thì kiểm tra bệnh nhân
-        if (currentUserId == null) {
-            currentUserId = resolvePatientId(userDetails);
-            role = "PATIENT";
+        /**
+         * Lấy danh sách các phiếu xét nghiệm đang chờ xử lý
+         * dành cho kỹ thuật viên xét nghiệm
+         */
+        @GetMapping("/queue")
+        public ResponseEntity<ApiResponse<List<LabOrderResponse>>> getLabOrderQueue(
+                        @AuthenticationPrincipal UserDetails userDetails) {
+
+                Long labTechnicianId = resolveLabTechnicianId(userDetails);
+
+                return ResponseEntity.ok(
+                                ApiResponse.success(
+                                                labOrderService.getLabQueue(labTechnicianId)));
         }
 
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        labOrderService.getLabResults(id, currentUserId, role)));
-    }
+        /**
+         * Đánh dấu bắt đầu thực hiện xét nghiệm
+         *
+         * Khi được gọi:
+         * - Phiếu xét nghiệm chuyển sang trạng thái IN_PROGRESS
+         * - Ghi nhận kỹ thuật viên đang xử lý
+         */
+        @PutMapping("/{id}/start")
+        public ResponseEntity<ApiResponse<LabOrderResponse>> startLabOrder(
+                        @PathVariable Long id,
+                        @AuthenticationPrincipal UserDetails userDetails) {
 
-    /**
-     * Bác sĩ duyệt kết quả xét nghiệm
-     *
-     * Sau khi duyệt:
-     * - Kết quả được xác nhận chính thức
-     * - Có thể sử dụng trong chẩn đoán và điều trị
-     */
-    @PutMapping("/{id}/approve")
-    public ResponseEntity<ApiResponse<LabOrderResponse>> approveLabResult(
-            @PathVariable Long id,
-            @AuthenticationPrincipal UserDetails userDetails) {
+                Long labTechnicianId = resolveLabTechnicianId(userDetails);
 
-        Long doctorId = resolveDoctorId(userDetails);
-
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        labOrderService.approveLabResult(id, doctorId)));
-    }
-
-    /**
-     * Yêu cầu xét nghiệm lại
-     */
-    @PutMapping("/{id}/retest")
-    public ResponseEntity<ApiResponse<LabOrderResponse>> requestRetest(
-            @PathVariable Long id,
-            @RequestBody LabOrderRequest request,
-            @AuthenticationPrincipal UserDetails userDetails) {
-
-        Long doctorId = resolveDoctorId(userDetails);
-
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        labOrderService.requestRetest(id, doctorId, request)));
-    }
-
-    /**
-     * Lấy danh sách kỹ thuật viên xét nghiệm đang hoạt động
-     *
-     * Chỉ bác sĩ mới được phép truy cập endpoint này
-     */
-    @GetMapping("/technicians")
-    @PreAuthorize("hasAnyRole('DOCTOR')")
-    public ResponseEntity<ApiResponse<List<LabTechnicianResponse>>> getActiveLabTechnicians() {
-
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        labOrderService.getActiveLabTechnicians()));
-    }
-
-    /**
-     * Lấy tất cả phiếu xét nghiệm do bác sĩ hiện tại tạo
-     */
-    @GetMapping("/doctor")
-    public ResponseEntity<ApiResponse<List<LabOrderResponse>>> getLabOrdersForDoctor(
-            @AuthenticationPrincipal UserDetails userDetails) {
-
-        Long doctorId = resolveDoctorId(userDetails);
-
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        labOrderService.getLabOrdersForDoctor(doctorId)));
-    }
-
-    /**
-     * Lưu kết quả xét nghiệm dưới dạng bản nháp
-     *
-     * Dùng khi kỹ thuật viên chưa hoàn tất nhập dữ liệu
-     */
-    @PutMapping("/{id}/draft")
-    public ResponseEntity<ApiResponse<LabOrderResponse>> saveDraft(
-            @PathVariable Long id,
-            @RequestBody LabResultRequest request,
-            @AuthenticationPrincipal UserDetails userDetails) {
-
-        Long labTechnicianId = resolveLabTechnicianId(userDetails);
-
-        return ResponseEntity.ok(
-                ApiResponse.success(
-                        labOrderService.saveDraft(id, request, labTechnicianId)));
-    }
-
-    /**
-     * Tìm ID bác sĩ từ email của tài khoản đăng nhập
-     */
-    private Long resolveDoctorId(UserDetails userDetails) {
-        if (userDetails == null) {
-            return null;
+                return ResponseEntity.ok(
+                                ApiResponse.success(
+                                                labOrderService.startLabOrder(id, labTechnicianId)));
         }
 
-        return doctorRepository.findByEmail(userDetails.getUsername())
-                .map(Doctor::getId)
-                .orElse(null);
-    }
+        /**
+         * Gửi kết quả xét nghiệm chính thức
+         *
+         * Sau khi gửi:
+         * - Không còn là bản nháp
+         * - Chờ bác sĩ duyệt kết quả
+         */
+        @PutMapping("/{id}/result")
+        public ResponseEntity<ApiResponse<LabOrderResponse>> submitResult(
+                        @PathVariable Long id,
+                        @RequestBody LabResultRequest request,
+                        @AuthenticationPrincipal UserDetails userDetails) {
 
-    /**
-     * Tìm ID kỹ thuật viên xét nghiệm từ email đăng nhập
-     */
-    private Long resolveLabTechnicianId(UserDetails userDetails) {
-        if (userDetails == null) {
-            return null;
+                Long labTechnicianId = resolveLabTechnicianId(userDetails);
+
+                return ResponseEntity.ok(
+                                ApiResponse.success(
+                                                labOrderService.submitLabResult(id, request, labTechnicianId)));
         }
 
-        return labTechnicianRepository.findByEmail(userDetails.getUsername())
-                .map(LabTechnician::getId)
-                .orElse(null);
-    }
+        /**
+         * Lấy toàn bộ phiếu xét nghiệm thuộc một hồ sơ bệnh án
+         */
+        @GetMapping("/emr/{medicalRecordId}")
+        public ResponseEntity<ApiResponse<List<LabOrderResponse>>> getLabOrdersForMedicalRecord(
+                        @PathVariable Long medicalRecordId) {
 
-    /**
-     * Tìm ID bệnh nhân từ email đăng nhập
-     */
-    private Long resolvePatientId(UserDetails userDetails) {
-        if (userDetails == null) {
-            return null;
+                return ResponseEntity.ok(
+                                ApiResponse.success(
+                                                labOrderService.getLabOrdersForMedicalRecord(medicalRecordId)));
         }
 
-        return patientRepository.findByEmail(userDetails.getUsername())
-                .map(Patient::getId)
-                .orElse(null);
-    }
+        /**
+         * Xem kết quả xét nghiệm
+         */
+        @GetMapping("/{id}/results")
+        public ResponseEntity<ApiResponse<LabResultResponse>> getLabResults(
+                        @PathVariable Long id,
+                        @AuthenticationPrincipal UserDetails userDetails) {
+
+                Long currentUserId = resolveDoctorId(userDetails);
+                String role = "DOCTOR";
+
+                // Nếu không phải bác sĩ thì kiểm tra kỹ thuật viên
+                if (currentUserId == null) {
+                        currentUserId = resolveLabTechnicianId(userDetails);
+                        role = "LAB_TECHNICIAN";
+                }
+
+                // Nếu vẫn không tìm thấy thì kiểm tra bệnh nhân
+                if (currentUserId == null) {
+                        currentUserId = resolvePatientId(userDetails);
+                        role = "PATIENT";
+                }
+
+                return ResponseEntity.ok(
+                                ApiResponse.success(
+                                                labOrderService.getLabResults(id, currentUserId, role)));
+        }
+
+        /**
+         * Bác sĩ duyệt kết quả xét nghiệm
+         *
+         * Sau khi duyệt:
+         * - Kết quả được xác nhận chính thức
+         * - Có thể sử dụng trong chẩn đoán và điều trị
+         */
+        @PutMapping("/{id}/approve")
+        public ResponseEntity<ApiResponse<LabOrderResponse>> approveLabResult(
+                        @PathVariable Long id,
+                        @AuthenticationPrincipal UserDetails userDetails) {
+
+                Long doctorId = resolveDoctorId(userDetails);
+
+                return ResponseEntity.ok(
+                                ApiResponse.success(
+                                                labOrderService.approveLabResult(id, doctorId)));
+        }
+
+        /**
+         * Yêu cầu xét nghiệm lại
+         */
+        @PutMapping("/{id}/retest")
+        public ResponseEntity<ApiResponse<LabOrderResponse>> requestRetest(
+                        @PathVariable Long id,
+                        @RequestBody LabOrderRequest request,
+                        @AuthenticationPrincipal UserDetails userDetails) {
+
+                Long doctorId = resolveDoctorId(userDetails);
+
+                return ResponseEntity.ok(
+                                ApiResponse.success(
+                                                labOrderService.requestRetest(id, doctorId, request)));
+        }
+
+        /**
+         * Lấy danh sách kỹ thuật viên xét nghiệm đang hoạt động
+         *
+         * Chỉ bác sĩ mới được phép truy cập endpoint này
+         */
+        @GetMapping("/technicians")
+        @PreAuthorize("hasAnyRole('DOCTOR')")
+        public ResponseEntity<ApiResponse<List<LabTechnicianResponse>>> getActiveLabTechnicians() {
+
+                return ResponseEntity.ok(
+                                ApiResponse.success(
+                                                labOrderService.getActiveLabTechnicians()));
+        }
+
+        /**
+         * Lấy tất cả phiếu xét nghiệm do bác sĩ hiện tại tạo
+         */
+        @GetMapping("/doctor")
+        public ResponseEntity<ApiResponse<List<LabOrderResponse>>> getLabOrdersForDoctor(
+                        @AuthenticationPrincipal UserDetails userDetails) {
+
+                Long doctorId = resolveDoctorId(userDetails);
+
+                return ResponseEntity.ok(
+                                ApiResponse.success(
+                                                labOrderService.getLabOrdersForDoctor(doctorId)));
+        }
+
+        /**
+         * Lưu kết quả xét nghiệm dưới dạng bản nháp
+         *
+         * Dùng khi kỹ thuật viên chưa hoàn tất nhập dữ liệu
+         */
+        @PutMapping("/{id}/draft")
+        public ResponseEntity<ApiResponse<LabOrderResponse>> saveDraft(
+                        @PathVariable Long id,
+                        @RequestBody LabResultRequest request,
+                        @AuthenticationPrincipal UserDetails userDetails) {
+
+                Long labTechnicianId = resolveLabTechnicianId(userDetails);
+
+                return ResponseEntity.ok(
+                                ApiResponse.success(
+                                                labOrderService.saveDraft(id, request, labTechnicianId)));
+        }
+
+        @GetMapping("/patient")
+        public ResponseEntity<ApiResponse<List<LabOrderResponse>>> getLabOrdersForPatient(
+                        @AuthenticationPrincipal UserDetails userDetails) {
+                Long patientId = resolvePatientId(userDetails);
+
+                return ResponseEntity.ok(
+                                ApiResponse.success(
+                                                labOrderService.getLabOrdersForPatient(patientId)));
+        }
+
+        /**
+         * Lấy toàn bộ phiếu xét nghiệm thuộc một hồ sơ bệnh án — dành cho Patient xem,
+         * chỉ khi hồ sơ bệnh án đó thuộc về chính bệnh nhân đang đăng nhập
+         */
+        @GetMapping("/emr/{medicalRecordId}/patient")
+        public ResponseEntity<ApiResponse<List<LabOrderResponse>>> getLabOrdersForMedicalRecordAsPatient(
+                        @PathVariable Long medicalRecordId,
+                        @AuthenticationPrincipal UserDetails userDetails) {
+
+                Long patientId = resolvePatientId(userDetails);
+
+                return ResponseEntity.ok(
+                                ApiResponse.success(
+                                                labOrderService.getLabOrdersForMedicalRecordAsPatient(medicalRecordId,
+                                                                patientId)));
+        }
+
+        /**
+         * Tìm ID bác sĩ từ email của tài khoản đăng nhập
+         */
+        private Long resolveDoctorId(UserDetails userDetails) {
+                if (userDetails == null) {
+                        return null;
+                }
+
+                return doctorRepository.findByEmail(userDetails.getUsername())
+                                .map(Doctor::getId)
+                                .orElse(null);
+        }
+
+        /**
+         * Tìm ID kỹ thuật viên xét nghiệm từ email đăng nhập
+         */
+        private Long resolveLabTechnicianId(UserDetails userDetails) {
+                if (userDetails == null) {
+                        return null;
+                }
+
+                return labTechnicianRepository.findByEmail(userDetails.getUsername())
+                                .map(LabTechnician::getId)
+                                .orElse(null);
+        }
+
+        /**
+         * Tìm ID bệnh nhân từ email đăng nhập
+         */
+        private Long resolvePatientId(UserDetails userDetails) {
+                if (userDetails == null) {
+                        return null;
+                }
+
+                return patientRepository.findByEmail(userDetails.getUsername())
+                                .map(Patient::getId)
+                                .orElse(null);
+        }
 }
