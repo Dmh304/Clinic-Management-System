@@ -11,6 +11,7 @@ import com.ecms.repository.MedicalRecordRepository;
 import com.ecms.repository.PrescriptionRepository;
 import com.ecms.service.InvoiceService;
 import com.ecms.service.InvoicePdfService;
+import com.ecms.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,6 +45,10 @@ public class InvoiceServiceImpl implements InvoiceService {
 
     private final InvoiceRepository invoiceRepository;
     private final AppointmentRepository appointmentRepository;
+    private final MedicalRecordRepository medicalRecordRepository;
+    private final PrescriptionRepository prescriptionRepository;
+    private final LabOrderRepository labOrderRepository;
+    private final NotificationService notificationService;
     private final InvoicePdfService invoicePdfService;
 
     // Lấy tất cả hóa đơn (không kèm items) — dùng cho bảng lịch sử hóa đơn
@@ -167,10 +172,6 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .paymentMethod(request.getPaymentMethod())
                 .paymentReference(request.getPaymentReference())
                 .status("DRAFT")
-                // ThangNBHE201024 — hóa đơn QR nằm ở PENDING_PAYMENT ngay khi tạo: mã QR đã
-                // đưa cho bệnh nhân quét, hệ thống đang chờ cổng thanh toán báo tiền về.
-                // Chỉ webhook mới được đẩy sang PAID (xem PaymentServiceImpl).
-                // Hóa đơn tiền mặt giữ UNPAID cho đến khi lễ tân phát hành.
                 .paymentStatus("VIET_QR".equals(request.getPaymentMethod())
                         ? "PENDING_PAYMENT" : "UNPAID")
                 .notes(request.getNotes())
@@ -345,7 +346,23 @@ public class InvoiceServiceImpl implements InvoiceService {
         invoice.setPaymentStatus("PAID");
         invoice.setPaidAt(LocalDateTime.now());
 
+        // UC-23 POST-3: khi hóa đơn đã thu tiền, đảm bảo lượt khám ở trạng thái COMPLETED.
+        markAppointmentCompleted(invoice);
+
         return toResponseWithItems(invoiceRepository.save(invoice));
+    }
+
+    // UC-23 POST-3 — chốt lượt khám sang COMPLETED khi hóa đơn được thanh toán.
+    // Thường lịch hẹn đã COMPLETED từ lúc bác sĩ khóa bệnh án; ở đây chỉ set bù cho
+    // chắc chắn và không đụng vào lịch đã CANCELLED. Lịch hẹn đang nằm trong
+    // persistence context nên thay đổi được flush tự động.
+    private void markAppointmentCompleted(Invoice invoice) {
+        Appointment appt = invoice.getAppointment();
+        if (appt == null) return;
+        if (appt.getStatus() != AppointmentStatus.CANCELLED
+                && appt.getStatus() != AppointmentStatus.COMPLETED) {
+            appt.setStatus(AppointmentStatus.COMPLETED);
+        }
     }
 
     @Override
@@ -371,6 +388,18 @@ public class InvoiceServiceImpl implements InvoiceService {
         String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         long count = invoiceRepository.countByDatePrefix(dateStr);
         return String.format("INV-%s-%04d", dateStr, count + 1);
+    }
+
+    private void notifyPaymentRequested(Invoice invoice) {
+        Patient p = invoice.getPatient();
+        if (p == null || p.getUser() == null) return;
+        try {
+            Long apptId = invoice.getAppointment() != null ? invoice.getAppointment().getId() : null;
+            notificationService.createForUser(p.getUser().getId(),
+                    "Bạn có hóa đơn " + invoice.getInvoiceCode()
+                            + " cần thanh toán. Vào 'Hóa đơn của tôi' để quét mã QR.", apptId);
+        } catch (Exception e) {
+        }
     }
 
     // Chuyển Invoice entity → DTO (không kèm items) — dùng cho danh sách

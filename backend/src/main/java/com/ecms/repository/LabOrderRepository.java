@@ -53,6 +53,9 @@ public interface LabOrderRepository extends JpaRepository<LabOrder, Long> {
 
     boolean existsByMedicalRecordIdAndStatusIn(Long medicalRecordId, List<LabOrderStatus> statuses);
 
+    // UC-49: đếm lab order theo trạng thái (vd IN_PROGRESS) cho dashboard vận hành
+    long countByStatus(LabOrderStatus status);
+
     /**
      * Tìm danh sách phiếu xét nghiệm do bác sĩ chỉ định,
      * sắp xếp theo mức độ ưu tiên (EMERGENCY > WARNING > PRIMARY),

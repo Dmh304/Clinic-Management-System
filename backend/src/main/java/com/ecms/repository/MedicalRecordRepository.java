@@ -15,6 +15,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -50,5 +51,8 @@ public interface MedicalRecordRepository extends JpaRepository<MedicalRecord, Lo
 
     /* Lấy toàn bộ danh sách hồ sơ bệnh án có trong hệ thống phòng khám trước */
     List<MedicalRecord> findAllByOrderByCreatedAtDesc();
+
+    // UC-51: hồ sơ bệnh án tạo trong khoảng thời gian — dùng thống kê chẩn đoán phổ biến
+    List<MedicalRecord> findByCreatedAtBetween(LocalDateTime from, LocalDateTime to);
 
 }

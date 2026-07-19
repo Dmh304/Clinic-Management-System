@@ -30,7 +30,7 @@ import { useLocation } from 'react-router-dom'
 import {
   Table, Tag, Button, Space, Typography, Card, message,
   Modal, Form, Input, Select, InputNumber, Tabs, Divider,
-  Descriptions, Popconfirm, Row, Col, Statistic, Spin, Tooltip, AutoComplete, Segmented,
+  Descriptions, Popconfirm, Row, Col, Statistic, Spin, Tooltip, AutoComplete,
 } from 'antd'
 import {
   PlusOutlined, DeleteOutlined, ReloadOutlined,
@@ -136,8 +136,6 @@ export default function InvoicePage() {
   const [apptSearch, setApptSearch]           = useState('')
   const [invoiceSearch, setInvoiceSearch]     = useState('')
   const [activeTab, setActiveTab]             = useState('pending')
-  // Tách lịch sử hóa đơn: 'unpaid' = chưa thanh toán, 'paid' = đã thanh toán
-  const [historyFilter, setHistoryFilter]     = useState('unpaid')
 
   // Modal tạo hóa đơn
   const [createModal, setCreateModal] = useState({ open: false, appointment: null })
@@ -287,7 +285,6 @@ export default function InvoicePage() {
   // Hóa đơn ĐÃ HỦY bị loại khỏi cả hai — coi như đã bỏ đi, không còn cần xử lý.
   const paidInvoices   = filteredInvoices.filter((i) => i.paymentStatus === 'PAID' && i.status !== 'CANCELLED')
   const unpaidInvoices = filteredInvoices.filter((i) => i.paymentStatus !== 'PAID' && i.status !== 'CANCELLED')
-  const shownInvoices  = historyFilter === 'paid' ? paidInvoices : unpaidInvoices
 
   // Còn hóa đơn nào đang chờ tiền về không? Chỉ những hóa đơn này mới có thể tự đổi
   // trạng thái khi cổng thanh toán báo về, nên chỉ polling khi thực sự có việc để chờ.
@@ -296,12 +293,12 @@ export default function InvoicePage() {
       && (inv.paymentStatus === 'UNPAID' || inv.paymentStatus === 'PENDING_PAYMENT')
   )
 
-  // Tự cập nhật tab "Lịch sử hóa đơn": khi đang mở tab này và còn hóa đơn chưa thanh toán,
-  // định kỳ tải lại danh sách để hóa đơn tự chuyển sang "Đã thanh toán" ngay khi webhook
-  // của cổng gạch nợ — lễ tân không cần bấm "Làm mới". Dừng ngay khi rời tab hoặc không
-  // còn hóa đơn nào chờ, tránh gọi API vô ích.
+  // Tự cập nhật tab "Hóa đơn chờ thanh toán": khi đang mở tab này và còn hóa đơn chưa
+  // thanh toán, định kỳ tải lại danh sách để hóa đơn tự chuyển sang tab "Đã thanh toán"
+  // ngay khi webhook của cổng gạch nợ — lễ tân không cần bấm "Làm mới". Dừng ngay khi rời
+  // tab hoặc không còn hóa đơn nào chờ, tránh gọi API vô ích.
   useEffect(() => {
-    if (activeTab !== 'history' || !hasPendingPayment) return
+    if (activeTab !== 'awaiting' || !hasPendingPayment) return
     const timer = setInterval(() => dispatch(fetchAllInvoices()), HISTORY_POLL_MS)
     return () => clearInterval(timer)
   }, [activeTab, hasPendingPayment, dispatch])
@@ -469,6 +466,12 @@ export default function InvoicePage() {
     const values = await validateInvoiceForm()
     if (!values) return
 
+    setSubmitting(true)
+    try {
+      // Luồng tiền mặt: tạo hóa đơn DRAFT (chờ nhận tiền), chưa phát hành.
+      const created = await dispatch(createInvoice(buildInvoicePayload(values))).unwrap()
+      message.success(`Đã tạo hóa đơn ${created.invoiceCode} (chờ nhận tiền).`)
+
       // UC-22/UC-23 (BP-4): tạo & phát hành xong thì gửi hóa đơn điện tử vào email
       // bệnh nhân. Việc gửi chạy nền; tình trạng gửi hiển thị ở cột "Gửi email".
       // Lỗi (bệnh nhân chưa có email) chỉ cảnh báo, không làm hỏng luồng thu phí.
@@ -593,7 +596,7 @@ export default function InvoicePage() {
   const handleConfirmCash = async (id) => {
     try {
       await dispatch(issueInvoice({ id, paymentMethod: 'CASH', paymentReference: null })).unwrap()
-      message.success('Đã xác nhận nhận tiền — hóa đơn đã thanh toán')
+      message.success('Đã nhận tiền mặt — xác nhận thanh toán thành công')
       dispatch(fetchAllInvoices())
       void refreshAppointments()
       await sendInvoiceEmailQuietly(id)   // gửi biên nhận cho bệnh nhân
@@ -754,7 +757,7 @@ export default function InvoicePage() {
         d ? new Date(d).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' }) : '—',
     },
     {
-      title: 'Hành động', key: 'action', width: 215,
+      title: 'Hành động', key: 'action', width: 320,
       render: (_, record) => (
         <Space>
           <Button size="small" icon={<FileTextOutlined />}
@@ -768,6 +771,15 @@ export default function InvoicePage() {
             }}>
             Chi tiết
           </Button>
+          {record.status === 'DRAFT' && record.paymentMethod === 'CASH' && record.paymentStatus === 'UNPAID' && (
+            <Popconfirm title="Xác nhận đã nhận đủ tiền mặt?"
+              onConfirm={() => handleConfirmCash(record.id)} okText="Xác nhận" cancelText="Không">
+              <Button size="small" type="primary"
+                style={{ backgroundColor: '#10b981', borderColor: '#10b981' }}>
+                Xác nhận nhận được tiền mặt
+              </Button>
+            </Popconfirm>
+          )}
           {record.status === 'ISSUED' && (
             <Tooltip title={record.emailStatus === 'SENT' ? 'Gửi lại email hóa đơn' : 'Gửi email hóa đơn'}>
               <Button size="small" icon={<MailOutlined />} loading={emailSending}
@@ -857,8 +869,8 @@ export default function InvoicePage() {
             ),
           },
           {
-            key: 'history',
-            label: `Lịch sử hóa đơn  (${invoices.length})`,
+            key: 'awaiting',
+            label: `Hóa đơn chờ thanh toán  (${unpaidInvoices.length})`,
             children: (
               <Card>
                 <Space style={{ marginBottom: 16 }}>
@@ -884,25 +896,45 @@ export default function InvoicePage() {
                   )}
                 </Space>
 
-                <Segmented
-                  value={historyFilter}
-                  onChange={setHistoryFilter}
-                  style={{ marginBottom: 16 }}
-                  options={[
-                    { label: `Chưa thanh toán (${unpaidInvoices.length})`, value: 'unpaid' },
-                    { label: `Đã thanh toán (${paidInvoices.length})`, value: 'paid' },
-                  ]}
-                />
-
                 <Table
                   columns={invoiceColumns}
-                  dataSource={shownInvoices}
+                  dataSource={unpaidInvoices}
                   rowKey="id"
                   loading={invoiceLoading}
                   pagination={{ pageSize: 10, showSizeChanger: false }}
-                  locale={{ emptyText: historyFilter === 'paid'
-                    ? 'Chưa có hóa đơn đã thanh toán'
-                    : 'Không có hóa đơn chưa thanh toán' }}
+                  locale={{ emptyText: 'Không có hóa đơn chờ thanh toán' }}
+                  scroll={{ x: 1200 }}
+                />
+              </Card>
+            ),
+          },
+          {
+            key: 'history',
+            label: `Lịch sử hóa đơn đã thanh toán  (${paidInvoices.length})`,
+            children: (
+              <Card>
+                <Space style={{ marginBottom: 16 }}>
+                  <Input
+                    placeholder="Tìm theo tên, SĐT, mã hóa đơn..."
+                    prefix={<SearchOutlined />}
+                    value={invoiceSearch}
+                    onChange={(e) => setInvoiceSearch(e.target.value)}
+                    style={{ width: 300 }}
+                    allowClear
+                  />
+                  <Button icon={<ReloadOutlined />}
+                    onClick={() => dispatch(fetchAllInvoices())} loading={invoiceLoading}>
+                    Làm mới
+                  </Button>
+                </Space>
+
+                <Table
+                  columns={invoiceColumns}
+                  dataSource={paidInvoices}
+                  rowKey="id"
+                  loading={invoiceLoading}
+                  pagination={{ pageSize: 10, showSizeChanger: false }}
+                  locale={{ emptyText: 'Chưa có hóa đơn đã thanh toán' }}
                   scroll={{ x: 1200 }}
                 />
               </Card>

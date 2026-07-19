@@ -117,7 +117,20 @@ public class InvoiceController {
             @RequestBody(required = false) IssueRequest body) {
         String method = body != null ? body.getPaymentMethod() : null;
         String ref = body != null ? body.getPaymentReference() : null;
-        return ResponseEntity.ok(ApiResponse.success(invoiceService.issueInvoice(id, method, ref)));
+        InvoiceResponse issued = invoiceService.issueInvoice(id, method, ref);
+
+        // UC-24: tự động gửi hóa đơn điện tử qua email ngay khi thu tiền (nếu bệnh nhân có email).
+        // Best-effort: lỗi gửi mail không được làm hỏng việc phát hành đã thành công.
+        if ("PAID".equals(issued.getPaymentStatus())
+                && issued.getPatientEmail() != null && !issued.getPatientEmail().isBlank()) {
+            try {
+                invoiceService.markEmailSending(id);
+                invoiceMailDispatcher.dispatch(id);
+            } catch (Exception ignored) {
+                // Lễ tân vẫn có thể bấm gửi lại thủ công nếu tự động gửi lỗi
+            }
+        }
+        return ResponseEntity.ok(ApiResponse.success(issued));
     }
 
     // Hủy hóa đơn nháp — chỉ cho phép khi trạng thái là DRAFT

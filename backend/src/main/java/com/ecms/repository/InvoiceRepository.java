@@ -8,11 +8,19 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
+
+    // UC-50: hóa đơn đã thanh toán trong khoảng thời gian (theo ngày thu tiền) — dùng cho báo cáo doanh thu
+    List<Invoice> findByPaymentStatusAndPaidAtBetween(String paymentStatus, LocalDateTime from, LocalDateTime to);
+
+    // UC-49: đếm hóa đơn còn nợ (chưa PAID, chưa hủy) cho dashboard vận hành
+    @Query("SELECT COUNT(i) FROM Invoice i WHERE i.paymentStatus <> 'PAID' AND i.status <> 'CANCELLED'")
+    long countOutstanding();
 
     // --- Hàm của nhánh Duc ---
     List<Invoice> findByPatientId(Long patientId);

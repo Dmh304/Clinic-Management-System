@@ -322,4 +322,7 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
         List<Appointment> findNoShowAppointments(
                         @Param("cutoff") LocalDateTime cutoff,
                         @Param("statuses") Collection<AppointmentStatus> statuses);
+
+        // UC-51/52/53: lấy lịch hẹn theo khoảng thời gian để tổng hợp báo cáo
+        List<Appointment> findByAppointmentTimeBetween(LocalDateTime from, LocalDateTime to);
 }

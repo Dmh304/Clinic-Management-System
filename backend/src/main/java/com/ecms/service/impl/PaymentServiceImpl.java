@@ -17,6 +17,8 @@ package com.ecms.service.impl;
 
 import com.ecms.dto.request.PaymentWebhookRequest;
 import com.ecms.dto.response.PaymentStatusResponse;
+import com.ecms.entity.Appointment;
+import com.ecms.entity.AppointmentStatus;
 import com.ecms.entity.Invoice;
 import com.ecms.entity.PaymentTransaction;
 import com.ecms.exception.ResourceNotFoundException;
@@ -45,6 +47,8 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentTransactionRepository paymentTransactionRepository;
     // Gửi thông báo "Thanh toán thành công" cho bệnh nhân (UC-22)
     private final com.ecms.service.NotificationService notificationService;
+    // UC-24: tự gửi hóa đơn điện tử qua email khi cổng báo tiền về (chạy nền)
+    private final InvoiceMailDispatcher invoiceMailDispatcher;
 
     // API key cổng thanh toán phải gửi kèm header: Authorization: Apikey <key>
     @Value("${payment.webhook.api-key:}")
@@ -175,7 +179,30 @@ public class PaymentServiceImpl implements PaymentService {
         if ("DRAFT".equals(invoice.getStatus())) {
             invoice.setStatus("ISSUED");
         }
+
+        // UC-23 POST-3: chốt lượt khám sang COMPLETED khi đã thu tiền (bỏ qua lịch đã hủy/đã hoàn tất).
+        Appointment appt = invoice.getAppointment();
+        if (appt != null && appt.getStatus() != AppointmentStatus.CANCELLED
+                && appt.getStatus() != AppointmentStatus.COMPLETED) {
+            appt.setStatus(AppointmentStatus.COMPLETED);
+        }
+
+        // UC-24: tự động gửi hóa đơn điện tử qua email khi thanh toán thành công (nếu có email).
+        boolean hasEmail = invoice.getPatient() != null
+                && invoice.getPatient().getEmail() != null
+                && !invoice.getPatient().getEmail().isBlank();
+        if (hasEmail) {
+            invoice.setEmailStatus("SENDING");
+        }
         invoiceRepository.save(invoice);
+        if (hasEmail) {
+            try {
+                invoiceMailDispatcher.dispatch(invoice.getId());
+            } catch (Exception e) {
+                log.warn("Không gửi được email hóa đơn {} sau thanh toán QR: {}",
+                        invoiceCode, e.getMessage());
+            }
+        }
 
         txn.setStatus("MATCHED");
         txn.setNote("Đã tự động gạch nợ hóa đơn " + invoiceCode);
