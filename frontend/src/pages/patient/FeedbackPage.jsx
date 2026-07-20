@@ -1,29 +1,64 @@
-// UC-48: Bệnh nhân gửi đánh giá cho các buổi khám đã hoàn thành.
+// UC-48: Bệnh nhân đánh giá buổi khám đã hoàn thành.
+// Luồng 2 bước: (1) chọn buổi khám → (2) form đánh giá gồm ĐÁNH GIÁ TỔNG THỂ
+// và ĐÁNH GIÁ TỪNG NGƯỜI THAM GIA (bác sĩ, lễ tân, KTV xét nghiệm).
 import { useEffect, useState } from 'react'
+import { FiUser, FiCalendar, FiClock } from 'react-icons/fi'
+import { FaStar, FaRegStar, FaStethoscope, FaFlask, FaConciergeBell } from 'react-icons/fa'
 import { appointmentService } from '../../services/appointmentService'
 import { feedbackService } from '../../services/feedbackService'
 
-const card = { background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 16, marginBottom: 12 }
+const TEAL = '#0f6e66'
+const MAX_LEN = 600
 
-function StarPicker({ value, onChange }) {
+// Nền sáng cho cả trang (tránh nền tối của layout)
+const PAGE = { background: '#f1f5f9', minHeight: '100vh', color: '#0f172a' }
+
+const fmtDate = (iso) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return d.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
+}
+const fmtTime = (iso) => (iso ? new Date(iso).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '')
+
+const ROLE_ICON = { DOCTOR: FaStethoscope, RECEPTIONIST: FaConciergeBell, LAB_TECHNICIAN: FaFlask }
+
+function Stars({ value, onChange, size = 40 }) {
+  const [hover, setHover] = useState(0)
   return (
-    <span>
-      {[1, 2, 3, 4, 5].map((s) => (
-        <span key={s} onClick={() => onChange(s)}
-          style={{ cursor: 'pointer', fontSize: 24, color: s <= value ? '#f59e0b' : '#cbd5e1' }}>★</span>
-      ))}
-    </span>
+    <div style={{ display: 'flex', gap: 4 }} onMouseLeave={() => setHover(0)}>
+      {[1, 2, 3, 4, 5].map((s) => {
+        const filled = s <= (hover || value)
+        const Icon = filled ? FaStar : FaRegStar
+        return (
+          <Icon key={s} size={size} color={filled ? '#f4b400' : '#d8d2c4'} style={{ cursor: 'pointer' }}
+            onClick={() => onChange(s)} onMouseEnter={() => setHover(s)} />
+        )
+      })}
+    </div>
   )
+}
+
+function RoleIcon({ role }) {
+  const Icon = ROLE_ICON[role] || FiUser
+  return <Icon size={16} color="#0f6e66" />
 }
 
 export default function FeedbackPage() {
   const [appointments, setAppointments] = useState([])
   const [doneIds, setDoneIds] = useState(new Set())
-  const [drafts, setDrafts] = useState({}) // apptId -> { rating, content }
+  const [loadingList, setLoadingList] = useState(true)
+
+  const [selected, setSelected] = useState(null)
+  const [visit, setVisit] = useState(null)
+  const [rating, setRating] = useState(0)
+  const [content, setContent] = useState('')
+  const [partRatings, setPartRatings] = useState({}) // key idx -> rating
+  const [submitting, setSubmitting] = useState(false)
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
 
-  const load = async () => {
+  const loadList = async () => {
+    setLoadingList(true)
     try {
       const [apptRes, fbRes] = await Promise.all([
         appointmentService.getMyAppointments(),
@@ -32,63 +67,149 @@ export default function FeedbackPage() {
       setAppointments((apptRes.data || []).filter((a) => a.status === 'COMPLETED'))
       setDoneIds(new Set((fbRes.data || []).map((f) => f.appointmentId)))
     } catch (e) {
-      setError(e?.response?.data?.message || 'Không tải được dữ liệu')
+      setError(e?.response?.data?.message || 'Không tải được danh sách buổi khám')
+    } finally { setLoadingList(false) }
+  }
+  useEffect(() => { loadList() }, [])
+
+  const openForm = async (appt) => {
+    setSelected(appt); setVisit(null); setRating(0); setContent(''); setPartRatings({}); setError(''); setMsg('')
+    try {
+      const res = await feedbackService.getParticipants(appt.id)
+      setVisit(res.data || {})
+    } catch (e) {
+      setError(e?.response?.data?.message || 'Không tải được thông tin buổi khám')
     }
   }
-  useEffect(() => { load() }, [])
 
-  const setDraft = (id, field, value) =>
-    setDrafts((d) => ({ ...d, [id]: { ...d[id], [field]: value } }))
+  const backToList = () => { setSelected(null); setVisit(null) }
 
-  const submit = async (apptId) => {
-    const draft = drafts[apptId] || {}
-    if (!draft.rating) { setError('Vui lòng chọn số sao'); return }
-    setError(''); setMsg('')
+  const submit = async () => {
+    if (!rating) { setError('Vui lòng chọn số sao đánh giá tổng thể'); return }
+    const participants = visit?.participants || []
+    const participantRatings = participants
+      .map((p, i) => ({ role: p.role, name: p.name, rating: partRatings[i] }))
+      .filter((x) => x.rating)
+    setSubmitting(true); setError('')
     try {
       await feedbackService.submit({
-        appointmentId: apptId,
-        rating: draft.rating,
-        content: draft.content || null,
-        isAnonymous: false,
+        appointmentId: selected.id, rating, content: content || null, isAnonymous: false, participantRatings,
       })
       setMsg('Cảm ơn bạn đã gửi đánh giá!')
-      setDoneIds((s) => new Set([...s, apptId]))
+      setDoneIds((s) => new Set([...s, selected.id]))
+      await loadList()
+      backToList()
     } catch (e) {
       setError(e?.response?.data?.message || 'Gửi đánh giá thất bại')
-    }
+    } finally { setSubmitting(false) }
   }
 
-  return (
-    <div style={{ padding: 24, maxWidth: 720 }}>
-      <h2>Đánh giá buổi khám</h2>
-      {msg && <div style={{ color: '#059669', marginBottom: 12 }}>{msg}</div>}
-      {error && <div style={{ color: '#dc2626', marginBottom: 12 }}>{error}</div>}
-
-      {appointments.length === 0 && <p style={{ color: '#64748b' }}>Bạn chưa có buổi khám hoàn thành nào.</p>}
-
-      {appointments.map((a) => {
-        const done = doneIds.has(a.id)
-        const draft = drafts[a.id] || {}
-        return (
-          <div key={a.id} style={card}>
-            <div style={{ fontWeight: 600 }}>
-              {a.doctorName ? `BS. ${a.doctorName}` : 'Buổi khám'} · {a.appointmentTime ? new Date(a.appointmentTime).toLocaleString('vi-VN') : ''}
+  // ─────────────────── BƯỚC 2: form đánh giá ───────────────────
+  if (selected) {
+    const doctorName = visit?.doctorName || selected.doctorName
+    const specialty = visit?.doctorSpecialty
+    const participants = visit?.participants || []
+    return (
+      <div style={PAGE}>
+        <div style={{ maxWidth: 640, margin: '0 auto', padding: '24px 16px' }}>
+          <div style={{ border: '1px solid #e2e8f0', borderRadius: 14, overflow: 'hidden', background: '#fff' }}>
+            {/* Header teal */}
+            <div style={{ background: TEAL, color: '#fff', padding: '22px 28px' }}>
+              <div style={{ fontSize: 12, letterSpacing: 2, opacity: 0.85, marginBottom: 10 }}>ECMS — CỔNG BỆNH NHÂN</div>
+              <div style={{ fontSize: 30, fontWeight: 700, fontFamily: 'Georgia, serif' }}>Buổi khám của bạn thế nào?</div>
+              <div style={{ opacity: 0.9, marginTop: 6 }}>Đánh giá của bạn giúp chúng tôi cải thiện chất lượng chăm sóc.</div>
             </div>
-            {done ? (
-              <div style={{ color: '#059669', marginTop: 8 }}>✓ Đã đánh giá</div>
-            ) : (
-              <div style={{ marginTop: 8 }}>
-                <StarPicker value={draft.rating || 0} onChange={(v) => setDraft(a.id, 'rating', v)} />
-                <br />
-                <textarea placeholder="Nhận xét (không bắt buộc)" value={draft.content || ''}
-                  onChange={(e) => setDraft(a.id, 'content', e.target.value)}
-                  style={{ width: '100%', minHeight: 60, marginTop: 8 }} />
-                <button onClick={() => submit(a.id)} style={{ padding: '6px 16px', marginTop: 6 }}>Gửi đánh giá</button>
+
+            {/* Thông tin buổi khám */}
+            <div style={{ background: '#eaf3f1', padding: '16px 28px', borderBottom: '1px solid #e2e8f0' }}>
+              <div style={{ color: TEAL, fontWeight: 700, fontSize: 16 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><FiUser /> {doctorName ? `BS. ${doctorName}` : 'Bác sĩ'}{specialty ? ` · ${specialty}` : ''}</span>
               </div>
-            )}
+              <div style={{ color: '#475569', fontSize: 13, marginTop: 6 }}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><FiCalendar /> {fmtDate(visit?.appointmentTime || selected.appointmentTime)}</span> &nbsp;&nbsp; <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><FiClock /> {fmtTime(visit?.appointmentTime || selected.appointmentTime)}</span>
+              </div>
+              {visit?.serviceName && <div style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>{visit.serviceName}</div>}
+            </div>
+
+            <div style={{ padding: '20px 28px' }}>
+              {/* Đánh giá tổng thể */}
+              <div style={{ fontWeight: 600, marginBottom: 8 }}>Đánh giá tổng thể <span style={{ color: '#ef4444' }}>*</span></div>
+              <Stars value={rating} onChange={setRating} />
+
+              {/* Đánh giá từng người tham gia */}
+              <div style={{ fontWeight: 600, margin: '20px 0 4px' }}>Đánh giá từng người tham gia <span style={{ color: '#94a3b8', fontWeight: 400 }}>(không bắt buộc)</span></div>
+              {participants.length === 0 ? (
+                <div style={{ color: '#94a3b8', fontSize: 13, marginBottom: 8 }}>{visit ? 'Không có dữ liệu người tham gia.' : 'Đang tải…'}</div>
+              ) : (
+                <div style={{ marginTop: 8 }}>
+                  {participants.map((p, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
+                      <div style={{ fontSize: 14 }}>
+                        <span style={{ marginRight: 6, display: 'inline-flex', verticalAlign: 'middle' }}><RoleIcon role={p.role} /></span>
+                        <b>{p.roleLabel}:</b> {p.name}{p.detail ? ` (${p.detail})` : ''}
+                      </div>
+                      <Stars size={22} value={partRatings[i] || 0} onChange={(v) => setPartRatings((r) => ({ ...r, [i]: v }))} />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Nhận xét */}
+              <div style={{ fontWeight: 600, margin: '18px 0 8px' }}>Nhận xét <span style={{ color: '#94a3b8', fontWeight: 400 }}>(không bắt buộc)</span></div>
+              <textarea value={content} maxLength={MAX_LEN} onChange={(e) => setContent(e.target.value)}
+                placeholder="Chia sẻ trải nghiệm của bạn về bác sĩ, nhân viên hoặc phòng khám…"
+                style={{ width: '100%', minHeight: 110, padding: 12, border: '1px solid #cbd5e1', borderRadius: 8, resize: 'vertical', background: '#f8fafc', boxSizing: 'border-box', color: '#0f172a' }} />
+              <div style={{ textAlign: 'right', color: '#94a3b8', fontSize: 12 }}>{content.length}/{MAX_LEN}</div>
+
+              <div style={{ color: '#64748b', fontSize: 13, marginTop: 6 }}>
+                Đánh giá của bạn sẽ được Quản lý phòng khám xem xét trước khi xử lý. Nội dung không được chia sẻ công khai nếu không có sự đồng ý của bạn.
+              </div>
+
+              {error && <div style={{ color: '#dc2626', marginTop: 12 }}>{error}</div>}
+              {msg && <div style={{ color: '#059669', marginTop: 12 }}>{msg}</div>}
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 20 }}>
+                <button onClick={backToList} style={{ background: 'none', border: 'none', textDecoration: 'underline', color: '#334155', cursor: 'pointer', fontSize: 14 }}>Bỏ qua</button>
+                <button onClick={submit} disabled={submitting}
+                  style={{ background: TEAL, color: '#fff', border: 'none', borderRadius: 999, padding: '12px 28px', fontWeight: 600, cursor: 'pointer' }}>
+                  {submitting ? 'Đang gửi…' : 'Gửi đánh giá'}
+                </button>
+              </div>
+            </div>
           </div>
-        )
-      })}
+        </div>
+      </div>
+    )
+  }
+
+  // ─────────────────── BƯỚC 1: chọn buổi khám ───────────────────
+  return (
+    <div style={PAGE}>
+      <div style={{ maxWidth: 720, margin: '0 auto', padding: 24 }}>
+        <h2 style={{ color: '#0f172a', marginBottom: 4 }}>Đánh giá buổi khám</h2>
+        <p style={{ color: '#64748b', marginTop: 0 }}>Chọn một buổi khám đã hoàn thành để gửi đánh giá.</p>
+        {msg && <div style={{ color: '#059669', marginBottom: 12 }}>{msg}</div>}
+        {error && <div style={{ color: '#dc2626', marginBottom: 12 }}>{error}</div>}
+
+        {loadingList ? <p style={{ color: '#64748b' }}>Đang tải…</p>
+          : appointments.length === 0 ? <p style={{ color: '#64748b' }}>Bạn chưa có buổi khám hoàn thành nào.</p>
+            : appointments.map((a) => {
+              const done = doneIds.has(a.id)
+              return (
+                <div key={a.id} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 16, marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontWeight: 600, color: '#0f172a' }}>{a.doctorName ? `BS. ${a.doctorName}` : 'Buổi khám'}</div>
+                    <div style={{ color: '#64748b', fontSize: 13, marginTop: 2 }}>
+                      {fmtDate(a.appointmentTime)} · {fmtTime(a.appointmentTime)}{a.serviceName ? ` · ${a.serviceName}` : ''}
+                    </div>
+                  </div>
+                  {done
+                    ? <span style={{ color: '#059669', fontWeight: 600 }}>✓ Đã đánh giá</span>
+                    : <button onClick={() => openForm(a)} style={{ background: TEAL, color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer' }}>Đánh giá</button>}
+                </div>
+              )
+            })}
+      </div>
     </div>
   )
 }

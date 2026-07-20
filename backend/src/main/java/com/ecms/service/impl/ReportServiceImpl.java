@@ -70,20 +70,54 @@ public class ReportServiceImpl implements ReportService {
         long total = appointmentRepository.countByDate(start, end);
         long completed = appointmentRepository.countByDateAndStatus(start, end, AppointmentStatus.COMPLETED);
 
-        // Độ dài hàng đợi (WAITING) hôm nay theo từng bác sĩ — gom từ một lần nạp
-        Map<String, Long> queueByDoctor = new LinkedHashMap<>();
+        // Hàng đợi hôm nay theo từng bác sĩ: số đang chờ (WAITING) + đang khám (IN_PROGRESS)
+        Map<Long, long[]> agg = new LinkedHashMap<>();      // doctorId -> [waiting, inProgress]
+        Map<Long, Doctor> doctorMap = new LinkedHashMap<>();
+        long waitingTotal = 0;
         for (Appointment a : appointmentRepository.findByAppointmentTimeBetween(start, end)) {
-            if (a.getStatus() == AppointmentStatus.WAITING && a.getDoctor() != null) {
-                queueByDoctor.merge(a.getDoctor().getFullName(), 1L, Long::sum);
-            }
+            Doctor doc = a.getDoctor();
+            if (doc == null) continue;
+            doctorMap.putIfAbsent(doc.getId(), doc);
+            long[] c = agg.computeIfAbsent(doc.getId(), k -> new long[2]);
+            if (a.getStatus() == AppointmentStatus.WAITING) { c[0]++; waitingTotal++; }
+            else if (a.getStatus() == AppointmentStatus.IN_PROGRESS) c[1]++;
+        }
+        List<Map<String, Object>> doctorQueue = new ArrayList<>();
+        for (Map.Entry<Long, Doctor> e : doctorMap.entrySet()) {
+            long[] c = agg.get(e.getKey());
+            String status = c[1] > 0 ? "Đang khám" : (c[0] > 0 ? "Sẵn sàng" : "Tạm nghỉ");
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("doctorName", e.getValue().getFullName());
+            row.put("specialty", e.getValue().getSpecialization());
+            row.put("status", status);
+            row.put("waiting", c[0]);
+            row.put("inProgress", c[1]);
+            doctorQueue.add(row);
+        }
+
+        // Đơn thuốc chờ cấp phát (top 8) — cho panel Nhà thuốc
+        List<Map<String, Object>> pendingList = new ArrayList<>();
+        List<Prescription> pending = prescriptionRepository.findByStatusOrderByCreatedAtAsc(PrescriptionStatus.PENDING);
+        for (Prescription p : pending.stream().limit(8).toList()) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("code", "RX-" + p.getId());
+            row.put("patientName", p.getPatient() != null ? p.getPatient().getFullName() : null);
+            row.put("doctorName", p.getDoctor() != null ? p.getDoctor().getFullName() : null);
+            row.put("itemCount", p.getItems() != null ? p.getItems().size() : 0);
+            row.put("createdAt", p.getCreatedAt());
+            pendingList.add(row);
         }
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("todayTotalAppointments", total);
         result.put("todayCompletedAppointments", completed);
-        result.put("queueLengthByDoctor", queueByDoctor);
+        result.put("progressPercent", total > 0 ? Math.round(completed * 1000.0 / total) / 10.0 : 0.0);
+        result.put("waitingPatientsTotal", waitingTotal);
+        result.put("doctorQueue", doctorQueue);
         result.put("pendingPrescriptions", prescriptionRepository.countByStatus(PrescriptionStatus.PENDING));
+        result.put("pendingPrescriptionList", pendingList);
         result.put("outstandingInvoices", invoiceRepository.countOutstanding());
+        result.put("outstandingInvoiceAmount", invoiceRepository.sumOutstanding());
         result.put("labOrdersInProgress", labOrderRepository.countByStatus(LabOrderStatus.IN_PROGRESS));
         return result;
     }
@@ -124,15 +158,68 @@ public class ReportServiceImpl implements ReportService {
         byCategory.put("LAB", labFee);
         byCategory.put("MEDICINE", medicineFee);
 
+        // Doanh thu trung bình mỗi hóa đơn
+        BigDecimal avgPerInvoice = paid.isEmpty() ? BigDecimal.ZERO
+                : totalRevenue.divide(BigDecimal.valueOf(paid.size()), 0, java.math.RoundingMode.HALF_UP);
+
+        // Chi tiết hóa đơn đã thanh toán (top 30 theo tiền giảm dần)
+        List<Map<String, Object>> paidInvoices = paid.stream()
+                .sorted((a, b) -> nz(b.getTotalAmount()).compareTo(nz(a.getTotalAmount())))
+                .limit(30)
+                .map(i -> {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("code", i.getInvoiceCode());
+                    row.put("doctorName", (i.getAppointment() != null && i.getAppointment().getDoctor() != null)
+                            ? i.getAppointment().getDoctor().getFullName() : "—");
+                    row.put("paymentMethod", i.getPaymentMethod());
+                    row.put("amount", nz(i.getTotalAmount()));
+                    return row;
+                }).toList();
+
+        // Xu hướng doanh thu theo tháng trong năm của mốc "đến ngày"
+        int year = to.getYear();
+        int upToMonth = (year == LocalDate.now().getYear()) ? LocalDate.now().getMonthValue() : 12;
+        long[] monthly = new long[13]; // 1..12
+        for (Invoice i : invoiceRepository.findByPaymentStatusAndPaidAtBetween(
+                "PAID", LocalDate.of(year, 1, 1).atStartOfDay(), LocalDate.of(year, 12, 31).atTime(LocalTime.MAX))) {
+            if (i.getPaidAt() != null) monthly[i.getPaidAt().getMonthValue()] += nz(i.getTotalAmount()).longValue();
+        }
+        List<Map<String, Object>> monthlyTrend = new ArrayList<>();
+        for (int mth = 1; mth <= upToMonth; mth++) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("month", mth);
+            row.put("revenue", monthly[mth]);
+            monthlyTrend.add(row);
+        }
+
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("from", from);
         result.put("to", to);
         result.put("invoiceCount", paid.size());
         result.put("totalRevenue", totalRevenue);
+        result.put("averagePerInvoice", avgPerInvoice);
+        result.put("topServiceCategory", topEntry(byCategory));
+        result.put("topDoctor", topEntry(byDoctor));
         result.put("byServiceCategory", byCategory);
         result.put("byDoctor", byDoctor);
         result.put("byPaymentMethod", byMethod);
+        result.put("monthlyTrend", monthlyTrend);
+        result.put("paidInvoices", paidInvoices);
+        result.put("year", year);
         return result;
+    }
+
+    // Trả về {name, amount} của khoản có doanh thu cao nhất trong map
+    private Map<String, Object> topEntry(Map<String, BigDecimal> m) {
+        String bestName = null;
+        BigDecimal best = BigDecimal.valueOf(-1);
+        for (Map.Entry<String, BigDecimal> e : m.entrySet()) {
+            if (nz(e.getValue()).compareTo(best) > 0) { best = nz(e.getValue()); bestName = e.getKey(); }
+        }
+        Map<String, Object> r = new LinkedHashMap<>();
+        r.put("name", bestName);
+        r.put("amount", bestName == null ? BigDecimal.ZERO : best);
+        return r;
     }
 
     // ─────────────────────────────── UC-51 ───────────────────────────────
