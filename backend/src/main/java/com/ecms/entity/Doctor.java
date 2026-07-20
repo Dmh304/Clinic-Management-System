@@ -32,6 +32,9 @@ public class Doctor {
     @Column(name = "specialty", nullable = false, length = 100)
     private String specialization;
 
+    @Column(name = "academic_title", length = 150)
+    private String academicTitle;
+
     @Column(name = "department")
     private String department;
 
@@ -47,6 +50,14 @@ public class Doctor {
 
     @Column(name = "bio")
     private String bio;
+
+    // Mỗi dòng là 1 thành tựu chuyên môn, hiển thị dạng checklist ở trang chi tiết
+    @Column(name = "achievements", columnDefinition = "NVARCHAR(MAX)")
+    private String achievements;
+
+    // Mỗi dòng dạng "Mốc thời gian|Nội dung", hiển thị dạng timeline ở trang chi tiết
+    @Column(name = "career_history", columnDefinition = "NVARCHAR(MAX)")
+    private String careerHistory;
 
     @Column(name = "avatar_url")
     private String avatarUrl;

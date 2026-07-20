@@ -4,6 +4,9 @@ export const doctorService = {
   getAllDoctors: () =>
     axiosClient.get('/v1/doctors'),
 
+  getDoctorById: (id) =>
+    axiosClient.get(`/v1/doctors/${id}`),
+
   /* Tải ảnh đại diện bác sĩ lên server, trả về URL — MANAGER/ADMIN */
   uploadAvatar: (file) => {
     const fd = new FormData()

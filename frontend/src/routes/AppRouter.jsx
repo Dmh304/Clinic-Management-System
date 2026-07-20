@@ -11,6 +11,7 @@ import ProtectedRoute from './ProtectedRoute'
 import HomePage from '../pages/HomePage'
 import BlogListPage from '../pages/BlogListPage'
 import BlogDetailPage from '../pages/BlogDetailPage'
+import DoctorDetailPage from '../pages/DoctorDetailPage'
 import LoginPage from '../pages/auth/LoginPage'
 import RegisterPage from '../pages/auth/RegisterPage'
 import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage'
@@ -108,6 +109,7 @@ export default function AppRouter() {
       <Route path="/" element={<WithHeader><HomePage /></WithHeader>} />
       <Route path="/blogs" element={<WithHeader><BlogListPage /></WithHeader>} />
       <Route path="/blogs/:id" element={<WithHeader><BlogDetailPage /></WithHeader>} />
+      <Route path="/doctors/:id" element={<WithHeader><DoctorDetailPage /></WithHeader>} />
       {/* Trang dịch vụ — mọi người đều xem được (chỉ PATIENT/RECEPTIONIST mới đăng ký được) */}
       <Route path="/services" element={<WithHeader><ServicePackagesPage /></WithHeader>} />
 

@@ -116,6 +116,8 @@ public class SecurityConfig {
                                                 // ══════════════════════════════════════════════════════════════════
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/doctors")
                                                 .permitAll()
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/doctors/*")
+                                                .permitAll()
 
                                                 // ══════════════════════════════════════════════════════════════════
                                                 // ── Services ──────────────────────────────────────────────────────
@@ -328,6 +330,8 @@ public class SecurityConfig {
 
                                                 // ── Doctors list: public ───────────────────────────────────────
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/doctors")
+                                                .permitAll()
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/doctors/*")
                                                 .permitAll()
                                                 .requestMatchers(HttpMethod.PATCH, "/api/v1/doctors/*/avatar")
                                                 .hasAnyRole("MANAGER", "ADMIN")

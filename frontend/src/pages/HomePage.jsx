@@ -2,12 +2,55 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import heroImg from '../assets/ECMS_background.png'
 import machineImg from '../assets/ECMS_Machine.png'
-import logoImg from '../assets/ECMS_Logo.png'
 import { serviceService } from '../services/serviceService'
+import { doctorService } from '../services/doctorService'
+import Footer from '../components/layout/Footer'
 
 function formatPrice(price) {
   if (!price && price !== 0) return null
   return new Intl.NumberFormat('vi-VN').format(price) + 'đ'
+}
+
+function FacebookIcon({ size = 40 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="20" cy="20" r="20" fill="#1877F2" />
+      <g transform="translate(13.5,9.6) scale(0.0406)">
+        <path fill="#fff" d="M279.14 288l14.22-92.66h-88.91v-60.13c0-25.35 12.42-50.06 52.24-50.06h40.42V6.26S260.43 0 225.36 0c-73.22 0-121.08 44.38-121.08 124.72v70.62H22.89V288h81.39v224h100.17V288z" />
+      </g>
+    </svg>
+  )
+}
+
+function ZaloIcon({ size = 40 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+      <rect x="0" y="0" width="40" height="40" rx="11" fill="#0068FF" />
+      <text x="20" y="25" textAnchor="middle" fontFamily="Arial, Helvetica, sans-serif" fontWeight="700" fontSize="13" fill="#fff">Zalo</text>
+    </svg>
+  )
+}
+
+function GmailIcon({ size = 40 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="20" cy="20" r="20" fill="#EA4335" />
+      <g transform="translate(10,10) scale(0.833)">
+        <path fill="#fff" d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" />
+      </g>
+    </svg>
+  )
+}
+
+function PhoneIcon({ size = 40 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="20" cy="20" r="20" fill="#1d4ed8" />
+      <g transform="translate(10,10) scale(0.833)">
+        <path fill="#fff" d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" />
+      </g>
+    </svg>
+  )
 }
 
 const FALLBACK_CLINICAL_SERVICES = [
@@ -20,10 +63,19 @@ const FALLBACK_CLINICAL_SERVICES = [
   { serviceName: 'Cornea', description: 'Chẩn đoán và phục hồi giác mạc chuyên sâu.' },
 ]
 
-const DOCTORS = [
-  { name: 'Dr. Sarah Miller', specialty: 'Chuyên gia Võng mạc', status: 'Available', color: '#3b82f6' },
-  { name: 'Dr. James Chen', specialty: 'Chuyên gia Khúc xạ', status: 'Fully Booked', color: '#6366f1' },
-  { name: 'Dr. Elena Nguyen', specialty: 'Phẫu thuật Lasik', status: 'Available', color: '#ec4899' },
+const CONTACT_METHODS = [
+  { Icon: FacebookIcon, label: 'Facebook', sub: 'Theo dõi fanpage', href: '#' },
+  { Icon: ZaloIcon, label: 'Zalo', sub: 'Nhắn tin tư vấn', href: '#' },
+  { Icon: GmailIcon, label: 'Gmail', sub: 'ecms.nhankhoaanhsao@gmail.com', href: 'mailto:ecms.nhankhoaanhsao@gmail.com' },
+]
+
+const DOCTORS_PER_PAGE = 4
+
+const FALLBACK_EXPERT_DOCTORS = [
+  { id: 1, fullName: 'Nguyễn Văn An', academicTitle: 'Thạc sĩ, Bác sĩ', experienceYears: 15, specialization: 'Chuyên gia kiểm soát cận thị, dịch kính võng' },
+  { id: 2, fullName: 'Trần Bảo Long', academicTitle: 'Bác sĩ chuyên khoa 2', experienceYears: 15, specialization: 'Chuyên gia dịch kính võng mạc, đục thuỷ tinh' },
+  { id: 3, fullName: 'Lê Thị Hạnh', academicTitle: 'Phó Giáo sư, Tiến sĩ, Bác sĩ', experienceYears: 40, specialization: 'Chuyên gia dịch kính võng mạc, thuỷ tinh thể' },
+  { id: 4, fullName: 'Phạm Quốc Việt', academicTitle: 'Thạc sĩ, Bác sĩ', experienceYears: 10, specialization: 'Chuyên gia thể thuỷ tinh, tật khúc xạ, phẫu thuật' },
 ]
 
 const PARTNERS = ['MEDITECH', 'OPTIC-GLO', 'VISION-CARE', 'RETINA-HUB', 'HEALTH-SYNC']
@@ -127,52 +179,69 @@ const s = {
     backgroundColor: '#1d4ed8', color: '#fff', padding: '12px 20px', borderRadius: 12,
     fontSize: 14, fontWeight: 600, textDecoration: 'none', width: '100%', boxSizing: 'border-box',
   },
-  doctorGrid: { flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 },
-  doctorCard: {
+  contactGrid: { flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 },
+  contactCard: {
     display: 'flex', alignItems: 'center', gap: 12,
     border: '1px solid #e2e8f0', borderRadius: 14, padding: '16px',
+    textDecoration: 'none', color: 'inherit',
   },
-  doctorAvatar: {
-    width: 42, height: 42, borderRadius: '50%',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    color: '#fff', fontSize: 15, fontWeight: 700, flexShrink: 0,
+  contactIcon: {
+    width: 40, height: 40,
+    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
-  doctorName: { fontWeight: 600, fontSize: 13, color: '#111827', marginBottom: 2 },
-  doctorSpec: { fontSize: 11, color: '#94a3b8' },
-  badgeAvailable: {
-    display: 'inline-block', marginTop: 4, fontSize: 10, padding: '2px 8px',
-    borderRadius: 999, fontWeight: 600, backgroundColor: '#dcfce7', color: '#15803d',
+  contactLabel: { fontWeight: 600, fontSize: 13, color: '#111827', marginBottom: 2 },
+  contactSub: { fontSize: 11, color: '#94a3b8' },
+  contactCardPrimary: {
+    display: 'flex', alignItems: 'center', gap: 12,
+    borderRadius: 14, padding: '16px', backgroundColor: '#1d4ed8', textDecoration: 'none',
   },
-  badgeBooked: {
-    display: 'inline-block', marginTop: 4, fontSize: 10, padding: '2px 8px',
-    borderRadius: 999, fontWeight: 600, backgroundColor: '#f1f5f9', color: '#64748b',
+  contactIconPrimary: {
+    width: 40, height: 40,
+    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
-  viewMoreCard: {
-    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-    border: '1px solid #e2e8f0', borderRadius: 14, padding: '16px',
-    color: '#94a3b8', fontSize: 13, cursor: 'pointer',
+  contactLabelPrimary: { fontWeight: 700, fontSize: 13, color: '#fff', marginBottom: 2 },
+  contactSubPrimary: { fontSize: 12, color: '#bfdbfe' },
+
+  /* ── expert doctors ── */
+  expertsSection: { backgroundColor: '#fff', padding: '80px 0' },
+  expertsH2: { fontSize: 30, fontWeight: 800, color: '#111827', textAlign: 'center', marginBottom: 40, marginTop: 0 },
+  expertsCarouselWrap: { position: 'relative' },
+  expertsGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 },
+  expertCard: {
+    borderRadius: 16, overflow: 'hidden', border: '1px solid #e2e8f0',
+    boxShadow: '0 2px 12px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column',
   },
+  expertPhoto: {
+    height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: 64, background: 'linear-gradient(160deg, #e2e8f0 0%, #cbd5e1 100%)', color: '#94a3b8',
+  },
+  expertFooter: { backgroundColor: '#0d9488', color: '#fff', padding: '18px 16px', textAlign: 'center' },
+  expertTitle: { fontSize: 12, opacity: 0.9, marginBottom: 4 },
+  expertName: { fontSize: 16, fontWeight: 700, marginBottom: 8 },
+  expertExperience: { fontSize: 12, opacity: 0.9, marginBottom: 4 },
+  expertHighlight: { fontSize: 12, opacity: 0.9, marginBottom: 10, lineHeight: 1.5 },
+  expertDetailLink: { fontSize: 13, fontWeight: 600, color: '#fff', textDecoration: 'underline' },
+  carouselArrow: {
+    position: 'absolute', top: '38%', transform: 'translateY(-50%)',
+    width: 36, height: 36, borderRadius: '50%', border: 'none',
+    backgroundColor: '#0d9488', color: '#fff', fontSize: 16, cursor: 'pointer',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2,
+  },
+  carouselDots: { display: 'flex', justifyContent: 'center', gap: 8, marginTop: 24 },
+  carouselDot: { width: 8, height: 8, borderRadius: '50%', backgroundColor: '#cbd5e1', border: 'none', cursor: 'pointer', padding: 0 },
+  carouselDotActive: { width: 8, height: 8, borderRadius: '50%', backgroundColor: '#0d9488', border: 'none', cursor: 'pointer', padding: 0 },
 
   /* ── partners ── */
   partnersSection: { backgroundColor: '#f1f5f9', padding: '56px 0' },
   partnersLabel: { textAlign: 'center', fontSize: 11, fontWeight: 700, color: '#94a3b8', letterSpacing: 3, textTransform: 'uppercase', marginBottom: 28 },
   partnersRow: { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 56, flexWrap: 'wrap' },
   partnerName: { fontWeight: 700, fontSize: 16, color: '#94a3b8', letterSpacing: 1 },
-
-  /* ── footer ── */
-  footer: { backgroundColor: '#0f172a', color: '#94a3b8', padding: '40px 0' },
-  footerInner: {
-    maxWidth: 1280, margin: '0 auto', padding: '0 24px',
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16,
-  },
-  footerLogo: { display: 'flex', alignItems: 'center', gap: 8, color: '#fff', fontWeight: 700, fontSize: 16, marginBottom: 6 },
-  footerCopy: { fontSize: 12, color: '#475569' },
-  footerLinks: { display: 'flex', alignItems: 'center', gap: 24 },
-  footerLink: { fontSize: 13, color: '#94a3b8', textDecoration: 'none' },
 }
 
 export default function HomePage() {
   const [clinicalServices, setClinicalServices] = useState(FALLBACK_CLINICAL_SERVICES)
+  const [expertDoctors, setExpertDoctors] = useState(FALLBACK_EXPERT_DOCTORS)
+  const [doctorPage, setDoctorPage] = useState(0)
 
   useEffect(() => {
     serviceService
@@ -184,7 +253,24 @@ export default function HomePage() {
       .catch(() => { })
   }, [])
 
+  useEffect(() => {
+    doctorService
+      .getAllDoctors()
+      .then((res) => {
+        const data = res.data ?? []
+        if (data.length > 0) setExpertDoctors(data)
+      })
+      .catch(() => { })
+  }, [])
+
   const [featured, small1, small2] = clinicalServices
+
+  const doctorPageCount = Math.ceil(expertDoctors.length / DOCTORS_PER_PAGE)
+  const visibleDoctors = expertDoctors.slice(
+    doctorPage * DOCTORS_PER_PAGE,
+    doctorPage * DOCTORS_PER_PAGE + DOCTORS_PER_PAGE
+  )
+  const goToDoctorPage = (page) => setDoctorPage((page + doctorPageCount) % doctorPageCount)
 
   return (
     <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', color: '#1e293b' }}>
@@ -256,6 +342,68 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ── EXPERT DOCTORS ── */}
+      <section style={s.expertsSection}>
+        <div style={s.container}>
+          <h2 style={s.expertsH2}>BÁC SĨ - CHUYÊN GIA</h2>
+
+          <div style={s.expertsCarouselWrap}>
+            {doctorPageCount > 1 && (
+              <button
+                type="button"
+                aria-label="Bác sĩ trước"
+                style={{ ...s.carouselArrow, left: -18 }}
+                onClick={() => goToDoctorPage(doctorPage - 1)}
+              >
+                ‹
+              </button>
+            )}
+
+            <div style={s.expertsGrid}>
+              {visibleDoctors.map((doc) => (
+                <div key={doc.id} style={s.expertCard}>
+                  <div style={s.expertPhoto}>🧑‍⚕️</div>
+                  <div style={s.expertFooter}>
+                    {doc.academicTitle && <div style={s.expertTitle}>{doc.academicTitle}</div>}
+                    <div style={s.expertName}>{doc.fullName}</div>
+                    {doc.experienceYears != null && (
+                      <div style={s.expertExperience}>Trên {doc.experienceYears} năm kinh nghiệm</div>
+                    )}
+                    {doc.specialization && <div style={s.expertHighlight}>{doc.specialization}</div>}
+                    <Link to={`/doctors/${doc.id}`} style={s.expertDetailLink}>Chi tiết</Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {doctorPageCount > 1 && (
+              <button
+                type="button"
+                aria-label="Bác sĩ tiếp theo"
+                style={{ ...s.carouselArrow, right: -18 }}
+                onClick={() => goToDoctorPage(doctorPage + 1)}
+              >
+                ›
+              </button>
+            )}
+          </div>
+
+          {doctorPageCount > 1 && (
+            <div style={s.carouselDots}>
+              {Array.from({ length: doctorPageCount }).map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  aria-label={`Trang bác sĩ ${i + 1}`}
+                  style={i === doctorPage ? s.carouselDotActive : s.carouselDot}
+                  onClick={() => setDoctorPage(i)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
       {/* ── APPOINTMENT ── */}
       <section style={s.appointmentSection}>
         <div style={s.container}>
@@ -276,25 +424,23 @@ export default function HomePage() {
               <Link to="/patient/booking" style={s.bookBtn}>📅 Đặt lịch ngay</Link>
             </div>
 
-            <div style={s.doctorGrid}>
-              {DOCTORS.map(doc => (
-                <div key={doc.name} style={s.doctorCard}>
-                  <div style={{ ...s.doctorAvatar, backgroundColor: doc.color }}>
-                    {doc.name.split(' ').slice(-1)[0][0]}
-                  </div>
+            <div style={s.contactGrid}>
+              {CONTACT_METHODS.map(c => (
+                <a key={c.label} href={c.href} style={s.contactCard}>
+                  <div style={s.contactIcon}><c.Icon /></div>
                   <div>
-                    <div style={s.doctorName}>{doc.name}</div>
-                    <div style={s.doctorSpec}>{doc.specialty}</div>
-                    <span style={doc.status === 'Available' ? s.badgeAvailable : s.badgeBooked}>
-                      ● {doc.status}
-                    </span>
+                    <div style={s.contactLabel}>{c.label}</div>
+                    <div style={s.contactSub}>{c.sub}</div>
                   </div>
-                </div>
+                </a>
               ))}
-              <div style={s.viewMoreCard}>
-                <span style={{ fontSize: 22 }}>👥</span>
-                <span>Xem thêm bác sĩ</span>
-              </div>
+              <a href="tel:19004444" style={s.contactCardPrimary}>
+                <div style={s.contactIconPrimary}><PhoneIcon /></div>
+                <div>
+                  <div style={s.contactLabelPrimary}>Tư vấn 24/7</div>
+                  <div style={s.contactSubPrimary}>1900 4444</div>
+                </div>
+              </a>
             </div>
           </div>
         </div>
@@ -312,24 +458,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── FOOTER ── */}
-      <footer style={s.footer}>
-        <div style={s.footerInner}>
-          <div>
-            <div style={s.footerLogo}>
-              <img src={logoImg} alt="Anh Sao Eye Clinic" style={{ height: 44, width: 'auto' }} />
-              NHÃN KHOA ÁNH SAO
-            </div>
-            <div style={s.footerCopy}>© 2024 Eyes Clinic Management System. All rights reserved.</div>
-            <div style={{ ...s.footerCopy, marginTop: 2 }}>Chuyên nghiệp – Tin cậy – Tận tâm.</div>
-          </div>
-          <div style={s.footerLinks}>
-            {['Privacy Policy', 'Terms of Service', 'Contact Support', 'Clinic Locations'].map(l => (
-              <Link key={l} to="/" style={s.footerLink}>{l}</Link>
-            ))}
-          </div>
-        </div>
-      </footer>
+      <Footer />
 
     </div>
   )

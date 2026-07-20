@@ -23,18 +23,20 @@ public class DoctorController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<DoctorResponse>>> getAllDoctors() {
-        List<DoctorResponse> doctors = doctorRepository.findAll()
+        List<DoctorResponse> doctors = doctorRepository.findByStatus("ACTIVE")
                 .stream()
-                .map(d -> DoctorResponse.builder()
-                        .id(d.getId())
-                        .fullName(d.getFullName())
-                        .specialization(d.getSpecialization())
-                        .phone(d.getPhone())
-                        .email(d.getEmail())
-                        .build())
+                .map(this::toResponse)
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(ApiResponse.success(doctors));
+    }
+
+    /* Thông tin chi tiết 1 bác sĩ — dùng cho trang public "Chi tiết bác sĩ" */
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<DoctorResponse>> getDoctorById(@PathVariable Long id) {
+        Doctor doctor = doctorRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Bác sĩ không tồn tại: " + id));
+        return ResponseEntity.ok(ApiResponse.success(toResponse(doctor)));
     }
 
     /**
@@ -56,12 +58,15 @@ public class DoctorController {
         return DoctorResponse.builder()
                 .id(d.getId())
                 .fullName(d.getFullName())
+                .academicTitle(d.getAcademicTitle())
                 .specialization(d.getSpecialization())
                 .phone(d.getPhone())
                 .email(d.getEmail())
                 .department(d.getDepartment())
                 .experienceYears(d.getExperienceYears())
                 .bio(d.getBio())
+                .achievements(d.getAchievements())
+                .careerHistory(d.getCareerHistory())
                 .avatarUrl(d.getAvatarUrl())
                 .build();
     }
