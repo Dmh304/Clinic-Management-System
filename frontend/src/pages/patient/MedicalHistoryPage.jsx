@@ -14,7 +14,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import Header from '../../components/layout/Header'
-import { Form, Input, InputNumber, Tabs, Button, message, Tag, Spin, Collapse, Divider, Table, Pagination } from 'antd'
+import { Form, Input, InputNumber, Tabs, Button, message, Tag, Spin, Collapse, Divider, Table, Pagination, ConfigProvider } from 'antd'
 import { emrService } from '../../services/emrService'
 import { appointmentService } from '../../services/appointmentService'
 import { prescriptionService } from '../../services/prescriptionService'
@@ -161,21 +161,36 @@ export default function MedicalHistoryPage() {
           prescriptionService.getByPatient(patientId),
           eyeglassPrescriptionService.getByPatient(patientId)
       ]);
-      setDrugPrescriptions((drugRes.data || []).filter(p => String(p.medicalRecordId) === String(medicalRecordId) && p.status === 'DISPENSED'));
-      setEyePrescriptions((eyeRes.data || []).filter(p => String(p.medicalRecordId) === String(medicalRecordId) && p.status === 'DISPENSED'));
+      setDrugPrescriptions((drugRes.data || []).filter(p => String(p.medicalRecordId) === String(medicalRecordId)));
+      setEyePrescriptions((eyeRes.data || []).filter(p => String(p.medicalRecordId) === String(medicalRecordId)));
     } catch (error) {
       console.log('fetch prescriptions error', error);
     }
   }, [medicalRecordId, user]);
 
-  const handlePrint = (id, type) => {
-      const printContent = document.getElementById(`print-area-${type}-${id}`);
-      const originalContents = document.body.innerHTML;
-      
-      document.body.innerHTML = printContent.innerHTML;
-      window.print();
-      document.body.innerHTML = originalContents;
-      window.location.reload(); // Reload to restore React state bindings
+  const handlePrint = async (id, type) => {
+      if (type === 'drug') {
+          try {
+              const response = await prescriptionService.downloadPdf(id, true);
+              const url = window.URL.createObjectURL(new Blob([response]));
+              const link = document.createElement('a');
+              link.href = url;
+              link.setAttribute('download', `Don_Thuoc_${id}.pdf`);
+              document.body.appendChild(link);
+              link.click();
+              link.parentNode.removeChild(link);
+          } catch (error) {
+              message.error('Không thể tải file đơn thuốc');
+          }
+      } else {
+          const printContent = document.getElementById(`print-area-${type}-${id}`);
+          const originalContents = document.body.innerHTML;
+          
+          document.body.innerHTML = printContent.innerHTML;
+          window.print();
+          document.body.innerHTML = originalContents;
+          window.location.reload(); // Reload to restore React state bindings
+      }
   };
 
     // Hàm tải dữ liệu bệnh án hiện tại của lịch hẹn (nếu đã từng lưu nháp)
@@ -559,10 +574,13 @@ export default function MedicalHistoryPage() {
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
                                                     <div>
                                                         <div style={{ fontWeight: 600 }}>Ngày khám: {new Date(p.createdAt).toLocaleDateString('vi-VN')}</div>
-                                                        <div style={{ color: '#64748b' }}>Bác sĩ: {p.doctorName}</div>
+                                                        <div style={{ color: '#64748b' }}>Bác sĩ kê: {p.doctorName}</div>
+                                                        {p.dispenserName && <div style={{ color: '#64748b' }}>Dược sĩ phát: {p.dispenserName}</div>}
                                                         <div style={{ color: '#64748b' }}>Trạng thái: {p.status}</div>
                                                     </div>
-                                                    <Button icon={<PrinterOutlined />} onClick={() => handlePrint(p.id, 'drug')} disabled={false}>In đơn thuốc</Button>
+                                                    <ConfigProvider componentDisabled={false}>
+                                                        <Button icon={<PrinterOutlined />} onClick={() => handlePrint(p.id, 'drug')}>In đơn thuốc</Button>
+                                                    </ConfigProvider>
                                                 </div>
                                                 
                                                 <div id={`print-area-drug-${p.id}`} className="print-area">
@@ -582,7 +600,8 @@ export default function MedicalHistoryPage() {
                                                         size="small"
                                                         columns={[
                                                             { title: 'Tên thuốc', dataIndex: 'medicineName', render: (t, r) => <b>{t} ({r.dosageForm})</b> },
-                                                            { title: 'SL', render: (_, r) => r.actualQuantity != null ? r.actualQuantity : r.quantity },
+                                                            { title: 'SL kê', dataIndex: 'quantity' },
+                                                            { title: 'Thực phát', render: (_, r) => r.actualQuantity != null ? r.actualQuantity : '-' },
                                                             { title: 'ĐVT', dataIndex: 'unit' },
                                                             { title: 'Đơn giá', dataIndex: 'unitPrice', render: val => (val || 0).toLocaleString('vi-VN') + ' đ' },
                                                             { title: 'Thành tiền', dataIndex: 'totalPrice', render: val => (val || 0).toLocaleString('vi-VN') + ' đ' },
@@ -621,7 +640,12 @@ export default function MedicalHistoryPage() {
                                                         <div style={{ color: '#64748b' }}>Bác sĩ: {p.doctorName}</div>
                                                         <div style={{ color: '#64748b' }}>PD: {p.pd}mm | Loại tròng: {p.lensType}</div>
                                                     </div>
-                                                    <Button icon={<PrinterOutlined />} onClick={() => handlePrint(p.id, 'eye')} disabled={false}>In đơn kính</Button>
+                                                    <ConfigProvider componentDisabled={false}>
+                                                        <div>
+                                                            <Button icon={<PrinterOutlined />} onClick={() => handlePrint(p.id, 'eye')} style={{ marginRight: 8 }}>In đơn kính</Button>
+                                                            <Button type="primary" onClick={() => navigate(`/patient/order-glasses/${p.id}`)}>Đặt Kính</Button>
+                                                        </div>
+                                                    </ConfigProvider>
                                                 </div>
                                                 
                                                 <div id={`print-area-eye-${p.id}`} className="print-area">

@@ -27,7 +27,7 @@ function timeAgo(dateStr) {
   return new Date(dateStr).toLocaleDateString('vi-VN')
 }
 
-export default function NotificationBell({ viewAllPath, iconColor = '#64748b' }) {
+export default function NotificationBell({ viewAllPath, iconColor = '#64748b', align = 'right' }) {
   const navigate = useNavigate()
   const { user } = useSelector((s) => s.auth)
   const isPatient = user?.role === 'PATIENT'
@@ -135,7 +135,8 @@ export default function NotificationBell({ viewAllPath, iconColor = '#64748b' })
 
       {open && (
         <div style={{
-          position: 'absolute', top: 'calc(100% + 8px)', right: 0,
+          position: 'absolute', top: 'calc(100% + 8px)', 
+          ...(align === 'right' ? { right: 0 } : { left: 0 }),
           width: 320, maxHeight: 420, overflowY: 'auto',
           background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12,
           boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 300,

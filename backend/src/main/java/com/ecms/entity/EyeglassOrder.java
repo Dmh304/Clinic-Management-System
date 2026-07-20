@@ -28,8 +28,9 @@ public class EyeglassOrder {
     @JoinColumn(name = "frame_id")
     private EyeglassFrame frame;
 
-    @Column(length = 20)
-    private String status;
+    @Enumerated(EnumType.STRING)
+    @Column(length = 25)
+    private EyeglassOrderStatus status;
 
     @Column(name = "total_amount", precision = 15, scale = 2, nullable = false)
     private BigDecimal totalAmount;
@@ -40,6 +41,9 @@ public class EyeglassOrder {
 
     @Column(name = "dispensed_at")
     private LocalDateTime dispensedAt;
+    
+    @Column(name = "cancel_reason", columnDefinition = "TEXT")
+    private String cancelReason;
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
@@ -59,7 +63,6 @@ public class EyeglassOrder {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
-        if (status == null) status = "PENDING";
     }
 
     @PreUpdate

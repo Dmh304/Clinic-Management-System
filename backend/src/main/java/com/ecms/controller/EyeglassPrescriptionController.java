@@ -45,6 +45,13 @@ public class EyeglassPrescriptionController {
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách đơn kính chờ phát thành công", responses));
     }
 
+    // API endpoint: Lấy chi tiết một đơn kính theo ID
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<EyeglassPrescriptionResponse>> getById(@PathVariable Long id) {
+        EyeglassPrescriptionResponse response = eyeglassPrescriptionService.getById(id);
+        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin đơn kính thành công", response));
+    }
+
     // API endpoint: Cập nhật trạng thái một đơn kính thành "Đã phát" 
     @PatchMapping("/{id}/dispense")
     public ResponseEntity<ApiResponse<EyeglassPrescriptionResponse>> dispensePrescription(

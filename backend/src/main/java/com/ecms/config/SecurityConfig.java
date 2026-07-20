@@ -110,6 +110,8 @@ public class SecurityConfig {
                                                 .permitAll()
                                                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/admin/unlock-user")
                                                 .hasRole("ADMIN")
+                                                .requestMatchers("/ws/**")
+                                                .permitAll()
 
                                                 // ══════════════════════════════════════════════════════════════════
                                                 // ── Doctors: GET list public ───────────────────────────────────────

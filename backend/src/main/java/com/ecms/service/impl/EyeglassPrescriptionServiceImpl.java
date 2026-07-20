@@ -63,7 +63,7 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
                 .pd(request.getPd())
                 .lensType(lensType)
                 .notes(request.getNotes())
-                .status("DISPENSED")
+                .status("ISSUED")
                 .build();
 
         return toResponse(eyeglassPrescriptionRepository.save(prescription));
@@ -88,8 +88,16 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
 
     @Override
     @Transactional(readOnly = true)
+    public EyeglassPrescriptionResponse getById(Long id) {
+        EyeglassPrescription prescription = eyeglassPrescriptionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn kính"));
+        return toResponse(prescription);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<EyeglassPrescriptionResponse> getPendingPrescriptions() {
-        return eyeglassPrescriptionRepository.findByStatusOrderByCreatedAtAsc("PENDING").stream()
+        return eyeglassPrescriptionRepository.findByStatusOrderByCreatedAtAsc("ISSUED").stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
@@ -100,8 +108,8 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
         EyeglassPrescription p = eyeglassPrescriptionRepository.findById(id)
                 .orElseThrow(() -> new com.ecms.exception.ResourceNotFoundException("Không tìm thấy đơn kính"));
         
-        if (!"PENDING".equals(p.getStatus())) {
-            throw new IllegalStateException("Chỉ có thể phát đơn kính ở trạng thái PENDING");
+        if (!"ISSUED".equals(p.getStatus())) {
+            throw new IllegalStateException("Chỉ có thể phát đơn kính ở trạng thái ISSUED");
         }
         
         p.setStatus("DISPENSED");
@@ -114,8 +122,8 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
         EyeglassPrescription p = eyeglassPrescriptionRepository.findById(id)
                 .orElseThrow(() -> new com.ecms.exception.ResourceNotFoundException("Không tìm thấy đơn kính"));
         
-        if (!"PENDING".equals(p.getStatus())) {
-            throw new IllegalStateException("Chỉ có thể hủy đơn kính ở trạng thái PENDING");
+        if (!"ISSUED".equals(p.getStatus())) {
+            throw new IllegalStateException("Chỉ có thể hủy đơn kính ở trạng thái ISSUED");
         }
         
         p.setStatus("SKIPPED");
@@ -142,6 +150,7 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
                 .pd(p.getPd())
                 .lensTypeId(p.getLensType() != null ? p.getLensType().getId() : null)
                 .lensTypeName(p.getLensType() != null ? p.getLensType().getName() : null)
+                .lensTypePrice(p.getLensType() != null ? p.getLensType().getBasePrice() : null)
                 .notes(p.getNotes())
                 .status(p.getStatus())
                 .createdAt(p.getCreatedAt())

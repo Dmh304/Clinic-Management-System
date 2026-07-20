@@ -8,6 +8,7 @@ import java.util.List;
 public interface EyeglassPrescriptionService {
     EyeglassPrescriptionResponse createPrescription(EyeglassPrescriptionRequest request, String doctorEmail);
     List<EyeglassPrescriptionResponse> getPatientPrescriptions(Long patientId);
+    EyeglassPrescriptionResponse getById(Long id);
     List<EyeglassPrescriptionResponse> getByMedicalRecordId(Long medicalRecordId);
     List<EyeglassPrescriptionResponse> getPendingPrescriptions();
     EyeglassPrescriptionResponse dispensePrescription(Long id);

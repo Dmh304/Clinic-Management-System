@@ -19,8 +19,8 @@ public class EyeglassOrderController {
     private final EyeglassOrderService eyeglassOrderService;
 
     @PostMapping
-    public ResponseEntity<EyeglassOrderResponse> createOrder(@Valid @RequestBody EyeglassOrderRequest request) {
-        return ResponseEntity.ok(eyeglassOrderService.createOrder(request));
+    public ResponseEntity<EyeglassOrderResponse> createOrder(@Valid @RequestBody EyeglassOrderRequest request, Authentication authentication) {
+        return ResponseEntity.ok(eyeglassOrderService.createOrder(request, authentication));
     }
 
     @GetMapping("/{id}")
@@ -36,6 +36,23 @@ public class EyeglassOrderController {
     @GetMapping("/pending")
     public ResponseEntity<List<EyeglassOrderResponse>> getPendingOrders() {
         return ResponseEntity.ok(eyeglassOrderService.getPendingOrders());
+    }
+
+    @PatchMapping("/{id}/confirm")
+    public ResponseEntity<EyeglassOrderResponse> confirmOrderOnline(@PathVariable Long id) {
+        return ResponseEntity.ok(eyeglassOrderService.confirmOrderOnline(id));
+    }
+    
+    @PutMapping("/{id}")
+    public ResponseEntity<EyeglassOrderResponse> updateOrder(@PathVariable Long id, @Valid @RequestBody EyeglassOrderRequest request) {
+        return ResponseEntity.ok(eyeglassOrderService.updateOrder(id, request));
+    }
+    
+    @PatchMapping("/{id}/cancel")
+    public ResponseEntity<Void> cancelOrder(@PathVariable Long id, @RequestBody java.util.Map<String, String> payload) {
+        String cancelReason = payload.get("cancelReason");
+        eyeglassOrderService.cancelOrder(id, cancelReason);
+        return ResponseEntity.ok().build();
     }
 
     @PutMapping("/{id}/pickup")

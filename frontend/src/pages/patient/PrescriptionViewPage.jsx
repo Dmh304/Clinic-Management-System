@@ -2,14 +2,17 @@
 // Màn hình xem danh sách Đơn thuốc / Đơn kính tổng hợp của Bệnh nhân (hiện đã được tích hợp vào trong MedicalHistoryPage).
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Tabs, Spin, Tag, message } from 'antd';
-import { PrinterOutlined } from '@ant-design/icons';
+import { PrinterOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import { useSelector } from 'react-redux';
 import { prescriptionService } from '../../services/prescriptionService';
 import { eyeglassPrescriptionService } from '../../services/eyeglassPrescriptionService';
 
+import { useParams, useNavigate } from 'react-router-dom';
+
 export default function PrescriptionViewPage() {
     const { user } = useSelector(s => s.auth);
     const patientId = user?.patientId || user?.id;
+    const navigate = useNavigate();
     
     const [loading, setLoading] = useState(false);
     const [drugPrescriptions, setDrugPrescriptions] = useState([]);
@@ -37,14 +40,29 @@ export default function PrescriptionViewPage() {
         }
     };
 
-    const handlePrint = (id, type) => {
-        const printContent = document.getElementById(`print-area-${type}-${id}`);
-        const originalContents = document.body.innerHTML;
-        
-        document.body.innerHTML = printContent.innerHTML;
-        window.print();
-        document.body.innerHTML = originalContents;
-        window.location.reload(); // Reload to restore React state bindings
+    const handlePrint = async (id, type) => {
+        if (type === 'drug') {
+            try {
+                const response = await prescriptionService.downloadPdf(id, true);
+                const url = window.URL.createObjectURL(new Blob([response]));
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', `Don_Thuoc_${id}.pdf`);
+                document.body.appendChild(link);
+                link.click();
+                link.parentNode.removeChild(link);
+            } catch (error) {
+                message.error('Không thể tải file đơn thuốc');
+            }
+        } else {
+            const printContent = document.getElementById(`print-area-${type}-${id}`);
+            const originalContents = document.body.innerHTML;
+            
+            document.body.innerHTML = printContent.innerHTML;
+            window.print();
+            document.body.innerHTML = originalContents;
+            window.location.reload(); // Reload to restore React state bindings
+        }
     };
 
     const drugColumns = [
@@ -71,7 +89,8 @@ export default function PrescriptionViewPage() {
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
                                                     <div>
                                                         <div style={{ fontWeight: 600 }}>Ngày khám: {new Date(p.createdAt).toLocaleDateString('vi-VN')}</div>
-                                                        <div style={{ color: '#64748b' }}>Bác sĩ: {p.doctorName}</div>
+                                                        <div style={{ color: '#64748b' }}>Bác sĩ kê: {p.doctorName}</div>
+                                                        {p.dispenserName && <div style={{ color: '#64748b' }}>Dược sĩ phát: {p.dispenserName}</div>}
                                                         <div style={{ color: '#64748b' }}>Trạng thái: {p.status}</div>
                                                     </div>
                                                     <Button icon={<PrinterOutlined />} onClick={() => handlePrint(p.id, 'drug')}>In đơn thuốc</Button>
@@ -95,7 +114,8 @@ export default function PrescriptionViewPage() {
                                                         size="small"
                                                         columns={[
                                                             { title: 'Tên thuốc', dataIndex: 'medicineName', render: (t, r) => <b>{t} ({r.dosageForm})</b> },
-                                                            { title: 'SL', dataIndex: 'quantity' },
+                                                            { title: 'SL kê', dataIndex: 'quantity' },
+                                                            { title: 'Thực phát', render: (_, r) => r.actualQuantity != null ? r.actualQuantity : '-' },
                                                             { title: 'ĐVT', dataIndex: 'unit' },
                                                             { title: 'Đơn giá', dataIndex: 'unitPrice', render: val => (val || 0).toLocaleString('vi-VN') + ' đ' },
                                                             { title: 'Thành tiền', dataIndex: 'totalPrice', render: val => (val || 0).toLocaleString('vi-VN') + ' đ' },
@@ -132,9 +152,16 @@ export default function PrescriptionViewPage() {
                                                     <div>
                                                         <div style={{ fontWeight: 600 }}>Ngày khám: {new Date(p.createdAt).toLocaleDateString('vi-VN')}</div>
                                                         <div style={{ color: '#64748b' }}>Bác sĩ: {p.doctorName}</div>
-                                                        <div style={{ color: '#64748b' }}>PD: {p.pd}mm | Loại tròng: {p.lensType}</div>
+                                                        <div style={{ color: '#64748b' }}>Trạng thái toa kính: <Tag color={p.status === 'ISSUED' ? 'green' : 'default'}>{p.status}</Tag></div>
                                                     </div>
-                                                    <Button icon={<PrinterOutlined />} onClick={() => handlePrint(p.id, 'eye')}>In đơn kính</Button>
+                                                    <div>
+                                                        <Button icon={<PrinterOutlined />} onClick={() => handlePrint(p.id, 'eye')} style={{ marginRight: 8 }}>In đơn</Button>
+                                                        {p.status === 'ISSUED' && (
+                                                            <Button type="primary" onClick={() => navigate(`/patient/order-glasses/${p.id}`)}>
+                                                                <ShoppingCartOutlined /> Đặt kính online
+                                                            </Button>
+                                                        )}
+                                                    </div>
                                                 </div>
                                                 
                                                 <div id={`print-area-eye-${p.id}`} className="print-area">

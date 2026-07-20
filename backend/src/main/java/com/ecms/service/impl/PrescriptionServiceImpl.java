@@ -10,6 +10,7 @@ import com.ecms.dto.response.PrescriptionResponse;
 import com.ecms.entity.*;
 import com.ecms.exception.ResourceNotFoundException;
 import com.ecms.repository.*;
+import com.ecms.service.PrescriptionPdfService;
 import com.ecms.service.PrescriptionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -33,6 +34,8 @@ public class PrescriptionServiceImpl implements PrescriptionService {
     private final DoctorRepository doctorRepository;
     private final InvoiceRepository invoiceRepository;
     private final InvoiceItemRepository invoiceItemRepository;
+    private final PrescriptionPdfService prescriptionPdfService;
+    private final UserRepository userRepository;
 
     // Tạo mới một đơn thuốc từ yêu cầu của bác sĩ
     @Override
@@ -120,10 +123,15 @@ public class PrescriptionServiceImpl implements PrescriptionService {
     // Xử lý logic khi dược sĩ ấn nút "Phát thuốc"
     @Override
     @Transactional
-    public PrescriptionResponse dispensePrescription(Long id, DispenseRequest request) {
+    public PrescriptionResponse dispensePrescription(Long id, DispenseRequest request, String dispenserEmail) {
         // DucTKH: Tương tác DB - Lấy đơn thuốc theo id
         Prescription p = prescriptionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn thuốc"));
+
+        User dispenser = userRepository.findByEmail(dispenserEmail).orElse(null);
+        if (dispenser != null) {
+            p.setDispenserName(dispenser.getFullName());
+        }
 
         // DucTKH: Điều kiện - Kiểm tra trạng thái, chỉ cho phép phát nếu đơn đang chờ
         // (PENDING)
@@ -193,7 +201,17 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         // DucTKH: Tương tác DB - Lưu hàng loạt các chi tiết hóa đơn
         invoiceItemRepository.saveAll(invoiceItems);
 
-        return toResponse(p);
+        PrescriptionResponse response = toResponse(p);
+        response.setInvoiceId(invoice.getId());
+        return response;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public byte[] generatePrescriptionPdf(Long id, boolean hideSignature) {
+        Prescription prescription = prescriptionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn thuốc"));
+        return prescriptionPdfService.generate(prescription, hideSignature);
     }
 
     // Xử lý logic khi dược sĩ bỏ qua (hủy) không phát đơn thuốc này
@@ -225,6 +243,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
                 .patientName(p.getPatient().getFullName())
                 .status(p.getStatus())
                 .notes(p.getNotes())
+                .dispenserName(p.getDispenserName())
                 .createdAt(p.getCreatedAt())
                 .items(p.getItems().stream().map(this::toItemResponse).collect(Collectors.toList()))
                 .build();

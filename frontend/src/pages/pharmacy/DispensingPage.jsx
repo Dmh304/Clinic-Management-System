@@ -4,12 +4,9 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, message, Modal, Tag, Spin, Space, Popconfirm, InputNumber, Tabs } from 'antd';
 import { prescriptionService } from '../../services/prescriptionService';
-import { eyeglassPrescriptionService } from '../../services/eyeglassPrescriptionService';
 
 export default function DispensingPage() {
     const [prescriptions, setPrescriptions] = useState([]);
-    const [eyePrescriptions, setEyePrescriptions] = useState([]);
-    const [activeTab, setActiveTab] = useState('1');
     const [loading, setLoading] = useState(false);
     const [selectedPrescription, setSelectedPrescription] = useState(null);
     const [editableItems, setEditableItems] = useState([]);
@@ -26,17 +23,13 @@ export default function DispensingPage() {
         }
     }, [selectedPrescription]);
 
-    const fetchPendingPrescriptions = async () => {
+    async function fetchPendingPrescriptions() {
         setLoading(true);
         try {
-            const [res1, res2] = await Promise.all([
-                prescriptionService.getPending(),
-                eyeglassPrescriptionService.getPending()
-            ]);
-            setPrescriptions(res1.data || []);
-            setEyePrescriptions(res2.data || []);
+            const res = await prescriptionService.getPending();
+            setPrescriptions(res.data || []);
         } catch (error) {
-            message.error('Lỗi khi tải danh sách đơn thuốc/đơn kính');
+            message.error('Lỗi khi tải danh sách đơn thuốc');
         } finally {
             setLoading(false);
         }
@@ -79,23 +72,25 @@ export default function DispensingPage() {
         }
     };
 
-    const handleDispenseEye = async (id) => {
-        try {
-            await eyeglassPrescriptionService.dispense(id);
-            message.success('Phát đơn kính thành công');
-            fetchPendingPrescriptions();
-        } catch (error) {
-            message.error('Phát đơn kính thất bại');
+    const handlePrintPrescription = async (prescriptionId) => {
+        if (!prescriptionId) {
+            message.warning('Không tìm thấy ID đơn thuốc!');
+            return;
         }
-    };
-
-    const handleSkipEye = async (id) => {
+        setActionLoading(true);
         try {
-            await eyeglassPrescriptionService.skip(id);
-            message.success('Đã hủy đơn kính');
-            fetchPendingPrescriptions();
+            const response = await prescriptionService.downloadPdf(prescriptionId);
+            const url = window.URL.createObjectURL(new Blob([response]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `Don_Thuoc_${prescriptionId}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode.removeChild(link);
         } catch (error) {
-            message.error('Hủy đơn kính thất bại');
+            message.error('Không thể tải file đơn thuốc');
+        } finally {
+            setActionLoading(false);
         }
     };
 
@@ -155,63 +150,6 @@ export default function DispensingPage() {
         }
     ];
 
-    const eyeColumns = [
-        {
-            title: 'Mã ĐK',
-            dataIndex: 'id',
-            key: 'id',
-            width: 80,
-            render: (id) => `DK-${id}`
-        },
-        {
-            title: 'Bệnh nhân',
-            dataIndex: 'patientName',
-            key: 'patientName',
-            render: (text) => <span style={{ fontWeight: 600 }}>{text}</span>
-        },
-        {
-            title: 'Bác sĩ đo',
-            dataIndex: 'doctorName',
-            key: 'doctorName',
-        },
-        {
-            title: 'Ngày kê',
-            dataIndex: 'createdAt',
-            key: 'createdAt',
-            render: (val) => new Date(val).toLocaleString('vi-VN')
-        },
-        {
-            title: 'Trạng thái',
-            dataIndex: 'status',
-            key: 'status',
-            render: (status) => (
-                <Tag color={status === 'PENDING' ? 'processing' : 'default'}>
-                    {status === 'PENDING' ? 'Chờ duyệt' : status}
-                </Tag>
-            )
-        },
-        {
-            title: 'Hành động',
-            key: 'action',
-            render: (_, record) => (
-                <Space>
-                    <Popconfirm 
-                        title="Xác nhận duyệt đơn kính?" 
-                        onConfirm={() => handleDispenseEye(record.id)}
-                    >
-                        <Button type="primary" size="small" style={{ backgroundColor: '#059669' }}>Duyệt</Button>
-                    </Popconfirm>
-                    <Popconfirm 
-                        title="Hủy đơn kính?" 
-                        onConfirm={() => handleSkipEye(record.id)}
-                    >
-                        <Button danger size="small">Hủy</Button>
-                    </Popconfirm>
-                </Space>
-            )
-        }
-    ];
-
     const itemColumns = [
         { title: 'Tên thuốc', dataIndex: 'medicineName', key: 'name', render: (text, record) => <b>{text} ({record.dosageForm})</b> },
         { title: 'ĐVT', dataIndex: 'unit', key: 'unit', width: 80 },
@@ -257,6 +195,13 @@ export default function DispensingPage() {
                 width={900}
                 footer={[
                     <Button key="cancel" onClick={() => setIsModalVisible(false)}>Đóng</Button>,
+                    <Button 
+                        key="print" 
+                        onClick={() => handlePrintPrescription(selectedPrescription?.id)}
+                        loading={actionLoading}
+                    >
+                        Xuất file đơn thuốc
+                    </Button>,
                     <Popconfirm 
                         key="skip" 
                         title="Xác nhận khách không mua thuốc?" 
