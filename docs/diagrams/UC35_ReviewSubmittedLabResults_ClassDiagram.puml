@@ -1,0 +1,96 @@
+@startuml UC35_ReviewSubmittedLabResults_ClassDiagram
+
+skinparam classAttributeIconSize 0
+skinparam monochrome false
+skinparam backgroundColor white
+skinparam roundcorner 5
+skinparam class {
+    BackgroundColor #f9f9f9
+    ArrowColor #336699
+    BorderColor #336699
+}
+
+class LabOrderController {
+    + approveLabResult(labOrderId: Long, userDetails: UserDetails): ResponseEntity<ApiResponse<LabOrderResponse>>
+    + requestRetest(labOrderId: Long, request: LabOrderRequest, userDetails: UserDetails): ResponseEntity<ApiResponse<LabOrderResponse>>
+}
+
+interface LabOrderService {
+    + approveLabResult(labOrderId: Long, doctorId: Long): LabOrderResponse
+    + requestRetest(labOrderId: Long, doctorId: Long, request: LabOrderRequest): LabOrderResponse
+}
+
+class LabOrderServiceImpl {
+    + approveLabResult(labOrderId: Long, doctorId: Long): LabOrderResponse
+    + requestRetest(labOrderId: Long, doctorId: Long, request: LabOrderRequest): LabOrderResponse
+}
+
+class LabResultRepository {
+    + findById(id: Long): LabResult
+    + save(result: LabResult): LabResult
+}
+
+class MedicalRecordRepository {
+    + findById(id: Long): MedicalRecord
+    + save(record: MedicalRecord): MedicalRecord
+}
+
+class AuditLog {
+    + logAction(action: String, details: String): void
+}
+
+class LabResult {
+    - resultId: Long
+    - status: LabOrderStatus
+    - doctorAnnotations: String
+    - reviewedBy: Long
+    - reviewedAt: LocalDateTime
+    + setStatus(status: LabOrderStatus): void
+    + setDoctorAnnotations(notes: String): void
+}
+
+class MedicalRecord {
+    - recordId: Long
+    - diagnosis: String
+    + setDiagnosis(diagnosis: String): void
+}
+
+enum LabOrderStatus {
+    PENDING
+    IN_PROGRESS
+    COMPLETED
+    CANCELLED
+}
+
+class LabOrderRequest {
+    - testTypes: List<String>
+    - notes: String
+}
+
+class LabOrderResponse {
+    - orderId: Long
+    - status: String
+}
+
+class ApiResponse<T> {
+    - status: int
+    - message: String
+    - data: T
+}
+
+LabOrderController ..> LabOrderService : uses
+LabOrderController ..> ApiResponse : creates
+LabOrderService <|.. LabOrderServiceImpl : implements
+LabOrderServiceImpl ..> LabResultRepository : uses
+LabOrderServiceImpl ..> MedicalRecordRepository : uses
+LabOrderServiceImpl ..> AuditLog : uses
+LabOrderServiceImpl ..> LabOrderRequest : consumes
+LabOrderServiceImpl ..> LabOrderResponse : creates
+
+LabResultRepository ..> LabResult : manages
+MedicalRecordRepository ..> MedicalRecord : manages
+
+MedicalRecord "1" -- "0..*" LabResult : associated with >
+LabResult "1" -- "1" LabOrderStatus : uses >
+
+@enduml

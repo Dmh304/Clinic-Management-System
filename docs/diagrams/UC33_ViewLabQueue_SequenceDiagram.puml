@@ -1,0 +1,120 @@
+@startuml UC33_ViewLabQueue
+<style>
+document {
+  ParticipantPadding 10
+  BoxPadding 10
+}
+</style>
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 250
+
+skinparam participant {
+    BackgroundColor #DDEEFF
+    BorderColor     #336699
+    FontStyle       bold
+}
+skinparam actor {
+    BackgroundColor #FFFACD
+    BorderColor     #CC9900
+}
+skinparam note {
+    BackgroundColor #FFFFF0
+    BorderColor     #AAAAAA
+}
+skinparam ArrowColor #336699
+skinparam LifeLineBorderColor #336699
+
+title UC-33: View Lab Queue\n(Simplified Sequence Diagram)
+
+actor       "LabTechnician"                                    as LabTech
+participant "<<Controller>>\nLabOrderController"           as LC
+participant "<<Service>>\nLabOrderService"               as LS
+participant "<<ServiceImpl>>\nLabOrderServiceImpl"       as LSImpl
+participant "<<Repository>>\nLabOrderRepository"               as LRepo
+participant "<<Scheduler>>\nPollingTimer"                      as Poll
+
+note over LabTech
+  PRE: Lab Technician is authenticated.
+end note
+
+== Step 1, 2 & 3: Retrieve and Display Lab Queue ==
+LabTech -> LC : GET /api/v1/lab-orders/queue
+activate LC
+LC -> LC : resolve labTechnicianId from JWT
+LC -> LS : getLabQueue(labTechnicianId)
+activate LS
+LS -> LSImpl : getLabQueue(labTechnicianId)
+activate LSImpl
+
+LSImpl -> LRepo : findByStatusOrderByCreatedAtAsc(PENDING)
+activate LRepo
+LRepo --> LSImpl : List<LabOrder>
+deactivate LRepo
+
+LSImpl --> LS : List<LabOrderResponse>
+deactivate LSImpl
+LS --> LC : List<LabOrderResponse>
+deactivate LS
+
+LC --> LabTech : HTTP 200 OK\nApiResponse<List<LabOrderResponse>>
+deactivate LC
+note right of LabTech
+  UI displays PENDING lab orders.
+  Sorted by order time (oldest first).
+end note
+
+== Real-time Queue Refresh ==
+LabTech -> Poll : [UI] startPolling(30s)
+activate Poll
+loop every 30s
+    Poll -> LC : GET /api/v1/lab/queue
+    activate LC
+    LC -> LS : getPendingLabOrders()
+    activate LS
+    LS -> LSImpl : getPendingLabOrders()
+    activate LSImpl
+    LSImpl -> LRepo : fetch current PENDING orders
+    activate LRepo
+    LRepo --> LSImpl : List<LabOrder>
+    deactivate LRepo
+    LSImpl --> LS : List<LabOrderResponse>
+    deactivate LSImpl
+    LS --> LC : List<LabOrderResponse>
+    deactivate LS
+    LC --> Poll : HTTP 200 OK
+    deactivate LC
+    Poll -> LabTech : [UI] refresh queue table
+end
+
+== Step 4: Select an Order (Delegates to UC-34) ==
+LabTech -> Poll : [UI] stopPolling()
+deactivate Poll
+
+LabTech -> LC : GET /api/v1/lab/orders/{labOrderId}
+activate LC
+LC -> LS : getLabOrderById(labOrderId)
+activate LS
+LS -> LSImpl : getLabOrderById(labOrderId)
+activate LSImpl
+
+LSImpl -> LRepo : findById(labOrderId)
+activate LRepo
+LRepo --> LSImpl : LabOrder
+deactivate LRepo
+
+LSImpl --> LS : LabOrderResponse
+deactivate LSImpl
+LS --> LC : LabOrderResponse
+deactivate LS
+
+LC --> LabTech : HTTP 200 OK (Full Order Details)
+deactivate LC
+
+note over LabTech
+  UI loads Test Execution form.
+  Handover to UC-34: Record & Submit Lab Results.
+end note
+
+@enduml

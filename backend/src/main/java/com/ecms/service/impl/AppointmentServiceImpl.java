@@ -965,7 +965,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                 medicalRecordRepository.findByAppointmentId(appointmentId).ifPresent(record -> {
                         // Chỉ revert nếu record chưa COMPLETED (tránh mất dữ liệu đã hoàn tất)
                         if (record.getStatus() != MedicalRecordStatus.COMPLETED) {
-                                record.setStatus(MedicalRecordStatus.DRAFT);
+                                record.setStatus(MedicalRecordStatus.CANCELLED);
                                 medicalRecordRepository.save(record);
                         }
                 });

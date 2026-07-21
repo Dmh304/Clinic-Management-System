@@ -110,6 +110,15 @@ public class LabResultResponse {
     /* Họ và tên đầy đủ của bệnh nhân */
     private String patientFullName;
 
+    /* Ngày sinh của bệnh nhân */
+    private java.time.LocalDate patientDob;
+
+    /* Địa chỉ thường trú của bệnh nhân */
+    private String patientAddress;
+
+    /* Số điện thoại liên hệ của bệnh nhân */
+    private String patientPhone;
+
     /* Thời điểm bác sĩ duyệt hoặc đánh giá lại kết quả xét nghiệm này */
     private LocalDateTime reviewedAt;
 
