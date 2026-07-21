@@ -8,11 +8,19 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
+
+    // UC-50: hóa đơn đã thanh toán trong khoảng thời gian (theo ngày thu tiền) — dùng cho báo cáo doanh thu
+    List<Invoice> findByPaymentStatusAndPaidAtBetween(String paymentStatus, LocalDateTime from, LocalDateTime to);
+
+    // UC-49: đếm hóa đơn còn nợ (chưa PAID, chưa hủy) cho dashboard vận hành
+    @Query("SELECT COUNT(i) FROM Invoice i WHERE i.paymentStatus <> 'PAID' AND i.status <> 'CANCELLED'")
+    long countOutstanding();
 
     // --- Hàm của nhánh Duc ---
     List<Invoice> findByPatientId(Long patientId);
@@ -53,6 +61,15 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
             ORDER BY i.createdAt DESC
             """)
     List<Invoice> searchInvoices(@Param("keyword") String keyword);
+
+    // ThangNBHE201024 — tra hóa đơn theo mã, dùng khi webhook cổng thanh toán dò mã
+    // hóa đơn trong nội dung chuyển khoản để tự động gạch nợ (UC-22).
+    Optional<Invoice> findByInvoiceCode(String invoiceCode);
+
+    // ThangNBHE201024 — các hóa đơn của một lịch hẹn theo trạng thái, mới nhất trước.
+    // Dùng khi tạo hóa đơn mới: nếu lịch hẹn từng có hóa đơn CANCELLED thì đổ lại đúng
+    // khoản phí của hóa đơn đã hủy gần nhất (hủy rồi tạo lại khôi phục nguyên trạng).
+    List<Invoice> findByAppointment_IdAndStatusOrderByCreatedAtDesc(Long appointmentId, String status);
 
     // Đếm số hóa đơn đã tạo trong ngày để sinh mã tự động (INV-yyyyMMdd-XXXX)
     @Query("""

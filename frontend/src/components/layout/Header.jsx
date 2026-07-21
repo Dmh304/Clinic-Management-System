@@ -29,9 +29,13 @@ const MGR_ICON = (
     <rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
   </svg>
 )
-// Chỉ liệt kê các trang ĐÃ làm xong — bỏ /manager/revenue và /manager/staff vì
-// hai trang đó hiện vẫn là stub (return null), bấm vào sẽ ra trang trắng.
 const MANAGER_LINKS = [
+  { label: 'Dashboard vận hành', to: '/manager/dashboard' },
+  { label: 'Báo cáo doanh thu', to: '/manager/revenue' },
+  { label: 'Thống kê bệnh nhân', to: '/manager/patient-statistics' },
+  { label: 'Hiệu suất nhân viên', to: '/manager/staff' },
+  { label: 'Báo cáo đánh giá', to: '/manager/feedback-report' },
+  { label: 'Bảng lương', to: '/manager/payroll' },
   { label: 'Lịch khám', to: '/manager/daily-schedule' },
   { label: 'Quản lý gói dịch vụ', to: '/manager/service-packages' },
   { label: 'Quản lý bác sĩ', to: '/manager/doctors' },
@@ -517,6 +521,10 @@ export default function Header() {
                         {
                           label: 'Hóa đơn của tôi', to: '/patient/invoices',
                           icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M7 8h10M7 12h6"/></svg>
+                        },
+                        {
+                          label: 'Đánh giá buổi khám', to: '/patient/feedback',
+                          icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15 9 22 9 17 14 19 21 12 17 5 21 7 14 2 9 9 9"/></svg>
                         }
                       ] : []),
                       // Manager: liệt kê thẳng các trang quản lý (chưa có dashboard tổng hợp)
