@@ -1,0 +1,3529 @@
+SOFTWARE REQUIREMENT SPECIFICATION
+Eyes Clinic Management System (ECMS)
+– Hanoi, May 2026 –
+Table of Contents
+Table of Contents2
+I. Record of Changes5
+II. Software Requirement Specification6
+1. Overall Requirements6
+1.1. Context Diagram6
+1.2. Main Business Processes7
+1.3. User Requirements13
+1.3.1. Actors13
+1.3.2. Use Cases15
+1.3.3. Use Case Diagrams17
+1.3.3.1. UCs for Guest17
+1.3.3.2. UCs for User17
+1.3.3.3. UCs for Patient19
+1.3.3.3. UCs for Doctor20
+1.3.3.4. UCs for Receptionist21
+1.3.3.5. UCs for Lab technician22
+1.3.3.6. UCs for Pharmacist23
+1.3.3.7. UCs for Clinic Manager24
+1.3.3.8. UCs for Admin25
+1.4. System Functionalities26
+1.4.1. Screens Flow26
+1.4.1.1. Screen flow for Patient:26
+1.4.1.2. Screen flow for Receptionist:27
+1.4.1.3. Screen flow for Doctor:27
+1.4.1.4. Screen flow for Lab Technician:28
+1.4.1.5. Screen flow Clinic Manager:28
+1.4.1.6. Screen flow for Pharmacist:28
+1.4.1.7. Screen flow for Admin:28
+1.4.2. Screen Authorization29
+1.4.3. Non-UI Functions30
+1.5. Entity Relationship Diagram31
+2. Use Case Specifications32
+2.1 Business Rules32
+2.2 — Authentication & Account Management33
+UC-01: Register User Account33
+UC-02: View Home Page34
+UC-03: View Blog List35
+UC-04: Log In to System36
+UC-05: Log Out of System37
+UC-06: Reset Forgotten Password38
+UC-07: Change Account Password39
+UC-08: Manage Personal Profile40
+UC-09: Receive System Notification41
+UC-10: Interact with AI Chatbot (ECMS-Bot)42
+2.3 — Reception & Scheduling43
+UC-11: Book Appointment Online43
+UC-12: Manage Appointment44
+UC-12a: Reschedule/ Cancel Appointment45
+UC-13: Send Appointment Reminder Notification46
+UC-14: Register Walk-in Patient47
+UC-15: Check-in Patient48
+UC-16: Confirm Appointment49
+UC-17: View Daily Appointment Schedule50
+UC-18: Reassign Appointment51
+UC-19: Assign Nurse to Care Session52
+UC-20: Check-out Care Session53
+UC-20: Check-out Care Session53
+UC-21: Confirm Eyeglass Pickup54
+UC-22: Process Payment55
+UC-23: Deliver Invoice56
+2.4 — EMR & Clinical57
+UC-24: View Doctor Dashboard57
+UC-25: Manage Electronic Medical Record (EMR)58
+UC-25a: Initiate a new Electronic Medical Record (EMR):58
+UC-25b: Save & Update EMR Draft:59
+UC-25c: Finalize Electronic Medical Record (EMR):60
+UC-25d: Delete Electronic Medical Record (EMR):61
+UC-26: View Patient Medical History63
+UC-27: Issue Drug Prescription63
+UC-28: Issue Eyeglass Prescription64
+UC-29: Issue Lab/Imaging Order65
+UC-30: View Lab Results66
+UC-31: View Care Queue67
+UC-32: Deliver Care Session68
+2.5 — LIS & Imaging69
+UC-33: View Lab Queue69
+UC-34: Submit Lab/Test Result69
+UC-35: Review Submitted Lab Results70
+UC-36: Fabricate Eyeglasses71
+2.6 — Pharmacy72
+UC-37: Dispense Drug72
+UC-38: Issue Electronic Invoice (Pharmacy)73
+2.7 — Service Package & Eyeglass Sales74
+UC-39: Purchase Service Package74
+UC-40: Book Care Session75
+UC-41: Order Eyeglasses from Clinic77
+UC-42: Manage Service Packages78
+UC-43: Manage Discount Campaigns79
+2.8 — Patient Portal80
+UC-44: View Prescriptions80
+UC-45: View Diagnostic Results81
+UC-46: Register for Eye Care Services82
+UC-47: Generate Feedback83
+2.9 — Administration & Analytics84
+UC-48: View Real-time Operational Analytics Dashboard84
+UC-49: Generate Revenue Report84
+UC-50: View Patient Volume Statistics and Trends85
+UC-51: Monitor Staff Performance Dashboard86
+UC-52: Generate Feedback Report87
+UC-53: Approve Payroll87
+UC-54: Manage Lab Test Catalogue88
+2.10 — System Administration & Security89
+UC-55: Manage User Account89
+UC-56: Configure System and Data90
+UC-57: Manage System Audit Log91
+3. Functional Requirements And Feature92
+3.1 Functional Requirement92
+3.2 User Authentication93
+3.2.1 Landing Page93
+3.2.2 Register Account95
+3.2.3 Log In96
+3.2.4 Reset Password97
+3.2.5 Change Password98
+3.2.6 User Profile99
+4. Non-Functional Requirements100
+4.1 External Interfaces100
+4.2 Quality Attributes100
+5. Appendix102
+5.1 Assumptions & Dependencies102
+5.2 Limitations & Exclusions102
+5.3 Glossary102
+I. Record of Changes
+Version
+Date
+A/M/D
+In Charge
+Change Description
+V1.1
+18/05/2026
+M
+[Team]
+Complete the Use Case Specifications (UC-01 → UC-30), incorporate comprehensive Business Rules, update the database schema (inventory and prescription_items tables), and update the Non-Functional KPIs. 
+V1.1
+18/05/2026
+M
+[Team]
+Complete the Use Case Specifications (UC-01 → UC-30), incorporate comprehensive Business Rules, update the database schema (inventory and prescription_items tables), and update the Non-Functional KPIs. 
+V2.0
+26/5/2026
+A
+[Team]
+Add new Use Cases (UC-40 and UC-41)
+V2.1
+8/5/2026
+M
+[Team]
+*A – Added   M – Modified   D – Deleted
+II. Software Requirement Specification
+1. Overall Requirements
+In the context of the digital age, most of the major ophthalmology medical facilities we surveyed have undergone digital transformation, but the old systems are gradually revealing limitations in service and user experience. After surveying the websites of several hospitals and clinics such as Thien Thanh Eye Clinic, Thu Ha Eye Clinic, Tue Anh Eyecare, etc., we can see some limitations as follows:
+Overly simple and passive interface: The current system mainly supports registration through static forms, limiting patient interaction.
+Slow and passive consultation response: Currently, most clinics still provide consultations through separate platforms such as Zalo, Facebook, or Messenger. Patients have to wait for staff to manually respond to messages, leading to information congestion during peak hours and reducing the user experience. Slow connectivity and synchronization: Results from measuring devices (OCT, refractometer) often require synchronization or manual entry into patient records, easily leading to errors.
+The Patient Portal feature is rudimentary: Most systems only offer appointment scheduling and do not provide sufficient medical history information or specialized images for patients to monitor remotely.
+Lack of in-depth management reporting: Older systems only provide static data, making it difficult for Clinic Managers to make business decisions based on forecasts.
+Inflexible security: Access control is often too loose or too rigid, hindering coordination between specialized ophthalmology departments.
+1.1. Context Diagram
+The ECMS (Eyes Clinic Management System) is a full-stack web application built for the Anh Sao High-Tech Eye Clinic (85 Ba Trieu St., Hai Ba Trung Dist., Hanoi). The system digitalizes the entire patient lifecycle from appointment scheduling, reception, medical examination, laboratory testing, prescription, medicine dispensing, billing, to reporting.
+The system interacts with 7 user actors (Patient, Receptionist, Doctor, Lab Technician, Pharmacist, Clinic Manager, Admin) and 1 system actor (cron jobs, email service). Architecture: ReactJS (Frontend) <-> Spring Boot REST API (Backend) <-> MySQL Database.
+1.2. Main Business Processes
+1.2.1. Online Appointment Booking & Patient Check-in:
+Actors: Patient, Receptionist, System
+Objective: Allow patients to register a visit (either online in advance or walk-in at the counter) and complete the check-in procedure that officially places them in the doctor's queue.
+Process Summary: 
+The process begins with two alternative entry points depending on how the patient initiates their visit.
+Online booking path: The patient logs into the Patient Portal, browses available doctors and time slots, and submits a booking request. The system creates a Pending appointment and sends a confirmation email. The receptionist reviews the request: if approved, the appointment is confirmed and the patient is notified; if rejected, the appointment is cancelled with a stated reason and the process ends for that request. On the day of the visit, the patient arrives at the clinic and provides their name or phone number at the counter.
+Walk-in path: The patient arrives directly at the clinic and requests an appointment at the reception counter. The receptionist first checks whether the patient already has an account in the system. If an account exists, the receptionist retrieves the existing patient profile. If no account exists, the receptionist registers a new account on the patient's behalf — the system creates the account and sends login credentials to the patient's email. After the account check, the receptionist reviews doctor availability, selects an appropriate time slot, and the system immediately creates a Confirmed appointment with a doctor assigned — bypassing the Pending/approval step entirely.
+Both paths converge at the check-in step. The receptionist verifies the patient's identity and performs check-in. The system updates the appointment status to In Progress and pushes the patient into the assigned doctor's queue dashboard.
+End State: A formally registered visit exists in the system; the patient appears in the doctor's queue. Hands off to BP-2.
+1.2.2. Clinical Examination & EMR Creation:
+Actors: Doctor, Lab Technician, System, Patient
+Objective: Enable the doctor to conduct a full clinical examination, order and receive lab/imaging results if needed, record a treatment conclusion and medication plan, finalize the Electronic Medical Record (EMR) for the visit, and collect patient feedback.
+Process Summary:
+The doctor opens their dashboard, selects the next patient from the queue, and reviews the patient's past EMR history before beginning the examination. After conducting the clinical assessment, the doctor enters preliminary symptoms and diagnosis into the EMR form.
+If lab tests or imaging are required (e.g., refraction measurement, OCT, ocular ultrasound), the doctor creates a Lab Order. The lab technician receives the order on their dashboard, performs the tests, and submits results along with any attached images. The system links the results to the EMR and pushes them to the doctor in real time. The doctor reviews the results and updates the diagnosis accordingly.
+If no lab work is needed, the preliminary diagnosis serves as the official diagnosis and the process continues directly.
+At the convergence point of both paths, the doctor writes the treatment conclusion (including the final diagnosis, ICD classification, and treatment direction) and drafts the medication and prescription plan within the EMR. This plan is informational at this stage; the formal Prescription record is created in BP-3.
+The doctor then finalizes and submits the EMR. The system saves it as Finalized, locks free editing (audit-protected), unlocks the Prescription feature for this visit, and logs the event to the Audit Log. The system automatically sends a feedback request to the patient via the Portal and email. The patient may optionally rate the service quality and leave a comment; if submitted, the feedback is saved and the Clinic Manager is notified.
+End State: The EMR is permanently finalized. Hands off to BP-3 if medication is needed, or ends the clinical flow otherwise.
+1.2.3. Prescription & Medicine Dispensing:
+Actors: Doctor, Pharmacist, Patient, System
+Objective: Transfer the doctor's prescription to the pharmacy, give the patient the choice to purchase medications, dispense the correct drugs if the patient opts in, and trigger invoice generation for the relevant charges.
+Process Summary:
+After the EMR is finalized, the doctor opens the prescription form. Two tasks may run in parallel: writing the medicine prescription (drug name, dosage, frequency, duration) and, if applicable, entering optical parameters for an eyeglass prescription (SPH, CYL, AXIS, ADD, PD per eye). The system saves the eyeglass prescription and generates a shareable PDF for the patient.
+Once both tasks are complete, the doctor reviews the full prescription and submits it. The system saves it and notifies the patient to decide on purchase.
+The patient then decides whether to purchase the prescribed medications. If they choose to buy, the pharmacist receives the order on the Pharmacy Dashboard, reviews the prescription lines, prepares each item, and confirms dispensing. The system updates the prescription status to Dispensed, generates a PharmacyInvoice, and notifies the receptionist to include pharmacy charges in the final bill. The patient collects the medications at the pharmacy counter, and the Patient Portal is updated accordingly.
+If the patient chooses not to purchase medications, the system marks the prescription as Skipped and notifies the receptionist that only examination fees apply for billing.
+End State: The prescription is either Dispensed or Skipped; the appropriate invoice components are ready. Hands off to BP-4.
+1.2.4. Payment Processing & Invoice Generation:
+Actors: Receptionist, Patient, System
+Objective: Consolidate all charges from the visit into a single invoice, process payment through the patient's chosen method, issue an electronic receipt, and officially close the visit.
+Process Summary:
+After the patient has completed examination and received medications (if applicable), the receptionist opens the invoice screen for the visit. The system automatically aggregates all applicable charges: service/examination fee, lab fees (if any), and pharmacy fees (if medications were dispensed), then displays an itemized breakdown. The receptionist reviews the breakdown, applies any discounts or insurance adjustments, and confirms invoice creation. The system creates an Unpaid invoice and displays the total.
+The receptionist informs the patient of the total amount and asks for the preferred payment method. For cash payment, the patient pays at the counter, the receptionist records it, and the system marks the invoice as Paid. For online payment (VietQR / bank QR transfer), the patient completes the transaction and the system waits for a callback from the payment gateway: on success, the invoice is marked Paid and the patient is notified via the Portal; on failure or timeout, the status is set to Payment Failed and the patient is prompted to retry.
+Once payment is confirmed, two actions run in parallel: the system generates and sends an e-invoice PDF to the patient's email and Portal while also recording the revenue data for reporting; and the receptionist prints a paper invoice if the patient requests one. Finally, the system updates the appointment status to Completed and writes the full event chain to the Audit Log.
+End State: Invoice issued, payment recorded, visit closed with status Completed.
+1.2.5. System Administration & RBAC Configuration:
+Actors: Admin, New Staff, System
+Objective: Allow the system administrator to create staff accounts, assign roles, configure access permissions via Role-Based Access Control (RBAC), and ensure new staff can log in securely and land on the correct dashboard for their role.
+Process Summary:
+The admin creates a new staff account by entering the employee's name, email, role, and department. The system validates that the email is not already registered, creates the account in an Inactive state, and generates a temporary password.
+The admin then opens the Roles & Permissions screen to review the default permission matrix for the assigned role. If the default configuration is sufficient, the admin proceeds directly to activation. If custom permissions are needed  (for example, granting or restricting access to specific modules beyond the role's defaults) the admin adjusts the permission matrix. The system saves the custom RBAC configuration and writes the changes (including admin ID, timestamp, and specific permissions modified) to the Audit Log.
+The admin activates the account. The system sets the account to Active and sends a welcome email to the new staff member containing the temporary password and login instructions.
+The new staff member logs in with the temporary password. The system authenticates the credentials, detects that this is a first login, and forces a password change. The staff member sets a new password compliant with the security policy. The system invalidates the temporary password, issues a JWT and refresh token, redirects the user to their role-specific dashboard, and records both the first login and the password change event to the Audit Log.
+End State: The staff account is fully active with correct RBAC configuration; the staff member is authenticated and working within their designated dashboard.
+1.3. User Requirements
+1.3.1. Actors
+STT
+Actor
+Description
+1
+Guest
+Guest is an unauthenticated visitor who accesses only the public-facing pages of the ECMS. Guests can view general clinic information and navigate to the registration or login page, but cannot access any protected feature or personal data. 
+2
+User
+User is the abstract base role representing any authenticated account within the system. Upon successful authentication, the user is assigned a specialized role that determines their specific access scope and available functionality. 
+3
+Patient 
+Patient is a specialized User who interacts with the system through the Patient Portal. Patients can book appointments online, view their personal EMR and prescription history, and receive automated appointment reminders, with access strictly limited to their own medical data. 
+4
+Receptionist 
+Receptionist is a clinic staff member responsible for front-desk operations within the system. Receptionists can register and manage patient profiles, confirm or reschedule appointments, and process service fee collection and invoice generation. 
+5
+Lab Technician 
+Lab Technician is a clinical support staff member who handles diagnostic and optical procedures. Lab Technicians can receive lab orders issued by the Doctor, input refraction and OCT examination results into the system, and perform lens cutting based on the prescribed optical parameters. 
+6
+Doctor
+Doctor is a licensed medical practitioner who manages the full clinical examination workflow. Doctors can create and update EMRs, issue lab orders for diagnostic tests, and generate electronic prescriptions for medication and corrective lenses. 
+7
+Pharmacist
+Pharmacist is a clinic staff member responsible for medication dispensing and pharmacy billing. Pharmacists can retrieve electronic prescriptions issued by the Doctor, dispense medicines according to the prescription, and issue electronic pharmacy invoices to be consolidated into the patient's billing record. 
+8
+Clinic Manager
+Clinic Manager is an operational supervisor responsible for monitoring clinic performance and staff administration. Clinic Manager can access revenue and patient statistics reports, manage doctor work schedules, and oversee staff records, but cannot modify system-level configurations. 
+9
+Admin 
+Admin is the highest-privilege system administrator with full control over the ECMS. Admin can manage all user accounts and role assignments, configure system-wide reference data and service catalogues, and access audit logs for security and compliance monitoring. 
+10
+Nurse
+Nurse is a clinical support staff member responsible for delivering care sessions to patients. Nurses can view their assigned care queue, execute care service delivery for patients, and manage the progress of these sessions within the system.
+1.3.2. Use Cases
+UC ID
+Use Case
+Actors
+1. Authentication & Account Management
+UC-01
+Register User Account
+Guest
+UC-02
+View Home Page
+Guest
+UC-03
+View Blog List
+Guest
+UC-04
+Log In to System
+User, Patient, Receptionist, Lab Technician, Doctor, Pharmacist, Clinic Manager, Admin
+UC-05
+Log Out of System
+User, Patient, Receptionist, Lab Technician, Doctor, Pharmacist, Clinic Manager, Admin
+UC-06
+Reset Forgotten Password
+User
+UC-07
+Change Account Password
+User, Patient, Receptionist, Lab Technician, Doctor, Pharmacist, Clinic Manager, Admin
+UC-08
+Manage Personal Profile
+User, Patient, Receptionist, Lab Technician, Doctor, Pharmacist, Clinic Manager, Admin
+UC-09
+Receive System Notification
+User, Patient, Receptionist, Doctor, Pharmacist, Lab Technician, Clinic Manager
+UC-10
+Interact with AI Chatbot (ECMS-Bot)
+Patient
+2. Reception & Scheduling
+UC-11
+Book Appointment Online
+Patient
+UC-12
+Manage Appointment
+Patient, Receptionist
+UC-13
+Send Appointment Reminder Notification
+Receptionist
+UC-14
+Register Walk-in Patient
+Receptionist
+UC-15
+Check-in Patient
+Receptionist
+UC-16
+Confirm Appointment
+Receptionist
+UC-17
+View Daily Appointment Schedule
+Receptionist, Clinic Manager
+UC-18
+Reassign Appointment
+Clinic Manager
+UC-19
+Assign Nurse to Care Session
+Clinic Manager
+UC-20
+Check-out Care Session
+Receptionist
+UC-21
+Confirm Eyeglass Pickup
+Receptionist
+UC-22
+Process Payment
+Receptionist
+UC-23
+Deliver Invoice
+Receptionist
+3. EMR & Clinical
+UC-24
+View Doctor Dashboard
+Doctor
+UC-25
+Manage Electronic Medical Record (EMR) 
+Doctor
+UC-26
+View Patient Medical History
+Patient, Doctor
+UC-27
+Issue Drug Prescription
+Doctor
+UC-28
+Issue Eyeglass Prescription
+Doctor
+UC-29
+Issue Lab/Imaging Order
+Doctor
+UC-30
+View Lab Results
+Patient, Doctor
+UC-31
+View Care Queue
+Nurse
+UC-32
+Deliver Care Session
+Nurse
+4. LIS & Imaging
+UC-33
+View Lab Queue
+Lab Technician
+UC-34
+Submit Lab/Test Results
+Lab Technician
+UC-35
+Review Submitted Lab Results
+Doctor
+UC-36
+Fabricate Eyeglasses
+Lab Technician
+5. Pharmacy
+UC-37
+Dispense Drug 
+Pharmacist
+UC-38
+Issue Electronic Invoice
+Pharmacist
+6. Service Package & Eyeglass Sales
+UC-39
+Purchase Service Package
+Guest, Patient
+UC-40
+Book Care Session
+Patient
+UC-41
+Order Eyeglasses from Clinic
+Patient
+UC-42
+Manage Service Packages
+Clinic Manager
+UC-43
+Manage Discount Campaigns
+Clinic Manager
+7. Patient Portal
+UC-44
+View Prescriptions
+Patient
+UC-45
+View Diagnostic Results
+Patient
+UC-46
+Register for Eye Care Services
+Patient
+UC-47
+Generate Feedback
+Patient
+8. Administration & Analytics
+UC-48
+View Real-time Operational Analytics Dashboard
+Clinic Manager
+UC-49
+Generate Revenue Report
+Clinic Manager
+UC-50
+View Patient Volume Statistics and Trends
+Clinic Manager
+UC-51
+Monitor Staff Performance Dashboard
+Clinic Manager
+UC-52
+Generate Feedback Report
+Clinic Manager
+UC-53
+Approve Payroll
+Clinic Manager
+UC-54
+Manage Lab Test Catalogue
+Clinic Manager
+9. System Admin & Security
+UC-55
+Manage User Account
+Admin
+UC-56
+Configure System and Data
+Admin
+UC-57
+Manage System Audit Log
+Admin
+1.3.3. Use Case Diagrams
+1.3.3.1. UCs for Guest
+In the ECMS system, the Guest is an actor representing unauthenticated users—meaning any individual who accesses the system without an account or before logging in. This use case diagram defines the scope of public interactions available to Guests, which includes viewing informational content on the system and registering for an account to become an authenticated user. Notably, the two «extend» relationships in the diagram reflect the optional behaviors of the Guest: viewing the details of a blog post or looking up a specific doctor's information is only triggered when the Guest actively selects that option, rather than being a mandatory action in every interaction session.
+1.3.3.2. UCs for User
+In the ECMS system, the User is an actor representing authenticated users—meaning individuals who have successfully registered and logged into their accounts. This use case diagram defines the scope of core interactions available to the User, which includes performing Login/Logout, Register, Change password, Manage personal profile, and Receive system notifications.
+The generalization relationship from User to Guest indicates that the User inherently inherits and can perform all public capabilities available to a Guest. Notably, the «extend» relationships in the diagram reflect conditional or optional behaviors within a session: resetting a forgotten password is only triggered from the login process, whereas actions like changing the password or updating specific details (Update personal profile) serve as extended behavioral branches tied to the personal profile management process whenever the User requires them.
+1.3.3.3. UCs for Patient
+In the ECMS system, the Patient is a specialized actor representing customers who utilize the medical and healthcare services of the system. The generalization relationship from Patient to User indicates that the Patient inherently inherits and is capable of performing all core functionalities available to a standard User. This use case diagram defines the scope of advanced interactions dedicated to the Patient, which includes booking appointments online (Book appointment online), viewing medical history (View medical history), and interacting with the support chatbot (Interact with chatbot).
+The system provides conditional and optional behavioral flows through «extend» relationships to optimize the patient experience. Specifically, from the appointment management process (Manage patient's appointment), the Patient can optionally view appointment details (View appointment detail) or reschedule/cancel the appointment (Rebook/cancel appointment). Regarding result lookups, viewing laboratory results (View Lab result) can extend to examining specific eye measurements. Notably, viewing overall examination results (View examination results) serves as a foundational use case that flexibly extends to viewing laboratory results, viewing electronic prescriptions and eyeglasses (View Prescriptions), or viewing diagnosis results (View diagnosis result) depending on the actual context of the medical session. Finally, within the financial workflow, while viewing the invoice list (View Invoice list), the Patient can choose to view specific invoice details (View Invoice detail), which subsequently triggers the online payment action (Pay invoice) whenever they need to settle the expenses.
+1.3.3.3. UCs for Doctor
+In the ECMS system, the Doctor is a specialized actor representing medical professionals responsible for performing clinical and specialized healthcare operations. The generalization relationship from Doctor to User indicates that the Doctor inherently inherits and is capable of performing all core functionalities available to a standard User. This use case diagram defines the scope of advanced privileges and interactions dedicated to the Doctor, which includes managing Electronic Medical Records (Manage Electronic Medical Record - EMR), issuing drug or eyeglass prescriptions (Issue Drug/Glass Prescription), viewing laboratory results (View lab result), viewing patient medical information (View Patient Medical Information), and viewing their personal schedule (View personal schedule).
+To ensure that medical workflows are both rigorous and flexible, the system establishes supplementary relationships between use cases. Specifically, from the EMR management process, the Doctor can optionally choose to create a new record (Create new EMR) or update an existing one (Update existing EMR) via «extend» relationships. Within the examination and prescription workflow, issuing a drug/glass prescription (Issue Drug/Glass Prescription) mandatorily encompasses recording clinical diagnoses and notes (Record Clinical Diagnosis and Notes) through an «include» relationship. Concurrently, this prescription process can be extended by recording and submitting visual acuity test results (Record and Submit Visual Acuity Test Results) or by viewing laboratory results (View lab result) based on clinical needs. The view lab result use case itself inherently incorporates ordering a laboratory test (Order Lab Test) via an «include» relationship. Furthermore, when accessing patient medical information (View Patient Medical Information), the Doctor can optionally update medical details (Update patient medical information) or review the patient's comprehensive medical history (View Patient Medical History). Finally, from the personal schedule interface, the Doctor can actively choose to reschedule or cancel appointments (Reschedule/cancel schedule) depending on their actual availability.
+1.3.3.4. UCs for Receptionist 
+In the ECMS system, the Receptionist is a specialized actor representing front-desk staff responsible for coordinating appointments, welcoming patients, and handling initial financial transactions at the clinic. The generalization relationship from Receptionist to User indicates that the Receptionist inherently inherits and is capable of performing all core functionalities available to a standard User. This use case diagram defines the operational scope dedicated to the Receptionist, which includes managing patient appointments (Manage patient's appointment), registering walk-in patients (Register walk-in patient), viewing the overall appointment schedule (View appointment schedule), collecting examination fees and issuing invoices (Process Payment), and sending appointment reminder notifications (Send Appointment Reminder Notification).
+The coordination and operational workflows are optimized through supplementary relationships between use cases. Specifically, from the patient appointment management process, the Receptionist can optionally choose to view appointment details (View appointment detail), reschedule or cancel an appointment (Rebook/cancel appointment), or confirm the appointment and assign it to a doctor (Confirm appointment) via «extend» relationships. Regarding schedule monitoring, from the view appointment schedule interface, the staff can optionally choose to reschedule or cancel a specific schedule (Reschedule/cancel schedule). Within the financial workflow, once the examination fee collection and invoice generation (process payment) are completed, the system allows for an extended action to print or send an electronic invoice to the patient (Deliver Invoice). Finally, to support attendance management, the action of sending appointment reminder notifications (Send Appointment Reminder Notification) mandatorily encompasses and incorporates data from the prior booking process (Book appointment) through an «include» relationship.
+1.3.3.5. UCs for Lab technician
+In the ECMS system, the Lab technician is a specialized actor representing laboratory personnel responsible for receiving orders, performing specialized measurements, and updating test results in the system. The generalization relationship from Lab technician to User indicates that the Lab technician inherently inherits and is capable of performing all core functionalities available to a standard User. This use case diagram defines the specialized operational scope dedicated to the Lab technician, which comprises two primary interactions: submitting laboratory results (Submit lab result) and viewing the laboratory queue (View lab queue).
+The system establishes mandatory integrated workflows and extended behavioral branches to optimize accuracy within the laboratory environment. Specifically, regarding the result handling workflow, the action of submitting laboratory results (Submit lab result) mandatorily encompasses viewing the doctor's order (View doctor's order) for verification and inherently incorporates the process of recording the laboratory results (Record lab result) before final submission through «include» relationships. Furthermore, from this submission process, the technician can optionally choose to modify data via the update laboratory result use case (Update lab result) through an «extend» relationship when corrections are needed. Within the operational workflow, from the view laboratory queue interface (View lab queue) used to monitor waiting patients, the system provides an extended capability to filter or search for specific patients (Filter/search patient) to expedite data lookup and coordination.
+1.3.3.6. UCs for Pharmacist
+In the ECMS system, the Pharmacist is a specialized actor representing pharmacy personnel responsible for managing, dispensing medications, and handling pharmaceutical-related invoices at the clinic's pharmacy. The generalization relationship from Pharmacist to User indicates that the Pharmacist inherently inherits and is capable of performing all core functionalities available to a standard User. This use case diagram defines the specialized operational scope dedicated to the Pharmacist, which comprises two primary interactions: dispensing medication (Dispense Drug) and issuing electronic invoices (Issue Electronic Invoice).
+The system establishes mandatory verification workflows and flexible extended paths to ensure accuracy during the pharmaceutical dispensing process. Specifically, within the dispensing workflow, the action of dispensing medication (Dispense Drug) mandatorily encompasses viewing the drug prescription (View drug prescription) via an «include» relationship to cross-check clinical orders. From this dispensing process, the system allows for an extended capability to view patient requirements (View patient requirement) through an «extend» relationship. While accessing the patient requirement interface, the pharmacist can optionally approve or decline the drug prescription (Approve/Decline drug prescription) based on stock availability or prescription validity. Within the financial workflow, once the electronic invoice generation (Issue Electronic Invoice) is completed, the process can be extended to the invoice payment action (Pay invoice) when the pharmacist assists the patient in settling the transaction at the counter.
+1.3.3.7. UCs for Clinic Manager
+In the ECMS system, the Clinic manager is a high-level actor representing the clinic's management board, responsible for overseeing global operational activities, evaluating staff performance, and analyzing comprehensive financial metrics. The generalization relationship from Clinic manager to User indicates that the Clinic manager inherently inherits and is capable of performing all core functionalities available to a standard User. This use case diagram defines the administrative scope dedicated to the Clinic manager, which comprises generating revenue reports (Generate Revenue Report), monitoring the staff performance dashboard (Monitor Staff Performance Dashboard), viewing the real-time operational analytics dashboard (View Real-time Operational Analytics Dashboard), viewing the daily appointment schedule (View Daily Appointment Schedule), and generating feedback reports (Generate feedback report).
+The system establishes rigorous data aggregation workflows to support strategic decision-making. Specifically, within the financial and operational reporting workflow, the action of generating a revenue report (Generate Revenue Report) mandatorily encompasses three integral subprocesses: viewing the number of service package subscriptions (View the number of service package subscriptions), viewing patient volume statistics and trends (View Patient Volume Statistics and Trends), and viewing inventory and pharmacy consumption reports (View Inventory and Pharmacy Consumption Report) via «include» relationships. Within the schedule management workflow, from the view daily appointment schedule interface, the manager can optionally choose to reschedule or cancel a schedule (Reschedule/Cancelled schedule) through an «extend» relationship when emergency reallocations are required. Finally, regarding service quality administration, the process of generating a feedback report (Generate feedback report) mandatorily incorporates inspecting specific patient reviews (View patient's feedback) through an «include» relationship.
+1.3.3.8. UCs for Admin
+In the ECMS system, the Admin is the highest-level actor representing the system administrator, responsible for managing the technical infrastructure, ensuring data security, and maintaining the overall stability of the platform. The generalization relationship from Admin to User indicates that the Admin inherently inherits and is capable of performing all core functionalities available to a standard User. This use case diagram defines the core administrative scope dedicated to the Admin, which comprises three primary platform interactions: managing user accounts (Manage User Account), configuring system and data (Configure System and Data), and managing system audit logs (Manage System Audit Log).
+The system establishes strict security control workflows combined with flexible redundancy mechanisms through supplementary relationships between use cases. Specifically, within the user administration workflow, the action of managing user accounts (Manage User Account) mandatorily encompasses modifying role-based permissions (Modify Role-Based Permissions - RBAC) via an «include» relationship to guarantee system security. Concurrently, from this account management process, the Admin can optionally choose to deactivate accounts (Deactive account) through an «extend» relationship upon detecting violations. Regarding infrastructure administration, from the configure system and data interface, the workflow can be extended to the action of restoring system data from backup (Restore System Data from Backup) in the event of system failures. Finally, within the audit workflow, the feature of managing system audit logs (Manage System Audit Log) provides an extended capability to configure automated backup schedules (Configure Automated Backup Schedule) via an «extend» relationship to optimize routine data safety.
+1.4. System Functionalities
+1.4.1. Screens Flow
+1.4.1.1. Screen flow for Patient:
+1.4.1.2. Screen flow for Receptionist:
+1.4.1.3. Screen flow for Doctor:
+1.4.1.4. Screen flow for Lab Technician:
+1.4.1.5. Screen flow Clinic Manager:
+1.4.1.6. Screen flow for Pharmacist:
+1.4.1.7. Screen flow for Admin:
+1.4.2. Screen Authorization
+X = Full access | ✓(view) = view only | ✓(personal) = personal data| Blank =  no access
+Screen
+Patient
+Receptionist
+Doctor
+Lab Tech
+Pharmacist
+Manager
+Admin
+Login / Register
+X
+X
+X
+X
+X
+X
+X
+Forgot password
+X
+X
+X
+X
+X
+X
+X
+Home page
+X
+X
+X
+X
+X
+X
+X
+Dashboard
+X
+X
+X
+X
+X
+X
+X
+Personal Profile
+X
+X
+X
+X
+X
+X
+X
+Change Password
+X
+X
+X
+X
+X
+X
+X
+Booking Appointment
+X
+X
+Appointment Detail
+X
+X
+✓(view)
+✓(view)
+View Medical History
+X
+X
+Interact with Chatbot
+X
+Electronic Medical Report (EMR)
+✓(view)
+X
+✓(view)
+✓(view)
+✓(view)
+Prescription & Eyeglasses
+✓(view)
+X
+✓(view)
+X
+Examination & Diagnosis
+✓(view)
+X
+X
+Billing & Invoicing
+✓(view)
+X
+X
+✓(view)
+Reporting & Analysis
+X
+Staff & Schedule Management
+X
+✓(personal)
+✓(personal)
+X
+X
+System Configuration & RBAC
+X
+Audit Logs
+✓(view)
+1.4.3. Non-UI Functions
+STT
+Module
+Function
+Description
+Trigger
+1
+Appointment
+Auto Reminder Job
+The cron job runs every hour, automatically sending appointment reminder emails to patients 24 hours in advance. 
+Per Hour
+3
+Billing
+Invoice PDF Generator
+The service generates a PDF electronic invoice and sends it to the patient via email immediately after payment.
+On-demand
+4
+Auth
+Token Refresh Service
+The API endpoint receives a Refresh Token, verifies its validity, and returns a new Access Token (TTL 60 minutes).
+On-demand
+5
+Reports
+Monthly Report Generator
+The Cron job at the beginning of the month automatically compiles the previous month's report (revenue, number of visits) and saves it to the database.
+Beginning of the month
+1.5. Entity Relationship Diagram
+2. Use Case Specifications
+2.1 Business Rules
+The following Business Rules must be enforced at both layers: Frontend validation (UX) and Backend service layer (correctness). Some BRs also need to be checked at the Database level (constraints/triggers).
+BR ID
+Class
+Rule Name
+Rule Description
+BR-01
+Security & Authentication
+Password Policy
+Passwords must be at least 8 characters long, including uppercase letters, lowercase letters, and numbers; they must be hashed using bcrypt (cost ≥ 12) before saving. Related: UC-01, UC-04, UC-06, UC-07.
+BR-02
+Security & Authentication
+Account Locking
+After 5 incorrect login attempts within 30 minutes, the account is locked for 30 minutes. Related: UC-04.
+BR-03
+Scheduling
+Max Appointments per Day
+Each doctor is limited to 30 appointments per workday. Related: UC-11, UC-12, UC-14, UC-15, UC-18, UC-46.
+BR-04
+Scheduling
+Advance Booking
+Appointments must be booked at least 2 hours in advance. Related: UC-11, UC-12, UC-18, UC-46.
+BR-05
+Scheduling
+Cancellation Deadline
+Cancellations are allowed at least 1 hour before the scheduled time. Related: UC-12, UC-16.
+BR-06
+Clinical / EMR
+Prescription Authority
+Only licensed doctors can create prescriptions. Related: UC-27, UC-28.
+BR-07
+Pharmacy 
+Dispensing
+Medication dispensing. Related: UC-37.
+BR-08
+Data Privacy & Security
+EMR Confidentiality
+Records accessible only by the assigned doctor and patient. Related: UC-25, UC-26, UC-30, UC-44, UC-45.
+BR-09
+Data Integrity
+No Hard Delete
+Soft-delete/deactivate only for business records. Related: UC-25, UC-27, UC-36, UC-42, UC-53, UC-55, UC-56.
+BR-10
+Billing & Payment
+Invoice Insurance
+Invoice status only changes to PAID upon full payment. Related: UC-16, UC-20, UC-21, UC-22, UC-38.
+BR-11
+Billing & Payment
+Invoice Calculation
+Total bill = Examination fee + Lab fee + Medicine fee - Discount. Related: UC-16, UC-20, UC-22, UC-43.
+BR-12
+Scheduling / Queue
+Queue Uniqueness
+Queue number is unique per (doctor, work day) assigned in arrival order. Related: UC-15, UC-17.
+BR-13
+Scheduling
+Reassignment Lock
+Cannot reschedule appointments once IN_PROGRESS or COMPLETED. Related: UC-18.
+BR-14
+Service Package
+Subscription Consumption
+Each CareSession booking deducts 1 session from subscription. Related: UC-40.
+BR-15
+Billing / Promotion
+Discount Stacking
+Only one discount program per invoice, unless explicitly combinable. Related: UC-43.
+BR-16
+Scheduling
+Care Session Capacity
+Max daily sessions per nurse configured by Clinic Manager. Related: UC-19.
+BR-17
+Administration / Payroll
+Payroll Authority
+Only Clinic Manager can approve payroll. Related: UC-53.
+BR-18
+Billing / Fulfillment
+Eyeglass Pickup
+Cannot confirm delivery if invoice is UNPAID. Related: UC-21.
+BR-19
+Service Package
+Subscription Validity
+Package valid from date of payment confirmation. Related: UC-39, UC-40.
+BR-20
+Sales / Clinical
+Eyeglass Order
+Requires ISSUED prescription; warning if >24 months old. Related: UC-41.
+BR-21
+Patient Experience
+One Feedback
+Maximum one feedback per appointment. Related: UC-47.
+BR-22
+Scheduling
+Reschedule Restriction
+Only PENDING or CONFIRMED appointments can be rescheduled. Related: UC-12a.
+BR-23
+Scheduling
+Reschedule Reset
+Rescheduled appointments reset status to PENDING. Related: UC-12a.
+2.2 — Authentication & Account Management
+UC-01: Register User Account
+ 
+UC ID & Name
+UC-01: Register User Account
+Primary Actor
+Guest
+Secondary Actors
+System (email verification service)
+Trigger
+Guest clicks the 'Register' button on the Login/Register screen.
+Description
+A Guest fills in the registration form with personal details (full name, email, password, phone number, date of birth). The system creates a new Patient account with status = PENDING_VERIFICATION and sends an email verification link to activate the account.
+Preconditions
+PRE-1: The guest accesses the public Login/Register screen.
+PRE-2: The email address provided is not already registered in the system.
+Postconditions
+POST-1: A new record is created in the users table with role = PATIENT and status = PENDING_VERIFICATION.
+POST-2: The patient receives an email with a time-limited activation link.
+POST-3: After clicking the link, account status transitions to ACTIVE.
+Normal Flow
+1. Guest navigates to the Login/Register screen and selects 'Register'.
+2. Guest fills in: full name, email, password, confirm password, phone number, date of birth.
+3. System validates all required fields and format rules (E1, E2).
+4. System hashes the password using bcrypt (cost ≥ 12) and creates the account record.
+5. System sends a verification email containing a one-time activation link (valid 24 hours).
+6. Guest opens the email and clicks the activation link.
+7. System verifies the token, sets account status = ACTIVE.
+8. System redirects the guest to the Login screen with a success message.
+Alternative Flows
+None
+Exceptions
+E1 — Email already registered:
+System displays 'This email is already registered. Please log in.' Guest is redirected to the Login screen.
+ 
+E2 — Password does not meet policy (BR-01):
+System highlights the password field and displays: 'Password must be at least 8 characters, including uppercase, lowercase, and a digit.' Guest corrects and resubmits.
+ 
+E3 — Activation link expired:
+System displays: 'This activation link has expired. Request a new one?' Guest may request a fresh link.
+Priority
+Must Have
+Frequency of Use
+Low; primarily during initial patient onboarding
+Business Rules
+BR-01 (Password Policy)
+Assumptions
+Guest has a valid email address. SMTP service is available.
+ 
+UC-02: View Home Page
+ 
+UC ID & Name
+UC-02: View Home Page
+Primary Actor
+Guest
+Secondary Actors
+None
+Trigger
+User navigates to the root URL of ECMS or clicks the clinic logo/Home link.
+Description
+Any visitor (authenticated or unauthenticated) can access the public home page, which displays clinic information, featured services, announcements, quick-access links (Book Appointment, Login, Register), and the AI chatbot entry point.
+Preconditions
+PRE-1: The ECMS web application is running and reachable.
+Postconditions
+POST-1: The home page is rendered successfully with up-to-date clinic content.
+Normal Flow
+1. User opens the browser and navigates to the ECMS root URL.
+2. System loads and displays the home page, including: clinic name, address, contact details, service highlights, news/announcements, and quick-action buttons.
+3. Authenticated users additionally see a personalised greeting and a link to their dashboard.
+4. Guest sees 'Book Appointment', 'Login', and 'Register' call-to-action buttons.
+Alternative Flows
+ALT-1: Authenticated user lands on home page:
+System shows role-appropriate greeting and redirects to the dashboard if the user clicks 'Go to Dashboard'.
+Exceptions
+E1 — Server unavailable:
+Browser shows a generic error page. No ECMS content is displayed.
+Priority
+Must Have
+Frequency of Use
+High; accessed by every visitor session
+Business Rules
+—
+Assumptions
+Home page content (clinic info, announcements) is managed by Admin via System Configuration.
+ 
+UC-03: View Blog List
+ 
+UC ID & Name
+UC-03: View Blog List
+Primary Actor
+Guest
+Secondary Actors
+None
+Trigger
+User clicks 'Blog' or 'Eye Care Articles' in the navigation menu.
+Description
+Any visitor can browse a paginated list of published eye care articles and clinic news. Each entry shows a title, summary, publication date, and category tag. Clicking an article opens its full content.
+Preconditions
+PRE-1: At least one published blog post exists in the system.
+Postconditions
+POST-1: The blog list is displayed with current published articles.
+Normal Flow
+1. User clicks 'Blog' in the navigation menu.
+2. System retrieves all published blog posts and displays them as cards, sorted by publication date (newest first).
+3. Each card shows: title, category, thumbnail, publication date, and a short excerpt.
+4. User may filter by category (e.g., Eye Health, Clinic News, Treatments).
+5. User clicks a card to read the full article.
+Alternative Flows
+ALT-1 — No posts published yet:
+System displays: 'No articles available yet. Check back soon.'
+Exceptions
+None
+Priority
+Should Have
+Frequency of Use
+Moderate; informational access by patients and guests
+Business Rules
+—
+Assumptions
+Blog content is created and published by Admin or a content manager role.
+ 
+ 
+UC-04: Log In to System
+ 
+UC ID & Name
+UC-04: Log In to System
+Primary Actor
+User, Patient, Receptionist, Lab Technician, Doctor, Pharmacist, Clinic Manager, Admin
+Secondary Actors
+Google Identity Platform (for OAuth login)
+Trigger
+User navigates to the Login screen, or the system redirects an unauthenticated request to Login.
+Description
+Any registered user logs in with email/password or Google OAuth 2.0. The system authenticates credentials, enforces account-lock policy, issues a JWT Access Token and Refresh Token, and redirects the user to their role-specific dashboard.
+Preconditions
+PRE-1: The account exists in the system with status = ACTIVE.
+PRE-2: The user's email has been verified.
+Postconditions
+POST-1: JWT Access Token (TTL = 60 min) and Refresh Token (TTL = 7 days) are issued.
+POST-2: Refresh Token is stored in an HttpOnly cookie.
+POST-3: User is redirected to their role dashboard.
+POST-4: Login event is recorded in the Audit Log.
+Normal Flow
+1. User enters email and password on the Login screen.
+2. System validates credentials against stored bcrypt hash (E1, E2, E3).
+3. System issues JWT Access Token and Refresh Token.
+4. System records the login event in the Audit Log.
+5. System redirects based on role:
+   - Patient → Patient Portal
+   - Doctor → EMR Dashboard
+   - Receptionist → Appointment Management
+   - Lab Technician → Lab Queue
+   - Pharmacist → Dispensing Dashboard
+   - Clinic Manager → Reports Dashboard
+   - Admin → Admin Panel
+Alternative Flows
+ALT-1 — Google OAuth Login (FR-02, Should Have):
+1. User clicks 'Sign in with Google'.
+2. System redirects to Google Identity Platform.
+3. Google authenticates and returns an ID token callback.
+4. System validates the token, maps the Google account to a local account (by email).
+5. If matched, proceed from normal flow step 3.
+6. If no match, system pre-fills registration form and prompts account creation.
+Exceptions
+E1 — Incorrect password:
+System increments login_fail_count. If count = 5 within 30 minutes, account is locked for 30 minutes (BR-02). System displays remaining attempts.
+ 
+E2 — Account locked (BR-02):
+System displays: 'Account locked. Try again in X minutes, or contact support.'
+ 
+E3 — Email not verified:
+System displays: 'Please verify your email first.' with option to resend the verification link.
+Priority
+Must Have
+Frequency of Use
+Very high; every user session
+Business Rules
+BR-01 (Password Policy), BR-02 (Account Locking)
+Assumptions
+SMTP available for re-send verification emails. Google OAuth credentials configured for Should Have scope.
+ 
+ 
+UC-05: Log Out of System
+ 
+UC ID & Name
+UC-05: Log Out of System
+Primary Actor
+User, Patient, Receptionist, Lab Technician, Doctor, Pharmacist, Clinic Manager, Admin
+Secondary Actors
+None
+Trigger
+Authenticated user clicks the 'Log Out' button from any screen.
+Description
+The user explicitly terminates their session. The system revokes the Refresh Token, clears the client-side JWT, and redirects to the Login screen.
+Preconditions
+PRE-1: User has an active authenticated session.
+Postconditions
+POST-1: Refresh Token is invalidated server-side.
+POST-2: HttpOnly Refresh Token cookie is cleared on the client.
+POST-3: User is redirected to the Login screen.
+POST-4: Logout event is recorded in the Audit Log.
+Normal Flow
+1. User clicks 'Log Out' from the navigation menu or user-profile dropdown.
+2. Client sends the Refresh Token to the logout endpoint.
+3. System invalidates the Refresh Token in the database.
+4. System clears the HttpOnly cookie on the client.
+5. System records the logout event.
+6. System redirects the user to the Login screen.
+Alternative Flows
+ALT-1 — Session expired (Access Token TTL exceeded):
+1. Client detects a 401 response on any API call.
+2. Client automatically sends the Refresh Token to renew the Access Token.
+3. If the Refresh Token is valid, a new Access Token is issued and the action retries.
+4. If the Refresh Token is expired or revoked, the system forces logout and redirects to Login.
+Exceptions
+None
+Priority
+Must Have
+Frequency of Use
+Once per session
+Business Rules
+—
+Assumptions
+—
+ 
+ 
+UC-06: Reset Forgotten Password
+ 
+UC ID & Name
+UC-06: Reset Forgotten Password
+Primary Actor
+User
+Secondary Actors
+System (email service)
+Trigger
+User clicks 'Forgot Password?' on the Login screen.
+Description
+A user who has forgotten their password requests a reset. The system sends a one-time reset link to the registered email. The user sets a new compliant password, and all existing sessions are invalidated.
+Preconditions
+PRE-1: An account with the provided email exists and is ACTIVE.
+Postconditions
+POST-1: New bcrypt-hashed password replaces the previous one.
+POST-2: All existing Refresh Tokens for the account are revoked.
+POST-3: Password reset event is logged in the Audit Log.
+Normal Flow
+1. User clicks 'Forgot Password?' on the Login screen.
+2. System displays an email input field.
+3. User enters their registered email address.
+4. System generates a one-time reset token (valid 15 minutes).
+5. System sends a password reset email with the token link.
+6. User clicks the link; system validates the token (E2).
+7. System displays the New Password form.
+8. User enters and confirms the new password.
+9. System validates against BR-01 (E3).
+10. System hashes and saves the new password.
+11. System revokes all existing Refresh Tokens for this account.
+12. System shows success message and redirects to Login.
+Alternative Flows
+None
+Exceptions
+E1 — Email not found:
+System shows a generic response: 'If this email is registered, a reset link has been sent.' (prevents user enumeration)
+ 
+E2 — Reset token expired or invalid:
+System displays: 'This link has expired or is invalid. Please request a new one.' User is redirected to the Forgot Password screen.
+ 
+E3 — New password fails policy:
+System displays BR-01 requirements inline and prompts the user to retry.
+Priority
+Must Have
+Frequency of Use
+Low; occasional per user
+Business Rules
+BR-01 (Password Policy)
+Assumptions
+SMTP service is operational. Token TTL = 15 minutes.
+ 
+ 
+UC-07: Change Account Password
+ 
+UC ID & Name
+UC-07: Change Account Password
+Primary Actor
+User, Patient, Receptionist, Lab Technician, Doctor, Pharmacist, Clinic Manager, Admin
+Secondary Actors
+None
+Trigger
+User navigates to Profile Settings → 'Change Password'; or system forces a change on first login with a temporary password.
+Description
+An authenticated user changes their current password. The user must supply the existing password for verification before setting a new one that meets the security policy.
+Preconditions
+PRE-1: User is authenticated.
+PRE-2: User knows their current password (or is in forced-change mode on first login).
+Postconditions
+POST-1: New bcrypt-hashed password is stored.
+POST-2: All other active Refresh Tokens (other devices) are invalidated.
+POST-3: Event recorded in Audit Log.
+Normal Flow
+1. User navigates to Profile Settings → Change Password.
+2. System displays fields: Current Password, New Password, Confirm New Password.
+3. User fills in all fields.
+4. System verifies Current Password matches the stored hash (E1).
+5. System validates New Password against BR-01 (E2).
+6. System hashes and stores the new password.
+7. System invalidates for this account.
+8. System displays: 'Password changed successfully.'
+Alternative Flows
+ALT-1 — Forced change on first login:
+1. System detects first_login_flag = true immediately after authentication.
+2. System redirects to the Change Password screen before the role dashboard is accessible.
+3. After successful change, first_login_flag is cleared and user proceeds to their dashboard.
+Exceptions
+E1 — Current password incorrect:
+System displays: 'Current password is incorrect.' Field is cleared; user retries.
+ 
+E2 — New password fails policy (BR-01):
+System displays the requirements inline. Changes are not saved.
+Priority
+Must Have
+Frequency of Use
+Low; occasional per user
+Business Rules
+BR-01 (Password Policy)
+Assumptions
+—
+ 
+ 
+UC-08: Manage Personal Profile
+ 
+UC ID & Name
+UC-08: Manage Personal Profile
+Primary Actor
+User, Patient, Receptionist, Lab Technician, Doctor, Pharmacist, Clinic Manager, Admin
+Secondary Actors
+None
+Trigger
+User clicks their avatar or 'Profile' in the navigation menu.
+Description
+Any authenticated user views and updates their personal profile (full name, phone, date of birth, address, profile photo). Email and role fields are read-only and can only be modified by Admin.
+Preconditions
+PRE-1: User is authenticated.
+Postconditions
+POST-1: Updated profile data is persisted to the users table (and the relevant role-specific table, e.g., patients or doctors).
+Normal Flow
+1. User navigates to the Profile page.
+2. System displays current profile information in an editable form.
+3. User modifies editable fields (name, phone, DOB, address, photo).
+4. User clicks 'Save Changes'.
+5. System validates inputs (required fields, phone format, valid date).
+6. System saves the updates and displays a success notification.
+Alternative Flows
+None
+Exceptions
+E1 — Validation failure:
+System highlights the invalid fields with descriptive messages. Changes are not saved until all errors are resolved.
+Priority
+Must Have
+Frequency of Use
+Occasional; per user preference
+Business Rules
+—
+Assumptions
+Email and role changes require Admin access.
+ 
+ 
+UC-09: Receive System Notification
+ 
+UC ID & Name
+UC-09: Receive System Notification
+Primary Actor
+User, Patient, Receptionist, Doctor, Pharmacist, Lab Technician, Clinic Manager
+Secondary Actors
+System (notification engine, email service)
+Trigger
+A system event occurs that generates a notification (appointment confirmed, prescription ready, lab result uploaded, invoice issued, etc.).
+Description
+The system automatically delivers in-app notifications and email alerts to relevant actors when key workflow events occur. Users can view their notification history and mark notifications as read.
+Preconditions
+PRE-1: Recipient is a registered, ACTIVE user.
+PRE-2: A triggering event has occurred within ECMS.
+Postconditions
+POST-1: Notification record created in the database and linked to the recipient.
+POST-2: In-app notification badge count increments in real time.
+POST-3: Email notification dispatched if the event qualifies (SMTP available).
+Normal Flow
+1. A workflow event triggers notification creation (e.g., Receptionist confirms appointment).
+2. System creates a notification record for the target user.
+3. System pushes the notification to the user's in-app notification bell via WebSocket.
+4. System sends an email notification for qualifying events.
+5. User clicks the notification bell to open the notification panel.
+6. System lists notifications (unread and read) with timestamps and brief descriptions.
+7. User clicks a notification to navigate to the relevant screen.
+8. System marks the notification as read.
+Alternative Flows
+ALT-1 — Mark all as read:
+1. User clicks 'Mark all as read'.
+2. System updates all unread notifications for the user to read status and resets the badge count to 0.
+Exceptions
+E1 — Email delivery failure:
+System logs the failed attempt and retries up to 3 times at 5-minute intervals. In-app notification is always delivered regardless of email status.
+Priority
+Must Have
+Frequency of Use
+Multiple times per day per active user
+Business Rules
+—
+Assumptions
+Real-time delivery uses WebSocket or server-sent events. Email via Gmail SMTP / SendGrid.
+ 
+ 
+UC-10: Interact with AI Chatbot (ECMS-Bot)
+ 
+UC ID & Name
+UC-10: Interact with AI Chatbot (ECMS-Bot)
+Primary Actor
+Patient
+Secondary Actors
+__
+Trigger
+Patient clicks the chatbot icon on the Patient Portal.
+Description
+The Patient uses the ECMS-Bot to ask about clinic services, check or book appointments, review FAQs on eye care, or get basic guidance. The bot handles common intents autonomously and escalates complex or sensitive queries to a human Receptionist.
+Preconditions
+PRE-1: Patient is authenticated on the Patient Portal.
+Postconditions
+POST-1: Conversation session is logged.
+POST-2: If the bot assists with booking, an appointment record is created (delegating to UC-11).
+POST-3: If escalated, a support request notification is sent to the Receptionist.
+Normal Flow
+1. Patient clicks the chatbot icon to open the chat panel.
+2. ECMS-Bot greets the patient and presents quick-reply options: Book Appointment, Check My Appointment, Clinic Info, Eye Care FAQs.
+3. Patient selects an option or types a free-text query.
+4. System processes the input and generates a contextual response.
+5. If the intent is appointment booking, the bot guides the patient through the selection flow (delegates to UC-11).
+6. Patient receives the response and may continue the conversation or close the panel.
+7. System logs the complete conversation.
+Alternative Flows
+ALT-1 — Escalate to human Receptionist:
+1. Patient asks a query the bot cannot resolve with sufficient confidence.
+2. Bot responds: 'I'll connect you with our receptionist for further assistance.'
+3. System creates a support request notification for the on-duty Receptionist.
+Exceptions
+E1 — AI service unavailable:
+System displays: 'Our chat assistant is temporarily unavailable. Please call our hotline or send us an email.'
+Priority
+Should Have
+Frequency of Use
+Varies; primarily for self-service patient queries
+Business Rules
+—
+Assumptions
+Chatbot NLP backend integrated via REST API. Bot response confidence threshold configurable by Admin.
+ 
+2.3 — Reception & Scheduling
+UC-11: Book Appointment Online
+ 
+UC ID & Name
+UC-11: Book Appointment Online
+Primary Actor
+Patient
+Secondary Actors
+System (email confirmation service)
+Trigger
+Patient clicks 'Book Appointment' on the Patient Portal or Home Page.
+Description
+An authenticated Patient selects a doctor by specialty, chooses an available date and time slot, and confirms an online booking. The system creates an appointment record with status = PENDING and sends an email confirmation.
+Preconditions
+PRE-1: Patient is logged in.
+PRE-2: Patient has a valid email address.
+Postconditions
+POST-1: Appointment record saved in the appointments table with status = PENDING and the selected doctor assigned.
+POST-2: Patient receives a booking confirmation email.
+POST-3: Receptionist receives a notification of the new pending appointment.
+Normal Flow
+1. Patient navigates to the Appointment Booking screen.
+2. Patient selects a medical specialty and then a doctor from the filtered list.
+3. System displays the doctor's availability calendar for the next 30 days.
+4. Patient selects a date; system displays available time slots for that date.
+5. Patient selects a time slot (E1, E2).
+6. System displays a booking summary (doctor name, specialty, date, time, patient name).
+7. Patient reviews and confirms.
+8. System creates the appointment record (status = PENDING).
+9. System sends a confirmation email to the patient.
+10. System redirects the patient to 'My Appointments'.
+Alternative Flows
+ALT-1 — Book on behalf of a family member:
+1. Patient selects 'Book for someone else' and enters the family member's name and phone number.
+2. System continues from step 3 of the normal flow, linking the appointment to the logged-in patient account.
+Exceptions
+E1 — No available slots on selected date:
+System displays: 'No slots available for this doctor on the selected date.' Patient selects a different date or cancels.
+ 
+E2 — Booking too close to appointment time:
+System displays: 'Appointments must be booked at least 2 hours in advance.' Patient selects a later slot.
+Priority
+Must Have
+Frequency of Use
+Estimated 50–200 bookings/day; peak 07:00–09:00 and 14:00–16:00
+Business Rules
+BR-03 (Max Appointments/Day), BR-04 (Advance Booking)
+Assumptions
+Patient has an active account. 
+ 
+UC-12: Manage Appointment 
+ 
+UC ID & Name
+UC-12: Manage Appointment 
+Primary Actor
+Patient, Receptionist
+Secondary Actors
+System (notification emails)
+Trigger
+Patient accesses 'My Appointments'; or Receptionist opens the Appointment Management screen.
+Description
+Patients can view, reschedule (if within policy), and cancel their upcoming appointments. Receptionists can view, reschedule, add notes to, and cancel any appointment on behalf of patients.
+Preconditions
+PRE-1: The appointment record exists.
+PRE-2: Actor is authenticated with the appropriate role.
+Postconditions
+POST-1: If cancelled — appointment status = CANCELLED; time slot is freed; notification sent.
+POST-2: If rescheduled — appointment updated with new date/time; notification sent to all parties.
+POST-3: All actions recorded in the Audit Log.
+Normal Flow
+1. Patient navigates to 'My Appointments'.
+2. System displays a list of upcoming and past appointments with status indicators.
+3. Patient selects an upcoming appointment and clicks 'Cancel'.
+4. System validates the cancellation deadline (E1 — BR-05).
+5. System prompts for an optional cancellation reason.
+6. System updates appointment status = CANCELLED and frees the time slot.
+7. System sends a cancellation notification to the assigned doctor.
+Alternative Flows
+ALT-1 — Reschedule by Receptionist:
+1. Receptionist opens the appointment detail in Appointment Management.
+2. Receptionist clicks 'Reschedule' and selects a new date/time slot.
+3. System validates availability and business rules (BR-03, BR-04).
+4. System updates the appointment with the new time.
+5. System notifies both patient and doctor of the change.
+Exceptions
+E1 — Patient cancels within 1 hour of appointment (BR-05):
+System displays: 'Appointments can only be cancelled at least 1 hour before the scheduled time. Please contact the clinic directly.'
+Priority
+Must Have
+Frequency of Use
+Multiple times/day for Receptionist; occasional for Patients
+Business Rules
+BR-03, BR-04, BR-05 (Cancellation Deadline)
+Assumptions
+System clock is synchronised to the clinic's local timezone (UTC+7).
+UC-12a: Reschedule/ Cancel Appointment 
+UC ID & Name
+UC-12a: Reschedule/ Cancel Appointment
+Primary Actor
+Patient
+Secondary Actors
+Receptionist (acts on behalf of any patient, without the patient-only time restriction). 
+Trigger
+Patient accesses 'My Appointments'; or Receptionist opens the Appointment Management screen.
+Description
+Patients can view, reschedule (if within policy), and cancel their upcoming appointments. Receptionists can view, reschedule, add notes to, and cancel any appointment on behalf of patients.
+Preconditions
+PRE-01: The actor is authenticated.
+PRE-02: The target appointment exists with status PENDING or CONFIRMED.
+PRE-03: For a Patient actor, the appointment must belong to that patient.
+Postconditions
+POST-01 (Cancel): appointment.status = CANCELLED; cancelReason, cancelledAt, cancelledBy are recorded.
+POST-02 (Reschedule): appointment.appointmentTime/timeSlot are updated and status resets to PENDING (requiring re-confirmation).
+Normal Flow
+1. Actor opens their appointment list and select an appointment.
+2a. Cancel: Actor clicks "Huy", enters a reason, and confirms.
+2b. Reschedule: Actor clicks "Doi gio", picks a new date/time, and confirm.
+3. If the actor is a Patient, the system validates that the cancellation/reschedule is requested at least 1 hour before the scheduled time (BR-05). 
+4. For Reschedule, if a doctor is already assigned, the system validates the doctor's availability on the new date. 
+5. On success, the appointment list refreshes to reflect the new status/time.
+Alternative Flows
+Receptionist override.
+A1. A Receptionist performs Cancel or Reschedule on any appointment, including one scheduled less than 1 hour away. 
+A2. The server does not enforce the patient-only 1-hour rule for the Receptionist role, so the action proceeds normally.
+Exceptions
+EX-01 (Already final): cancelling or rescheduling an appointment whose status is already CANCELLED or COMPLETED is rejected with a 400 error.
+EX-02 (1-hour window, cancel): System rejects the request and informs the Patient that cancellations must be made at least 1 hour before the appointment. The Patient is advised to contact the clinic directly. 
+EX-03 (1-hour window, reschedule): A patient rescheduling within 1 hour of the appointment receives 400 "Lich hen chi co the doi gio truoc gio kham it nhat 1 gio. Vui long lien he truc tiep phong kham."
+EX-04 (Missing new time): reschedule submitted without newAppointmentTime -> 400 "Thoi gian kham moi khong duoc de trong".
+EX-05 (Doctor over capacity): The assigned doctor has reached the maximum daily appointment limit on the requested new date. The system rejects the reschedule request and notifies the actor to select a different date or doctor (BR-XX). 
+Priority
+Must Have
+Frequency of Use
+Multiple times/day for Receptionist; occasional for Patients
+Business Rules
+BR-05: A Patient may only cancel or reschedule their own appointment when the current time is at least 1 hour before the scheduled appointmentTime; this restriction does not apply to Receptionist-initiated actions.
+BR-22: Only PENDING or CONFIRMED appointments may be rescheduled; cancellation is blocked once an appointment is CANCELLED or COMPLETED.
+BR-23: A successful reschedule always resets the appointment to PENDING, requiring it to be re-confirmed by the clinic.
+Assumptions
+The system clock is synchronised to the clinic's local timezone (UTC+7).
+UC-13: Send Appointment Reminder Notification
+ 
+UC ID & Name
+UC-13: Send Appointment Reminder Notification
+Primary Actor
+System (AppointmentReminderScheduler), Receptionist (manual trigger) 
+Secondary Actors
+Patient (recipient)
+Trigger
+Automated: cron job runs every hour. Manual: Receptionist triggers a reminder for a specific appointment.
+Description
+The system automatically sends an email reminder to patients 24 hours before their confirmed appointment. Receptionists can also send an ad-hoc manual reminder at any time.
+Preconditions
+PRE-01: An appointment exists with status CONFIRMED.
+PRE-02: The appointment is confirmed and scheduled within the next 24 hours.
+PRE-03 (manual path): a Receptionist is authenticated and viewing the appointment in appointments.
+Postconditions
+POST-01: An in-app notification is created for the patient (only if the patient has a linked User account) describing the upcoming appointment.
+POST-02: A role-broadcast notification is created for RECEPTIONIST.
+POST-03: The system ensures each appointment receives at most one reminder. 
+Normal Flow
+1. System checks for confirmed appointments scheduled within the next 24 hours.
+2. System sends a reminder notification to the patient (if they have an account) and notifies the Receptionist.
+3. The notification bell polls every 30 seconds and updates its unread badge.
+4. The recipient opens the bell dropdown and clicks the notification, which marks it read and navigates them. 
+Alternative Flows
+Patient has no linked user account. 
+A1. The appointment's patient record has no associated User entity. 
+A2. The per-patient notification is skipped, but the RECEPTIONIST broadcast notification is still created.
+Exceptions
+EX-01 (Duplicate prevention): if reminderSent is already true for the appointment, the scheduler skips it on subsequent hourly runs.
+EX-02 (No eligible appointments): if no CONFIRMED appointment falls in the 24-25h window during a given run, the scheduler performs no action that cycle.
+Priority
+Should Have
+Frequency of Use
+Automated hourly; manual as needed
+Business Rules
+BR-01: Reminders are sent only for CONFIRMED appointments — PENDING or CANCELLED appointments never trigger a reminder.
+BR-02: A reminder is sent at most once per appointment, guarded by the reminderSent flag.
+BR-03: Role-broadcast notifications (e.g., to RECEPTIONIST) share a single read-state across all members of that role; there is no per-user read tracking for broadcasts.
+BR-04: No email channel is currently wired into this flow 
+Assumptions
+The system's automated scheduler runs continuously during clinic operating hours. 
+ 
+UC-14: Register Walk-in Patient
+ 
+UC ID & Name
+UC-14: Register Walk-in Patient
+Primary Actor
+Receptionist
+Secondary Actors
+System (sends account credentials via email)
+Trigger
+A patient arrives at the reception counter without a prior online appointment.
+Description
+The Receptionist registers a walk-in visit. If the patient has an existing account, the Receptionist retrieves it. If not, the Receptionist creates a new account on the patient's behalf; the system emails temporary login credentials. A CONFIRMED appointment is created immediately — bypassing the PENDING/approval step.
+Preconditions
+PRE-1: Receptionist is authenticated with role Receptionist.
+Postconditions
+POST-1: Patient has an ACTIVE account in the system.
+POST-2: Appointment created with status = CONFIRMED and a doctor assigned.
+POST-3: Patient is added to the assigned doctor's Patient Queue.
+Normal Flow
+1. Receptionist opens the Walk-in Registration screen.
+2. System creates the account (status = ACTIVE, role = PATIENT) and emails temporary credentials to the patient.
+3.Receptionist searches for the patient by name or phone number.
+3a. If patient found: Receptionist confirms the existing patient profile.
+3b. If not found: Receptionist enters new patient details (full name, DOB, phone, email, gender, address) and creates the account.
+4. Receptionist selects a doctor and an available time slot.
+5. System creates the appointment (status = CONFIRMED, doctor assigned).
+6. Patient entry appears in the assigned doctor's Patient Queue.
+Alternative Flows
+None
+Exceptions
+E1 — Email already registered:
+System warns: 'This email belongs to an existing account.' and loads the existing patient profile. Receptionist confirms before proceeding.
+Priority
+Must Have
+Frequency of Use
+Estimated 10–30 walk-ins/day
+Business Rules
+BR-03 (Max Appointments/Day)
+Assumptions
+Walk-in appointments are confirmed directly without a Pending/approval step.
+UC-15: Check-in Patient
+UC ID & Name
+UC-15: Check-in Patient
+Primary Actor
+Receptionist
+Secondary Actors
+System (queue notification), Doctor (queue display)
+Trigger
+Patient arrives at the reception desk for a CONFIRMED appointment (or a walk-in just registered via UC-13), and Receptionist clicks 'Check-in'.
+Description
+Receptionist confirms the patient's identity, marks the appointment as arrived, and assigns a sequential queue number for the assigned doctor. The appointment becomes visible on the Doctor's Patient Queue (UC-43).
+Preconditions
+PRE-1: Receptionist is authenticated.
+PRE-2: Appointment exists with status = CONFIRMED for today's date, or a walk-in record has just been created (UC-13).
+PRE-3: The assigned doctor has an active schedule slot for the day.
+Postconditions
+POST-1: appointments.check_in_time set to current timestamp, check_in_by = receptionist user ID.
+POST-2: appointments.queue_number assigned (next sequential number for that doctor and work date).
+POST-3: Appointment visible on the Doctor's Patient Queue (UC-43) and the daily schedule (UC-15).
+POST-4: Event logged in the Audit Log.
+Normal Flow
+1. Receptionist searches for the patient by name, phone number, or appointment code.
+2. System displays the patient's appointment(s) for today with status.
+3. Receptionist verifies the patient's identity.
+4. Receptionist clicks 'Check-in'.
+5. System validates the appointment is for today and not already checked in.
+6. System sets check_in_time and check_in_by, and computes the next queue_number for the assigned doctor.
+7. System displays the queue number/ticket to the Receptionist, who informs the patient.
+8. The entry appears immediately on the assigned Doctor's Patient Queue.
+Alternative Flows
+ALT-1 — Check-in for a same-day walk-in: Receptionist completes walk-in registration (UC-13), which auto-creates a CONFIRMED appointment; flow continues from step 4.
+ALT-2 — Reassign doctor at check-in (e.g., booked doctor unexpectedly unavailable): delegates to UC-44 (Reassign Appointment) before completing check-in.
+Exceptions
+E-1 — Appointment not found / not for today: System displays "No matching appointment found for today. Would you like to register a walk-in visit?"
+E-2 — Appointment already checked in: System displays "This patient has already been checked in (Queue #N)" and blocks duplicate check-in.
+E-3 — Doctor's daily quota reached (BR-03): System warns the Receptionist and offers to reassign to another doctor .
+Priority
+Must Have
+Frequency of Use
+Continuously throughout the clinical day; one check-in per visit.
+Business Rules
+BR-03 (Max Appointments/Day); BR-13 (new) — Queue Number Uniqueness: queue_number is unique per (doctor, work date) and assigned strictly in arrival order.
+Assumptions
+Walk-in registration and confirmation precede check-in for non-online bookings.
+Relations to other UCs
+Triggers View Patient Queue; may delegate to Reassign Appointment under E-3/ALT-2; depends on (Confirm Appointment).
+  
+UC-16: Confirm Appointment
+ 
+UC ID & Name
+UC-16: Confirm Appointment 
+Primary Actor
+Receptionist
+Secondary Actors
+System (status notification emails)
+Trigger
+Receptionist opens the Appointment Management screen and processes appointments with status = PENDING.
+Description
+The Receptionist reviews pending online booking requests, verifies doctor availability, and either confirms or rejects each request. On confirmation, the appointment is assigned to the doctor and added to the queue. On rejection, the patient is notified with a reason.
+Preconditions
+PRE-1: Receptionist is authenticated.
+PRE-2: At least one appointment with status = PENDING exists.
+Postconditions
+POST-1: Appointment status updated to CONFIRMED or CANCELLED.
+POST-2: Patient receives an email notification.
+POST-3: Action is recorded in the Audit Log.
+Normal Flow
+1. Receptionist opens Appointment Management and filters by status = PENDING.
+2. System displays the list of pending appointments.
+3. Receptionist reviews a pending appointment's details.
+4. Receptionist clicks 'Confirm'.
+5. System updates appointment status = CONFIRMED.
+6. System sends a confirmation email to the patient.
+7. System records the confirmation in the Audit Log.
+Alternative Flows
+ALT-1 — Reject Appointment:
+1. Receptionist clicks 'Reject' and enters a rejection reason.
+2. System updates status = CANCELLED with the reason stored.
+3. System sends a rejection email (with reason) to the patient.
+4. System frees the doctor's time slot.
+ 
+ALT-2 — Reassign doctor (emergency absence):
+1. Receptionist selects a different doctor of the same specialty.
+2. System updates doctor_id in the appointment record.
+3. System notifies the patient of the doctor change.
+Exceptions
+E1 — Selected doctor fully booked (BR-03):
+System alerts: 'This doctor has reached the maximum of 30 appointments today.' Receptionist selects a different doctor or defers to the next day.
+Priority
+Must Have
+Frequency of Use
+Processed multiple times throughout the clinic day
+Business Rules
+BR-03 (Max Appointments/Day), BR-05 (Cancellation Deadline)
+Assumptions
+SMTP service is operational.
+ 
+ 
+UC-17: View Daily Appointment Schedule
+ 
+UC ID & Name
+UC-17: View Daily Appointment Schedule
+Primary Actor
+Receptionist, Clinic Manager
+Secondary Actors
+None
+Trigger
+Actor navigates to the Schedule or Dashboard screen.
+Description
+Actors view the clinic's appointment schedule for the current day or a selected date. Doctors see only their own queue; Receptionists and Managers see all appointments across all doctors, with filter and search capabilities.
+Preconditions
+PRE-1: Actor is authenticated with an appropriate role.
+Postconditions
+POST-1: Schedule is displayed with real-time status.
+Normal Flow
+1. Actor navigates to the Schedule/Dashboard screen.
+2. System defaults to the current day's schedule.
+3. System displays appointments grouped by time slot with: patient name, status badge, and doctor name.
+4. Actor may filter by doctor, status, or search by patient name.
+5. Actor clicks an appointment to view its detail (read-only unless the actor has edit permissions).
+Alternative Flows
+ALT-1 — View another date:
+1. Actor selects a different date from the calendar widget.
+2. System reloads the schedule for the selected date.
+Exceptions
+None
+Priority
+Must Have
+Frequency of Use
+Continuously during clinic hours; primary screen for Receptionist and Doctor
+Business Rules
+—
+Assumptions
+Doctors only see their own schedule; Manager view is read-only.
+UC-18: Reassign Appointment
+UC ID & Name
+UC-18: Reassign Appointment
+Primary Actor
+Clinic Manager
+Secondary Actors
+Receptionist, Doctor
+Trigger
+Clinic Manager (or a Receptionist escalating to the Manager) needs to move an appointment to a different doctor and/or time slot — e.g., doctor sick leave, schedule conflict, or daily quota overflow (BR-03).
+Description
+The Clinic Manager reassigns one or more appointments from their originally booked doctor/slot to a different doctor and/or time slot, preserving the patient's booking history and notifying all affected parties.
+Preconditions
+PRE-01: The Clinic Manager is authenticated.
+PRE-02: An appointment with status PENDING, CONFIRMED, WAITING, or IN_PROGRESS exists on the selected date.
+PRE-03: If a new doctor is supplied, that doctor must exist and have remaining capacity on the resulting date (BR-03). 
+Postconditions
+POST-01: The appointment is updated with the new doctor and/or new date/time, according to which ever fields were changed.
+POST-02: The reassignment reason is appended to the appointment's history notes; existing notes are preserved.
+POST-03: Notifications are sent to the patient, the previously assigned doctor (if the doctor changed), and the newly assigned doctor (if a doctor is involved). 
+Normal Flow
+1. The Clinic Manager selects a date and reviews the list of appointments scheduled for that day.
+2. The Clinic Manager selects an appointment to reassign and provides at least one of the following: a new doctor, a new date/time, or a reassignment reason.
+3. The system validates that the appointment is not in a final state (BR-22).
+4. If a new doctor is provided, the system verifies that the doctor exists and has not reached the daily appointment limit (BR-03).
+5. The system applies the changes and appends the reassignment reason to the appointment's history notes without overwriting existing content (BR-09).
+6. The system notifies all affected parties — the patient, the previously assigned doctor, and the newly assigned doctor — as applicable (BR-06).
+7. The appointment list is refreshed to reflect the updated schedule. 
+Alternative Flows A
+Time-only change. 
+A1. The Clinic Manager provides only a new date/time without changing the doctor.
+A2. The existing doctor is notified of the updated schedule for their patient. 
+Alternative Flows B
+Doctor-only change. 
+B1. The Clinic Manager provides only a new doctor without changing the date/time.
+B2. Both the previously assigned doctor and the newly assigned doctor are notified. The patient is informed of the new doctor. 
+Exceptions
+EX-01 (Non-reassignable state): The system prevents reassignment of appointments already marked as COMPLETED or CANCELLED and displays an error message.
+EX-02 (Doctor not found): The system alerts the Clinic Manager if the specified doctor does not exist or is no longer active in the system.
+EX-03 (Doctor over capacity): The system blocks the reassignment if the target doctor has reached the daily appointment limit and prompts the Clinic Manager to select an alternative.
+EX-04 (Notification failure): The system continues with the reassignment even if automated notification dispatch fails, ensuring the clinical schedule is updated. 
+Priority
+Should Have
+Frequency of Use
+Occasional; spikes during doctor absences or schedule conflicts.
+Business Rules
+BR-03: Doctor appointment daily capacity is enforced on reassignment exactly as it is on patient-initiated reschedule.
+BR-06: Both the previously assigned doctor and the newly assigned doctor must be notified whenever the assigned doctor changes.
+BR-09: The reassignment reason is appended to existing appointment notes, preserving the full audit trail.
+BR-22: Only appointments in a non-final state (PENDING, CONFIRMED, WAITING, IN_PROGRESS) may be reassigned. 
+Assumptions
+Doctor schedule capacity is maintained and updated in real time by the system.The system clock is synchronized to the clinic's local time zone (UTC+7). 
+Relations to other UCs
+May be invoked from (Check-in, E-3) or (Daily Schedule); complements (Manage Patient's Appointment) and (Confirm Appointment).
+UC-19: Assign Nurse to Care Session
+UC ID & Name
+UC-19: Assign Nurse to Care Session
+Primary Actor
+Clinic Manager
+Secondary Actors
+Nurse (notified), System
+Trigger
+Clinic Manager opens the 'Unassigned Care Sessions' list (populated by UC-45) to staff each scheduled session with a Nurse.
+Description
+The Clinic Manager reviews all SCHEDULED care sessions for a given day and assigns each to an available Nurse based on workload and shift schedule, ensuring even distribution and adherence to per-nurse daily capacity.
+Preconditions
+PRE-1: Manager is authenticated.
+PRE-2: At least one CareSession with status = SCHEDULED and no assigned nurse exists.
+PRE-3: At least one Nurse is rostered for that day.
+Postconditions
+POST-1: CareSession.nurse_id and assigned_at set.
+POST-2: Nurse notified and the session appears on their Care Queue (UC-49).
+POST-3: Event logged in the Audit Log.
+Normal Flow
+1. Manager opens 'Unassigned Care Sessions' for the selected date.
+2. System lists sessions sorted by time, with current nurse workload counts.
+3. Manager selects a session and assigns it to a Nurse from the rostered, available list.
+4. System validates the nurse's daily session count is below the configured capacity.
+5. Manager confirms; system sets nurse_id and assigned_at.
+6. System notifies the assigned Nurse; the session appears on their Care Queue (UC-49).
+Alternative Flows
+ALT-1 — Auto-assign: Manager clicks 'Auto-Assign Remaining'; system distributes all unassigned sessions evenly across available nurses by current load, subject to Manager review before final confirmation.
+ALT-2 — Reassign a session to a different nurse (e.g., nurse called in sick); prior nurse is notified of the removal.
+Exceptions
+E-1 — No nurse rostered for the day: System displays "No nurse available. Please update the duty roster."
+E-2 — Selected nurse already at daily capacity: System warns but allows the Manager to override with confirmation.
+Priority
+Should Have
+Frequency of Use
+Daily, once or twice per shift.
+Business Rules
+BR-17 (new) — Care Session Capacity: maximum care sessions per nurse per day, configured by the Clinic Manager (mirrors BR-03 for doctors).
+Assumptions
+Requires the 'Nurse' role to be added to the roles/RBAC table (extends the original 7-role model).
+Relations to other UCs
+Consumes sessions created by; populates (View Care Queue); delivery proceeds.
+UC-20: Check-out Care Session
+UC ID & Name
+UC-20: Check-out Care Session
+Primary Actor
+Receptionist
+Secondary Actors
+System (invoice generation)
+Trigger
+Receptionist is notified that a CareSession is COMPLETED and the patient approaches the desk to leave.
+Description
+The Receptionist finalises the visit for a care session: confirms the session was satisfactory and, for standalone (non-subscription) sessions, collects payment and issues an invoice. For subscription-based sessions, no further payment is needed since it was prepaid at purchase.
+Preconditions
+PRE-1: CareSession status = COMPLETED.
+PRE-2: Receptionist is authenticated.
+Postconditions
+POST-1: CareSession status = CHECKED_OUT.
+POST-2 (standalone sessions only): Invoice generated and payment collected.
+POST-3: Patient receives a receipt/confirmation.
+Normal Flow
+1. Receptionist opens the completed session from the day's care-session list.
+2. System displays session details and whether it is subscription-covered or standalone.
+3. [Subscription-covered] Receptionist confirms checkout; no payment step required. System sets status = CHECKED_OUT.
+4. [Standalone] System computes the session fee, applies any eligible discount, and generates an invoice (delegates to payment collection).
+5. Receptionist confirms payment received and the invoice is marked PAID.
+6. System sets CareSession status = CHECKED_OUT and prints/emails the receipt.
+Alternative Flows
+ALT-1 — Patient disputes the session (e.g., requests a refund/complaint): Receptionist escalates to the Clinic Manager; session remains COMPLETED pending resolution rather than being checked out immediately.
+Exceptions
+E-1 — Standalone payment fails/declined: Invoice remains UNPAID; Receptionist retries payment or arranges alternate settlement before final checkout.
+Priority
+Should Have
+Frequency of Use
+One per completed care session.
+Business Rules
+BR-10 (Invoice Issuance), BR-12 (Invoice Calculation).
+Assumptions
+Subscription-covered sessions do not generate a new invoice line per visit; only the original package invoice is relevant.
+Relations to other UCs
+Triggered by standalone payment; complements subscription model.
+ 
+UC-21: Confirm Eyeglass Pickup
+UC ID & Name
+UC-21: Confirm Eyeglass Pickup
+Primary Actor
+Receptionist
+Secondary Actors
+Patient, System
+Trigger
+Patient arrives to collect a completed eyeglass order (status = READY, notified via UC-55) and approaches the Receptionist desk.
+Description
+The Receptionist verifies the patient's identity and payment status, hands over the finished eyeglasses, and marks the order as picked up, closing out the order lifecycle.
+Preconditions
+PRE-1: glasses_orders.status = READY.
+PRE-2: Associated invoice payment_status = PAID.
+PRE-3: Receptionist is authenticated.
+Postconditions
+POST-1: glasses_orders.status = DISPENSED, dispensed_by and dispensed_at recorded.
+POST-2: Patient receives a pickup confirmation.
+POST-3: Event logged in the Audit Log.
+Normal Flow
+1. Receptionist searches for the order by patient name or order ID.
+2. System displays the order: frame, lens details, status = READY, and the linked invoice payment status.
+3. Receptionist verifies the patient's identity.
+4. Receptionist confirms the invoice is PAID.
+5. Receptionist hands over the glasses and clicks 'Confirm Pickup'.
+6. System sets status = DISPENSED, dispensed_by, dispensed_at, and generates a pickup confirmation.
+7. System sends the confirmation to the Patient and closes the order.
+Alternative Flows
+ALT-1 — Pickup by an authorised representative (not the patient): Receptionist records the representative's name/relationship in the order notes before proceeding from step 5.
+Exceptions
+E-1 — Invoice is still UNPAID: System blocks pickup confirmation ("Payment must be completed before pickup."); Receptionist collects payment before retrying.
+E-2 — Order status is not READY (e.g., still IN_PRODUCTION): System blocks pickup with "This order is not yet ready for pickup."
+Priority
+Should Have
+Frequency of Use
+One per completed eyeglass order.
+Business Rules
+BR-10 (Invoice Issuance); BR-19 (new) — Eyeglass Pickup Verification: pickup cannot be confirmed while the linked invoice is UNPAID.
+UC-22: Process Payment 
+UC ID & Name
+UC-22: Process Payment
+Primary Actor
+Receptionist
+Secondary Actors
+Patient, System (invoice PDF generator, payment gateway)
+Trigger
+The visit's EMR status = COMPLETED. Receptionist opens Invoice & Payment for that visit.
+Description
+Receptionist reviews the auto-generated itemised fee breakdown, confirms the total with the patient, records payment (cash or QR), and the system issues a digital invoice.
+Preconditions
+PRE-1: Visit EMR status = COMPLETED.
+PRE-2: Receptionist is authenticated.
+Postconditions
+POST-1: Invoice record saved with status = PAID.
+POST-2: Patient receives e-invoice PDF via email.
+POST-3: Appointment status updated to COMPLETED/PAID.
+POST-4: Revenue transaction recorded for reporting.
+Normal Flow
+1. Receptionist opens Invoice & Payment for the completed visit.
+2. System aggregates charges: base examination fee + lab fees (if any) + pharmacy fees (if dispensed) per BR-12.
+3. System displays an itemised invoice breakdown.
+4. Receptionist confirms the total with the patient.
+5. Patient selects payment method (cash or QR — see ALT-1 and ALT-2).
+6. System creates the invoice with status = PAID.
+7. System generates and emails the e-invoice PDF to the patient.
+8. System logs the revenue transaction.
+Alternative Flows
+ALT-1 — Cash payment:
+1. Patient pays in cash at the counter.
+2. Receptionist clicks 'Confirm Cash Received'.
+3. Continue from step 6.
+ 
+ALT-2 — QR Code / Bank Transfer payment:
+1. System displays a VietQR code with the invoice amount.
+2. Patient completes the transfer on their mobile device.
+3. System awaits payment gateway callback (timeout: 5 min).
+4a. On success: invoice status = PAID; continue from step 7.
+4b. On failure/timeout: status = PAYMENT_FAILED; patient is prompted to retry.
+Exceptions
+E1 — Duplicate invoice (already exists):
+System loads the existing invoice instead of creating a duplicate.
+ 
+E2 — Partial payment (BR-10):
+System keeps invoice status = PENDING_PAYMENT. Invoice is only marked PAID when full payment is received.
+Priority
+Must Have
+Frequency of Use
+Once per completed visit; estimated 30–100 times/day
+Business Rules
+BR-10 (Invoice Issuance), BR-12 (Invoice Calculation)
+Assumptions
+Service pricing fully configured by Admin in the services table.
+UC-23: Deliver Invoice
+ 
+UC ID & Name
+UC-23: Deliver Invoice
+Primary Actor
+Receptionist
+Secondary Actors
+System (PDF generator, email service)
+Trigger
+Invoice status = PAID. Receptionist clicks 'Print' or 'Send Email'; or Patient downloads from the Patient Portal.
+Description
+The Receptionist prints a physical copy of a paid invoice on patient request, or the system automatically sends the e-invoice PDF by email. Patients can independently download their invoices from the Patient Portal.
+Preconditions
+PRE-1: Invoice exists with status = PAID.
+Postconditions
+POST-1: PDF invoice generated and either printed or emailed.
+POST-2: Print/download action is logged.
+Normal Flow
+1. System automatically sends the e-invoice PDF to the patient's email upon payment confirmation.
+Alternative Flows
+ALT-1 — Print Invoice (Receptionist on patient request):
+1. Receptionist opens the paid invoice record.
+2. Receptionist clicks 'Print Invoice'.
+3. System opens a print-ready PDF preview.
+4. Receptionist prints using the connected printer.
+ 
+ALT-2 — Patient downloads from Portal:
+1. Patient navigates to 'Payment History' in the Patient Portal.
+2. Patient selects a paid invoice and clicks 'Download PDF'.
+3. System generates and downloads the invoice PDF.
+Exceptions
+E1 — Email delivery failure:
+System logs the failure and retries up to 3 times. Receptionist is notified to manually send or print the invoice.
+Priority
+Must Have
+Frequency of Use
+Once per paid visit
+Business Rules
+BR-10 (Invoice Issuance)
+Assumptions
+PDF generation service (iText / JasperReports) is running.
+2.4 — EMR & Clinical 
+UC-24: View Doctor Dashboard
+ 
+UC ID & Name
+UC-24: View Doctor Dashboard
+Primary Actor
+Doctor
+Secondary Actors
+None
+Trigger
+Doctor decides to manage the day's appointment queue. 
+Description
+Doctor monitors the real-time list of patients awaiting examination to manage the workflow and initiate consultations. 
+Preconditions
+PRE-1: User authenticated as Doctor.
+PRE-2: Patients have completed the check-in process at the reception. 
+Postconditions
+POST-1: Doctor identifies the next patient for consultation.
+POST-2: The selected patient's visit status is updated to "In Progress".
+Normal Flow
+1. Doctor views the list of checked-in patients for the current day.
+2. System displays the queue in chronological order based on appointment time.
+3. Doctor selects the next patient from the waiting list.
+4. System updates the visit status to indicate the consultation is in progress.
+5. System provides access to the patient's active medical record.
+Alternative Flows
+None
+Exceptions
+E-2 — No patients waiting: System indicates that no patients are currently waiting.
+Priority
+Must Have
+Frequency of Use
+ Continuously throughout the clinical day.
+Business Rules
+  None
+Assumptions
+The queue data is refreshed in real-time to reflect new check-ins. 
+UC-25: Manage Electronic Medical Record (EMR)
+ 
+UC ID & Name
+UC-25: Manage Electronic Medical Record (EMR)
+Primary Actor
+Doctor
+Secondary Actors
+None
+Description
+This use case allows the Doctor to manage the entire lifecycle of a patient's clinical documentation during a visit, ensuring clinical findings are recorded, updated, and secured. 
+Sub-Use Cases
+ UC-25a: Initiate Electronic Medical Record
+ UC-25b: Update Electronic Medical Record
+ UC-25c: Finalize and Lock Electronic Medical Record
+ UC-25d: Cancel Clinical Session
+UC-25a: Initiate Electronic Medical Record (EMR):
+UC ID & Name
+UC-25a: Initiate Electronic Medical Record (EMR)
+Primary Actor
+Doctor
+Secondary Actors
+None
+Trigger
+Doctor identifies the next patient in the queue and decides to begin the consultation 
+Description
+Doctor starts a new clinical visit for a patient. The system updates the visit status and provides a clinical record template for documentation 
+Preconditions
+PRE-1: Doctor is logged in.
+PRE-2: Patient is present in today's queue with "Waiting" status.
+Postconditions
+POST-1: Patient queue status is updated to "In Progress".
+POST-2: A new active EMR form is initialized for the session.
+Normal Flow
+1. Doctor views the daily patient queue.
+2. Doctor selects a patient with "Waiting" status.
+3. Doctor requests to start the clinical assessment for the patient .
+4. System updates the patient's queue status from "Waiting" to "In Progress" in real-time.
+5. System generates a new active EMR record form and loads layout onto the screen.
+Alternative Flows
+None
+Exceptions
+None
+Priority
+Must Have
+Frequency of Use
+High; once for every patient visit 
+Business Rules
+BR-08: Record is only accessible by the assigned doctor 
+Assumptions
+The patient is physically present at the clinic 
+UC-25b: Update Electronic Medical Record (EMR):
+UC ID & Name
+UC-25b: Update Electronic Medical Record (EMR)
+Primary Actor
+Doctor
+Secondary Actors
+None
+Trigger
+Doctor wants to record findings or update clinical data during an active session 
+Description
+Doctor records examination findings and saves them as a draft to ensure data is preserved before the final conclusion is reached  
+Preconditions
+PRE-1: A clinical session is active (Appointment status is "In Progress") .
+Postconditions
+POST-1: Current data is saved as a draft.
+POST-2: Appointment status remains "In Progress", allowing future modifications.
+Normal Flow
+1. Doctor records data (e.g., Symptoms, Notes) on the active EMR form.
+2. Doctor requests to store the current clinical data temporarily.
+3. System preserves the clinical data in a draft (editable) state .
+4. System confirms the successful preservation of the clinical findings 
+Alternative Flows
+None
+Exceptions
+E1 — Connection lost mid-entry:
+System restores the most recent draft automatically upon reconnection.
+Priority
+Must Have
+Frequency of Use
+Very High; multiple times during a single consultation 
+Business Rules
+BR-08: Confidentiality of the EMR must be maintained 
+Assumptions
+The system performs background saves periodically
+UC-25c: Finalize and Lock Electronic Medical Record (EMR):
+UC ID & Name
+UC-25c: Finalize and Lock Electronic Medical Record (EMR)
+Primary Actor
+Doctor
+Secondary Actors
+None
+Trigger
+Doctor reaches a clinical conclusion and chooses to end the examination session. 
+Description
+Doctor completes the visit record. The system validates all required information, locks the record for security, and updates the appointment status and EMR status to "Completed".
+Preconditions
+PRE-1: A clinical session is active (Appointment status is "In Progress"). 
+Postconditions
+POST-1: EMR status and Appointment status are updated to "Completed" 
+POST-2: The medical record is locked and becomes Read-Only.
+Normal Flow
+1. Doctor finishes entering all the necessary clinical information including the final diagnosis and notes.
+2. Doctor requests to finalize the clinical session.
+3. System validates that all mandatory clinical data is provided.
+4. System locks the medical record to prevent future modifications.
+5. System updates the appointment status and EMR status to "Completed".
+6. System confirms the successful finalization of the EMR
+Alternative Flows
+ALT-1 — Direct Finalization (Bypassing Save Draft):
+1. Doctor completes all inputs and requests finalization without ever requesting a draft save.
+2. System executes all validation and finalization steps as in the Normal Flow.
+Exceptions
+E1 — Mandatory data is missing:
+System identifies the missing fields and prompts the Doctor to provide them before finalizing.
+Priority
+Must Have
+Frequency of Use
+High; once per completed visit 
+Business Rules
+BR-08: Record becomes Read-Only after finalization
+BR-13: Appointment status cannot be changed once "Completed" 
+Assumptions
+Once finalized, any further changes require an audit-protected administrative process 
+ 
+UC-25d: Cancel Clinical Session:
+UC ID & Name
+UC-25d: Delete Electronic Medical Record (EMR) 
+Primary Actor
+Doctor
+Secondary Actors
+None
+Trigger
+Patient decides to terminate the examination before completion, or the Doctor identifies the session cannot proceed. 
+Description
+Doctor cancels the current session. The system discards the unsaved data, updates the visit status to "Cancelled", and releases the patient from the active consultation list.
+Preconditions
+PRE-1: Doctor is logged in.
+PRE-2: A clinical session is active (Appointment status is "In Progress").
+PRE-3: The current EMR form has not been finalized.
+Postconditions
+POST-1: Unsaved clinical data is discarded 
+POST-2: The patient's appointment status is updated to "CANCELLED" (Đã hủy).
+Normal Flow
+1. Doctor identifies the need to stop the examination halfway.
+2. Doctor requests to cancel the current session.
+3. System requests confirmation for the cancellation to prevent data loss.
+4. Doctor confirms the cancellation request.
+5. Doctor selects "Confirm".
+6. System updates the appointment status and EMR status to "Cancelled".
+7. System redirects the Doctor back to the daily patient queue .
+Alternative Flows
+ALT-1: Cancellation Aborted 
+1. Doctor requests to cancel but then chooses "No" at the confirmation prompt.
+2. System maintains the active session state and returns to the EMR form.
+Exceptions
+None
+Priority
+Must Have
+Frequency of Use
+Low; only for incomplete visits 
+Business Rules
+BR-09: No Hard Delete. The record is marked as "Cancelled" but not physically removed from the audit trail 
+Assumption
+Cancelling the session frees the Doctor's time to call the next patient in the queue 
+ 
+UC-26: View Patient Medical History
+ 
+UC ID & Name
+UC-26: View Patient Medical History
+Primary Actor
+Doctor, Patient
+Secondary Actors
+None
+Trigger
+Actor wants to review past medical data for clinical context or personal tracking.
+Description
+Authorised actors access a chronological history of all past clinical visits, including diagnoses, prescriptions, and test results.
+Preconditions
+PRE-1: Actor is authenticated.
+PRE-2: For Doctor: Is the assigned doctor for the patient.
+PRE-3: For Patient: access is limited strictly to their own appointments and records.
+Postconditions
+POST-1:The actor reviews past clinical events.
+POST-2: The access event is recorded in the system logs.
+Normal Flow
+1. Actor requests the comprehensive medical history for a patient.
+2. For Doctor: System retrieves all EMRs sorted by visit date (newest first); For Patient: System retrieves all appointments sorted by visit date (newest first).
+3. System provides clinical summaries including past diagnoses and treatments.
+4. Actor reviews the detailed findings of a specific visit.
+5. System logs the access event to maintain confidentiality.
+Alternative Flows
+None
+Exceptions
+E1 — Unauthorised access attempt:
+System rejects the request and logs a security violation.
+Priority
+Must Have
+Frequency of Use
+Multiple times/day for Doctor; occasional for Patient
+Business Rules
+BR-08: EMR records are accessible only by the assigned doctor and patient 
+Assumptions
+All past records are stored in a standardized format for easy retrieval.
+ 
+ 
+ UC-27: Issue Drug Prescription
+ 
+UC ID & Name
+UC-27: Issue Drug Prescription
+Primary Actor
+Doctor
+Secondary Actors
+System (notifies Pharmacist), Medicine catalogue
+Trigger
+Doctor clicks 'Add Prescription' within the active EMR screen (UC-19).
+Description
+The Doctor creates a medication prescription and/or eyeglass prescription within the open EMR. The prescription is saved and automatically routed to the Pharmacist's Dispensing Dashboard.
+Preconditions
+PRE-1: EMR is open and in progress (UC-19).
+PRE-2: Doctor has a valid license_number in the doctors table (BR-06).
+Postconditions
+POST-1: prescriptions and prescription_items records created.
+POST-2: Prescription visible to the Pharmacist on the Dispensing Dashboard.
+POST-3: Pharmacist notified of the new prescription.
+Normal Flow
+1. Doctor clicks the prescription panel.
+2. Doctor searches the medicine catalogue by drug name.
+3. System displays matching medicines.
+4. Doctor selects a medicine, enters dosage, frequency (e.g., twice daily), duration (days), and usage instructions.
+5. Doctor repeats steps 1–4 for additional medicines.
+6. Doctor clicks 'Save Prescription'.
+7. System creates the prescription and prescription_items records.
+8. System notifies the Pharmacist of the new order.
+Alternative Flows
+None
+Exceptions
+E1— Doctor lacks valid licence (BR-06):
+System blocks prescription creation and displays: 'Only licensed doctors may issue prescriptions.'
+Priority
+Must Have
+Frequency of Use
+Multiple per day; one prescription set per EMR requiring medication
+Business Rules
+BR-06 (Prescription Authority),  BR-09 (No Hard Delete)
+Assumptions
+Medicine catalogue is maintained and up-to-date by Admin.
+UC-28: Issue Eyeglass Prescription
+UC ID & Name
+UC-28: Issue Eyeglass Prescription
+Primary Actor
+Doctor
+Secondary Actors
+Patient (notified)
+Trigger
+Doctor identifies a need for corrective lenses during an examination.
+Description
+Doctor records specific refractive parameters and issues a formal prescription for eyeglasses .
+Preconditions
+PRE-1: Clinical examination is in progress (UC-25).
+PRE-2: Refraction and visual acuity findings have been recorded.
+Postconditions
+POST-1: Eyeglass prescription is stored and linked to the medical record.
+POST-2: Prescription is available for the eyeglass ordering process.
+Normal Flow
+1. Doctor has received refractive parameters (SPH, CYL, AXIS, etc.) for both eyes.
+2. Doctor requests to issue the formal eyeglass prescription.
+3. System stores the prescription and sets the status to "ISSUED".
+4. System notifies the Patient of the new prescription availability.
+Alternative Flows
+ALT-1 — Doctor revises a prescription:
+1. Doctor corrects values before the EMR is finalized.
+2. System overwrites previous values and records the change.
+Exceptions
+E-1 — Input values exceed clinical limits: System identifies the out-of-range field and requests correction.
+Priority
+Must Have
+Frequency of Use
+Issued for a meaningful share of visits; one prescription per qualifying visit.
+Business Rules
+BR-06: Only licensed doctors can create prescriptions.
+Assumptions
+The patient's PD (Pupillary Distance) is accurately measured.
+UC-29: Issue Lab Order
+ 
+UC ID & Name
+UC-29: Issue Lab Issue
+Primary Actor
+Doctor
+Secondary Actors
+Lab Technician (notified)
+Trigger
+Doctor determines further diagnostic data is required to finalize a diagnosis. 
+Description
+Doctor selects a lab technician and a service then sends the request to the laboratory. 
+Preconditions
+PRE-1: Clinical examination is in progress.
+PRE-2: At least one active test exists in the catalogue. 
+Postconditions
+POST-1: Lab order is created with "PENDING" status.
+POST-2: Order appears on the Lab Order Queue. 
+Normal Flow
+1. Doctor determines additional diagnostic tests are necessary.
+2. System displays the list of lab technician and the lab test catalogue.
+3. Doctor selects specific test types and assigns processing priority.
+4. Doctor adds optional clinical notes for the technician.
+5. Doctor requests to submit the diagnostic order.
+6. System records the order and notifies the Lab Technician.
+Alternative Flows
+ALT-1 — Cancel a pending order:
+1. Doctor identifies the test is no longer needed before execution.
+2. System updates order status to "CANCELLED".
+Exceptions
+E-1 — No service selected: System blocks submission and prompts the Doctor to select a service.
+E-2 — No lab technician selected: System blocks submission and prompts the Doctor to select a lab technician. 
+Priority
+Must Have
+Frequency of Use
+Multiple per day; one or more orders per EMR requiring diagnostics. 
+Business Rules
+BR-08: Order confidentiality is maintained 
+Assumptions
+Test catalogue (name, price, turnaround time) is maintained by the Clinic Manager (UC-54) rather than the Admin. 
+UC-30: View Lab Results
+ 
+UC ID & Name
+UC-30: View Lab Results
+Primary Actor
+Patient, Doctor
+Secondary Actors
+None
+Trigger
+Actor wants to review the outcomes of diagnostic tests.
+Description
+Authorized actors view completed test measurements, diagnostic images, and clinical interpretations.
+Preconditions
+PRE-1: The Lab order (contains the Lab result wanted) status is "COMPLETED" .
+PRE-2: Access control validated per BR-08.
+Postconditions
+POST-1: The access event is recorded in the system audit logs.
+Normal Flow
+1. Actor requests to view lab results for a specific visit.
+2. System retrieves authorized results (measurements, reference ranges, images, notes,...).
+3. System displays the consolidated diagnostic report.
+4. Patient may download results as PDF.
+5. System logs the access event for security compliance.
+Alternative Flows
+None
+Exceptions
+None
+Priority
+Must Have
+Frequency of Use
+Multiple times/day for Doctors; occasional for Patients
+Business Rules
+BR-08: EMR/Lab Order confidentiality
+Assumptions
+—
+ 
+ 
+UC-31: View Care Queue
+UC ID & Name
+UC-31: View Care Queue
+Primary Actor
+Nurse
+Secondary Actors
+None
+Trigger
+Nurse logs in or opens the 'Care Queue' screen.
+Description
+The Nurse views all CareSessions assigned to them for the day, ordered by scheduled time, and selects the next patient to begin a session. Parallels (Lab Technician's queue) and (Doctor's patient queue) for the wellness-care workflow.
+Preconditions
+PRE-1: Nurse is authenticated.
+PRE-2: At least one CareSession is assigned to this nurse with status = SCHEDULED for today.
+Postconditions
+POST-1: Queue displayed, refreshed in real time.
+Normal Flow
+1. Nurse opens 'Care Queue'.
+2. System displays all CareSessions assigned to this nurse for today, status = SCHEDULED, ordered by scheduled time.
+3. Each row shows patient name, service/session type, scheduled time, and package/subscription reference.
+4. Nurse selects a session and clicks 'Start Session', delegating to UC-50.
+Alternative Flows
+None.
+Exceptions
+E-1 — No sessions assigned: System displays "No care sessions assigned to you today."
+Priority
+Should Have
+Frequency of Use
+Continuously throughout the nurse's shift.
+Business Rules
+—
+Assumptions
+Queue refreshes in real time via WebSocket or polling, consistent with UC-23 and UC-43.
+Relations to other UCs
+Populated by (Assign Nurse); leads into (Deliver Care Session).
+ 
+UC-32: Deliver Care Session
+UC ID & Name
+UC-32: Deliver Care Session
+Primary Actor
+Nurse
+Secondary Actors
+System (notification to Receptionist for checkout)
+Trigger
+Nurse clicks 'Start Session' on a queued CareSession (from UC-49).
+Description
+The Nurse conducts the wellness/care session (e.g., eye massage, eye meditation), records brief session notes and any observed issues, and marks the session complete, triggering checkout.
+Preconditions
+PRE-1: CareSession status = SCHEDULED and assigned to this nurse.
+PRE-2: Nurse is authenticated.
+Postconditions
+POST-1: CareSession status = IN_PROGRESS then COMPLETED, with start/completion timestamps.
+POST-2: Session notes saved.
+POST-3: Receptionist notified to perform checkout.
+Normal Flow
+1. Nurse clicks 'Start Session'; system sets status = IN_PROGRESS.
+2. Nurse performs the care session with the patient.
+3. Nurse records session notes and duration.
+4. Nurse clicks 'Complete Session'.
+5. System validates notes are saved, sets status = COMPLETED.
+6. System notifies the Receptionist that the session is ready for checkout.
+Alternative Flows
+ALT-1 — Patient reports discomfort or an adverse reaction during the session: Nurse flags the session as 'Incident' with a mandatory note; system notifies the Clinic Manager and, if needed, escalates to a Doctor for review.
+Exceptions
+E-1 — Attempt to complete without notes: System requires at least a brief note before allowing completion.
+Priority
+Should Have
+Frequency of Use
+One per scheduled care session; several per nurse per day.
+Business Rules
+—
+Assumptions
+Care session notes are non-clinical and distinct from the EMR (UC-19); incidents may be escalated but do not themselves constitute a medical record.
+Relations to other UCs
+Completion triggers (Check-out Care Session).
+2.5 — LIS & Imaging
+ UC-33: View Lab Queue
+ 
+UC ID & Name
+UC-33: View Lab Queue
+Primary Actor
+Lab Technician, Doctor
+Secondary Actors
+None
+Trigger
+Actor needs to see the status of pending lab orders.
+Description
+Provides a real-time list of diagnostic orders to manage laboratory workload.
+Preconditions
+PRE-1: Actor is authenticated with appropriate role permissions.
+Postconditions
+POST-1: Lab Technician can see and act on all current PENDING lab orders. Doctor can see all of their lab orders and act on SUBMITTED lab orders
+Normal Flow
+1. Actor requests to view the laboratory work queue.
+2. System retrieves all lab orders sorted chronologically (oldest first).
+3. System displays patient names, requested tests, and ordering doctors, time ordered.
+Alternative Flows
+None
+Exceptions
+None
+Priority
+Must Have
+Frequency of Use
+Continuously throughout the clinical day
+Business Rules
+—
+Assumptions
+The queue refreshes in real-time via WebSocket or polling.
+UC-34: Submit Lab Result
+ 
+UC ID & Name
+UC-34: Submit Lab Result
+Primary Actor
+Lab Technician
+Secondary Actors
+Doctor (notified)
+Trigger
+Lab Technician completes the physical testing for an order.
+Description
+Lab Technician records test measurements and images into the system, linking them to the patient's EMR.
+Preconditions
+PRE-1: A lab order exists with "PENDING" status.
+PRE-2: Lab Technician is authenticated.
+Postconditions
+POST-1: Lab result record created and linked to the corresponding lab order.
+POST-2: Lab order status is updated to "SUBMITTED".
+Normal Flow
+1. Lab Technician selects a pending order from the queue.
+2. Lab Technician performs the tests and records measurements.
+3. Lab Technician attaches diagnostic images (e.g., OCT, Fundus) to the record.
+4. Lab Technician requests to submit the Lab order.
+5. System validates and stores the results.
+6. System notifies the ordering Doctor that results are ready.
+Alternative Flows
+None
+Exceptions
+E1 — Image upload failure:
+System prompts for a retry but allows saving numerical data first.
+Priority
+Must Have
+Frequency of Use
+Multiple times/day; one result set per lab order
+Business Rules
+BR-08: Confidentiality
+Assumptions
+File storage for images is configured (Cloudinary).
+UC-35: Review Submitted Lab Results
+ 
+UC ID & Name
+UC-35: Review Submitted Lab Results
+Primary Actor
+Doctor
+Secondary Actors
+Lab Technician (notified if rejected)
+Trigger
+Doctor receives a notification that lab results are ready.
+Description
+Doctor evaluates the findings and either accepts them for diagnosis or requests a re-test.
+Preconditions
+PRE-1: Lab result exists with "SUBMITTED" status.
+PRE-2: Doctor is the actor who creates the Lab order.
+Postconditions
+POST-1: Lab order status is updated to "COMPLETED" (if approved).
+POST-2: EMR is assigned with visual acuity parameters and images if Lab order is approved.
+POST-3: Access event logged.
+Normal Flow
+1. Doctor reviews the measurements and images provided by the Lab Technician.
+2. Doctor confirms the findings are clinically acceptable.
+3. System integrates the results permanently into the patient's EMR.
+4. System updates the lab order status to "COMPLETED".
+Alternative Flows
+ALT-1 – Doctor rejects findings:
+1. Doctor identifies inconclusive or incorrect data and requests a retest.
+2. System prompts for a mandatory rejection reason.
+3. Doctor provides the reason.
+4. System generates a new pending order and notifies the Lab Technician.
+Exceptions
+None
+Priority
+Must Have
+Frequency of Use
+Per lab order
+Business Rules
+BR-08: Confidentiality
+Assumptions
+Real-time push notification via WebSocket.
+ 
+UC-36: Fabricate Eyeglasses
+ 
+UC ID & Name
+UC-36: Fabricate Eyeglasses
+Primary Actor
+Lab Technician
+Secondary Actors
+Receptionist, Patient (notified on completion)
+Trigger
+Lab Technician identifies an eyeglass order in the production queue. 
+Description
+Lab Technician (optical workshop) processes an eyeglass order: fits the lenses into the selected frame according to the locked prescription parameters, updates production status, and marks the pair ready for pickup. 
+Preconditions
+PRE-1: Eyeglass order exists with "PENDING" status.
+PRE-2: Lab Technician is authenticated. 
+Postconditions
+POST-1: Order status progresses to "READY".
+POST-2: Receptionist/Patient notified when status is “READY”. 
+Normal Flow
+1. Lab Technician selects a pending order from the production queue.
+2. Lab Technician requests to start fabrication.
+3. System sets the order status to "IN_PRODUCTION".
+4. Lab Technician performs lens cutting and frame fitting.
+5. Lab Technician requests to mark the order as ready.
+6. System validates the order status and updates it to "READY".
+7. System notifies the Receptionist and Patient that glasses are ready for pickup.
+Alternative Flows
+ALT-1 — Quality issue discovered mid-production (e.g., lens defect): Lab Technician flags the order as 'Rework Needed', logs a note, and restarts from step 3 with a new lens batch; the original order record is retained (no hard delete, BR-09). 
+Exceptions
+E-1 — Order was cancelled by the Patient/Receptionist before production completed: System blocks further production steps.
+Priority
+Should Have 
+Frequency of Use
+Several orders per week.
+Business Rules
+BR-09 (No Hard Delete). 
+Assumptions
+Frame inventory availability was confirmed at order time. 
+ 
+2.6 — Pharmacy 
+UC-37: Dispense Drug
+ 
+UC ID & Name
+UC-37: Dispense Drug (Receive & Dispense Drug Prescription)
+Primary Actor
+Pharmacist
+Secondary Actors
+System (inventory update, notification to Receptionist)
+Trigger
+Pharmacist opens the Dispensing Dashboard and sees a prescription with status = PENDING.
+Description
+The Pharmacist receives the electronic prescription routed from the Doctor. The Pharmacist reviews the prescription lines, prepares each medication, and confirms dispensing. The system updates inventory and changes prescription status to DISPENSED.
+Preconditions
+PRE-1: prescription record with status = PENDING exists.
+PRE-2: Pharmacist is authenticated.
+Postconditions
+POST-1: prescription status = DISPENSED.
+POST-2: Dispensing log recorded (pharmacist, timestamp, batch IDs).
+POST-3: Receptionist notified to include pharmacy charges in the final invoice.
+Normal Flow
+1. Pharmacist opens the Dispensing Dashboard.
+2. System displays all PENDING prescriptions sorted by creation time.
+3. Pharmacist selects a prescription and reviews each line item.
+4. System displays the prescription line items with medicine name, dosage form, quantity, and unit price.
+5. Pharmacist reviews each line item, then confirms availability.
+6. Pharmacist clicks 'Confirm Dispensed'.
+7. System records the dispensed items and their quantities.
+8. System updates prescription status = DISPENSED.
+9. System generates a pharmacy invoice for the dispensed items.
+10. System notifies the Receptionist: 'Pharmacy charges ready for [Patient Name]'.
+Alternative Flows
+ALT-1 — Patient declines to purchase medications:
+1. Pharmacist marks the prescription as 'Skipped'.
+2. System updates status = SKIPPED.
+3. System notifies the Receptionist that only examination fees apply.
+Exceptions
+E1 — Medicine not available:
+If the external warehouse is out of stock, the pharmacist presses the "Skip" button to change the order status to SKIPPED.
+Priority
+Must Have
+Frequency of Use
+Multiple per day; one dispense event per patient prescription
+Assumptions
+None
+ 
+ 
+UC-38: Issue Electronic Invoice (Pharmacy)
+ 
+UC ID & Name
+UC-38: Issue Electronic Invoice (Pharmacy)
+Primary Actor
+Pharmacist
+Secondary Actors
+System (notifies Receptionist)
+Trigger
+Pharmacist completes dispensing (prescription status = DISPENSED).
+Description
+After dispensing, the Pharmacist issues an electronic pharmacy invoice. This invoice is linked to the visit's billing record and the Receptionist is notified to consolidate it into the final payment.
+Preconditions
+PRE-1: prescription status = DISPENSED.
+PRE-2: Pharmacist is authenticated.
+Postconditions
+POST-1: PharmacyInvoice record created and linked to the visit's parent invoice.
+POST-2: Receptionist notified to include pharmacy charges.
+POST-3: Invoice line items populated with dispensed medicines and prices from the medicines table.
+Normal Flow
+1. After dispensing (UC-26), Pharmacist clicks 'Issue Invoice'.
+2. System auto-populates invoice with dispensed items, quantities, and unit prices from the medicines table.
+3. Pharmacist reviews and confirms.
+4. System creates the PharmacyInvoice record and links it to the parent invoice_id for the visit.
+5. System sends a notification to the Receptionist: 'Pharmacy invoice ready for [Patient Name]'.
+Alternative Flows
+None
+Exceptions
+E1 — Price discrepancy:
+Pharmacist flags the issue. System notifies Admin to review and correct the medicines price table.
+Priority
+Must Have
+Frequency of Use
+Per dispensed prescription
+Business Rules
+BR-10 (Invoice Issuance)
+Assumptions
+Pricing for medicines is current in the medicines table.
+  
+2.7 — Service Package & Eyeglass Sales
+UC-39: Purchase Service Package
+UC ID & Name
+UC-39: Purchase Service Package
+Primary Actor
+Guest (browse only), Patient (purchase & register)
+Secondary Actors
+Receptionist (registers a package on behalf of a patient)
+Trigger
+User navigates to the 'Service Packages' section on the Home Page or Patient Portal.
+Description
+Any visitor (Guest) can view the clinic's published wellness/service package catalogue (e.g., eye massage, eye meditation, care bundles) with names, descriptions, and general benefit overviews — without login. Prices and the registration action are visible only to authenticated Patients. An authenticated Patient can select and purchase a package online via VietQR/bank transfer; upon successful payment the package is activated and linked to their account as a ServiceSubscription. Patients may then book individual sessions from the package via UC-11.
+Preconditions
+PRE-01: At least one active service package exists in the catalog, each categorized as either a clinical or a care service.
+PRE-02: The catalog page is publicly accessible without authentication. 
+Postconditions
+POST-01 (CARE service, Patient): A service registration is created with status PENDING, linking the package to the patient's account and making it visible under the patient's registered services.
+POST-02 (CARE service, Receptionist on behalf): Same as POST-01, with the patient identity and optional notes supplied by the Receptionist.
+POST-03 (CLINICAL service, Patient): No registration is created; the Patient is redirected into the appointment booking flow with the service pre-selected. 
+Normal Flow
+1. The actor opens the service catalog page.
+2. The system displays all active service packages as cards showing name, category, description, duration, number of sessions, price, and thumbnail.
+3. The actor can search by keyword or category, or switch between grid and list views.
+4. The actor selects a package card to view its full details.
+5. If the actor is unauthenticated, the system prompts them to log in before proceeding.
+6. If the actor is an authenticated Patient and the package is a CARE service, the system requests confirmation to register; upon confirmation a registration record is created and a success message is shown.
+7. If the actor is an authenticated Patient and the package is a CLINICAL service, the system redirects to the appointment booking flow with the service pre-selected (see UC-11).
+8. If the actor is a Receptionist and the package is a CARE service, the system prompts the Receptionist to search for and identify the target patient and optionally add notes, then confirms registration on the patient's behalf. 
+Alternative Flows
+Already-pending registration. 
+A1. The Patient already has a pending registration for the same service.
+A2. The registration action is disabled and the system informs the Patient that a pending registration already exists, preventing a duplicate submission. 
+Exceptions
+EX-01 (Registration fails): The system displays an error message and keeps the registration form open for retry.
+EX-02 (No patient selected, Receptionist flow): The system prevents the Receptionist from confirming registration until a patient has been identified via search.
+EX-03 (Catalogue empty or no search matches): The system displays an appropriate empty-state message indicating no services are available or no results were found. 
+Priority
+Should Have
+Frequency of Use
+Occasional; expected spike during promotional campaigns.
+Business Rules
+BR-01: Browsing the catalog requires no authentication; registering for a CARE package or booking a CLINICAL service requires the Patient role, or a Receptionist acting on a patient's behalf.
+BR-02: The service category determines the action — CLINICAL services always route into the appointment booking flow; CARE services go through the registration funnel.
+BR-03: A Receptionist registering on behalf of a patient must first locate that patient via search; no new patient may be created from this screen. 
+Assumptions
+The service package catalog is maintained by the Clinic Manager.
+Payment configuration is managed separately by the system administrator. 
+Non-functional requirements
+NFR-01 (Performance): catalogue list must load within < 2 seconds at P95 for a public, unauthenticated visitor.
+NFR-02 (Availability): the catalogue is publicly cacheable since it requires no auth, but registration/booking actions enforce role checks server-side regardless of UI button state.
+UC-40: Book Care Session
+UC ID & Name
+UC-40: Book Care Session
+Primary Actor
+Patient
+Secondary Actors
+Receptionist (books on behalf of a patient). 
+Trigger
+Patient selects 'Book a Session' from an active service-package subscription on 'My Packages' (UC-40), or selects a single non-medical care service directly from the catalogue.
+Description
+A Patient with an active service-package subscription (or purchasing a standalone session) schedules a date/time for a wellness/care session (e.g., eye massage, eye meditation). Unlike a doctor appointment, the session does not require a doctor and is later staffed by a Nurse.
+Preconditions
+PRE-01: The Patient holds an active service-package subscription with at least one remaining session.
+PRE-02: The subscription's expired date, if set, has not passed. 
+Postconditions
+POST-01: A care session record is created with status BOOKED, assigned the next sequential session number for that subscription, the chosen date/time, and any optional notes.
+POST-02: The subscription's used session count is incremented and the remaining session count is decremented immediately at booking time.
+POST-03: If the remaining session count reaches zero, the subscription status is automatically updated to DEPLETED.
+POST-04: An in-app notification is sent to the patient confirming the booking. 
+Normal Flow
+1. The Patient opens their care session booking page, optionally pre-filled from a specific subscription.
+2. The system lists the Patient's active subscriptions that still have remaining sessions.
+3. The Patient selects a subscription, picks a future date and time, and optionally enters notes.
+4. The Patient submits the booking request.
+5. The system validates that the selected subscription is active, not expired, and has remaining sessions, and that the chosen date and time is in the future.
+6. The system creates the care session, deducts one session from the subscription balance, and marks the subscription as DEPLETED if no sessions remain.
+7. The system sends a confirmation notification to the patient and confirms the booking. 
+Alternative Flows
+Receptionist books on behalf of a patient. 
+A1. The Receptionist opens the booking form for an identified patient's active subscription.
+A2. The same validation and session-deduction rules apply; the resulting session and notification are attributed to the patient. 
+Exceptions
+EX-01 (Missing subscription): The system prompts the actor to select a valid subscription before proceeding.
+EX-02 (Missing date/time): The system prompts the actor to provide a valid date and time.
+EX-03 (Past date/time): The system rejects the booking and informs the actor that the scheduled time must be in the future.
+EX-04 (Subscription not active): The system informs the actor that the selected subscription is no longer active.
+EX-05 (Subscription expired): The system informs the actor that the subscription has passed its expiry date and marks it as EXPIRED.
+EX-06 (No remaining sessions): The system informs the actor that all sessions in the subscription have been used.
+EX-07 (Ownership mismatch): The system rejects the request if a Patient attempts to book against a subscription that does not belong to them. 
+Priority
+Should Have
+Frequency of Use
+Occasional; tied to active subscription volume.
+Business Rules
+BR-01: Sessions are deducted from the subscription balance at booking time, not at session-delivery time, to prevent overbooking beyond the purchased balance.
+BR-02: The session number is assigned sequentially based on the patient's existing booked sessions for that subscription.
+BR-03: A subscription automatically transitions from ACTIVE to DEPLETED once all sessions are consumed, and from ACTIVE to EXPIRED the first time a booking is attempted past its expiry date. 
+Assumptions
+Care-session capacity per time slot is configured by the Clinic Manager; nurse staffing is resolved afterward, not at booking time.
+Non-functional requirements
+NFR-01 (Performance): subscription validation and CareSession creation must complete within < 2 seconds at P95.
+NFR-02 (Concurrency): the session-deduction check and CareSession insert should be treated as one atomic unit to avoid a double-booking race against the same balance.
+ 
+UC-41: Order Eyeglasses from Clinic
+UC ID & Name
+UC-41: Order Eyeglasses from Clinic
+Primary Actor
+Patient
+Secondary Actors
+Receptionist (fulfillment & walk-in alt flow), System (notification, invoice generation)
+Trigger
+Patient clicks 'Order Glasses' from their Eyeglass Prescription detail screen, OR Receptionist initiates an order on behalf of the Patient at the counter.
+Description
+After a Doctor issues an eyeglass prescription, the Patient can place a glasses order with the clinic: browsing the frame catalogue, selecting a frame, optionally adding coating preferences, and confirming the order. The system creates an EyeglassOrder, generates an invoice, notifies staff, and tracks the order through fulfilment to pickup.
+Preconditions
+PRE-1: Patient is authenticated.
+PRE-2: A finalized eyeglass prescription (status = ISSUED) is linked to the patient's visit.
+PRE-3: At least one frame is available in the clinic's frame catalogue.
+Postconditions
+POST-1: An EyeglassOrder record is created (status = PENDING) linked to the prescription and patient.
+POST-2: Receptionist / Optical staff receives a notification of the new order.
+POST-3: An EyeglassInvoice is generated (status = UNPAID) and linked to the patient's account.
+POST-4: Order status progresses through IN_PROGRESS → READY_FOR_PICKUP → COMPLETED upon fulfilment.
+Normal Flow
+1. Patient navigates to 'My Prescriptions' and selects an eyeglass prescription.
+2. System displays prescription parameters: SPH, CYL, AXIS, ADD (OD/OS), PD, lens type.
+3. Patient clicks 'Order Glasses at Clinic'. (E2)
+4. System displays the frame catalogue: frame name, brand, material, color, price.
+   Catalogue is filterable by price range, material, and style. (E1)
+5. Patient browses and selects a frame.
+6. System displays an order summary: selected frame, lens parameters (read-only from prescription),
+   lens type, optional coating add-ons, and estimated total price.
+7. Patient may add optional notes / coating preferences (e.g., anti-blue, photochromic).
+   Clinical parameters (SPH/CYL/AXIS) are locked — Patient cannot modify them.
+8. Patient reviews the summary and confirms the order.
+9. System creates an EyeglassOrder record (status = PENDING), linked to the prescription and patient.
+10. System notifies Receptionist / Optical staff of the new order.
+11. System generates an EyeglassInvoice (status = UNPAID) and displays it to the Patient.
+12. Patient pays at the counter (cash/POS) or online (VietQR).
+    On payment confirmed: order status → IN_PROGRESS, invoice → PAID.
+13. Staff processes the order (lens cutting, fitting).
+    When ready: staff marks order → READY_FOR_PICKUP.
+14. System notifies Patient that their glasses are ready for pickup.
+15. Staff hands off glasses; order status → COMPLETED.
+Alternative Flows
+ALT-1 — Walk-in order initiated at reception counter:
+  1. Receptionist opens 'New Glasses Order', searches for the patient account.
+  2. Receptionist selects the patient's eyeglass prescription from their record.
+  3. Receptionist picks a frame and confirms specs on behalf of Patient.
+  4. Flow continues from step 6 of Normal Flow.
+ALT-2 — Patient adjusts optional preferences:
+  At step 7, Patient may add or modify coating preferences (anti-blue, photochromic, anti-glare).
+  System appends the notes to the order.
+  SPH / CYL / AXIS / ADD remain locked to the issued prescription — never editable by Patient.
+Exceptions
+E1 — Frame catalogue is empty / no frames in stock:
+  System displays: 'No frames currently available. Please contact the clinic directly.'
+  The order flow is cancelled; Patient is redirected to 'My Prescriptions'.
+E2 — Eyeglass prescription expired (> 24 months from issue date):
+  System warns: 'This prescription is older than 24 months.
+  We recommend a re-examination before ordering glasses.'
+  Patient may acknowledge and proceed, or cancel.
+E3 — Payment timeout (online payment, > 10 minutes):
+  Order remains status = PENDING. System notifies Patient and provides a retry link.
+  Staff is not notified until payment is confirmed.
+Priority
+Should Have
+Frequency of Use
+Several orders per week; peaks after high-volume examination days.
+Business Rules
+Eyeglass prescription parameters (SPH/CYL/AXIS/ADD) are read-only from the issued prescription — Patient cannot modify clinical values (BR-08 variant).
+An order cannot be placed without a valid ISSUED prescription.
+Prescription expiry warning triggered at > 24 months from issue date (non-blocking).
+Assumptions
+Frame catalogue (name, brand, material, color, price, stock) is maintained by Admin (UC-38).
+Lens type is pre-filled from the prescription; coating preferences are Patient-editable add-ons.
+Payment gateway (VietQR) is configured (DE-4).
+Relations to other UCs
+Triggered from (View Prescriptions).
+Prescription source: (Issue Eyeglass Prescription).
+Frame catalogue maintenance: (Configure System and Data).
+UC-42: Manage Service Packages
+UC ID & Name
+UC-42: Manage Service Packages
+Primary Actor
+Clinic Manager
+Secondary Actors
+ __
+Trigger
+Clinic Manager navigates to 'Service Package Management'.
+Description
+The Clinic Manager creates and maintains the catalogue of sellable wellness/care service packages (name, description, included services, session count, validity period, price), distinct from clinical services and lab tests, which require business/pricing judgement rather than purely technical configuration.
+Preconditions
+PRE-01: The Clinic Manager is authenticated and has access to the Service Package Management section.
+PRE-02: The system is configured to correctly store and display Vietnamese text in package descriptions, labels, and pricing fields. 
+Postconditions
+POST-01 (Create): A new service package is added to the system with the supplied details and status ACTIVE, immediately visible on the public service catalog.
+POST-02 (Edit): The targeted package is updated with the new details.
+POST-03 (Stop selling / Resell): The package's visibility is toggled; hidden packages are excluded from the patient-facing catalog until reactivated. 
+Normal Flow
+1. The Clinic Manager opens the Service Package Management page and views the list of packages, including any hidden ones if the filter is enabled.
+2. The Clinic Manager selects to create a new package or edit an existing one.
+3. The Clinic Manager fills in the package name, description, price (must be greater than zero), duration in minutes (must be greater than zero), number of sessions included (must be at least one), and uploads a thumbnail image.
+4. The system validates all required fields and rejects the form with field-specific errors if any constraint is not met.
+5. On successful validation, the system saves the package and reflects the change immediately on the public service catalog for ACTIVE packages. 
+Alternative Flows
+Stop selling / resell a package. 
+A1. The Clinic Manager selects an ACTIVE package and chooses to stop selling it; the system hides the package from the patient-facing catalog.
+A2. The Clinic Manager enables the hidden-packages filter, selects a hidden package, and chooses to resell it; the system restores it to the public catalog via the same toggle action. 
+Exceptions
+EX-01 (Validation failure): If any required field is empty or violates a constraint (price ≤ 0, duration ≤ 0, sessions < 1), the system blocks submission and highlights the specific fields with error messages.
+EX-02 (Encoding issue): If Vietnamese characters appear corrupted after saving, this indicates a database configuration issue that must be resolved by the system administrator before further catalog edits are made. 
+Priority
+Should Have
+Frequency of Use
+Occasional; during catalogue planning or seasonal promotions.
+Business Rules
+BR-01: Required fields for any package are name, description, price greater than zero, duration greater than zero, sessions included at least one, and a thumbnail image.
+BR-02: Only the Clinic Manager and Admin roles can create, edit, or manage the visibility of service packages.
+BR-03: Hidden packages remain editable and visible to the Clinic Manager but are excluded from the patient-facing catalog until reactivated. 
+Assumptions
+Distinguished from (general system/medicine/service config, Admin-owned) by being a Manager-owned, business/pricing-focused catalogue specific to wellness packages.
+Non-Functional Requirements 
+NFR-01 (Performance): package list and catalogue refresh must complete within < 2 seconds at P95.
+NFR-02 (Data integrity): image uploads must be restricted to MANAGER/ADMIN and the backend must be restarted after upload-handling code changes for the new route to take effect (operational note from implementation).
+ 
+UC-43: Manage Discount Campaigns
+UC ID & Name
+UC-43: Manage Discount Campaigns
+Primary Actor
+Clinic Manager
+Secondary Actors
+System (applies discount at checkout)
+Trigger
+Clinic Manager navigates to 'Discount Campaigns' to create a promotional offer.
+Description
+The Clinic Manager defines time-bound discount campaigns (percentage or fixed amount) applicable to service packages, eyeglasses, or specific services, with optional usage limits and a promo code. At checkout, the system applies the best eligible discount to the invoice's discount amount.
+Preconditions
+PRE-1: Manager is authenticated.
+Postconditions
+POST-1: Discount campaign record created (status = SCHEDULED/ACTIVE/EXPIRED).
+POST-2: Discount applied automatically (or via promo code) at qualifying checkouts within the validity window.
+POST-3: Event logged in the Audit Log.
+Normal Flow
+1. Manager navigates to 'Discount Campaigns' and clicks 'Create Campaign'.
+2. Manager enters campaign name, discount type (percentage/fixed amount), value, applicable scope, start/end date, usage limit, and optional promo code.
+3. System validates the date range and discount value.
+4. Manager saves; system creates the campaign with status = SCHEDULED (or ACTIVE if start date is today).
+5. On the start date, the system automatically transitions status to ACTIVE; on the end date, to EXPIRED.
+6. During checkout flows, the system checks for eligible active campaigns matching the order scope and applies the discount automatically or validates the entered promo code.
+Alternative Flows
+ALT-1 — Manually deactivate a running campaign (e.g., budget exhausted): Manager sets status = INACTIVE; campaign stops applying immediately.
+ALT-2 — View campaign performance: Manager opens a campaign's detail page to see usage count and total discount value granted, feeding into (Generate Revenue Report).
+Exceptions
+E-1 — Invalid date range or value: System blocks save and highlights the field.
+E-2 — Promo code not found or expired: System displays "Invalid or expired promo code."
+E-3 — Usage limit reached: System displays "This promotion has reached its usage limit."
+Priority
+Could Have
+Frequency of Use
+Occasional; aligned with the marketing/promotional calendar.
+Business Rules
+BR-16 (new) — Discount Stacking: at most one discount campaign may be applied per invoice/order unless explicitly marked combinable; the system always applies the single best-value eligible discount.
+Assumptions
+Discount value is reflected in the invoice's discount fields per BR-12 (Invoice Calculation).
+Relations to other UCs
+Consumed by (Process Payment); performance feeds (Generate Revenue Report).
+2.8 — Patient Portal
+UC-44: View Prescriptions
+ 
+UC ID & Name
+UC-44: View Prescriptions
+Primary Actor
+Patient
+Secondary Actors
+None
+Trigger
+Patient navigates to 'My Prescriptions' in the Patient Portal.
+Description
+The Patient views all drug prescriptions and eyeglass prescriptions (toa kính) issued by Doctors across past visits. Patients can download the eyeglass prescription PDF to share with optical shops.
+Preconditions
+PRE-1: Patient is authenticated.
+PRE-2: At least one prescription is linked to the patient's visits.
+Postconditions
+POST-1: Access event logged.
+Normal Flow
+1. Patient navigates to 'My Prescriptions'.
+2. System retrieves all prescriptions linked to the patient's visits.
+3. System displays a list grouped by visit date, showing drug prescriptions and eyeglass prescriptions separately.
+4. Patient expands a record to see details: medicine names, dosage, lens parameters.
+5. For eyeglass prescriptions, Patient clicks 'Download PDF'.
+6. System generates and downloads the PDF.
+Alternative Flows
+None
+Exceptions
+None
+Priority
+Must Have
+Frequency of Use
+Occasional per patient
+Business Rules
+BR-08 (EMR Confidentiality)
+Assumptions
+PDF generation is available for eyeglass prescriptions.
+ 
+ 
+UC-45: View Diagnostic Results
+ 
+UC ID & Name
+UC-45: View Diagnostic Results
+Primary Actor
+Patient
+Secondary Actors
+None
+Trigger
+Patient navigates to 'My Test Results' in the Patient Portal.
+Description
+The Patient views their completed lab and imaging results from all past visits, along with the Doctor's annotations. A simplified view is shown for non-clinical audiences.
+Preconditions
+PRE-1: Patient is authenticated.
+PRE-2: At least one completed lab_result linked to the patient exists.
+Postconditions
+POST-1: Access event logged.
+Normal Flow
+1. Patient navigates to 'My Test Results'.
+2. System retrieves all lab_results for the patient's visits.
+3. System displays results grouped by visit date: test type, key values, doctor annotations.
+4. Patient may download results as PDF.
+Alternative Flows
+None
+Exceptions
+None
+Priority
+Must Have
+Frequency of Use
+Occasional per patient
+Business Rules
+BR-08 (EMR Confidentiality)
+Assumptions
+—
+  
+UC-46: Register for Eye Care Services
+ 
+UC ID & Name
+UC-46: Register for Eye Care Services
+Primary Actor
+Patient
+Secondary Actors
+Receptionist 
+Trigger
+Patient browses 'Eye Care Services' on the Patient Portal and selects a service to register for.
+Description
+The Patient browses the clinic's published service catalogue, selects a service or care package, and initiates a booking request pre-linked to that service. This delegates to the appointment booking flow (UC-11) with the service pre-selected.
+Preconditions
+PRE-01: The Patient is authenticated with an active account.
+PRE-02: At least one active CARE-type service package exists and is visible on the catalog.
+PRE-03: The Patient has navigated to this screen either directly from their subscriptions page or after expressing interest in a package from the catalog (UC-39). 
+Postconditions
+POST-01: For a new registration, a service registration record is created with status PENDING; no session balance is allocated at this stage.
+POST-02: Once the clinic confirms the registration and the patient's subscription becomes ACTIVE — handled through Receptionist follow-up — the Patient gains access to a subscription card with session balance and an entry point to book care sessions (UC-40).
+POST-03: Canceling a not-yet-used subscription sets its status to CANCELLED. 
+Normal Flow
+1. The Patient navigates to their services and subscriptions page.
+2. The system displays two sections: pending and confirmed registrations, and active, expired, or depleted subscriptions.
+3. For each ACTIVE subscription with remaining sessions, the system shows a 'Book a Session' option leading into UC-40.
+4. For each ACTIVE subscription that has not yet been used, the system shows a cancellation option.
+5. If the Patient wishes to register for a new package, they follow the link to the service catalog (UC-39). 
+Alternative Flows
+Cancel an unused subscription. 
+A1. The Patient selects the cancellation option on a subscription with no sessions used.
+A2. The system requests confirmation before proceeding.
+A3. Upon confirmation, the subscription status is set to CANCELLED and the list is refreshed. 
+Exceptions
+EX-01 (No registrations or subscriptions): The Patient has never registered for any package; the system displays an empty state with a call-to-action directing the Patient to the service catalog.
+EX-02 (Cancel rejected): The subscription can no longer be canceled because sessions have already been used or it has already been canceled; the system informs the Patient and leaves the list unchanged. 
+Priority
+Should Have
+Frequency of Use
+Occasional
+Business Rules
+BR-01: A subscription can only be canceled by the owning Patient and only while no sessions have been used; the cancellation option is hidden once any session has been consumed.
+BR-02: A PENDING registration carries no session balance; the Patient cannot book a care session until the subscription becomes ACTIVE.
+BR-03 (Known limitation): There is currently no in-system action that automatically converts a confirmed registration into an active subscription; this step is performed manually by the Receptionist. This limitation is acknowledged and planned for a future iteration. 
+Non-Functional Requirements 
+NFR-01 (Performance): /patient/subscriptions must load both registrations and subscriptions within < 2 seconds at P95.
+NFR-02 (Data integrity): cancellation is a single PATCH call; no partial state should remain if the call fails (UI keeps the previous list unchanged on error).
+  
+UC-47: Generate Feedback
+UC ID & Name
+UC-47: Generate Feedback
+Primary Actor
+Patient
+Secondary Actors
+None
+Trigger
+Patient clicks ‘Leave Feedback’ on the Patient Portal after an appointment is marked COMPLETED.
+Description
+After the appointment is completed, the system sends a feedback request to the patient via the Portal and email. The patient may optionally rate the service quality (1–5 stars) and leave a written comment about the doctor and clinic experience. The feedback is submitted, saved with status PENDING, and the Clinic Manager is notified for review.
+Preconditions
+PRE-1: Patient is authenticated.
+PRE-2: The appointment linked to this visit is in COMPLETED status.
+PRE-3: Patient has not already submitted feedback for this appointment.
+Postconditions
+POST-1: A new record is created in the feedbacks table with status = PENDING.
+POST-2: Clinic Manager receives an in-app notification of the new feedback.
+Normal Flow
+1. System automatically sends a feedback request to the patient via Portal and email after appointment is COMPLETED.
+2. Patient opens the feedback form and selects a star rating (1–5).
+3. Patient optionally types a written comment.
+4. Patient clicks ‘Submit’. System validates the rating is provided.
+5. System saves feedback record (status = PENDING) and notifies Clinic Manager.
+6. System confirms submission to the patient with a success message.
+Alternative Flows
+ALT-1: Patient chooses to skip feedback — closes the form without submitting. No record is created.
+Exceptions
+E1 — No rating selected: System displays ‘Please select a star rating before submitting.’
+Priority
+Should Have
+Business Rules
+One feedback per appointment per patient (system prevents duplicate submissions).
+2.9 — Administration & Analytics
+UC-48: View Real-time Operational Analytics Dashboard
+ 
+UC ID & Name
+UC-48: View Real-time Operational Analytics Dashboard
+Primary Actor
+Clinic Manager
+Secondary Actors
+None
+Trigger
+Clinic Manager opens the Dashboard from the main navigation.
+Description
+The Clinic Manager views a live operational dashboard showing today's appointment progress, current queue lengths per doctor, pending prescriptions, outstanding invoices, and active lab orders. The dashboard auto-refreshes every 60 seconds.
+Preconditions
+PRE-1: Clinic Manager is authenticated.
+Postconditions
+POST-1: Live operational widgets displayed with auto-refresh.
+Normal Flow
+1. Manager opens the main Dashboard.
+2. System displays real-time widgets:
+   Today's total appointments vs. completed
+   Queue lengths per doctor
+   PENDING prescriptions awaiting dispensing
+   Outstanding (unpaid) invoices
+   Lab orders currently IN_PROGRESS
+3. Dashboard auto-refreshes every 60 seconds.
+Alternative Flows
+None
+Exceptions
+None
+Priority
+Must Have
+Frequency of Use
+Continuously during clinic hours
+Business Rules
+—
+Assumptions
+Backend APIs respond with sub-second latency for dashboard widgets.
+UC-49: Generate Revenue Report
+ 
+UC ID & Name
+UC-49: Generate Revenue Report
+Primary Actor
+Clinic Manager
+Secondary Actors
+None
+Trigger
+Clinic Manager navigates to Reports → Revenue Report and selects a time range.
+Description
+The Clinic Manager generates a revenue report for a selected period (day, week, month, or year), broken down by service type, doctor, and payment method. The report is exportable to Excel.
+Preconditions
+PRE-1: Clinic Manager is authenticated.
+PRE-2: Paid invoice records exist within the selected period.
+Postconditions
+POST-1: Revenue data rendered on-screen.
+POST-2: Excel file generated and downloaded if export is requested.
+Normal Flow
+1. Clinic Manager navigates to Reports → Revenue Report.
+2. Manager selects a time range (day, week, month, custom).
+3. System queries all PAID invoices within the range.
+4. System displays: total revenue, breakdown by service category, breakdown by doctor, payment method split (cash vs. QR).
+5. Manager clicks 'Export to Excel'.
+6. System generates and downloads the .xlsx file.
+Alternative Flows
+None
+Exceptions
+E1 — No data for selected period:
+System displays: 'No revenue data found for the selected period.'
+Priority
+Must Have
+Frequency of Use
+Daily and monthly by Clinic Manager
+Business Rules
+—
+Assumptions
+All invoice records are correctly linked to service types and doctors.
+ 
+UC-50: View Patient Volume Statistics and Trends
+ 
+UC ID & Name
+UC-50: View Patient Volume Statistics and Trends
+Primary Actor
+Clinic Manager
+Secondary Actors
+None
+Trigger
+Clinic Manager navigates to Reports → Patient Statistics.
+Description
+The Clinic Manager views patient volume analytics: total visits per period, new vs. returning patients, top diagnoses, and appointment status distribution, presented as charts and tables.
+Preconditions
+PRE-1: Clinic Manager is authenticated.
+Postconditions
+POST-1: Statistics displayed on screen.
+Normal Flow
+1. Manager navigates to Patient Statistics.
+2. Manager selects a time range.
+3. System calculates and displays:
+   Total appointments by status
+   New vs. returning patients
+   Top 5 diagnoses (ICD codes)
+   Appointments per doctor
+4. Data is visualised as bar/line charts and can be exported to Excel.
+Alternative Flows
+None
+Exceptions
+None
+Priority
+Should Have
+Frequency of Use
+Weekly / monthly
+Business Rules
+—
+Assumptions
+—
+ 
+UC-51: Monitor Staff Performance Dashboard
+ 
+UC ID & Name
+UC-51: Monitor Staff Performance Dashboard
+Primary Actor
+Clinic Manager
+Secondary Actors
+None
+Trigger
+Clinic Manager navigates to the Staff Performance section.
+Description
+The Clinic Manager views performance KPIs for Doctors and clinical staff: patients seen, average consultation time, prescription volume, and on-time rate.
+Preconditions
+PRE-1: Clinic Manager is authenticated.
+Postconditions
+POST-1: Staff KPIs displayed.
+Normal Flow
+1. Manager navigates to Staff Performance.
+2. Manager selects a time range and optionally a specific staff member.
+3. System aggregates metrics from appointments and EMR timestamps.
+4. System displays: patients seen per doctor, average appointment duration, prescription volume, on-time start rate.
+Alternative Flows
+None
+Exceptions
+None
+Priority
+Should Have
+Frequency of Use
+Weekly / monthly
+Business Rules
+—
+Assumptions
+Appointment start and end timestamps are recorded.
+ 
+UC-52: Generate Feedback Report
+ 
+UC ID & Name
+UC-52: Generate Feedback Report
+Primary Actor
+Clinic Manager
+Secondary Actors
+None
+Trigger
+Clinic Manager navigates to Reports → Feedback Report and selects a time range.
+Description
+The Clinic Manager views aggregated patient feedback collected after visits. The report shows average ratings per doctor, common feedback themes, and response rates.
+Preconditions
+PRE-1: Clinic Manager is authenticated.
+PRE-2: At least one patient feedback record exists for the selected period.
+Postconditions
+POST-1: Feedback analytics displayed. 
+POST-2: Exportable to Excel if requested.
+Normal Flow
+1. Manager navigates to Reports → Feedback Report.
+2. Manager selects a time range.
+3. System retrieves all submitted feedback records within the range.
+4. System displays: average star ratings per doctor, total responses, response rate percentage, and most common comment themes (word cloud or tag summary).
+5. Manager may export the detailed feedback list to Excel.
+Alternative Flows
+None
+Exceptions
+E1 — No feedback for selected period:
+System displays: 'No feedback collected for this period.'
+Priority
+Should Have
+Frequency of Use
+Monthly by Clinic Manager
+Business Rules
+—
+Assumptions
+Patient feedback is collected automatically after each finalised EMR.
+ 
+UC-53: Approve Payroll
+UC ID & Name
+UC-52: Approve Payroll
+Primary Actor
+Clinic Manager
+Secondary Actors
+Admin/Accounting (export), System
+Trigger
+Clinic Manager opens 'Payroll' at the end of a pay period (e.g., monthly).
+Description
+The Clinic Manager reviews the system-generated payroll summary for all staff — based on attendance, shifts, and performance-linked items (e.g., consultations completed, care sessions delivered) — adjusts line items if necessary, and approves the payroll run for processing/export to accounting.
+Preconditions
+PRE-1: Manager is authenticated.
+PRE-2: The pay period has ended and attendance/activity data for all staff is finalised.
+Postconditions
+POST-1: PayrollPeriod record created/updated with status = APPROVED.
+POST-2: Individual PayrollItem records locked against further edits once approved.
+POST-3: Approved payroll exported/available for Accounting/Admin.
+POST-4: Event logged in the Audit Log.
+Normal Flow
+1. Manager navigates to 'Payroll' and selects the pay period.
+2. System generates a draft payroll summary per staff member: base rate, hours/shifts attended, performance-linked components, deductions, and net pay.
+3. Manager reviews each line item; may adjust amounts with a justification note.
+4. Manager clicks 'Approve Payroll' for the period.
+5. System validates no line item is missing required data, sets status = APPROVED, and locks all PayrollItem records.
+6. System makes the approved payroll available for export to Accounting/Admin.
+7. Event logged in the Audit Log with the approving manager and timestamp.
+Alternative Flows
+ALT-1 — Reject and recalculate: Manager sends the draft back for recalculation (e.g., missing attendance data); status remains DRAFT.
+ALT-2 — Export only (no system disbursement): System generates an export file; the actual fund transfer is performed outside ECMS via the clinic's banking process.
+Exceptions
+E-1 — Manual adjustment exceeds a configured variance threshold: System requires a mandatory justification note before saving.
+E-2 — Missing attendance/activity data for a staff member: System blocks approval for that line and flags it for review.
+Priority
+Should Have
+Frequency of Use
+Periodic (e.g., monthly), once per pay cycle.
+Business Rules
+BR-18 (new) — Payroll Approval Authority: only the Clinic Manager (or higher) may approve a payroll period; once APPROVED, line items cannot be edited or hard-deleted (BR-09).
+Assumptions
+ECMS computes payroll figures from attendance/activity data already captured by the system; it does not execute the actual bank transfer, consistent with the platform's exclusion of payment-gateway-side disbursement automation.
+UC-54: Manage Lab Test Catalogue
+UC ID & Name
+UC-54: Manage Lab Test Catalogue
+Primary Actor
+Clinic Manager
+Secondary Actors
+Admin (shared infrastructure), Lab Technician (read-only consumer)
+Trigger
+Clinic Manager navigates to 'Lab/Imaging Test Catalogue'.
+Description
+The Clinic Manager maintains the catalogue of lab and imaging test types offered by the clinic (e.g., OCT scan, fundus photography, refraction test) — name, category, price, and estimated turnaround time — used when Doctors issue lab/imaging orders. Distinguished from (Admin's general system/medicine/service configuration) by being a Manager-owned, clinically-oriented catalogue requiring operational judgement about pricing and turnaround commitments.
+Preconditions
+PRE-1: Manager is authenticated.
+Postconditions
+POST-1: Test catalogue entry created/updated (a services row with is_lab_service = 1).
+POST-2: Change immediately available for selection in UC-53.
+POST-3: Event logged in the Audit Log.
+Normal Flow
+1. Manager navigates to 'Lab/Imaging Test Catalogue'.
+2. System lists existing test types with status, price, and average turnaround time.
+3. Manager clicks 'Add New Test' (or selects an existing entry to edit).
+4. Manager enters test name, category, price, duration/turnaround estimate, and equipment/resource notes.
+5. System validates required fields and price > 0.
+6. Manager saves; system creates/updates the catalogue entry with is_lab_service = 1.
+7. The updated entry is immediately available for selection in UC-53.
+Alternative Flows
+ALT-1 — Deactivate a test type: Manager sets status = INACTIVE; existing pending orders referencing it are unaffected, but it is hidden from new order selection.
+Exceptions
+E-1 — Invalid price or duplicate test name: System blocks save and highlights the field.
+Priority
+Should Have
+Frequency of Use
+Occasional; during service-line planning or equipment changes.
+Business Rules
+BR-09 (No Hard Delete).
+Assumptions
+Reuses the existing services table (is_lab_service flag) rather than introducing a separate schema, consistent with the current data model; ownership is shifted from Admin (UC-38) to Clinic Manager for this specific catalogue subset.
+Relations to other UCs
+Consumed by UC-53 (Issue Lab/Imaging Order); complements (Configure System and Data) and (Manage Service Packages).
+2.10 — System Administration & Security
+ 
+UC-55: Manage User Account
+ 
+UC ID & Name
+UC-55: Manage User Account
+Primary Actor
+Admin
+Secondary Actors
+System (sends account emails to new staff)
+Trigger
+Admin navigates to the User Management screen.
+Description
+The Admin creates, views, edits, activates, and deactivates staff accounts (Doctor, Receptionist, Lab Technician, Pharmacist, Manager). For Patient accounts — created via self-registration or walk-in registration — the Admin has read access plus the ability to activate/deactivate (e.g., on patient request, suspected fraud, or duplicate-account cleanup). Admin cannot create a Patient account directly through this use case. Hard deletion is prohibited for all account types (BR-09). 
+Preconditions
+PRE-1: Admin is authenticated.
+Postconditions
+POST-1: Account changes persisted.
+POST-2: New staff account email sent if a new staff account was created.
+POST-3: Event recorded in Audit Log.
+POST-4: If a Patient account is deactivated, all active sessions/tokens for that account are invalidated and any pending appointments remain unaffected unless separately cancelled. 
+Normal Flow
+1. Admin navigates to User Management.
+2. Admin selects account type filter: Staff or Patient.
+3. (Staff path) Admin clicks 'Add New User', enters full name, email, role, department.
+4. System validates the email is not already registered (E1).
+5. System creates the account (status = INACTIVE) with a temporary password.
+6. Admin reviews the default RBAC permissions for the assigned role.
+7. Admin clicks 'Activate Account'.
+8. System sets status = ACTIVE and sends a welcome email with temporary credentials.
+9. Event is recorded in the Audit Log. 
+Alternative Flows
+ALT-1 — Deactivate Account (Staff or Patient):
+1. Admin selects an active account and clicks 'Deactivate'.
+2. System sets status = INACTIVE and invalidates all active tokens.
+3. Event logged.
+ALT-2 — Edit Account Details (Staff only):
+1. Admin selects a staff account and modifies: name, role, department.
+2. System saves changes and logs the event.
+ALT-3 — Search and View Patient Account:
+1. Admin switches filter to "Patient" and searches by name, phone number, or patient code.
+2. System displays read-only patient account details (profile info, account status, registration date). Admin cannot edit clinical/EMR data from this screen — that remains governed by BR-08.
+ALT-4 — Reactivate Patient Account:
+1. Admin selects an inactive Patient account and clicks 'Reactivate'.
+2. System sets status = ACTIVE.
+3. Event logged; optional notification email sent to the patient. 
+Exceptions
+E1 — Email already registered: System displays "This email is already registered." Account creation is blocked.
+E2 — Attempt to create a Patient account via Admin UI: System displays "Patient accounts must be created via self-registration or walk-in check-in" and blocks the action. 
+Priority
+Must Have
+Frequency of Use
+Occasional; during staff onboarding / offboarding
+Business Rules
+BR-09 (No Hard Delete)
+Assumptions
+Patient accounts are created only via UC-01 (self-registration) or UC-13 (walk-in registration); this use case governs only their status (active/inactive) and read access, not creation or clinical data editing. 
+ 
+ 
+UC-56: Configure System and Data
+ 
+UC ID & Name
+UC-56: Configure System and Data
+Primary Actor
+Admin
+Secondary Actors
+None
+Trigger
+Admin navigates to System Configuration.
+Description
+The Admin configures system-wide reference data: service catalogue and pricing, medicine catalogue, clinic information, and notification message templates. All changes take effect immediately and are logged.
+Preconditions
+PRE-1: Admin is authenticated.
+Postconditions
+POST-1: Configuration changes saved and immediately reflected across the system.
+POST-2: Changes logged in the Audit Log.
+Normal Flow
+1. Admin navigates to System Configuration.
+2. Admin selects the data category: Services & Pricing / Medicines / Clinic Info / Notification Templates.
+3. Admin adds, edits, or deactivates records.
+4. System validates inputs (required fields, no duplicate names, valid price format).
+5. Admin clicks 'Save'.
+6. System applies changes and logs them.
+Alternative Flows
+None
+Exceptions
+E1 — Delete a record with active references:
+System prevents hard deletion and displays: 'This item is in use. Deactivate instead of deleting.' (BR-09)
+Priority
+Must Have
+Frequency of Use
+Occasional; during initial setup and catalogue maintenance
+Business Rules
+BR-09 (No Hard Delete)
+Assumptions
+Price changes do not retroactively affect existing PAID invoices.
+ 
+ 
+UC-57: Manage System Audit Log
+ 
+UC ID & Name
+UC-57: Manage System Audit Log
+Primary Actor
+Admin
+Secondary Actors
+None
+Trigger
+Admin navigates to Audit Log.
+Description
+The Admin views the append-only audit log recording all significant system events: login/logout, EMR access, RBAC changes, prescription creation, payment transactions, and configuration changes. The log is read-only and cannot be modified or deleted.
+Preconditions
+PRE-1: Admin is authenticated.
+Postconditions
+POST-1: Audit log entries displayed (no mutations allowed).
+Normal Flow
+1. Admin navigates to Audit Log.
+2. System displays log entries in reverse-chronological order.
+3. Admin may filter by: actor (user), event type, date range, affected entity ID.
+4. Admin clicks an entry to view full event details: actor ID, timestamp, IP address, before/after values for data changes.
+5. Admin may export the filtered log to CSV for external audit purposes.
+Alternative Flows
+None
+Exceptions
+None
+Priority
+Must Have
+Frequency of Use
+On-demand; primarily for security review and compliance
+Business Rules
+—
+Assumptions
+Audit log is implemented as an append-only table with no UPDATE/DELETE permissions granted to the application user.
+ 
+3. Functional Requirements And Feature
+3.1 Functional Requirement
+FR ID
+Modules
+Description
+Priority
+Related BR
+FR-01
+Authentication & Authorization
+Register and log in using your email and password. The password is encrypted with bcrypt (cost ≥ 12).
+Must
+BR-01
+FR-02
+Authentication & Authorization
+Log in to Google OAuth 2.0 for patients.
+Should
+—
+FR-03
+Authentication & Authorization
+RBAC has 7 roles: Admin, Manager, Doctor, Receptionist, Pharmacist, Patient, and Lab Technician.
+Must
+—
+FR-04
+Authentication & Authorization
+The account will be locked after 5 consecutive failed login attempts within 30 minutes.
+Must
+BR-02
+FR-05
+Patient Management
+CRUD patient record: full name, date of birth, gender, address, phone number, citizen identification number.
+Must
+BR-09
+FR-06
+Patient Management
+Search for patients by name, phone number, or patient code.
+Must
+—
+FR-07
+Appointment Management
+Patients can book appointments online: choose a doctor, date, and available time slot.
+Must
+BR-03, BR-04
+FR-08
+Appointment Management
+Reception staff confirm, modify, or cancel appointments. The system automatically sends emails/SMS notifications.
+Must
+BR-05
+FR-09
+Appointment Management
+The system automatically sends appointment reminders via email 24 hours in advance.
+Should
+—
+FR-10
+EMR
+Doctors create and update EMRs: symptoms, diagnosis, and treatment plans.
+Must
+BR-08
+FR-11
+EMR
+EMR ophthalmology: VA, BCVA, current lens power, intraocular pressure, fundus condition.
+Must
+BR-08
+FR-12
+EMR
+Electronic prescription and glasses systems, interconnected pharmacy warehouse.
+Must
+BR-06, BR-08
+FR-13
+Laboratory Examination
+The doctor orders the tests; the technician enters the results (refraction, OCT, fundus images).
+Must
+—
+FR-14
+Laboratory Examination
+The test results are displayed directly in the EMR; the doctor adds annotations to help interpret the results.
+Must
+—
+FR-15
+Prescription Dispensing
+Dispense medications according to prescriptions.
+Must
+BR-09
+FR-16
+Payment Processing
+Calculate the total bill: examination fee + test fee + medication/glasses fee.
+Must
+—
+FR-17
+Payment Processing
+We support cash payments and QR code transfers.
+Must
+—
+FR-19
+Reporting
+Generate daily/weekly/monthly/yearly sales reports and export them to Excel.
+Must
+—
+FR-20
+Reporting
+Report on the number of visits, new patients, and disease rates by type.
+Should
+—
+FR-21
+Administration
+Admin manages accounts, assigns roles, and locks/unlocks accounts.
+Must
+—
+FR-22
+Administration
+Admin configures categories: service type, price list, medication type, clinic.
+Must
+—
+3.2 User Authentication
+3.2.1 Landing Page
+3.2.2 Register Account
+3.2.3 Log In 
+3.2.4 Reset Password
+3.2.5 Change Password
+3.2.6 User Profile
+4. Non-Functional Requirements
+4.1 External Interfaces
+DE-1: SMTP Service — Gmail SMTP or SendGrid to send verification emails, reminders, and invoices.
+DE-2: Google Identity Platform — Supports Google OAuth 2.0 login for patients (FR-02, Should Have).
+DE-3: Cloud Infrastructure — AWS EC2 / Railway / VPS; HTTPS certificate via Let's Encrypt or ACM.
+DE-4: QR Code Payment — Payment gateway supporting VietQR / domestic bank transfer.
+4.2 Quality Attributes
+Quality Attributes
+Requirements
+Criteria (KPI)
+Performance
+API response time at P95 is less than 2 seconds with 100 concurrent users.
+P95 latency < 2s measured using JMeter or k6
+Performance
+Download React (First Contentful Paint) screenplay on 4G
+FCP < 3s; LCP < 4s; Lighthouse Score ≥ 80
+Performance
+Minimum throughput backend
+≥ 100 RPS with the stated SLA
+Performance
+The test results are synchronized to the EMR.
+Less than 5 seconds after the technician saves the results.
+Security
+Client-server transmission encryption
+100% HTTPS/TLS 1.2/1.3 endpoints; no HTTP plain-text
+Security
+JWT Access Token & Refresh Token
+Access Token TTL = 60 minutes; Refresh Token TTL = 7 days
+Security
+Encrypt passwords
+bcrypt with salt, cost factor ≥ 12; never store plaintext.
+Security
+Patient data & medical records
+AES-256 encryption at rest; audit log for accessing sensitive data.
+Security
+OWASP Top 10
+Passed OWASP ZAP scan; 0 vulnerabilities (High/Critical level).
+Availability
+System uptime: Working hours 7:00–20:00
+≥ 99.5% / month
+Availability
+Backup & Recovery
+Daily backup; RPO ≤ 24h; RTO ≤ 4h
+Scalability
+Concurrent users 
+≥ 300 users with the stated performance SLA
+Scalability
+DB capacity
+Query over 500,000 records in under 3 seconds with a suitable index.
+Usability
+Responsive UI
+The UI doesn't break in the 375px – 1920px viewport.
+Usability
+Appointment booking workflow 
+New users can complete the process within < 3 minutes without guidance.
+Maintainability
+Unit test coverage
+≥ 70% test coverage on the service layer (Backend) 
+Maintainability
+API documentation
+100% of endpoints must be documented using Swagger/OpenAPI 3.0, including request and response schemas. 
+Compliance
+Personal data protection
+Comply with Decree No. 13/2023/ND-CP; maintain a Privacy Policy; and log access to sensitive data.
+5. Appendix
+5.1 Assumptions & Dependencies
+AS-1: The clinic has a stable internet connection to use the web-based system.
+AS-2: Patients have valid email addresses to receive notifications and electronic invoices.
+AS-3: Existing patient data will be manually entered or imported from Excel during the deployment phase; there will be no automatic migration in v0.
+DE-1: The system relies on the SMTP service (Gmail SMTP / SendGrid) for email sending. If SMTP is unavailable, appointment reminders and invoice sending will be suspended.
+DE-2: Google OAuth 2.0 login functionality relies on the Google Identity Platform (Should Have).
+DE-3: Cloud deployment (AWS EC2 / Railway) or VPS with HTTPS support.
+5.2 Limitations & Exclusions
+The following features are outside the scope of version 0:
+• Does not integrate with the national health insurance system.
+• Does not support telemedicine/remote consultations.
+• Does not integrate automatic vision testing devices (electronic refractometers, automatic tonometers).
+• Only supports single-clinic; does not yet support multi-branch clinic chains.
+• Does not yet support private insurance payments.
+5.3 Glossary
+Thuật ngữ
+Viết tắt
+Mô tả
+Electronic Medical Record
+EMR
+Electronic Medical Record (EMR) is a digital version of a patient's paper chart that contains their medical history, diagnoses, and treatment plans within a single healthcare practice. 
+Visual Acuity (without correction)
+VA
+Visual Acuity without correction  (VA) is the natural sharpness of a person's vision measured without the use of any corrective glasses or contact lenses. 
+Best Corrected Visual Acuity
+BCVA
+Best Corrected Visual Acuity (BCVA) is the sharpest possible vision a person can achieve while wearing the optimal prescription glasses or contact lenses. 
+Intraocular Pressure
+IOP
+The pressure inside the eye, known as intraocular pressure (IOP), is measured in millimeters of mercury (mmHg). 
+Optical Coherence Tomography
+OCT
+Optical Coherence Tomography (OCT) is a non-invasive imaging technique that visualizes the eye's microvasculature in 3D without the need for dye injections. 
+Role-Based Access Control
+RBAC
+User role-based access control
+First In First Out
+FIFO
+First-in, first-out (FIFO) principle for drug inventory.
+JSON Web Token
+JWT
+Stateless authentication token; Access Token expires in 60 minutes, Refresh Token in 7 days. 
+Spherical / Cylindrical / Axis
+SPH / CYL / AXIS
+Diameter measurement parameters: spherical / cylindrical / axial 
+— End of Document —

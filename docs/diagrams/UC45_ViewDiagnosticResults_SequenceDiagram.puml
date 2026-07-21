@@ -1,0 +1,101 @@
+@startuml UC45_ViewDiagnosticResults_SequenceDiagram
+<style>
+document {
+  ParticipantPadding 10
+  BoxPadding 10
+}
+</style>
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 250
+
+skinparam participant {
+    BackgroundColor #DDEEFF
+    BorderColor     #336699
+    FontStyle       bold
+}
+skinparam actor {
+    BackgroundColor #FFFACD
+    BorderColor     #CC9900
+}
+skinparam note {
+    BackgroundColor #FFFFF0
+    BorderColor     #AAAAAA
+}
+skinparam ArrowColor #336699
+skinparam LifeLineBorderColor #336699
+
+title UC-45: View Diagnostic Results (Patient Flow)\n(Simplified Sequence Diagram)
+
+actor       "Patient"                               as Actor
+participant "<<Controller>>\nLabOrderController"    as LOC
+participant "<<Service>>\nLabOrderService"          as LOS
+participant "<<ServiceImpl>>\nLabOrderServiceImpl"   as LOSImpl
+participant "<<Repository>>\nLabOrderRepository"    as LORepo
+participant "<<Repository>>\nLabResultRepository"   as LRRepo
+
+note over Actor
+  PRE: Patient is authenticated.
+  At least one completed LabOrder exists.
+end note
+
+== Step 1: Patient Views Diagnostic History ==
+Actor -> LOC : getPatientLabOrders(userDetails: UserDetails)
+activate LOC
+
+LOC -> LOC : resolvePatientId(userDetails)
+
+LOC -> LOS : getPatientLabOrders(patientId: Long)
+activate LOS
+LOS -> LOSImpl : getPatientLabOrders(patientId: Long)
+activate LOSImpl
+
+LOSImpl -> LORepo : findByPatientIdOrderByCreatedAtDesc(patientId: Long)
+activate LORepo
+LORepo --> LOSImpl : List<LabOrder>
+deactivate LORepo
+
+LOSImpl --> LOS : List<LabOrderResponse>
+deactivate LOSImpl
+LOS --> LOC : List<LabOrderResponse>
+deactivate LOS
+
+LOC --> Actor : ResponseEntity<ApiResponse<List<LabOrderResponse>>>
+deactivate LOC
+
+note right of Actor
+  UI displays a list of past diagnostic orders 
+  (lab tests, imaging) similar to appointments.
+end note
+
+== Step 2: Patient Selects a Diagnostic Order ==
+Actor -> LOC : getLabResults(id: Long, userDetails: UserDetails)
+activate LOC
+
+LOC -> LOC : resolvePatientId(userDetails)
+
+LOC -> LOS : getLabResults(id: Long, currentUserId: Long, role: "PATIENT")
+activate LOS
+LOS -> LOSImpl : getLabResults(id: Long, currentUserId: Long, role: "PATIENT")
+activate LOSImpl
+
+LOSImpl -> LRRepo : findByLabOrderId(labOrderId: Long)
+activate LRRepo
+LRRepo --> LOSImpl : LabResult
+deactivate LRRepo
+
+LOSImpl --> LOS : LabResultResponse
+deactivate LOSImpl
+LOS --> LOC : LabResultResponse
+deactivate LOS
+
+LOC --> Actor : ResponseEntity<ApiResponse<LabResultResponse>>
+deactivate LOC
+
+note right of Actor
+  UI displays the diagnostic findings,
+  doctor's conclusions, and attached images.
+end note
+
+@enduml

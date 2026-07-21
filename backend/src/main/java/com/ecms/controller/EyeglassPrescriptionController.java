@@ -26,7 +26,8 @@ public class EyeglassPrescriptionController {
     public ResponseEntity<ApiResponse<EyeglassPrescriptionResponse>> createPrescription(
             @Valid @RequestBody EyeglassPrescriptionRequest request,
             Authentication authentication) {
-        EyeglassPrescriptionResponse response = eyeglassPrescriptionService.createPrescription(request, authentication.getName());
+        EyeglassPrescriptionResponse response = eyeglassPrescriptionService.createPrescription(request,
+                authentication.getName());
         return ResponseEntity.ok(ApiResponse.success("Kê đơn kính thành công", response));
     }
 
@@ -45,7 +46,7 @@ public class EyeglassPrescriptionController {
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách đơn kính chờ phát thành công", responses));
     }
 
-    // API endpoint: Cập nhật trạng thái một đơn kính thành "Đã phát" 
+    // API endpoint: Cập nhật trạng thái một đơn kính thành "Đã phát"
     @PatchMapping("/{id}/dispense")
     public ResponseEntity<ApiResponse<EyeglassPrescriptionResponse>> dispensePrescription(
             @PathVariable Long id) {
@@ -58,5 +59,52 @@ public class EyeglassPrescriptionController {
     public ResponseEntity<ApiResponse<EyeglassPrescriptionResponse>> skipPrescription(@PathVariable Long id) {
         EyeglassPrescriptionResponse response = eyeglassPrescriptionService.skipPrescription(id);
         return ResponseEntity.ok(ApiResponse.success("Bỏ qua đơn kính thành công", response));
+    }
+
+    // Đơn kính đã sẵn sàng giao — dành cho Dược sĩ/Lễ tân xác nhận giao cho bệnh
+    // nhân
+    @GetMapping("/ready")
+    public ResponseEntity<ApiResponse<List<EyeglassPrescriptionResponse>>> getReadyPrescriptions() {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Lấy danh sách đơn kính sẵn sàng giao thành công",
+                eyeglassPrescriptionService.getReadyPrescriptions()));
+    }
+
+    // Lấy danh sách đơn kính đã kê cho 1 bệnh án cụ thể (dùng để hiển thị trong
+    // EMR)
+    @GetMapping("/medical-record/{medicalRecordId}")
+    public ResponseEntity<ApiResponse<List<EyeglassPrescriptionResponse>>> getByMedicalRecordId(
+            @PathVariable Long medicalRecordId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Lấy danh sách đơn kính theo bệnh án thành công",
+                eyeglassPrescriptionService.getByMedicalRecordId(medicalRecordId)));
+    }
+
+    // Lấy chi tiết 1 đơn kính — dùng cho trang chi tiết gia công của Lab Technician
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<EyeglassPrescriptionResponse>> getById(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Lấy chi tiết đơn kính thành công", eyeglassPrescriptionService.getById(id)));
+    }
+
+    // Hàng đợi gia công cho Lab Technician (UC-36)
+    @GetMapping("/fabrication-queue")
+    public ResponseEntity<ApiResponse<List<EyeglassPrescriptionResponse>>> getFabricationQueue() {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Lấy hàng đợi gia công kính thành công", eyeglassPrescriptionService.getFabricationQueue()));
+    }
+
+    // PENDING -> IN_PRODUCTION
+    @PatchMapping("/{id}/start-fabrication")
+    public ResponseEntity<ApiResponse<EyeglassPrescriptionResponse>> startFabrication(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Đã bắt đầu gia công đơn kính", eyeglassPrescriptionService.startFabrication(id)));
+    }
+
+    // IN_PRODUCTION -> READY
+    @PatchMapping("/{id}/complete-fabrication")
+    public ResponseEntity<ApiResponse<EyeglassPrescriptionResponse>> completeFabrication(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Đã hoàn tất gia công đơn kính", eyeglassPrescriptionService.completeFabrication(id)));
     }
 }

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Form, Input, Button, InputNumber, Select, message, Spin, Tag, Descriptions } from 'antd';
 import { eyeglassPrescriptionService } from '../../../services/eyeglassPrescriptionService';
+import axiosClient from '../../../api/axiosClient';
 
 const EyeFields = ({ prefix, label, isReadOnly }) => (
     <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
@@ -26,9 +27,22 @@ export default function EyeglassPrescriptionForm({ emr, isReadOnly, onPrescripti
     const [form] = Form.useForm();
     const [saving, setSaving] = useState(false);
     const [existingPrescriptions, setExistingPrescriptions] = useState([]);
+    const [lensTypes, setLensTypes] = useState([]);
     const activeEmrIdRef = React.useRef(emr?.id);
 
-    React.useEffect(() => {
+    useEffect(() => {
+        const fetchLensTypes = async () => {
+            try {
+                const res = await axiosClient.get('/eyeglass-catalog/lens-types');
+                setLensTypes(res || []);
+            } catch (error) {
+                console.error('Lỗi khi tải danh sách loại tròng kính', error);
+            }
+        };
+        fetchLensTypes();
+    }, []);
+
+    useEffect(() => {
         activeEmrIdRef.current = emr?.id;
         if (emr?.patientId) {
             fetchExistingPrescriptions();
@@ -75,7 +89,7 @@ export default function EyeglassPrescriptionForm({ emr, isReadOnly, onPrescripti
             osAxis: values.osAxis,
             osAdd: values.osAdd,
             pd: values.pd,
-            lensType: values.lensType,
+            lensTypeId: values.lensTypeId,
             notes: values.notes || ''
         };
 
@@ -104,13 +118,11 @@ export default function EyeglassPrescriptionForm({ emr, isReadOnly, onPrescripti
                     <Form.Item label="Khoảng cách đồng tử (PD)" name="pd" rules={[{ required: true, message: 'Nhập PD' }]}>
                         <InputNumber style={{ width: '100%' }} placeholder="mm" />
                     </Form.Item>
-                    <Form.Item label="Loại tròng kính" name="lensType" rules={[{ required: true, message: 'Chọn loại tròng' }]}>
+                    <Form.Item label="Loại tròng kính" name="lensTypeId" rules={[{ required: true, message: 'Chọn loại tròng' }]}>
                         <Select placeholder="Chọn loại tròng">
-                            <Select.Option value="Đơn tròng">Đơn tròng</Select.Option>
-                            <Select.Option value="Đa tròng">Đa tròng</Select.Option>
-                            <Select.Option value="Hai tròng">Hai tròng</Select.Option>
-                            <Select.Option value="Chống ánh sáng xanh">Chống ánh sáng xanh</Select.Option>
-                            <Select.Option value="Khác">Khác</Select.Option>
+                            {lensTypes.map(lt => (
+                                <Select.Option key={lt.id} value={lt.id}>{lt.name}</Select.Option>
+                            ))}
                         </Select>
                     </Form.Item>
                 </div>
@@ -149,7 +161,7 @@ export default function EyeglassPrescriptionForm({ emr, isReadOnly, onPrescripti
                                     <b>{p.pd} mm</b>
                                 </Descriptions.Item>
                                 <Descriptions.Item label="Loại tròng kính">
-                                    <b>{p.lensType}</b>
+                                    <b>{p.lensTypeName}</b>
                                 </Descriptions.Item>
                                 {p.notes && (
                                     <Descriptions.Item label="Ghi chú" span={2}>

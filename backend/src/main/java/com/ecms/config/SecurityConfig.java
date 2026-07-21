@@ -73,9 +73,12 @@ public class SecurityConfig {
                                 // Token thiếu/sai/hết hạn → 401 (để frontend tự xoá session và chuyển về
                                 // /login).
                                 // Đã xác thực nhưng sai quyền (role) vẫn giữ 403 mặc định của Spring Security.
-                                .exceptionHandling(handling -> handling.authenticationEntryPoint(
-                                                (request, response, authException) -> response.sendError(
-                                                                HttpStatus.UNAUTHORIZED.value())))
+                                .exceptionHandling(handling -> handling
+                                                .authenticationEntryPoint((request, response, authException) -> response
+                                                                .sendError(HttpStatus.UNAUTHORIZED.value()))
+                                                .accessDeniedHandler((request, response,
+                                                                accessDeniedException) -> response.sendError(
+                                                                                HttpStatus.FORBIDDEN.value())))
                                 .authorizeHttpRequests(auth -> auth
 
                                                 // ══════════════════════════════════════════════════════════════════
@@ -110,6 +113,8 @@ public class SecurityConfig {
                                                 .permitAll()
                                                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/admin/unlock-user")
                                                 .hasRole("ADMIN")
+                                                .requestMatchers("/ws/**")
+                                                .permitAll()
 
                                                 // ══════════════════════════════════════════════════════════════════
                                                 // ── Payments: webhook cổng thanh toán (UC-22) — ThangNBHE201024 ───
@@ -315,9 +320,11 @@ public class SecurityConfig {
                                                 // ── Lab Orders ────────────────────────────────────────────────────
                                                 // ══════════════════════════════════════════════════════════════════
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/lab/technicians")
-                                                .hasAnyRole("DOCTOR", "ADMIN")
+                                                .hasAnyRole("DOCTOR", "ADMIN", "MANAGER")
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/lab/queue")
                                                 .hasAnyRole("LAB_TECHNICIAN", "ADMIN")
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/lab/emr/*/patient")
+                                                .hasAnyRole("PATIENT", "ADMIN")
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/lab/emr/**")
                                                 .hasAnyRole("DOCTOR", "ADMIN")
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/lab/*/results")
