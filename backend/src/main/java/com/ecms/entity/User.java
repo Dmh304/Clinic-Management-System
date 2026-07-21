@@ -44,16 +44,16 @@ public class User {
     private Role role;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
+    @Column(nullable = false, length = 255)
     @Builder.Default
     private UserStatus status = UserStatus.ACTIVE;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "auth_provider", nullable = false, length = 20)
+    @Column(name = "auth_provider", nullable = false, columnDefinition = "VARCHAR(20) DEFAULT 'LOCAL'")
     @Builder.Default
     private AuthProvider authProvider = AuthProvider.LOCAL;
 
-    @Column(name = "failed_login_attempts", nullable = false)
+    @Column(name = "failed_login_attempts", nullable = false, columnDefinition = "INT DEFAULT 0")
     @Builder.Default
     private int failedLoginAttempts = 0;
 
@@ -62,7 +62,7 @@ public class User {
 
     // Tăng lên mỗi lần admin deactivate tài khoản (UC-55) — JwtAuthFilter so sánh giá trị này
     // với claim trong token để vô hiệu hoá các JWT đã cấp trước đó (JWT vốn stateless, không có session).
-    @Column(name = "token_version", nullable = false)
+    @Column(name = "token_version", nullable = false, columnDefinition = "INT DEFAULT 0")
     @Builder.Default
     private int tokenVersion = 0;
 

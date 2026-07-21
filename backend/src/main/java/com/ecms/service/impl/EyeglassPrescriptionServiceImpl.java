@@ -219,13 +219,7 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
                 .collect(Collectors.toList());
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public EyeglassPrescriptionResponse getById(Long id) {
-        EyeglassPrescription prescription = eyeglassPrescriptionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn kính"));
-        return toResponse(prescription);
-    }
+
 
     @Override
     @Transactional(readOnly = true)
