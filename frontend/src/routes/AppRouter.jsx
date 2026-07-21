@@ -36,6 +36,7 @@ import MyCareSessionsPage from '../pages/patient/MyCareSessionsPage'
 import MyAppointmentsPage from '../pages/patient/MyAppointmentsPage'
 import PatientLabResults from '../pages/patient/PatientLabResults'
 import MyInvoicesPage from '../pages/patient/MyInvoicesPage'
+import OrderGlassesPage from '../pages/patient/OrderGlassesPage'
 import FeedbackPage from '../pages/patient/FeedbackPage'
 
 
@@ -53,6 +54,8 @@ import DailySchedulePage from '../pages/receptionist/DailySchedulePage'
 import CheckoutCareSessionPage from '../pages/receptionist/CheckoutCareSessionPage'
 import ServiceRegistrationsPage from '../pages/receptionist/ServiceRegistrationsPage'
 import NotificationsPage from '../pages/receptionist/NotificationsPage'
+import ReceptionistOrderPage from '../pages/receptionist/ReceptionistOrderPage'
+import SupportDashboardPage from '../pages/receptionist/SupportDashboardPage'
 import ReceptionistLayout from '../components/layout/ReceptionistLayout'
 import DoctorLayout from '../components/layout/DoctorLayout'
 import LabTechnicianLayout from '../components/layout/LabTechnicianLayout'
@@ -149,6 +152,7 @@ export default function AppRouter() {
         <Route path="/patient/care-sessions" element={<WithHeader><MyCareSessionsPage /></WithHeader>} />
         <Route path="/patient/appointments" element={<WithHeader><MyAppointmentsPage /></WithHeader>} />
         <Route path="/patient/invoices" element={<WithHeader><MyInvoicesPage /></WithHeader>} />
+        <Route path="/patient/order-glasses/:prescriptionId" element={<WithHeader><OrderGlassesPage /></WithHeader>} />
         <Route path="/patient/feedback" element={<WithHeader><FeedbackPage /></WithHeader>} />
       </Route>
 
@@ -172,6 +176,9 @@ export default function AppRouter() {
           <Route path="/receptionist/notifications" element={<NotificationsPage />} />
           <Route path="/receptionist/checkout-care-sessions" element={<CheckoutCareSessionPage />} />
           <Route path="/receptionist/service-registrations" element={<ServiceRegistrationsPage />} />
+          <Route path="/receptionist/eyeglass-orders" element={<ReceptionistOrderPage />} />
+          <Route path="/receptionist/order-glasses/:prescriptionId" element={<OrderGlassesPage />} />
+          <Route path="/receptionist/support" element={<SupportDashboardPage />} />
         </Route>
       </Route>
 

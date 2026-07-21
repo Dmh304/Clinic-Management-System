@@ -113,6 +113,8 @@ public class SecurityConfig {
                                                 .permitAll()
                                                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/admin/unlock-user")
                                                 .hasRole("ADMIN")
+                                                .requestMatchers("/ws/**")
+                                                .permitAll()
 
                                                 // ══════════════════════════════════════════════════════════════════
                                                 // ── Payments: webhook cổng thanh toán (UC-22) — ThangNBHE201024 ───

@@ -83,7 +83,7 @@ public class ClinicService {
     /**
      * Đánh dấu dịch vụ thuộc nhóm xét nghiệm.
      */
-    @Column(name = "is_lab_service", nullable = false)
+    @Column(name = "is_lab_service", nullable = false, columnDefinition = "bit default 0")
     private Boolean isLabService;
 
     @Column(name = "created_at")

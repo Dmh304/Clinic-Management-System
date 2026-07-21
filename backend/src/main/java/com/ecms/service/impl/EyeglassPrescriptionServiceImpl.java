@@ -11,6 +11,7 @@ import com.ecms.entity.MedicalRecord;
 import com.ecms.exception.ResourceNotFoundException;
 import com.ecms.repository.DoctorRepository;
 import com.ecms.repository.EyeglassPrescriptionRepository;
+import com.ecms.repository.LensTypeRepository;
 import com.ecms.repository.MedicalRecordRepository;
 import com.ecms.service.EyeglassPrescriptionService;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
     private final EyeglassPrescriptionRepository eyeglassPrescriptionRepository;
     private final MedicalRecordRepository medicalRecordRepository;
     private final DoctorRepository doctorRepository;
+    private final LensTypeRepository lensTypeRepository;
 
     // // Tạo mới một đơn kính từ dữ liệu nhập của bác sĩ
     // @Override
@@ -88,6 +90,9 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
             throw new IllegalStateException("Bạn không có quyền kê đơn cho bệnh án này");
         }
 
+        com.ecms.entity.LensType lensType = lensTypeRepository.findById(request.getLensTypeId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy loại tròng kính"));
+
         EyeglassPrescription prescription = EyeglassPrescription.builder()
                 .medicalRecord(record)
                 .doctor(doctor)
@@ -101,9 +106,9 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
                 .osAxis(request.getOsAxis())
                 .osAdd(request.getOsAdd())
                 .pd(request.getPd())
-                .lensType(request.getLensType())
+                .lensType(lensType)
                 .notes(request.getNotes())
-                .status(EyeglassPrescriptionStatus.SKIPPED)
+                .status(EyeglassPrescriptionStatus.ISSUED)
                 .build();
 
         return toResponse(eyeglassPrescriptionRepository.save(prescription));
@@ -214,39 +219,26 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
                 .collect(Collectors.toList());
     }
 
+
+
     @Override
     @Transactional(readOnly = true)
     public List<EyeglassPrescriptionResponse> getPendingPrescriptions() {
-        return eyeglassPrescriptionRepository.findByStatusOrderByCreatedAtAsc(EyeglassPrescriptionStatus.PENDING)
+        return eyeglassPrescriptionRepository.findByStatusOrderByCreatedAtAsc(EyeglassPrescriptionStatus.ISSUED)
                 .stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
 
-    // @Override
-    // @Transactional
-    // public EyeglassPrescriptionResponse dispensePrescription(Long id) {
-    // EyeglassPrescription p = eyeglassPrescriptionRepository.findById(id)
-    // .orElseThrow(() -> new com.ecms.exception.ResourceNotFoundException("Không
-    // tìm thấy đơn kính"));
 
-    // if (!"PENDING".equals(p.getStatus())) {
-    // throw new IllegalStateException("Chỉ có thể phát đơn kính ở trạng thái
-    // PENDING");
-    // }
-
-    // p.setStatus(EyeglassPrescriptionStatus.DISPENSED);
-    // return toResponse(eyeglassPrescriptionRepository.save(p));
-    // }
 
     @Override
     @Transactional
     public EyeglassPrescriptionResponse skipPrescription(Long id) {
         EyeglassPrescription p = eyeglassPrescriptionRepository.findById(id)
                 .orElseThrow(() -> new com.ecms.exception.ResourceNotFoundException("Không tìm thấy đơn kính"));
-
-        if (!"PENDING".equals(p.getStatus())) {
-            throw new IllegalStateException("Chỉ có thể hủy đơn kính ở trạng thái PENDING");
+        if (!EyeglassPrescriptionStatus.ISSUED.equals(p.getStatus()) && !EyeglassPrescriptionStatus.PENDING.equals(p.getStatus())) {
+            throw new IllegalStateException("Chỉ có thể hủy đơn kính ở trạng thái ISSUED hoặc PENDING");
         }
 
         p.setStatus(EyeglassPrescriptionStatus.SKIPPED);
@@ -271,7 +263,9 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
                 .osAxis(p.getOsAxis())
                 .osAdd(p.getOsAdd())
                 .pd(p.getPd())
-                .lensType(p.getLensType())
+                .lensTypeId(p.getLensType() != null ? p.getLensType().getId() : null)
+                .lensTypeName(p.getLensType() != null ? p.getLensType().getName() : null)
+                .lensTypePrice(p.getLensType() != null ? p.getLensType().getBasePrice() : null)
                 .notes(p.getNotes())
                 .status(p.getStatus())
                 .createdAt(p.getCreatedAt())
