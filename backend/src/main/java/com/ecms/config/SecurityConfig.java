@@ -304,7 +304,7 @@ public class SecurityConfig {
                                                 // ── Lab Orders ────────────────────────────────────────────────────
                                                 // ══════════════════════════════════════════════════════════════════
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/lab/technicians")
-                                                .hasAnyRole("DOCTOR", "ADMIN")
+                                                .hasAnyRole("DOCTOR", "ADMIN", "MANAGER")
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/lab/queue")
                                                 .hasAnyRole("LAB_TECHNICIAN", "ADMIN")
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/lab/emr/*/patient")

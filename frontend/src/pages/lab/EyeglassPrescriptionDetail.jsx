@@ -9,7 +9,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import Header from '../../components/layout/Header'
+//import Header from '../../components/layout/Header'
 import { Button, message, Tag, Spin, Row, Col, Divider, Card } from 'antd'
 import { eyeglassPrescriptionService } from '../../services/eyeglassPrescriptionService'
 import useConfirmAction from '../../hooks/useConfirmAction'
@@ -107,7 +107,7 @@ export default function EyeglassPrescriptionDetail() {
   if (loading || !prescription) {
     return (
       <>
-        <Header />
+        {/* <Header /> */}
         <div style={{ padding: 48, textAlign: 'center' }}>
           <Spin size="large" tip="Đang tải chi tiết đơn kính..." />
         </div>
@@ -120,8 +120,8 @@ export default function EyeglassPrescriptionDetail() {
   return (
     <>
       {contextHolder}
-      <Header />
-      <div style={{ padding: 24, backgroundColor: '#f8fafc', minHeight: 'calc(100vh - 64px)' }}>
+      {/* <Header /> */}
+      <div style={{ padding: 24, backgroundColor: '#f8fafc', minHeight: '100%' }}>
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
 
           <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

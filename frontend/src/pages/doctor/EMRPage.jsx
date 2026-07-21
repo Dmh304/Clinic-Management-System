@@ -744,6 +744,7 @@ export default function EMRPage() {
                   {
                     key: 'complaint',
                     label: 'Khai thác bệnh sử',
+                    forceRender: true,
                     children: (
                       <div style={{ paddingTop: 12 }}>
                         <Form.Item label="Lý do khám" name="chiefComplaint" rules={[{ required: true, message: 'Nhập lý do khám' }]}>
@@ -758,6 +759,7 @@ export default function EMRPage() {
                   {
                     key: 'clinical',
                     label: 'Khám lâm sàng',
+                    forceRender: true,
                     children: (
                       <div style={{ paddingTop: 12 }}>
                         <EyeFields prefix="l" label="Mắt trái (OS)" />
@@ -799,6 +801,7 @@ export default function EMRPage() {
                   {
                     key: 'diagnosis',
                     label: 'Chẩn đoán & Điều trị',
+                    forceRender: true,
                     children: (
                       <div style={{ paddingTop: 12 }}>
                         <Form.Item label="Chẩn đoán" name="diagnosis" rules={[{ required: true, message: 'Nhập chẩn đoán' }]}>
@@ -816,6 +819,7 @@ export default function EMRPage() {
                   {
                     key: 'drug_prescription',
                     label: 'Kê đơn thuốc',
+                    forceRender: true,
                     children: (
                       <DrugPrescriptionForm emr={emr} isReadOnly={isReadOnly} onAutoSaveEMR={handleAutoSave} />
                     ),
@@ -823,6 +827,7 @@ export default function EMRPage() {
                   {
                     key: 'eyeglass_prescription',
                     label: 'Kê đơn kính',
+                    forceRender: true,
                     children: (
                       <EyeglassPrescriptionForm emr={emr} isReadOnly={isReadOnly} onAutoSaveEMR={handleAutoSave} />
                     ),

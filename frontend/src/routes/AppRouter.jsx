@@ -54,12 +54,15 @@ import ServiceRegistrationsPage from '../pages/receptionist/ServiceRegistrations
 import NotificationsPage from '../pages/receptionist/NotificationsPage'
 import ReceptionistLayout from '../components/layout/ReceptionistLayout'
 import DoctorLayout from '../components/layout/DoctorLayout'
+import LabTechnicianLayout from '../components/layout/LabTechnicianLayout'
 
 import CareQueuePage from '../pages/nurse/CareQueuePage'
 import DeliverCareSessionPage from '../pages/nurse/DeliverCareSessionPage'
 
 import LabQueuePage from '../pages/lab/LabQueuePage'
 import LabResultEntryPage from '../pages/lab/LabResultEntryPage'
+import EyeglassPrescriptionDetail from '../pages/lab/EyeglassPrescriptionDetail'
+import EyeglassPrescriptionQueue from '../pages/lab/EyeglassPrescriptionQueue'
 
 import DispensingPage from '../pages/pharmacy/DispensingPage'
 import PharmacyInvoicePage from '../pages/pharmacy/PharmacyInvoicePage'
@@ -72,6 +75,8 @@ import ManageDoctorsPage from '../pages/manager/ManageDoctorsPage'
 import ManageDiscountCampaignsPage from '../pages/manager/ManageDiscountCampaignsPage'
 import AssignNursePage from '../pages/manager/AssignNursePage'
 import ReassignAppointmentPage from '../pages/manager/ReassignAppointmentPage'
+import RoomManagementPage from '../pages/manager/RoomManagementPage'
+import RoomRosterPage from '../pages/manager/RoomRosterPage'
 
 import AdminDashboardPage from '../pages/admin/AdminDashboardPage'
 import UserManagementPage from '../pages/admin/UserManagementPage'
@@ -173,10 +178,12 @@ export default function AppRouter() {
 
       {/* ── Lab ── */}
       <Route element={<ProtectedRoute allowedRoles={['LAB_TECHNICIAN']} />}>
+      <Route element={<LabTechnicianLayout />}>
         <Route path="/lab/queue" element={<LabQueuePage />} />
         <Route path="/lab/result-entry" element={<LabResultEntryPage />} />
         <Route path="/lab/eyeglass-queue" element={<EyeglassPrescriptionQueue/>}/>
         <Route path="/lab/eyeglass-detail" element={<EyeglassPrescriptionDetail/> }/>
+        </Route>
       </Route>
 
       {/* ── Pharmacy ── */}
@@ -196,6 +203,8 @@ export default function AppRouter() {
         <Route path="/manager/assign-nurse" element={<WithHeader><AssignNursePage /></WithHeader>} />
         <Route path="/manager/reassign-appointment" element={<WithHeader><ReassignAppointmentPage /></WithHeader>} />
         <Route path="/manager/daily-schedule" element={<WithHeader><DailySchedulePage /></WithHeader>} />
+        <Route path="/manager/rooms" element={<RoomManagementPage/>}/>
+        <Route path="/manager/room-roster" element={<RoomRosterPage/>}/>
       </Route>
 
       {/* ── Admin ── */}

@@ -24,6 +24,7 @@ import com.ecms.dto.response.ApiResponse;
 import com.ecms.dto.response.LabOrderResponse;
 import com.ecms.dto.response.LabResultResponse;
 import com.ecms.dto.response.LabTechnicianResponse;
+import com.ecms.entity.Patient;
 import com.ecms.repository.DoctorRepository;
 import com.ecms.repository.LabTechnicianRepository;
 import com.ecms.repository.PatientRepository;
@@ -32,6 +33,7 @@ import com.ecms.service.LabOrderService;
 import lombok.RequiredArgsConstructor;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -213,8 +215,8 @@ public class LabOrderController {
          *
          * Chỉ bác sĩ mới được phép truy cập endpoint này
          */
+        @PreAuthorize("hasAnyRole('DOCTOR','MANAGER','ADMIN')")
         @GetMapping("/technicians")
-        @PreAuthorize("hasAnyRole('DOCTOR')")
         public ResponseEntity<ApiResponse<List<LabTechnicianResponse>>> getActiveLabTechnicians() {
 
                 return ResponseEntity.ok(
