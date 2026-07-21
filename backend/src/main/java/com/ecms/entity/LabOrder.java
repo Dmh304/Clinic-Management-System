@@ -65,6 +65,13 @@ public class LabOrder {
     @JoinColumn(name = "assigned_to")
     private LabTechnician labTechnician;
 
+    /* ThangNBHE201024 — Dịch vụ xét nghiệm/cận lâm sàng (chụp/đo/soi) mà đơn này chỉ định.
+       Nullable: đơn cũ không set vẫn hợp lệ. Dùng để tự đổ khoản xét nghiệm vào hóa đơn (UC-22). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @NotFound(action = NotFoundAction.IGNORE)
+    @JoinColumn(name = "service_id")
+    private ClinicService service;
+
     /* Ghi chú hoặc yêu cầu đặc biệt từ bác sĩ chỉ định */
     @Column(name = "notes")
     private String notes;
