@@ -357,7 +357,30 @@ public class AppointmentServiceImpl implements AppointmentService {
                                 .notes(request.getNotes())
                                 .build();
 
-                return toResponse(appointmentRepository.save(appointment));
+                Appointment saved = appointmentRepository.save(appointment);
+
+                // UC-12 POST-2: gửi email xác nhận đã tiếp nhận yêu cầu đặt lịch cho bệnh nhân.
+                // UC-12 POST-3: thông báo cho lễ tân về lịch hẹn PENDING mới cần duyệt.
+                // Bọc try/catch để lỗi SMTP/thông báo không làm hỏng việc đặt lịch đã lưu.
+                try {
+                        String patientEmailForNotice = selfPatient.getEmail();
+                        emailService.sendAppointmentConfirmation(patientEmailForNotice,
+                                        targetPatient.getFullName(), doctor.getFullName(),
+                                        appointmentTime);
+                } catch (Exception e) {
+                        log.warn("Không gửi được email xác nhận đặt lịch: {}", e.getMessage());
+                }
+                try {
+                        notificationService.createForReceptionists(
+                                        "Lịch hẹn mới cần duyệt: " + targetPatient.getFullName()
+                                                        + " - " + appointmentTime.format(SLOT_FMT)
+                                                        + " " + appointmentTime.toLocalDate(),
+                                        saved.getId());
+                } catch (Exception e) {
+                        log.warn("Không tạo được thông báo lịch mới cho lễ tân: {}", e.getMessage());
+                }
+
+                return toResponse(saved);
         }
 
         /**
@@ -942,7 +965,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                 medicalRecordRepository.findByAppointmentId(appointmentId).ifPresent(record -> {
                         // Chỉ revert nếu record chưa COMPLETED (tránh mất dữ liệu đã hoàn tất)
                         if (record.getStatus() != MedicalRecordStatus.COMPLETED) {
-                                record.setStatus(MedicalRecordStatus.DRAFT);
+                                record.setStatus(MedicalRecordStatus.CANCELLED);
                                 medicalRecordRepository.save(record);
                         }
                 });

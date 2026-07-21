@@ -76,7 +76,7 @@ public class InvoicePdfService {
             hCell.setPaddingBottom(18f);
             hCell.setBorder(Rectangle.NO_BORDER);
 
-            Paragraph pName = new Paragraph("NHAN KHOA ANH SAO", fClinicName);
+            Paragraph pName = new Paragraph("NHÃN KHOA ÁNH SAO", fClinicName);
             pName.setAlignment(Element.ALIGN_CENTER);
             hCell.addElement(pName);
 
@@ -102,16 +102,16 @@ public class InvoicePdfService {
 
             PdfPCell titleCell = new PdfPCell();
             titleCell.setBorder(Rectangle.NO_BORDER);
-            Paragraph titleP = new Paragraph("HOA DON DICH VU Y TE", fTitle);
+            Paragraph titleP = new Paragraph("HÓA ĐƠN DỊCH VỤ Y TẾ", fTitle);
             titleCell.addElement(titleP);
-            Paragraph codeP = new Paragraph("Ma hoa don: " + safe(inv.getInvoiceCode()), fCode);
+            Paragraph codeP = new Paragraph("Mã hóa đơn: " + safe(inv.getInvoiceCode()), fCode);
             codeP.setSpacingBefore(3f);
             titleCell.addElement(codeP);
             titleRow.addCell(titleCell);
 
-            String sLabel = "DRAFT".equals(inv.getStatus())     ? "NHAP"
-                    : "CANCELLED".equals(inv.getStatus())       ? "DA HUY"
-                    : "DA PHAT HANH";
+            String sLabel = "DRAFT".equals(inv.getStatus())     ? "NHÁP"
+                    : "CANCELLED".equals(inv.getStatus())       ? "ĐÃ HỦY"
+                    : "ĐÃ PHÁT HÀNH";
             Color sBg = "DRAFT".equals(inv.getStatus())         ? new Color(161, 98,   7)
                     : "CANCELLED".equals(inv.getStatus())       ? new Color(185, 28,  28)
                     : C_SUCCESS;
@@ -130,23 +130,23 @@ public class InvoicePdfService {
             info.setWidthPercentage(100);
             info.setSpacingAfter(16f);
 
-            infoSecHdr(info, "THONG TIN BENH NHAN", fSecLbl, C_PRIMARY_LT, C_PRIMARY, 2);
+            infoSecHdr(info, "THÔNG TIN BỆNH NHÂN", fSecLbl, C_PRIMARY_LT, C_PRIMARY, 2);
             spacerCell(info);
-            infoSecHdr(info, "THONG TIN HOA DON",   fSecLbl, C_PRIMARY_LT, C_PRIMARY, 2);
+            infoSecHdr(info, "THÔNG TIN HÓA ĐƠN",   fSecLbl, C_PRIMARY_LT, C_PRIMARY, 2);
 
             infoRow4(info,
-                    "Ho ten:",       safe(inv.getPatientName()),  fLabel, fValueBold,
-                    "Bac si:",       safe(inv.getDoctorName()),   fLabel, fValue);
+                    "Họ tên:",       safe(inv.getPatientName()),  fLabel, fValueBold,
+                    "Bác sĩ:",       safe(inv.getDoctorName()),   fLabel, fValue);
             infoRow4(info,
-                    "Ma benh nhan:", safe(inv.getPatientCode()),  fLabel, fValue,
-                    "Dich vu:",      safe(inv.getServiceName()),  fLabel, fValue);
+                    "Mã bệnh nhân:", safe(inv.getPatientCode()),  fLabel, fValue,
+                    "Dịch vụ:",      safe(inv.getServiceName()),  fLabel, fValue);
             infoRow4(info,
-                    "SDT:",          safe(inv.getPatientPhone()), fLabel, fValue,
-                    "Gio kham:",     inv.getTimeSlot() != null ? inv.getTimeSlot() : "-", fLabel, fValue);
+                    "SĐT:",          safe(inv.getPatientPhone()), fLabel, fValue,
+                    "Giờ khám:",     inv.getTimeSlot() != null ? inv.getTimeSlot() : "-", fLabel, fValue);
             infoRow4(info,
                     "Email:",        safe(inv.getPatientEmail()), fLabel, fValue,
-                    "Ngay TT:",      inv.getPaidAt() != null
-                            ? inv.getPaidAt().format(DATE_FMT) : "Chua thanh toan", fLabel, fValue);
+                    "Ngày TT:",      inv.getPaidAt() != null
+                            ? inv.getPaidAt().format(DATE_FMT) : "Chưa thanh toán", fLabel, fValue);
             doc.add(info);
 
             // ── 4. Bảng khoản phí với header màu + hàng xen kẽ ───────────────
@@ -154,7 +154,7 @@ public class InvoicePdfService {
             tbl.setWidthPercentage(100);
             tbl.setSpacingAfter(4f);
 
-            String[] thTexts  = {"STT", "Dich vu / Thuoc / Vat tu", "SL", "Don gia", "Thanh tien"};
+            String[] thTexts  = {"STT", "Dịch vụ / Thuốc / Vật tư", "SL", "Đơn giá", "Thành tiền"};
             int[]    thAligns = {Element.ALIGN_CENTER, Element.ALIGN_LEFT, Element.ALIGN_CENTER,
                     Element.ALIGN_RIGHT, Element.ALIGN_RIGHT};
             for (int i = 0; i < thTexts.length; i++) {
@@ -183,17 +183,17 @@ public class InvoicePdfService {
             doc.add(tbl);
 
             // ── 5. Phương thức thanh toán ─────────────────────────────────────
-            String payLabel = "CASH".equals(inv.getPaymentMethod())   ? "Tien mat"
+            String payLabel = "CASH".equals(inv.getPaymentMethod())   ? "Tiền mặt"
                     : "VIET_QR".equals(inv.getPaymentMethod())        ? "QR Code (VietQR)" : "-";
             Paragraph payP = new Paragraph();
-            payP.add(new Chunk("Phuong thuc thanh toan: ", fLabel));
+            payP.add(new Chunk("Phương thức thanh toán: ", fLabel));
             payP.add(new Chunk(payLabel, fValue));
             payP.setSpacingBefore(8f);
             doc.add(payP);
 
             if (inv.getPaymentReference() != null && !inv.getPaymentReference().isBlank()) {
                 Paragraph refP = new Paragraph();
-                refP.add(new Chunk("Ma tham chieu: ", fLabel));
+                refP.add(new Chunk("Mã tham chiếu: ", fLabel));
                 refP.add(new Chunk(inv.getPaymentReference(), fValue));
                 refP.setSpacingBefore(4f);
                 doc.add(refP);
@@ -212,20 +212,20 @@ public class InvoicePdfService {
 
             if (hasFees) {
                 if (isPos(inv.getServiceFee()))
-                    feeRow(sumTbl, "Phi kham dich vu:", fmtVnd(inv.getServiceFee()), fFeeLabel, fFeeValue);
+                    feeRow(sumTbl, "Phí khám dịch vụ:", fmtVnd(inv.getServiceFee()), fFeeLabel, fFeeValue);
                 if (isPos(inv.getLabFee()))
-                    feeRow(sumTbl, "Phi xet nghiem:", fmtVnd(inv.getLabFee()), fFeeLabel, fFeeValue);
+                    feeRow(sumTbl, "Phí xét nghiệm:", fmtVnd(inv.getLabFee()), fFeeLabel, fFeeValue);
                 if (isPos(inv.getMedicineFee()))
-                    feeRow(sumTbl, "Phi thuoc / kinh:", fmtVnd(inv.getMedicineFee()), fFeeLabel, fFeeValue);
+                    feeRow(sumTbl, "Phí thuốc / kính:", fmtVnd(inv.getMedicineFee()), fFeeLabel, fFeeValue);
             }
 
             // Dòng giảm giá (BR-11): chỉ hiển thị khi có áp dụng discount
             if (isPos(inv.getDiscountAmount())) {
-                feeRow(sumTbl, "Tam tinh:", fmtVnd(inv.getSubTotal()), fFeeLabel, fFeeValue);
-                feeRow(sumTbl, "Giam gia:", "-" + fmtVnd(inv.getDiscountAmount()), fFeeLabel, fFeeValue);
+                feeRow(sumTbl, "Tạm tính:", fmtVnd(inv.getSubTotal()), fFeeLabel, fFeeValue);
+                feeRow(sumTbl, "Giảm giá:", "-" + fmtVnd(inv.getDiscountAmount()), fFeeLabel, fFeeValue);
             }
 
-            PdfPCell tc1 = new PdfPCell(new Phrase("TONG CONG:", fTotLbl));
+            PdfPCell tc1 = new PdfPCell(new Phrase("TỔNG CỘNG:", fTotLbl));
             tc1.setBackgroundColor(C_SUCCESS_LT);
             tc1.setHorizontalAlignment(Element.ALIGN_RIGHT);
             tc1.setPadding(9f);
@@ -255,8 +255,8 @@ public class InvoicePdfService {
             doc.add(line);
 
             Paragraph footer = new Paragraph(
-                    "Cam on quy khach da su dung dich vu cua Nhan Khoa Anh Sao.\n" +
-                    "Moi thac mac, xin lien he: 0909 123 456  |  phongkham@anhsao.vn",
+                    "Cảm ơn quý khách đã sử dụng dịch vụ của Nhãn Khoa Ánh Sao.\n" +
+                    "Mọi thắc mắc, xin liên hệ: 0909 123 456  |  phongkham@anhsao.vn",
                     fFooter);
             footer.setAlignment(Element.ALIGN_CENTER);
             doc.add(footer);
@@ -265,7 +265,7 @@ public class InvoicePdfService {
             return out.toByteArray();
 
         } catch (Exception e) {
-            throw new RuntimeException("Khong the tao PDF: " + e.getMessage(), e);
+            throw new RuntimeException("Không thể tạo PDF: " + e.getMessage(), e);
         }
     }
 
@@ -348,25 +348,41 @@ public class InvoicePdfService {
     }
 
     // Tải font Arial; fallback về Helvetica nếu không tìm thấy
+    /**
+     * ThangNBHE201024 — nạp font có đủ glyph tiếng Việt để hóa đơn in ra CÓ DẤU.
+     *
+     * Phải dùng IDENTITY_H (Unicode) + nhúng font vào file PDF, nếu không các ký tự
+     * như "ế", "ộ", "đ" sẽ thành ô vuông hoặc dấu hỏi trên máy không cài sẵn font.
+     *
+     * Thứ tự ưu tiên:
+     *  1. Roboto nhúng trong resources — chạy đúng trên MỌI hệ điều hành, kể cả server
+     *     Linux khi deploy. Đây là lý do phải đóng gói font vào repo thay vì trông chờ
+     *     font hệ thống (license OFL, xem fonts/LICENSE-Roboto-OFL.txt).
+     *  2. Arial của Windows — chỉ để dự phòng khi ai đó lỡ xóa file font khỏi resources.
+     *  3. Helvetica — KHÔNG có glyph tiếng Việt. Đến được nhánh này là hóa đơn sẽ hỏng
+     *     chữ, nên ghi log ERROR để phát hiện ngay thay vì âm thầm in ra hóa đơn lỗi.
+     */
     private BaseFont loadFont() throws Exception {
-        try (var stream = getClass().getResourceAsStream("/fonts/arial.ttf")) {
+        try (var stream = getClass().getResourceAsStream("/fonts/Roboto.ttf")) {
             if (stream != null) {
                 byte[] bytes = stream.readAllBytes();
-                return BaseFont.createFont("arial.ttf", BaseFont.IDENTITY_H,
-                        true, true, bytes, null);
+                return BaseFont.createFont("Roboto.ttf", BaseFont.IDENTITY_H,
+                        BaseFont.EMBEDDED, true, bytes, null);
             }
         } catch (Exception ignored) {}
         try {
             return BaseFont.createFont("C:/Windows/Fonts/arial.ttf",
                     BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
         } catch (Exception ignored) {}
+        System.err.println("[InvoicePdfService] CẢNH BÁO: không nạp được font Unicode "
+                + "(/fonts/Roboto.ttf); hóa đơn PDF sẽ mất dấu tiếng Việt.");
         return BaseFont.createFont(BaseFont.HELVETICA, BaseFont.CP1252,
                 BaseFont.NOT_EMBEDDED);
     }
 
     private String fmtVnd(BigDecimal v) {
-        if (v == null) return "0 d";
-        return VND_FMT.format(v.longValue()) + " d";
+        if (v == null) return "0 đ";
+        return VND_FMT.format(v.longValue()) + " đ";
     }
 
     private boolean isPos(BigDecimal v) {

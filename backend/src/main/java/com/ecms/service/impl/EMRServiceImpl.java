@@ -143,10 +143,29 @@ public class EMRServiceImpl implements EMRService {
         @Override
         @Transactional
         public EMRResponse getOrCreateByAppointmentId(Long appointmentId, Long doctorId) {
-                // Nếu đã có hồ sơ bệnh án gắn với lịch hẹn này từ trước thì trả về ngay lập tức
+                // Nếu đã có hồ sơ bệnh án gắn với lịch hẹn này từ trước
                 Optional<MedicalRecord> existing = medicalRecordRepository.findByAppointmentId(appointmentId);
                 if (existing.isPresent()) {
-                        return toResponse(existing.get());
+                        MedicalRecord record = existing.get();
+
+                        /*
+                         * Bác sĩ mở lại hồ sơ đang DRAFT (vd bấm "Cập nhật HSBA" từ Dashboard sau khi
+                         * đã "Lưu nháp" trước đó) → coi như đang tiếp tục khám, tự động chuyển
+                         * IN_PROGRESS. Không đụng vào các trạng thái đã chốt (COMPLETED/CANCELLED).
+                         */
+                        if (record.getStatus() == MedicalRecordStatus.DRAFT) {
+                                record.setStatus(MedicalRecordStatus.IN_PROGRESS);
+                                record = medicalRecordRepository.save(record);
+
+                                Appointment appt = record.getAppointment();
+                                if (appt != null && appt.getStatus() != AppointmentStatus.COMPLETED
+                                                && appt.getStatus() != AppointmentStatus.CANCELLED) {
+                                        appt.setStatus(AppointmentStatus.IN_PROGRESS);
+                                        appointmentRepository.save(appt);
+                                }
+                        }
+
+                        return toResponse(record);
                 }
 
                 // Nếu chưa có, tiến hành lấy thông tin Lịch hẹn và Bác sĩ để tự động tạo bản
@@ -268,8 +287,8 @@ public class EMRServiceImpl implements EMRService {
                                 .createdAt(m.getCreatedAt())
                                 .updatedAt(m.getUpdatedAt())
                                 .prescriptions(prescriptionService.getByMedicalRecordId(m.getId()).stream()
-                                        .filter(p -> p.getStatus() == com.ecms.entity.PrescriptionStatus.DISPENSED)
-                                        .collect(Collectors.toList()))
+                                                .filter(p -> p.getStatus() == com.ecms.entity.PrescriptionStatus.DISPENSED)
+                                                .collect(Collectors.toList()))
                                 .eyeglassPrescriptions(eyeglassPrescriptionService.getByMedicalRecordId(m.getId()))
                                 .build();
         }
@@ -319,4 +338,3 @@ public class EMRServiceImpl implements EMRService {
                 }
         }
 }
-

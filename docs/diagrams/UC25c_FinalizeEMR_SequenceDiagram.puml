@@ -1,0 +1,99 @@
+@startuml UC25c_FinalizeEMR_SequenceDiagram
+<style>
+document {
+  ParticipantPadding 10
+  BoxPadding 10
+}
+</style>
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 250
+
+skinparam participant {
+    BackgroundColor #DDEEFF
+    BorderColor     #336699
+    FontStyle       bold
+}
+skinparam actor {
+    BackgroundColor #FFFACD
+    BorderColor     #CC9900
+}
+skinparam note {
+    BackgroundColor #FFFFF0
+    BorderColor     #AAAAAA
+}
+skinparam ArrowColor #336699
+skinparam LifeLineBorderColor #336699
+
+title UC-25c: Finalize EMR\n(Simplified Sequence Diagram)
+
+actor       "Doctor"                                    as Doctor
+participant "<<Controller>>\nEMRController"             as EMRC
+participant "<<Service>>\nEMRService"                   as EMRS
+participant "<<ServiceImpl>>\nEMRServiceImpl"           as EMRSImpl
+participant "<<Repository>>\nMedicalRecordRepository"   as MRRepo
+participant "<<Repository>>\nAppointmentRepository"     as ARepo
+
+note over Doctor
+  PRE: MedicalRecord is IN_PROGRESS or DRAFT.
+  All required fields are completed.
+end note
+
+== Step 1 & 2: Doctor Finalizes EMR ==
+note over Doctor
+  Doctor finishes entering all necessary clinical info.
+end note
+
+Doctor -> EMRC : saveEMR(request: EMRRequest)
+activate EMRC
+EMRC -> EMRS : saveEMR(request: EMRRequest)
+activate EMRS
+EMRS -> EMRSImpl : saveEMR(request: EMRRequest)
+activate EMRSImpl
+
+== Step 3: System Validates Data ==
+note right of EMRSImpl
+  BR-10: Verifies ICD-10 codes, 
+  required observations, and prescriptions.
+  Checks request.status == COMPLETED
+end note
+
+EMRSImpl -> MRRepo : findById(id: Long)
+activate MRRepo
+MRRepo --> EMRSImpl : MedicalRecord
+deactivate MRRepo
+
+== Step 4: System Updates Status ==
+EMRSImpl -> MRRepo : save(record: MedicalRecord)
+activate MRRepo
+note right of MRRepo
+  Status changes to COMPLETED.
+  Record becomes read-only.
+end note
+MRRepo --> EMRSImpl : MedicalRecord
+deactivate MRRepo
+
+EMRSImpl -> ARepo : findById(id: Long)
+activate ARepo
+ARepo --> EMRSImpl : Appointment
+deactivate ARepo
+
+EMRSImpl -> ARepo : save(appointment: Appointment)
+activate ARepo
+note right of ARepo
+  Appointment status 
+  changes to COMPLETED.
+end note
+ARepo --> EMRSImpl : Appointment
+deactivate ARepo
+
+EMRSImpl --> EMRS : EMRResponse
+deactivate EMRSImpl
+EMRS --> EMRC : EMRResponse
+deactivate EMRS
+
+EMRC --> Doctor : ResponseEntity<ApiResponse<EMRResponse>>
+deactivate EMRC
+
+@enduml

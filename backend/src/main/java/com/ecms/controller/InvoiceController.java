@@ -9,6 +9,7 @@ import com.ecms.exception.ResourceNotFoundException;
 import com.ecms.repository.PatientRepository;
 import com.ecms.repository.UserRepository;
 import com.ecms.service.InvoiceService;
+import com.ecms.service.impl.InvoiceMailDispatcher;
 import jakarta.validation.Valid;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +48,7 @@ import java.util.List;
 public class InvoiceController {
 
     private final InvoiceService invoiceService;
+    private final InvoiceMailDispatcher invoiceMailDispatcher;
     private final UserRepository userRepository;
     private final PatientRepository patientRepository;
 
@@ -88,6 +90,15 @@ public class InvoiceController {
                 ApiResponse.success(invoiceService.getInvoiceByAppointmentId(appointmentId)));
     }
 
+    // ThangNBHE201024 — Gợi ý khoản phí cho lịch hẹn: dịch vụ khám đã đặt + thuốc bác sĩ
+    // đã kê (UC-27). Frontend gọi khi mở modal "Thu phí" để đổ sẵn, lễ tân không nhập tay.
+    @GetMapping("/appointment/{appointmentId}/suggested-items")
+    public ResponseEntity<ApiResponse<List<InvoiceRequest.InvoiceItemRequest>>> getSuggestedItems(
+            @PathVariable Long appointmentId) {
+        return ResponseEntity.ok(
+                ApiResponse.success(invoiceService.getSuggestedItems(appointmentId)));
+    }
+
     // Tạo hóa đơn nháp (DRAFT) từ danh sách khoản phí do lễ tân nhập
     @PostMapping
     public ResponseEntity<ApiResponse<InvoiceResponse>> createInvoice(
@@ -106,7 +117,20 @@ public class InvoiceController {
             @RequestBody(required = false) IssueRequest body) {
         String method = body != null ? body.getPaymentMethod() : null;
         String ref = body != null ? body.getPaymentReference() : null;
-        return ResponseEntity.ok(ApiResponse.success(invoiceService.issueInvoice(id, method, ref)));
+        InvoiceResponse issued = invoiceService.issueInvoice(id, method, ref);
+
+        // UC-24: tự động gửi hóa đơn điện tử qua email ngay khi thu tiền (nếu bệnh nhân có email).
+        // Best-effort: lỗi gửi mail không được làm hỏng việc phát hành đã thành công.
+        if ("PAID".equals(issued.getPaymentStatus())
+                && issued.getPatientEmail() != null && !issued.getPatientEmail().isBlank()) {
+            try {
+                invoiceService.markEmailSending(id);
+                invoiceMailDispatcher.dispatch(id);
+            } catch (Exception ignored) {
+                // Lễ tân vẫn có thể bấm gửi lại thủ công nếu tự động gửi lỗi
+            }
+        }
+        return ResponseEntity.ok(ApiResponse.success(issued));
     }
 
     // Hủy hóa đơn nháp — chỉ cho phép khi trạng thái là DRAFT
@@ -116,10 +140,13 @@ public class InvoiceController {
     }
 
     // ThangNBHE201024 - Gửi hóa đơn điện tử qua email đến bệnh nhân
-    // Backend tạo MimeMessage HTML qua JavaMailSender, SMTP Gmail gửi đến patient.email
+    // Đồng bộ: kiểm tra email + đánh dấu tình trạng gửi = SENDING, trả về ngay.
+    // Việc gửi SMTP (Gmail) chạy nền qua InvoiceMailDispatcher để không treo
+    // thread request khi SMTP chậm; tình trạng gửi (SENT/FAILED) cập nhật sau.
     @PostMapping("/{id}/send-email")
     public ResponseEntity<ApiResponse<Void>> sendEmail(@PathVariable Long id) {
-        invoiceService.sendInvoiceEmail(id);
+        invoiceService.markEmailSending(id);
+        invoiceMailDispatcher.dispatch(id);
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 

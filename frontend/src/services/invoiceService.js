@@ -15,6 +15,10 @@ export const invoiceService = {
 
 	getById: (id) => axiosClient.get(`/v1/invoices/${id}`),
 
+	// Gợi ý khoản phí cho lịch hẹn (dịch vụ khám + thuốc bác sĩ đã kê) — đổ sẵn vào modal thu phí
+	getSuggestedItems: (appointmentId) =>
+		axiosClient.get(`/v1/invoices/appointment/${appointmentId}/suggested-items`),
+
 	downloadPdf: (id) =>
 		axiosClient.get(`/v1/invoices/${id}/pdf`, { responseType: 'blob' }),
 

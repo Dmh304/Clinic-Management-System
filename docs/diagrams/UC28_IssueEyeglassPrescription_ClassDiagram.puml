@@ -1,0 +1,88 @@
+@startuml UC28_IssueEyeglassPrescription_ClassDiagram
+
+skinparam classAttributeIconSize 0
+skinparam monochrome false
+skinparam backgroundColor white
+skinparam roundcorner 5
+skinparam class {
+    BackgroundColor #f9f9f9
+    ArrowColor #336699
+    BorderColor #336699
+}
+
+class EyeglassPrescriptionController {
+    + createPrescription(request: EyeglassPrescriptionRequest): ResponseEntity<ApiResponse<EyeglassPrescriptionResponse>>
+}
+
+interface EyeglassPrescriptionService {
+    + createPrescription(request: EyeglassPrescriptionRequest, doctorEmail: String): EyeglassPrescriptionResponse
+}
+
+class EyeglassPrescriptionServiceImpl {
+    + createPrescription(request: EyeglassPrescriptionRequest, doctorEmail: String): EyeglassPrescriptionResponse
+}
+
+class MedicalRecordRepository {
+    + findById(id: Long): MedicalRecord
+}
+
+class EyeglassPrescriptionRepository {
+    + existsByMedicalRecordId(recordId: Long): boolean
+    + save(prescription: EyeglassPrescription): EyeglassPrescription
+}
+
+class MedicalRecord {
+    - recordId: Long
+    - status: MedicalRecordStatus
+}
+
+class EyeglassPrescription {
+    - prescriptionId: Long
+    - rightEyeSphere: Double
+    - leftEyeSphere: Double
+    - rightEyeCylinder: Double
+    - leftEyeCylinder: Double
+    - rightEyeAxis: Integer
+    - leftEyeAxis: Integer
+    - pupillaryDistance: Double
+    - notes: String
+    - issuedDate: LocalDateTime
+}
+
+class EyeglassPrescriptionRequest {
+    - medicalRecordId: Long
+    - rightEyeSphere: Double
+    - leftEyeSphere: Double
+    - rightEyeCylinder: Double
+    - leftEyeCylinder: Double
+    - rightEyeAxis: Integer
+    - leftEyeAxis: Integer
+    - pupillaryDistance: Double
+    - notes: String
+}
+
+class EyeglassPrescriptionResponse {
+    - prescriptionId: Long
+    - issuedDate: LocalDateTime
+}
+
+class ApiResponse<T> {
+    - status: int
+    - message: String
+    - data: T
+}
+
+EyeglassPrescriptionController ..> EyeglassPrescriptionService : uses
+EyeglassPrescriptionController ..> ApiResponse : creates
+EyeglassPrescriptionService <|.. EyeglassPrescriptionServiceImpl : implements
+EyeglassPrescriptionServiceImpl ..> MedicalRecordRepository : uses
+EyeglassPrescriptionServiceImpl ..> EyeglassPrescriptionRepository : uses
+EyeglassPrescriptionServiceImpl ..> EyeglassPrescriptionRequest : consumes
+EyeglassPrescriptionServiceImpl ..> EyeglassPrescriptionResponse : creates
+
+MedicalRecordRepository ..> MedicalRecord : manages
+EyeglassPrescriptionRepository ..> EyeglassPrescription : manages
+
+MedicalRecord "1" *-- "0..1" EyeglassPrescription : contains >
+
+@enduml
