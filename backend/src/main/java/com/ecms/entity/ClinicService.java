@@ -68,8 +68,8 @@ public class ClinicService {
     private Integer validityDays;
 
     @Column(name = "service_type", nullable = false)
-    @Builder.Default
-    private String serviceType = "CARE"; // "CLINICAL" hoặc "CARE"
+    @Enumerated(EnumType.STRING)
+    private ServiceType serviceType;
 
     @Column(name = "is_active")
     private Boolean isActive;
@@ -79,12 +79,6 @@ public class ClinicService {
 
     @Column(name = "is_popular")
     private Boolean isPopular;
-
-    /**
-     * Đánh dấu dịch vụ thuộc nhóm xét nghiệm.
-     */
-    @Column(name = "is_lab_service", nullable = false)
-    private Boolean isLabService;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -102,8 +96,8 @@ public class ClinicService {
             this.displayOrder = 0;
         if (this.isPopular == null)
             this.isPopular = false;
-        if (isLabService == null) {
-            this.isLabService = false;
+        if (this.serviceType == null) {
+            this.serviceType = ServiceType.EXAM;
         }
     }
 

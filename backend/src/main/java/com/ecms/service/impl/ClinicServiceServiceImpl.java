@@ -43,11 +43,23 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
         @Override
         @Transactional(readOnly = true)
         public List<ClinicServiceResponse> getAllServices(String type) {
-                List<ClinicService> services = (type == null || type.isBlank())
-                                ? clinicServiceRepository.findByIsActiveTrueOrderByIsPopularDescDisplayOrderAsc()
-                                : clinicServiceRepository
-                                                .findByServiceTypeAndIsActiveTrueOrderByIsPopularDescDisplayOrderAsc(
-                                                                type);
+                List<ClinicService> services;
+
+                if (type == null || type.isBlank()) {
+                        services = clinicServiceRepository.findByIsActiveTrueOrderByIsPopularDescDisplayOrderAsc();
+                } else {
+                        ServiceType serviceType;
+                        try {
+                                serviceType = ServiceType.valueOf(type.trim().toUpperCase());
+                        } catch (IllegalArgumentException e) {
+                                throw new IllegalArgumentException("Invalid service type: " + type
+                                                + ". Allowed values: EXAM, DIAGNOSTIC, CARE");
+                        }
+                        services = clinicServiceRepository
+                                        .findByServiceTypeAndIsActiveTrueOrderByIsPopularDescDisplayOrderAsc(
+                                                        serviceType);
+                }
+
                 return services.stream()
                                 .map(this::toServiceResponse)
                                 .collect(Collectors.toList());
@@ -276,7 +288,8 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
                                 .sessionsIncluded(request.getSessionsIncluded())
                                 .validityDays(request.getValidityDays())
                                 .category(category)
-                                .serviceType(request.getServiceType() != null ? request.getServiceType() : "CARE")
+                                .serviceType(request.getServiceType() != null ? request.getServiceType()
+                                                : ServiceType.EXAM)
                                 .slug(request.getSlug())
                                 .thumbnailUrl(request.getThumbnailUrl())
                                 .content(request.getContent())

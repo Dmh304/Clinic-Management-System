@@ -6,6 +6,7 @@
 */
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import Header from '../../components/layout/Header'
 import {
   Table, Tag, Select, Button, Space, Typography, Card,
   message, Modal, Form, Statistic, Row, Col, Input, Tooltip, DatePicker
@@ -303,6 +304,8 @@ export default function DoctorDashboard() {
   const totalLabel = isToday ? 'Tổng hôm nay' : `Tổng ngày ${selectedDate?.format('DD/MM') ?? ''}`
 
   return (
+    <>
+    <Header/>
     <div style={{ padding: 24 }}>
       {/* Header */}
       <div style={{ marginBottom: 20, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
@@ -390,5 +393,6 @@ export default function DoctorDashboard() {
         .row-in-progress:hover td { background: #ccfbf1 !important; }
       `}</style>
     </div>
+    </>
   )
 }

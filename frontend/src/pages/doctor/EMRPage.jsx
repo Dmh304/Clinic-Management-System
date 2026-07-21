@@ -8,6 +8,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
+import Header from '../../components/layout/Header'
 import { Form, Input, InputNumber, Tabs, Button, message, Tag, Spin, Collapse, Divider, Modal, Select, Pagination } from 'antd'
 import { emrService } from '../../services/emrService'
 import { labService } from '../../services/labService'
@@ -489,6 +490,8 @@ export default function EMRPage() {
   // Render khi Bác sĩ CHƯA CHỌN bệnh nhân nào
   if (!appointmentId) {
     return (
+      <>
+      <Header/>
       <div style={{ padding: 24 }}>
         {/* REQUIRED: contextHolder phải được mount để dialog hoạt động */}
         {contextHolder}
@@ -645,11 +648,14 @@ export default function EMRPage() {
         </Spin>
       </div>
       </div>
+      </>
     )
   }
 
   // Render giao diện CHÍNH của trang Hồ sơ bệnh án điện tử
   return (
+    <>
+    <Header/>
     <div style={{ padding: 24 }}>
       {/* REQUIRED: contextHolder phải được mount để dialog hoạt động */}
       {contextHolder}
@@ -995,5 +1001,6 @@ export default function EMRPage() {
         </div>
       </Modal>
       </div>
+      </>
   )
 }

@@ -8,7 +8,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-//import Header from '../../components/layout/Header'
+import Header from '../../components/layout/Header'
 import { Button, message, Tag, Spin, Input, Result, Pagination } from 'antd'
 import { eyeglassPrescriptionService } from '../../services/eyeglassPrescriptionService'
 
@@ -105,7 +105,7 @@ export default function EyeglassPrescriptionQueue() {
   if (!isLabTech) {
     return (
       <>
-        {/* <Header /> */}
+        <Header />
         <div style={{ padding: 48 }}>
           <Result
             status="403"
@@ -131,7 +131,7 @@ export default function EyeglassPrescriptionQueue() {
 
   return (
     <>
-      {/* <Header /> */}
+      <Header />
       <div style={{ padding: 24 }}>
         <div style={{ marginBottom: 20, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
           <div>

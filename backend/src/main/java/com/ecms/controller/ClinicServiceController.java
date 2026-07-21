@@ -22,11 +22,15 @@ public class ClinicServiceController {
 
     private final ClinicServiceService clinicServiceService;
 
-    /** Danh sách tất cả dịch vụ đang hoạt động — public; lọc theo type (CLINICAL/CARE) nếu có */
+    /**
+     * Danh sách tất cả dịch vụ đang hoạt động — public; lọc theo type
+     * (CLINICAL/CARE) nếu có
+     */
     @GetMapping
     public ResponseEntity<ApiResponse<List<ClinicServiceResponse>>> getAllServices(
             @RequestParam(required = false) String type) {
-        return ResponseEntity.ok(ApiResponse.success(clinicServiceService.getAllServices(type)));
+        var result = clinicServiceService.getAllServices(type);
+        return ResponseEntity.ok(ApiResponse.success(result));
     }
 
     /** Danh mục dịch vụ kèm các gói con — public */
@@ -65,7 +69,10 @@ public class ClinicServiceController {
                 clinicServiceService.getMyRegistrations(authentication.getName())));
     }
 
-    /** Cập nhật trạng thái đăng ký (vd: lễ tân đánh dấu đã liên hệ tư vấn) — RECEPTIONIST / ADMIN */
+    /**
+     * Cập nhật trạng thái đăng ký (vd: lễ tân đánh dấu đã liên hệ tư vấn) —
+     * RECEPTIONIST / ADMIN
+     */
     @PatchMapping("/registrations/{id}/status")
     public ResponseEntity<ApiResponse<ServiceRegistrationResponse>> updateRegistrationStatus(
             @PathVariable Long id,
@@ -74,7 +81,9 @@ public class ClinicServiceController {
                 clinicServiceService.updateRegistrationStatus(id, status)));
     }
 
-    /** Đặt buổi đến phòng khám từ một đăng ký đã được tư vấn — RECEPTIONIST / ADMIN */
+    /**
+     * Đặt buổi đến phòng khám từ một đăng ký đã được tư vấn — RECEPTIONIST / ADMIN
+     */
     @PostMapping("/registrations/{id}/schedule")
     public ResponseEntity<ApiResponse<CareSessionResponse>> scheduleClinicVisit(
             @PathVariable Long id,
@@ -84,8 +93,10 @@ public class ClinicServiceController {
                 clinicServiceService.scheduleClinicVisit(id, request, authentication.getName())));
     }
 
-    /** Đăng ký dịch vụ cho khách đến trực tiếp quầy — RECEPTIONIST / ADMIN.
-     *  Tạo đăng ký + gói + buổi đầu tiên trong một lần. */
+    /**
+     * Đăng ký dịch vụ cho khách đến trực tiếp quầy — RECEPTIONIST / ADMIN.
+     * Tạo đăng ký + gói + buổi đầu tiên trong một lần.
+     */
     @PostMapping("/registrations/counter")
     public ResponseEntity<ApiResponse<CareSessionResponse>> registerServiceAtCounter(
             @Valid @RequestBody CounterServiceRegistrationRequest request,

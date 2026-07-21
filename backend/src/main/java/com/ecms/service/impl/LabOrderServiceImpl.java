@@ -42,7 +42,7 @@ import com.ecms.repository.LabResultRepository;
 import com.ecms.repository.MedicalRecordRepository;
 import com.ecms.repository.LabTechnicianRepository;
 import com.ecms.service.LabOrderService;
-
+import com.ecms.service.NotificationService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
@@ -56,6 +56,7 @@ public class LabOrderServiceImpl implements LabOrderService {
     private final DoctorRepository doctorRepository;
     private final LabTechnicianRepository labTechnicianRepository;
     private final ObjectMapper objectMapper;
+    private final NotificationService notificationService;
 
     /**
      * Tạo mới một phiếu chỉ định xét nghiệm.
@@ -105,6 +106,21 @@ public class LabOrderServiceImpl implements LabOrderService {
                 .build();
 
         LabOrder saved = labOrderRepository.save(labOrder);
+
+        // Bắn thông báo cho KTV (nếu bác sĩ có chọn đích danh)
+        if (saved.getLabTechnician() != null && saved.getLabTechnician().getUser() != null) {
+            String doctorName = saved.getDoctor().getFullName();
+            String patientName = saved.getMedicalRecord().getPatient().getFullName();
+            String message = String.format("Bạn vừa được Bác sĩ %s chỉ định xét nghiệm cho bệnh nhân %s", doctorName,
+                    patientName);
+
+            Long appointmentId = saved.getMedicalRecord().getAppointment() != null
+                    ? saved.getMedicalRecord().getAppointment().getId()
+                    : null;
+
+            notificationService.createForUser(saved.getLabTechnician().getUser().getId(), message, appointmentId);
+        }
+
         return toOrderResponse(saved);
     }
 
@@ -172,6 +188,20 @@ public class LabOrderServiceImpl implements LabOrderService {
         labOrder.setStatus(LabOrderStatus.SUBMITTED);
         labOrder.setCompletedAt(LocalDateTime.now());
         LabOrder saved = labOrderRepository.save(labOrder);
+
+        // Bắn thông báo về cho Bác sĩ chỉ định
+        if (saved.getDoctor() != null && saved.getDoctor().getUser() != null) {
+            String labTechName = saved.getLabTechnician().getFullName();
+            String patientName = saved.getMedicalRecord().getPatient().getFullName();
+            String message = String.format("KTV %s đã cập nhật kết quả xét nghiệm cho bệnh nhân %s", labTechName,
+                    patientName);
+
+            Long appointmentId = saved.getMedicalRecord().getAppointment() != null
+                    ? saved.getMedicalRecord().getAppointment().getId()
+                    : null;
+
+            notificationService.createForUser(saved.getDoctor().getUser().getId(), message, appointmentId);
+        }
 
         return toOrderResponse(saved);
     }
@@ -272,6 +302,20 @@ public class LabOrderServiceImpl implements LabOrderService {
         labOrder.setStatus(LabOrderStatus.APPROVED);
         LabOrder saved = labOrderRepository.save(labOrder);
 
+        // Bắn thông báo cho KTV khi kết quả được duyệt
+        if (saved.getLabTechnician() != null && saved.getLabTechnician().getUser() != null) {
+            String doctorName = saved.getDoctor().getFullName();
+            String patientName = saved.getMedicalRecord().getPatient().getFullName();
+            String message = String.format("Bác sĩ %s đã chấp nhận kết quả xét nghiệm của bệnh nhân %s", doctorName,
+                    patientName);
+
+            Long appointmentId = saved.getMedicalRecord().getAppointment() != null
+                    ? saved.getMedicalRecord().getAppointment().getId()
+                    : null;
+
+            notificationService.createForUser(saved.getLabTechnician().getUser().getId(), message, appointmentId);
+        }
+
         return toOrderResponse(saved);
     }
 
@@ -316,6 +360,20 @@ public class LabOrderServiceImpl implements LabOrderService {
                 .build();
 
         LabOrder savedOrder = labOrderRepository.save(newOrder);
+
+        // Bắn thông báo từ chối cho KTV
+        if (savedOrder.getLabTechnician() != null && savedOrder.getLabTechnician().getUser() != null) {
+            String doctorName = savedOrder.getDoctor().getFullName();
+            String patientName = savedOrder.getMedicalRecord().getPatient().getFullName();
+            String message = String.format("Bác sĩ %s yêu cầu xét nghiệm lại cho bệnh nhân %s", doctorName,
+                    patientName);
+
+            Long appointmentId = savedOrder.getMedicalRecord().getAppointment() != null
+                    ? savedOrder.getMedicalRecord().getAppointment().getId()
+                    : null;
+
+            notificationService.createForUser(savedOrder.getLabTechnician().getUser().getId(), message, appointmentId);
+        }
 
         // Copy LabResult của phiếu cũ sang phiếu mới
         // Kỹ thuật viên sẽ thấy dữ liệu đã nhập trước đó làm điểm xuất phát,
