@@ -22,6 +22,10 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     @Query("SELECT COUNT(i) FROM Invoice i WHERE i.paymentStatus <> 'PAID' AND i.status <> 'CANCELLED'")
     long countOutstanding();
 
+    // UC-49: tổng tiền hóa đơn còn nợ
+    @Query("SELECT COALESCE(SUM(i.totalAmount), 0) FROM Invoice i WHERE i.paymentStatus <> 'PAID' AND i.status <> 'CANCELLED'")
+    java.math.BigDecimal sumOutstanding();
+
     // --- Hàm của nhánh Duc ---
     List<Invoice> findByPatientId(Long patientId);
 

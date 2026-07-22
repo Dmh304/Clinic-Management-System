@@ -58,6 +58,7 @@ import ReceptionistOrderPage from '../pages/receptionist/ReceptionistOrderPage'
 import SupportDashboardPage from '../pages/receptionist/SupportDashboardPage'
 import ReceptionistLayout from '../components/layout/ReceptionistLayout'
 import DoctorLayout from '../components/layout/DoctorLayout'
+import ManagerLayout from '../components/layout/ManagerLayout'
 import LabTechnicianLayout from '../components/layout/LabTechnicianLayout'
 
 import CareQueuePage from '../pages/nurse/CareQueuePage'
@@ -206,20 +207,22 @@ export default function AppRouter() {
 
       {/* ── Manager ── */}
       <Route element={<ProtectedRoute allowedRoles={['MANAGER']} />}>
-        <Route path="/manager/dashboard" element={<ManagerDashboard />} />
-        <Route path="/manager/revenue" element={<RevenueReportPage />} />
-        <Route path="/manager/staff" element={<StaffPerformancePage />} />
-        <Route path="/manager/patient-statistics" element={<PatientStatisticsPage />} />
-        <Route path="/manager/feedback-report" element={<FeedbackReportPage />} />
-        <Route path="/manager/payroll" element={<PayrollPage />} />
-        <Route path="/manager/service-packages" element={<WithHeader><ManageServicePackagesPage /></WithHeader>} />
-        <Route path="/manager/doctors" element={<WithHeader><ManageDoctorsPage /></WithHeader>} />
-        <Route path="/manager/discount-campaigns" element={<WithHeader><ManageDiscountCampaignsPage /></WithHeader>} />
-        <Route path="/manager/assign-nurse" element={<WithHeader><AssignNursePage /></WithHeader>} />
-        <Route path="/manager/reassign-appointment" element={<WithHeader><ReassignAppointmentPage /></WithHeader>} />
-        <Route path="/manager/daily-schedule" element={<WithHeader><DailySchedulePage /></WithHeader>} />
-        <Route path="/manager/rooms" element={<RoomManagementPage/>}/>
-        <Route path="/manager/room-roster" element={<RoomRosterPage/>}/>
+        <Route element={<ManagerLayout />}>
+          <Route path="/manager/dashboard" element={<ManagerDashboard />} />
+          <Route path="/manager/revenue" element={<RevenueReportPage />} />
+          <Route path="/manager/staff" element={<StaffPerformancePage />} />
+          <Route path="/manager/patient-statistics" element={<PatientStatisticsPage />} />
+          <Route path="/manager/feedback-report" element={<FeedbackReportPage />} />
+          <Route path="/manager/payroll" element={<PayrollPage />} />
+          <Route path="/manager/service-packages" element={<ManageServicePackagesPage />} />
+          <Route path="/manager/doctors" element={<ManageDoctorsPage />} />
+          <Route path="/manager/discount-campaigns" element={<ManageDiscountCampaignsPage />} />
+          <Route path="/manager/assign-nurse" element={<AssignNursePage />} />
+          <Route path="/manager/reassign-appointment" element={<ReassignAppointmentPage />} />
+          <Route path="/manager/daily-schedule" element={<DailySchedulePage />} />
+          <Route path="/manager/rooms" element={<RoomManagementPage />} />
+          <Route path="/manager/room-roster" element={<RoomRosterPage />} />
+        </Route>
       </Route>
 
       {/* ── Admin ── */}

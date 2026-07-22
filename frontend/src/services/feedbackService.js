@@ -6,4 +6,7 @@ export const feedbackService = {
   submit: (data) => axiosClient.post('/v1/feedbacks', data),
   // Danh sách đánh giá đã gửi của bệnh nhân
   getMy: () => axiosClient.get('/v1/feedbacks/my'),
+  // Người tham gia buổi khám (bác sĩ, lễ tân, KTV) để hiển thị khi đánh giá
+  getParticipants: (appointmentId) =>
+    axiosClient.get(`/v1/feedbacks/appointment/${appointmentId}/participants`),
 }
