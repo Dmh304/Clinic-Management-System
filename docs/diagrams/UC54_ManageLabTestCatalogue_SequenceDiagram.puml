@@ -1,0 +1,143 @@
+@startuml UC54_ManageLabTestCatalogue_SequenceDiagram
+<style>
+document {
+  ParticipantPadding 10
+  BoxPadding 10
+}
+</style>
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 250
+
+skinparam participant {
+    BackgroundColor #DDEEFF
+    BorderColor     #336699
+    FontStyle       bold
+}
+skinparam actor {
+    BackgroundColor #FFFACD
+    BorderColor     #CC9900
+}
+skinparam note {
+    BackgroundColor #FFFFF0
+    BorderColor     #AAAAAA
+}
+skinparam ArrowColor #336699
+skinparam LifeLineBorderColor #336699
+
+title UC-54: Manage Lab Test Catalogue\n(Simplified Sequence Diagram)
+
+actor       "Clinic Manager"                             as Actor
+participant "<<Controller>>\nClinicServiceController"    as CSC
+participant "<<Service>>\nClinicServiceService"          as CSS
+participant "<<ServiceImpl>>\nClinicServiceServiceImpl"  as CSSImpl
+participant "<<Repository>>\nClinicServiceRepository"    as CSRepo
+participant "<<Log>>\nAuditLog"                          as Audit
+
+note over Actor
+  PRE: Clinic Manager is authenticated.
+end note
+
+== Step 1: View Lab Test Catalogue ==
+Actor -> CSC : getAllServices(type="CLINICAL")
+activate CSC
+
+CSC -> CSS : getAllServices(type="CLINICAL")
+activate CSS
+CSS -> CSSImpl : getAllServices(type="CLINICAL")
+activate CSSImpl
+
+CSSImpl -> CSRepo : findByServiceType("CLINICAL")
+activate CSRepo
+CSRepo --> CSSImpl : List<ClinicService>
+deactivate CSRepo
+
+CSSImpl --> CSS : List<ClinicServiceResponse>
+deactivate CSSImpl
+CSS --> CSC : List<ClinicServiceResponse>
+deactivate CSS
+
+CSC --> Actor : ResponseEntity<ApiResponse<List<ClinicServiceResponse>>>
+deactivate CSC
+
+== Step 2: Add New Lab Test ==
+Actor -> CSC : createLabTest(request: LabTestRequest)
+activate CSC
+
+CSC -> CSS : createLabTest(request: LabTestRequest)
+activate CSS
+CSS -> CSSImpl : createLabTest(request: LabTestRequest)
+activate CSSImpl
+
+CSSImpl -> CSRepo : findByServiceName(request.serviceName)
+activate CSRepo
+CSRepo --> CSSImpl : Optional<ClinicService> (empty)
+deactivate CSRepo
+
+note right of CSSImpl
+  BR Validation:
+  - Check for duplicate serviceName.
+  - Check price > 0.
+  Sets serviceType = "CLINICAL".
+end note
+
+CSSImpl -> CSRepo : save(service: ClinicService)
+activate CSRepo
+CSRepo --> CSSImpl : ClinicService
+deactivate CSRepo
+
+CSSImpl -> Audit : logAction("CREATE_LAB_TEST", details)
+activate Audit
+Audit --> CSSImpl : ok
+deactivate Audit
+
+CSSImpl --> CSS : ClinicServiceResponse
+deactivate CSSImpl
+CSS --> CSC : ClinicServiceResponse
+deactivate CSS
+
+CSC --> Actor : HTTP 201 Created (ApiResponse<ClinicServiceResponse>)
+deactivate CSC
+
+== ALT: Invalid Price or Duplicate Name ==
+note right of Actor
+  If price <= 0 or name already exists,
+  Service throws ValidationException.
+  Controller returns HTTP 400 Bad Request.
+end note
+
+== Step 3 (Optional): Deactivate Test Type ==
+Actor -> CSC : toggleActive(id: Long)
+activate CSC
+
+CSC -> CSS : toggleActive(id: Long)
+activate CSS
+CSS -> CSSImpl : toggleActive(id: Long)
+activate CSSImpl
+
+CSSImpl -> CSRepo : findById(id: Long)
+activate CSRepo
+CSRepo --> CSSImpl : ClinicService
+deactivate CSRepo
+
+note right of CSSImpl
+  BR-09 (No Hard Delete):
+  Toggles isActive flag (e.g., to false).
+  Existing orders are unaffected.
+end note
+
+CSSImpl -> CSRepo : save(service: ClinicService)
+activate CSRepo
+CSRepo --> CSSImpl : ClinicService
+deactivate CSRepo
+
+CSSImpl --> CSS : ClinicServiceResponse
+deactivate CSSImpl
+CSS --> CSC : ClinicServiceResponse
+deactivate CSS
+
+CSC --> Actor : HTTP 200 OK (ApiResponse<ClinicServiceResponse>)
+deactivate CSC
+
+@enduml

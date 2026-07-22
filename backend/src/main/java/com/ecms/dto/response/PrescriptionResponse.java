@@ -19,6 +19,8 @@ public class PrescriptionResponse {
     private String patientName;
     private PrescriptionStatus status;
     private String notes;
+    private String dispenserName;
     private LocalDateTime createdAt;
+    private Long invoiceId;
     private List<PrescriptionItemResponse> items;
 }

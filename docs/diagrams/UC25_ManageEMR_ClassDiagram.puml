@@ -1,0 +1,129 @@
+@startuml UC25_ManageEMR_ClassDiagram
+
+skinparam classAttributeIconSize 0
+skinparam monochrome false
+skinparam backgroundColor white
+skinparam roundcorner 5
+skinparam class {
+    BackgroundColor #f9f9f9
+    ArrowColor #336699
+    BorderColor #336699
+}
+
+class EMRController {
+    + getOrCreateByAppointmentId(appointmentId: Long, doctorId: Long): ResponseEntity<ApiResponse<EMRResponse>>
+    + saveEMR(request: EMRRequest): ResponseEntity<ApiResponse<EMRResponse>>
+    + getById(medicalRecordId: Long): ResponseEntity<ApiResponse<EMRResponse>>
+    + cancelEMR(medicalRecordId: Long): ResponseEntity<ApiResponse<EMRResponse>>
+}
+
+class AppointmentController {
+}
+
+interface EMRService {
+    + getOrCreateByAppointmentId(appointmentId: Long, doctorId: Long): EMRResponse
+    + saveEMR(request: EMRRequest): EMRResponse
+    + getById(medicalRecordId: Long): EMRResponse
+    + cancelEMR(medicalRecordId: Long): EMRResponse
+}
+
+interface AppointmentService {
+}
+
+class EMRServiceImpl {
+    + getOrCreateByAppointmentId(appointmentId: Long, doctorId: Long): EMRResponse
+    + saveEMR(request: EMRRequest): EMRResponse
+    + getById(medicalRecordId: Long): EMRResponse
+    + cancelEMR(medicalRecordId: Long): EMRResponse
+}
+
+class AppointmentServiceImpl {
+}
+
+class MedicalRecordRepository {
+    + findById(id: Long): MedicalRecord
+    + findByAppointmentId(appointmentId: Long): MedicalRecord
+    + save(record: MedicalRecord): MedicalRecord
+}
+
+class AppointmentRepository {
+    + findById(id: Long): Appointment
+    + save(appointment: Appointment): Appointment
+}
+
+class MedicalRecord {
+    - recordId: Long
+    - appointmentId: Long
+    - status: MedicalRecordStatus
+    - diagnosis: String
+    + getRecordId(): Long
+    + setStatus(status: MedicalRecordStatus): void
+}
+
+class Appointment {
+    - appointmentId: Long
+    - status: AppointmentStatus
+    + getAppointmentId(): Long
+    + setStatus(status: AppointmentStatus): void
+}
+
+enum MedicalRecordStatus {
+    DRAFT
+    COMPLETED
+    CANCELLED
+}
+
+enum AppointmentStatus {
+    WAITING
+    IN_PROGRESS
+    COMPLETED
+    CANCELLED
+}
+
+class EMRRequest {
+    - appointmentId: Long
+    - status: String
+    - diagnosis: String
+}
+
+class EMRResponse {
+    - recordId: Long
+    - status: String
+    - diagnosis: String
+}
+
+class AppointmentResponse {
+    - appointmentId: Long
+    - status: String
+}
+
+class ApiResponse<T> {
+    - status: int
+    - message: String
+    - data: T
+}
+
+EMRController ..> EMRService : uses
+EMRController ..> ApiResponse : creates
+AppointmentController ..> AppointmentService : uses
+AppointmentController ..> ApiResponse : creates
+
+EMRService <|.. EMRServiceImpl : implements
+AppointmentService <|.. AppointmentServiceImpl : implements
+
+EMRServiceImpl ..> MedicalRecordRepository : uses
+EMRServiceImpl ..> AppointmentRepository : uses
+EMRServiceImpl ..> EMRRequest : consumes
+EMRServiceImpl ..> EMRResponse : creates
+
+AppointmentServiceImpl ..> AppointmentRepository : uses
+AppointmentServiceImpl ..> AppointmentResponse : creates
+
+MedicalRecordRepository ..> MedicalRecord : manages
+AppointmentRepository ..> Appointment : manages
+
+MedicalRecord "1" -- "1" MedicalRecordStatus : uses >
+Appointment "1" -- "1" AppointmentStatus : uses >
+MedicalRecord "1" -- "1" Appointment : linked to >
+
+@enduml

@@ -357,6 +357,39 @@ public class LabOrderServiceImpl implements LabOrderService {
         return toOrderResponse(savedOrder);
     }
 
+    @Override
+    @Transactional
+    public List<LabOrderResponse> getLabOrdersForPatient(Long patientId) {
+        return labOrderRepository.findByMedicalRecord_PatientIdOrderByCreatedAt(patientId)
+                .stream()
+                .map(this::toOrderResponse)
+                .sorted((a, b) -> {
+                    if (a.getCreatedAt() == null || b.getCreatedAt() == null)
+                        return 0;
+                    return b.getCreatedAt().compareTo(a.getCreatedAt());
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public List<LabOrderResponse> getLabOrdersForMedicalRecordAsPatient(Long medicalRecordId, Long patientId) {
+        List<LabOrder> orders = labOrderRepository.findByMedicalRecordIdOrderByCreatedAt(medicalRecordId);
+
+        if (!orders.isEmpty()) {
+            Long ownerId = orders.get(0).getMedicalRecord().getPatient() != null
+                    ? orders.get(0).getMedicalRecord().getPatient().getId()
+                    : null;
+            if (ownerId == null || !ownerId.equals(patientId)) {
+                throw new AccessDeniedException("You are not authorized to view this medical record's lab orders");
+            }
+        }
+
+        return orders.stream()
+                .map(this::toOrderResponse)
+                .collect(Collectors.toList());
+    }
+
     private LabOrderResponse toOrderResponse(LabOrder labOrder) {
         String doctorFullName = null;
         if (labOrder.getDoctor() != null) {
@@ -397,6 +430,7 @@ public class LabOrderServiceImpl implements LabOrderService {
 
     private LabResultResponse toResultResponse(LabResult labResult) {
         LabOrder labOrder = labResult.getLabOrder();
+        var patient = labOrder.getMedicalRecord().getPatient();
         return LabResultResponse.builder()
                 .id(labResult.getId())
                 .labOrderId(labOrder.getId())
@@ -414,12 +448,11 @@ public class LabOrderServiceImpl implements LabOrderService {
                         labResult.getLabTechnician() != null ? labResult.getLabTechnician().getFullName() : null)
                 .doctorId(labResult.getDoctor() != null ? labResult.getDoctor().getId() : null)
                 .doctorFullName(labResult.getDoctor() != null ? labResult.getDoctor().getFullName() : null)
-                .patientId(labOrder.getMedicalRecord().getPatient() != null
-                        ? labOrder.getMedicalRecord().getPatient().getId()
-                        : null)
-                .patientFullName(labOrder.getMedicalRecord().getPatient() != null
-                        ? labOrder.getMedicalRecord().getPatient().getFullName()
-                        : null)
+                .patientId(patient != null ? patient.getId() : null)
+                .patientFullName(patient != null ? patient.getFullName() : null)
+                .patientDob(patient != null ? patient.getDateOfBirth() : null)
+                .patientAddress(patient != null ? patient.getAddress() : null)
+                .patientPhone(patient != null ? patient.getPhone() : null)
                 .reviewedAt(labResult.getReviewedAt())
                 .createdAt(labResult.getCreatedAt())
                 .updatedAt(labResult.getUpdatedAt())

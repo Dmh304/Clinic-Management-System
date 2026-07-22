@@ -53,4 +53,11 @@ export const labService = {
     saveDraft: (id, data) =>
         axiosClient.put(`/v1/lab/${id}/draft`, data),
 
+    getLabOrdersForPatient: () =>
+        axiosClient.get(`/v1/lab/patient`),
+
+    /* Lấy danh sách lab order của 1 hồ sơ bệnh án — dành cho Patient, có kiểm tra ownership */
+    getLabOrdersForMedicalRecordAsPatient: (medicalRecordId) =>
+        axiosClient.get(`/v1/lab/emr/${medicalRecordId}/patient`),
+
 }

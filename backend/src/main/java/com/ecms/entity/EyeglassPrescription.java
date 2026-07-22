@@ -11,7 +11,11 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "eyeglass_prescriptions")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class EyeglassPrescription {
 
     @Id
@@ -60,14 +64,18 @@ public class EyeglassPrescription {
     @Column(name = "pd", precision = 5, scale = 2)
     private BigDecimal pd;
 
-    @Column(name = "lens_type")
-    private String lensType; // Single Vision, Progressive, Specialty
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "lens_type_id")
+    private LensType lensType; // Map to LensType entity
 
     @Column(columnDefinition = "NVARCHAR(500)")
     private String notes;
 
+    @Enumerated(EnumType.STRING)
     @Column(length = 20)
-    private String status; // ISSUED
+    private EyeglassPrescriptionStatus status;
+
+    private Boolean requestInClinicFabrication; // true = cắt tại phòng khám (PENDING), false/null = cắt ngoài (SKIPPED)
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -79,7 +87,8 @@ public class EyeglassPrescription {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
-        if (status == null) status = "PENDING";
+        if (status == null)
+            status = EyeglassPrescriptionStatus.PENDING;
     }
 
     @PreUpdate

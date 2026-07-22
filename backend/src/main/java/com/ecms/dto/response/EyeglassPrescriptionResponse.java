@@ -7,6 +7,8 @@ import lombok.Data;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+import com.ecms.entity.EyeglassPrescriptionStatus;
+
 @Data
 @Builder
 public class EyeglassPrescriptionResponse {
@@ -28,8 +30,10 @@ public class EyeglassPrescriptionResponse {
     private BigDecimal osAdd;
 
     private BigDecimal pd;
-    private String lensType;
+    private Long lensTypeId;
+    private String lensTypeName;
+    private BigDecimal lensTypePrice;
     private String notes;
-    private String status;
+    private EyeglassPrescriptionStatus status;
     private LocalDateTime createdAt;
 }

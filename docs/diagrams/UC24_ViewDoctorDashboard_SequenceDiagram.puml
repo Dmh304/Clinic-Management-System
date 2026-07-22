@@ -1,0 +1,153 @@
+@startuml UC24_ViewDoctorDashboard_SequenceDiagram
+<style>
+document {
+  ParticipantPadding 10
+  BoxPadding 10
+}
+</style>
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 250
+
+skinparam participant {
+    BackgroundColor #DDEEFF
+    BorderColor     #336699
+    FontStyle       bold
+}
+skinparam actor {
+    BackgroundColor #FFFACD
+    BorderColor     #CC9900
+}
+skinparam note {
+    BackgroundColor #FFFFF0
+    BorderColor     #AAAAAA
+}
+skinparam ArrowColor #336699
+skinparam LifeLineBorderColor #336699
+
+title UC-24: View Doctor Dashboard\n(Simplified Sequence Diagram)
+
+actor "Doctor" as Actor
+participant "<<Controller>>\nAppointmentController"        as AC
+participant "<<Service>>\nAppointmentService"              as AS
+participant "<<ServiceImpl>>\nAppointmentServiceImpl"      as ASImpl
+participant "<<Repository>>\nAppointmentRepository"        as ARepo
+
+note over Actor
+  PRE: Doctor is authenticated.
+  Only views their own dashboard/queue.
+end note
+
+== Step 1 & 2 – Navigate to Dashboard (Default: today) ==
+Actor -> AC : getDashboard(date: LocalDate, userDetails: UserDetails)
+activate AC
+AC -> AC : resolveDoctorId(userDetails)
+AC -> AS : getDashboard(date: LocalDate, doctorId: Long)
+activate AS
+AS -> ASImpl : getDashboard(date: LocalDate, doctorId: Long)
+activate ASImpl
+
+ASImpl -> ARepo : findByDoctorIdAndStatusIn(doctorId: Long, statuses: List<String>)
+activate ARepo
+ARepo --> ASImpl : List<Appointment>
+deactivate ARepo
+
+note right of ASImpl
+  ASImpl groups the appointments 
+  by status to calculate statistics.
+  Maps List<Appointment> to AppointmentDashboardResponse.
+end note
+
+ASImpl --> AS : AppointmentDashboardResponse
+deactivate ASImpl
+AS --> AC : AppointmentDashboardResponse
+deactivate AS
+
+AC --> Actor : ResponseEntity<ApiResponse<AppointmentDashboardResponse>>
+deactivate AC
+
+== Step 3 – Load Doctor Queue ==
+Actor -> AC : getDoctorQueue(date: LocalDate, userDetails: UserDetails)
+activate AC
+AC -> AC : resolveDoctorId(userDetails)
+AC -> AS : getDoctorQueue(date: LocalDate, doctorId: Long)
+activate AS
+AS -> ASImpl : getDoctorQueue(date: LocalDate, doctorId: Long)
+activate ASImpl
+
+ASImpl -> ARepo : findByAppointmentDateAndDoctorIdOrderByAppointmentTimeAsc(date: LocalDate, doctorId: Long)
+activate ARepo
+ARepo --> ASImpl : List<Appointment>
+deactivate ARepo
+
+note right of ASImpl
+  Maps List<Appointment> to List<AppointmentResponse>
+end note
+
+ASImpl --> AS : List<AppointmentResponse>
+deactivate ASImpl
+AS --> AC : List<AppointmentResponse>
+deactivate AS
+
+AC --> Actor : ResponseEntity<ApiResponse<List<AppointmentResponse>>>
+deactivate AC
+
+== Step 4 – Doctor Searches by Patient Name ==
+Actor -> AC : searchAppointments(keyword: String)
+activate AC
+AC -> AS : searchAppointments(keyword: String)
+activate AS
+AS -> ASImpl : searchAppointments(keyword: String)
+activate ASImpl
+
+ASImpl -> ARepo : searchAppointments(keyword: String)
+activate ARepo
+ARepo --> ASImpl : List<Appointment>
+deactivate ARepo
+
+note right of ASImpl
+  Maps List<Appointment> to List<AppointmentResponse>
+end note
+
+ASImpl --> AS : List<AppointmentResponse>
+deactivate ASImpl
+AS --> AC : List<AppointmentResponse>
+deactivate AS
+
+AC --> Actor : ResponseEntity<ApiResponse<List<AppointmentResponse>>>
+deactivate AC
+
+== Step 5 – View Appointment Detail ==
+Actor -> AC : getById(id: Long)
+activate AC
+AC -> AS : getAppointmentById(id: Long)
+activate AS
+AS -> ASImpl : getAppointmentById(id: Long)
+activate ASImpl
+
+ASImpl -> ARepo : findById(id: Long)
+activate ARepo
+ARepo --> ASImpl : Appointment
+deactivate ARepo
+
+note right of ASImpl
+  Maps Appointment to AppointmentResponse
+end note
+
+ASImpl --> AS : AppointmentResponse
+deactivate ASImpl
+AS --> AC : AppointmentResponse
+deactivate AS
+
+AC --> Actor : ResponseEntity<ApiResponse<AppointmentResponse>>
+deactivate AC
+
+== ALT-1 – View another date ==
+note right of Actor
+  Doctor selects a different date. 
+  Calls getDashboard and getDoctorQueue with the new date.
+  Flow is identical to Normal Flow Steps 2 & 3.
+end note
+
+@enduml

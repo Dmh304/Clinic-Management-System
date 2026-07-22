@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Author: TuanTD
  *  
  * * Màn hình: Quản lý và Xem Lịch sử / Chi tiết Hồ sơ bệnh án điện tử (EMR) dành cho Bệnh nhân
@@ -14,11 +14,14 @@ import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import Header from '../../components/layout/Header'
-import { Form, Input, InputNumber, Tabs, Button, message, Tag, Spin, Collapse, Divider, Table, Pagination } from 'antd'
+import { Form, Input, InputNumber, Tabs, Button, message, Tag, Spin, Collapse, Divider, Table, Pagination, ConfigProvider } from 'antd'
 import { emrService } from '../../services/emrService'
 import { appointmentService } from '../../services/appointmentService'
 import { prescriptionService } from '../../services/prescriptionService'
 import { eyeglassPrescriptionService } from '../../services/eyeglassPrescriptionService'
+import { generateLabResultPdf, buildPdfDataFromLabResult } from '../../utils/labResultPdf'
+import { labService } from '../../services/labService'
+
 import { PrinterOutlined } from '@ant-design/icons'
 
 const { TextArea } = Input
@@ -135,6 +138,33 @@ export default function MedicalHistoryPage() {
 
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 10
+  const [pdfLoading, setPdfLoading] = useState(false)
+
+  const handleDownloadLabPdf = async () => {
+    if (!emr?.id) return
+    setPdfLoading(true)
+    try {
+      const ordersRes = await labService.getLabOrdersForMedicalRecordAsPatient(emr.id)   // ← đổi ở đây
+      const approvedOrders = (ordersRes.data ?? []).filter((o) => o.status === 'APPROVED')
+
+      if (approvedOrders.length === 0) {
+        message.warning('Hồ sơ này chưa có kết quả xét nghiệm nào được duyệt')
+        return
+      }
+
+      const latestOrder = approvedOrders.reduce((latest, cur) =>
+        new Date(cur.completedAt ?? cur.createdAt) > new Date(latest.completedAt ?? latest.createdAt) ? cur : latest
+      )
+
+      const resultRes = await labService.getLabResults(latestOrder.id)
+      const pdfData = buildPdfDataFromLabResult(resultRes.data)
+      await generateLabResultPdf(pdfData, `ket-qua-xet-nghiem-emr-${emr.id}`)
+    } catch (err) {
+      message.error(err?.response?.data?.message || 'Tạo file PDF thất bại, vui lòng thử lại')
+    } finally {
+      setPdfLoading(false)
+    }
+  }
   /**
    * Hàm Tiện Ích: Ánh xạ chuyển đổi cấu trúc thuộc tính từ DTO của Server (API)
    * sang cấu trúc các trường (name) tương thích hoàn toàn với Form Ant Design
@@ -161,21 +191,36 @@ export default function MedicalHistoryPage() {
           prescriptionService.getByPatient(patientId),
           eyeglassPrescriptionService.getByPatient(patientId)
       ]);
-      setDrugPrescriptions((drugRes.data || []).filter(p => String(p.medicalRecordId) === String(medicalRecordId) && p.status === 'DISPENSED'));
-      setEyePrescriptions((eyeRes.data || []).filter(p => String(p.medicalRecordId) === String(medicalRecordId) && p.status === 'DISPENSED'));
+      setDrugPrescriptions((drugRes.data || []).filter(p => String(p.medicalRecordId) === String(medicalRecordId)));
+      setEyePrescriptions((eyeRes.data || []).filter(p => String(p.medicalRecordId) === String(medicalRecordId)));
     } catch (error) {
       console.log('fetch prescriptions error', error);
     }
   }, [medicalRecordId, user]);
 
-  const handlePrint = (id, type) => {
-      const printContent = document.getElementById(`print-area-${type}-${id}`);
-      const originalContents = document.body.innerHTML;
-      
-      document.body.innerHTML = printContent.innerHTML;
-      window.print();
-      document.body.innerHTML = originalContents;
-      window.location.reload(); // Reload to restore React state bindings
+  const handlePrint = async (id, type) => {
+      if (type === 'drug') {
+          try {
+              const response = await prescriptionService.downloadPdf(id, true);
+              const url = window.URL.createObjectURL(new Blob([response]));
+              const link = document.createElement('a');
+              link.href = url;
+              link.setAttribute('download', `Don_Thuoc_${id}.pdf`);
+              document.body.appendChild(link);
+              link.click();
+              link.parentNode.removeChild(link);
+          } catch (error) {
+              message.error('Không thể tải file đơn thuốc');
+          }
+      } else {
+          const printContent = document.getElementById(`print-area-${type}-${id}`);
+          const originalContents = document.body.innerHTML;
+          
+          document.body.innerHTML = printContent.innerHTML;
+          window.print();
+          document.body.innerHTML = originalContents;
+          window.location.reload(); // Reload to restore React state bindings
+      }
   };
 
     // Hàm tải dữ liệu bệnh án hiện tại của lịch hẹn (nếu đã từng lưu nháp)
@@ -433,6 +478,15 @@ export default function MedicalHistoryPage() {
 
           {/* Hệ thống nút hành động điều hướng quay lại */}
           <div style={{ display: 'flex', gap: 8 }}>
+            {!!emr && emr.labImageUrls?.length >= 0 && emr.vaL != null && (
+              <Button
+                onClick={handleDownloadLabPdf}
+                loading={pdfLoading}
+                style={{ fontSize: 12, borderColor: '#0d9488', color: '#0d9488' }}
+              >
+                Tải PDF kết quả XN
+              </Button>
+            )}
             <Button onClick={() => navigate('/patient/history')} style={{ fontSize: 12 }}>
               {'← Quay lại danh sách lịch khám'}
             </Button>
@@ -559,10 +613,13 @@ export default function MedicalHistoryPage() {
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
                                                     <div>
                                                         <div style={{ fontWeight: 600 }}>Ngày khám: {new Date(p.createdAt).toLocaleDateString('vi-VN')}</div>
-                                                        <div style={{ color: '#64748b' }}>Bác sĩ: {p.doctorName}</div>
+                                                        <div style={{ color: '#64748b' }}>Bác sĩ kê: {p.doctorName}</div>
+                                                        {p.dispenserName && <div style={{ color: '#64748b' }}>Dược sĩ phát: {p.dispenserName}</div>}
                                                         <div style={{ color: '#64748b' }}>Trạng thái: {p.status}</div>
                                                     </div>
-                                                    <Button icon={<PrinterOutlined />} onClick={() => handlePrint(p.id, 'drug')} disabled={false}>In đơn thuốc</Button>
+                                                    <ConfigProvider componentDisabled={false}>
+                                                        <Button icon={<PrinterOutlined />} onClick={() => handlePrint(p.id, 'drug')}>In đơn thuốc</Button>
+                                                    </ConfigProvider>
                                                 </div>
                                                 
                                                 <div id={`print-area-drug-${p.id}`} className="print-area">
@@ -582,7 +639,8 @@ export default function MedicalHistoryPage() {
                                                         size="small"
                                                         columns={[
                                                             { title: 'Tên thuốc', dataIndex: 'medicineName', render: (t, r) => <b>{t} ({r.dosageForm})</b> },
-                                                            { title: 'SL', render: (_, r) => r.actualQuantity != null ? r.actualQuantity : r.quantity },
+                                                            { title: 'SL kê', dataIndex: 'quantity' },
+                                                            { title: 'Thực phát', render: (_, r) => r.actualQuantity != null ? r.actualQuantity : '-' },
                                                             { title: 'ĐVT', dataIndex: 'unit' },
                                                             { title: 'Đơn giá', dataIndex: 'unitPrice', render: val => (val || 0).toLocaleString('vi-VN') + ' đ' },
                                                             { title: 'Thành tiền', dataIndex: 'totalPrice', render: val => (val || 0).toLocaleString('vi-VN') + ' đ' },
@@ -621,7 +679,12 @@ export default function MedicalHistoryPage() {
                                                         <div style={{ color: '#64748b' }}>Bác sĩ: {p.doctorName}</div>
                                                         <div style={{ color: '#64748b' }}>PD: {p.pd}mm | Loại tròng: {p.lensType}</div>
                                                     </div>
-                                                    <Button icon={<PrinterOutlined />} onClick={() => handlePrint(p.id, 'eye')} disabled={false}>In đơn kính</Button>
+                                                    <ConfigProvider componentDisabled={false}>
+                                                        <div>
+                                                            <Button icon={<PrinterOutlined />} onClick={() => handlePrint(p.id, 'eye')} style={{ marginRight: 8 }}>In đơn kính</Button>
+                                                            <Button type="primary" onClick={() => navigate(`/patient/order-glasses/${p.id}`)}>Đặt Kính</Button>
+                                                        </div>
+                                                    </ConfigProvider>
                                                 </div>
                                                 
                                                 <div id={`print-area-eye-${p.id}`} className="print-area">

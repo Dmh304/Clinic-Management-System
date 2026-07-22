@@ -1,0 +1,90 @@
+@startuml UC54_ManageLabTestCatalogue_ClassDiagram
+
+skinparam classAttributeIconSize 0
+skinparam monochrome false
+skinparam backgroundColor white
+skinparam roundcorner 5
+skinparam class {
+    BackgroundColor #f9f9f9
+    ArrowColor #336699
+    BorderColor #336699
+}
+
+class ClinicServiceController {
+    + getAllServices(type: String): ResponseEntity<ApiResponse<List<ClinicServiceResponse>>>
+    + createLabTest(request: LabTestRequest): ResponseEntity<ApiResponse<ClinicServiceResponse>>
+    + updateLabTest(id: Long, request: LabTestRequest): ResponseEntity<ApiResponse<ClinicServiceResponse>>
+    + toggleActive(id: Long): ResponseEntity<ApiResponse<ClinicServiceResponse>>
+}
+
+interface ClinicServiceService {
+    + getAllServices(type: String): List<ClinicServiceResponse>
+    + createLabTest(request: LabTestRequest): ClinicServiceResponse
+    + updateLabTest(id: Long, request: LabTestRequest): ClinicServiceResponse
+    + toggleActive(id: Long): ClinicServiceResponse
+}
+
+class ClinicServiceServiceImpl {
+    + getAllServices(type: String): List<ClinicServiceResponse>
+    + createLabTest(request: LabTestRequest): ClinicServiceResponse
+    + updateLabTest(id: Long, request: LabTestRequest): ClinicServiceResponse
+    + toggleActive(id: Long): ClinicServiceResponse
+}
+
+class ClinicServiceRepository {
+    + findByServiceType(type: String): List<ClinicService>
+    + findByServiceName(name: String): Optional<ClinicService>
+    + save(service: ClinicService): ClinicService
+    + findById(id: Long): Optional<ClinicService>
+}
+
+class AuditLog {
+    + logAction(action: String, details: String): void
+}
+
+class ClinicService {
+    - id: Long
+    - serviceName: String
+    - description: String
+    - price: BigDecimal
+    - durationMinutes: Integer
+    - serviceType: String
+    - isActive: Boolean
+    + prePersist(): void
+}
+
+class LabTestRequest {
+    - serviceName: String
+    - categoryId: Long
+    - price: BigDecimal
+    - durationMinutes: Integer
+    - description: String
+}
+
+class ClinicServiceResponse {
+    - id: Long
+    - serviceName: String
+    - price: BigDecimal
+    - durationMinutes: Integer
+    - serviceType: String
+    - isActive: Boolean
+}
+
+class ApiResponse<T> {
+    - status: int
+    - message: String
+    - data: T
+}
+
+ClinicServiceController ..> ClinicServiceService : uses
+ClinicServiceController ..> ApiResponse : creates
+ClinicServiceService <|.. ClinicServiceServiceImpl : implements
+
+ClinicServiceServiceImpl ..> ClinicServiceRepository : uses
+ClinicServiceServiceImpl ..> AuditLog : uses
+ClinicServiceServiceImpl ..> LabTestRequest : consumes
+ClinicServiceServiceImpl ..> ClinicServiceResponse : creates
+
+ClinicServiceRepository ..> ClinicService : manages
+
+@enduml

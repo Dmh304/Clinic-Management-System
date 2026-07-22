@@ -1,0 +1,99 @@
+@startuml UC36_FabricateEyeglasses_SequenceDiagram
+<style>
+document {
+  ParticipantPadding 10
+  BoxPadding 10
+}
+</style>
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 250
+
+skinparam participant {
+    BackgroundColor #DDEEFF
+    BorderColor     #336699
+    FontStyle       bold
+}
+skinparam actor {
+    BackgroundColor #FFFACD
+    BorderColor     #CC9900
+}
+skinparam note {
+    BackgroundColor #FFFFF0
+    BorderColor     #AAAAAA
+}
+skinparam ArrowColor #336699
+skinparam LifeLineBorderColor #336699
+
+title UC-36: Fabricate Eyeglasses\n(Simplified Sequence Diagram)
+
+actor "Lab Technician" as Actor
+participant "<<Controller>>\nEyeglassPrescriptionController" as EPC
+participant "<<Service>>\nEyeglassPrescriptionService" as EPS
+participant "<<ServiceImpl>>\nEyeglassPrescriptionServiceImpl" as EPSImpl
+participant "<<Repository>>\nEyeglassPrescriptionRepository" as EPRepo
+participant "<<Service>>\nNotificationService" as NS
+participant "<<Log>>\nAuditLog" as Audit
+
+note over Actor
+  PRE: EyeglassPrescription record exists with status = PENDING.
+  Lab Technician is authenticated.
+end note
+
+== Step 1 & 2: View Pending Prescriptions ==
+Actor -> EPC : GET /api/v1/prescriptions/eyeglasses/pending
+activate EPC
+EPC -> EPS : getPendingPrescriptions()
+activate EPS
+EPS -> EPSImpl : getPendingPrescriptions()
+activate EPSImpl
+
+EPSImpl -> EPRepo : findByStatus(PENDING)
+activate EPRepo
+EPRepo --> EPSImpl : List<EyeglassPrescription>
+deactivate EPRepo
+
+EPSImpl --> EPS : List<EyeglassPrescriptionResponse>
+deactivate EPSImpl
+EPS --> EPC : List<EyeglassPrescriptionResponse>
+deactivate EPS
+
+EPC --> Actor : HTTP 200 OK\nApiResponse<List<EyeglassPrescriptionResponse>>
+deactivate EPC
+
+== Step 3, 4, 5 & 6: Dispense Eyeglasses ==
+Actor -> EPC : PUT /api/v1/prescriptions/eyeglasses/{id}/dispense
+activate EPC
+EPC -> EPS : dispensePrescription(id)
+activate EPS
+EPS -> EPSImpl : dispensePrescription(id)
+activate EPSImpl
+
+EPSImpl -> EPRepo : findById(id)
+activate EPRepo
+EPRepo --> EPSImpl : EyeglassPrescription
+deactivate EPRepo
+
+opt [prescription.status == PENDING]
+    EPSImpl -> EPRepo : update EyeglassPrescription (status=DISPENSED)
+    activate EPRepo
+    EPRepo --> EPSImpl : savedPrescription
+    deactivate EPRepo
+    
+    EPSImpl -> Audit : logAction("DISPENSE_EYEGLASSES")
+    activate Audit
+    Audit --> EPSImpl : ok
+    deactivate Audit
+
+    EPSImpl ->> NS : notify(Receptionist/Patient, "Glasses ready for pickup")
+
+    EPSImpl --> EPS : EyeglassPrescriptionResponse
+    deactivate EPSImpl
+    EPS --> EPC : EyeglassPrescriptionResponse
+    deactivate EPS
+    EPC --> Actor : HTTP 200 OK\nApiResponse<EyeglassPrescriptionResponse>
+    deactivate EPC
+end
+
+@enduml

@@ -1,0 +1,92 @@
+@startuml UC29_IssueLabImagingOrder
+<style>
+document {
+  ParticipantPadding 10
+  BoxPadding 10
+}
+</style>
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 250
+
+skinparam participant {
+    BackgroundColor #DDEEFF
+    BorderColor     #336699
+    FontStyle       bold
+}
+skinparam actor {
+    BackgroundColor #FFFACD
+    BorderColor     #CC9900
+}
+skinparam note {
+    BackgroundColor #FFFFF0
+    BorderColor     #AAAAAA
+}
+skinparam ArrowColor #336699
+skinparam LifeLineBorderColor #336699
+
+title UC-29: Issue Lab/Imaging Order\n(Simplified Sequence Diagram)
+
+actor       "Doctor"                                            as Doctor
+participant "<<Controller>>\nLabOrderController"           as LC
+participant "<<Service>>\nLabOrderService"               as LS
+participant "<<ServiceImpl>>\nLabOrderServiceImpl"       as LSImpl
+participant "<<Repository>>\nAppointmentRepository"             as ApptRepo
+participant "<<Repository>>\nPatientRepository"                 as PatRepo
+participant "<<Repository>>\nDoctorRepository"                  as DocRepo
+participant "<<Repository>>\nLabOrderRepository"                as LORepo
+
+note over Doctor
+  PRE: Doctor is authenticated.
+  Active Appointment exists.
+end note
+
+== Step 1 & 2: Doctor Issues Order ==
+Doctor -> LC : POST /api/v1/lab-orders\n{appointmentId: 123, testTypes: [...]}
+activate LC
+LC -> LC : resolve doctorId from JWT
+LC -> LS : createLabOrder(request, doctorId)
+activate LS
+LS -> LSImpl : createLabOrder(request, doctorId)
+activate LSImpl
+
+LSImpl -> ApptRepo : findById(request.appointmentId)
+activate ApptRepo
+ApptRepo --> LSImpl : Appointment
+deactivate ApptRepo
+
+LSImpl -> PatRepo : findById(request.patientId)
+activate PatRepo
+PatRepo --> LSImpl : Patient
+deactivate PatRepo
+
+LSImpl -> DocRepo : findById(request.doctorId)
+activate DocRepo
+DocRepo --> LSImpl : Doctor
+deactivate DocRepo
+
+LSImpl -> LORepo : create LabOrder (status=PENDING)
+activate LORepo
+LORepo --> LSImpl : savedOrder
+deactivate LORepo
+
+note right of LSImpl
+  Order is created with PENDING status.
+  Services (tests) are linked to the order.
+end note
+
+LSImpl --> LS : LabOrderResponse
+deactivate LSImpl
+LS --> LC : LabOrderResponse
+deactivate LS
+
+LC --> Doctor : HTTP 201 Created\nApiResponse<LabOrderResponse>
+deactivate LC
+
+note over Doctor
+  POST: LabOrder created. 
+  Appears in Lab Queue for Technician (UC-33).
+end note
+
+@enduml

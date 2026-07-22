@@ -1,0 +1,92 @@
+@startuml UC25d_CancelClinicalSession_SequenceDiagram
+<style>
+document {
+  ParticipantPadding 10
+  BoxPadding 10
+}
+</style>
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 250
+
+skinparam participant {
+    BackgroundColor #DDEEFF
+    BorderColor     #336699
+    FontStyle       bold
+}
+skinparam actor {
+    BackgroundColor #FFFACD
+    BorderColor     #CC9900
+}
+skinparam note {
+    BackgroundColor #FFFFF0
+    BorderColor     #AAAAAA
+}
+skinparam ArrowColor #336699
+skinparam LifeLineBorderColor #336699
+
+title UC-25d: Cancel Clinical Session\n(Simplified Sequence Diagram)
+
+actor       "Doctor"                                    as Doctor
+participant "<<Controller>>\nEMRController"                 as EMRC
+participant "<<Service>>\nEMRService"                       as EMRS
+participant "<<ServiceImpl>>\nEMRServiceImpl"               as EMRSImpl
+participant "<<Repository>>\nMedicalRecordRepository"       as MRRepo
+participant "<<Repository>>\nAppointmentRepository"         as ARepo
+
+note over Doctor
+  PRE: MedicalRecord is IN_PROGRESS or DRAFT.
+  Doctor decides to cancel the current examination session.
+end note
+
+== Step 1: Doctor Cancels Session via EMR ==
+Doctor -> EMRC : cancelEMR(medicalRecordId: Long)
+activate EMRC
+EMRC -> EMRS : cancelEMR(medicalRecordId: Long)
+activate EMRS
+EMRS -> EMRSImpl : cancelEMR(medicalRecordId: Long)
+activate EMRSImpl
+
+EMRSImpl -> MRRepo : findById(id: Long)
+activate MRRepo
+MRRepo --> EMRSImpl : MedicalRecord
+deactivate MRRepo
+
+note right of EMRSImpl
+  BR-09 Updated: Session is fully cancelled.
+  MedicalRecord status is updated to CANCELLED.
+  Appointment is updated to CANCELLED.
+  Patient is removed from the queue entirely.
+end note
+
+EMRSImpl -> MRRepo : save(record: MedicalRecord)
+activate MRRepo
+note right of MRRepo
+  status = CANCELLED
+end note
+MRRepo --> EMRSImpl : MedicalRecord
+deactivate MRRepo
+
+EMRSImpl -> ARepo : findById(appointmentId: Long)
+activate ARepo
+ARepo --> EMRSImpl : Appointment
+deactivate ARepo
+
+EMRSImpl -> ARepo : save(appointment: Appointment)
+activate ARepo
+note right of ARepo
+  status = CANCELLED
+end note
+ARepo --> EMRSImpl : Appointment
+deactivate ARepo
+
+EMRSImpl --> EMRS : EMRResponse
+deactivate EMRSImpl
+EMRS --> EMRC : EMRResponse
+deactivate EMRS
+
+EMRC --> Doctor : ResponseEntity<ApiResponse<EMRResponse>>
+deactivate EMRC
+
+@enduml

@@ -1,0 +1,104 @@
+@startuml UC30_ViewLabResults_ClassDiagram
+
+skinparam classAttributeIconSize 0
+skinparam monochrome false
+skinparam backgroundColor white
+skinparam roundcorner 5
+skinparam class {
+    BackgroundColor #f9f9f9
+    ArrowColor #336699
+    BorderColor #336699
+}
+
+class LabOrderController {
+    + getLabResults(labOrderId: Long, userDetails: UserDetails): ResponseEntity<ApiResponse<LabResultResponse>>
+    + getLabOrdersForMedicalRecord(medicalRecordId: Long): ResponseEntity<ApiResponse<List<LabOrderResponse>>>
+}
+
+interface LabOrderService {
+    + getLabResults(labOrderId: Long, currentUserId: Long, currentUserRole: String): LabResultResponse
+    + getLabOrdersForMedicalRecord(medicalRecordId: Long): List<LabOrderResponse>
+}
+
+class LabOrderServiceImpl {
+    + getLabResults(labOrderId: Long, currentUserId: Long, currentUserRole: String): LabResultResponse
+    + getLabOrdersForMedicalRecord(medicalRecordId: Long): List<LabOrderResponse>
+}
+
+class LabOrderRepository {
+    + findByMedicalRecordId(medicalRecordId: Long): List<LabOrder>
+}
+
+class LabResultRepository {
+    + findByLabOrderId(orderId: Long): LabResult
+}
+
+class AuditLog {
+    + logAction(action: String, details: String): void
+}
+
+class LabOrder {
+    - orderId: Long
+    - appointmentId: Long
+    - status: LabOrderStatus
+    - testTypes: List<String>
+    + getOrderId(): Long
+}
+
+class LabResult {
+    - resultId: Long
+    - labOrderId: Long
+    - status: LabOrderStatus
+    - measuredValues: String
+    - attachedImages: String
+    - doctorAnnotations: String
+    + getResultId(): Long
+    + getLabOrderId(): Long
+}
+
+class LabResultResponse {
+    - resultId: Long
+    - testTypes: List<String>
+    - measuredValues: String
+    - referenceRanges: String
+    - attachedImages: String
+    - doctorAnnotations: String
+}
+
+class LabOrderResponse {
+    - orderId: Long
+    - status: String
+    - testTypes: List<String>
+}
+
+enum LabOrderStatus {
+    PENDING
+    IN_PROGRESS
+    COMPLETED
+    CANCELLED
+}
+
+class ApiResponse<T> {
+    - status: int
+    - message: String
+    - data: T
+}
+
+LabOrderController ..> LabOrderService : uses
+LabOrderController ..> ApiResponse : creates
+LabOrderService <|.. LabOrderServiceImpl : implements
+LabOrderServiceImpl ..> LabOrderRepository : uses
+LabOrderServiceImpl ..> LabResultRepository : uses
+LabOrderServiceImpl ..> AuditLog : uses
+LabOrderServiceImpl ..> LabResultResponse : creates
+LabOrderServiceImpl ..> LabOrderResponse : creates
+
+LabOrderRepository ..> LabOrder : manages
+LabResultRepository ..> LabResult : manages
+
+LabOrder "1" -- "1" LabOrderStatus : uses >
+LabResult "1" -- "1" LabOrderStatus : uses >
+
+LabOrder "1" *-- "0..1" LabResult : has result >
+
+@enduml

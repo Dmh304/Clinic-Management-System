@@ -11,7 +11,8 @@ public interface PrescriptionService {
     List<PrescriptionResponse> getPatientPrescriptions(Long patientId);
     List<PrescriptionResponse> getByMedicalRecordId(Long medicalRecordId);
     List<PrescriptionResponse> getPendingPrescriptions();
-    PrescriptionResponse dispensePrescription(Long prescriptionId, DispenseRequest request);
+    PrescriptionResponse dispensePrescription(Long prescriptionId, DispenseRequest request, String dispenserEmail);
     PrescriptionResponse skipPrescription(Long prescriptionId);
     void deletePrescription(Long id);
+    byte[] generatePrescriptionPdf(Long id, boolean hideSignature);
 }

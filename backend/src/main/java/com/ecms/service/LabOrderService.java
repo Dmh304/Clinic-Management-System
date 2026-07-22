@@ -81,4 +81,12 @@ public interface LabOrderService {
      * Giúp kỹ thuật viên có thể quay lại chỉnh sửa tiếp mà không bị mất dữ liệu
      */
     LabOrderResponse saveDraft(Long labOrderId, LabResultRequest request, Long labTechnicianId);
+
+    List<LabOrderResponse> getLabOrdersForPatient(Long patientId);
+
+    /**
+     * Lấy danh sách phiếu xét nghiệm của một hồ sơ bệnh án cụ thể,
+     * dành riêng cho Patient xem — có kiểm tra quyền sở hữu (BR-08)
+     */
+    List<LabOrderResponse> getLabOrdersForMedicalRecordAsPatient(Long medicalRecordId, Long patientId);
 }

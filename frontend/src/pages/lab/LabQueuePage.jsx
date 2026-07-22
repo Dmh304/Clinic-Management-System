@@ -13,7 +13,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
-import Header from '../../components/layout/Header'
+//import Header from '../../components/layout/Header'
 import { Form, Input, InputNumber, Tabs, Button, message, Tag, Spin, Collapse, Divider, Result, Pagination } from 'antd'
 import { labService } from '../../services/labService'
 
@@ -161,7 +161,7 @@ export default function LabQueuePage() {
   if (!isLabTech) {
     return (
       <>
-        <Header />
+        {/* <Header /> */}
         <div style={{ padding: 48 }}>
           <Result
             status="403"
@@ -192,7 +192,7 @@ export default function LabQueuePage() {
   
   return (
     <>
-      <Header />
+      {/* <Header /> */}
       <div style={{ padding: 24 }}>
 
         {/* --- Khối tiêu đề trang (Page Header) --- */}
