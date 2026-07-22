@@ -58,6 +58,14 @@ public class DiscountCampaign {
     @Column(name = "is_active", nullable = false)
     private Boolean isActive;
 
+    /** Ảnh đại diện cho trang bài viết khuyến mãi công khai (/promotions/{id}). */
+    @Column(name = "thumbnail_url")
+    private String thumbnailUrl;
+
+    /** Nội dung chi tiết dạng bài viết — hiển thị ở trang công khai, giống ClinicService.content. */
+    @Column(name = "content", columnDefinition = "NVARCHAR(MAX)")
+    private String content;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

@@ -75,4 +75,10 @@ public class User {
     // prescription/audit log cũ (BR-09).
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
+
+    // Bệnh nhân bấm link "Hủy đăng ký" trong email khuyến mãi → true, loại khỏi mọi lần
+    // broadcast email quảng cáo sau này (không ảnh hưởng email giao dịch như xác nhận đặt lịch).
+    @Column(name = "marketing_opt_out", nullable = false)
+    @Builder.Default
+    private Boolean marketingOptOut = false;
 }

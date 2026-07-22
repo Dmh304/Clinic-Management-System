@@ -197,42 +197,57 @@ SET IDENTITY_INSERT services ON;
 
 INSERT INTO services
     (id, name, description, price, duration_minutes, category_id, slug, thumbnail_url, content,
-     badge, price_label, sessions_included, validity_days, service_type, is_active, is_popular, display_order, created_at)
+     badge, benefits, sessions_included, validity_days, service_type, is_active, is_popular, display_order, created_at)
 VALUES
 (1, N'Gói Thiền Mắt',
     N'Liệu trình thiền và thư giãn cho mắt, giảm căng thẳng thị giác sau thời gian dài dùng màn hình.',
     350000, 45, 1, 'goi-thien-mat',
     'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=600&h=360&fit=crop&auto=format',
     N'Chi tiết gói thiền mắt: kết hợp bài tập yoga mắt và kỹ thuật hít thở...',
-    N'Mới', N'Giá chỉ từ', 5, 30, 'CARE', 1, 0, 1, GETDATE()),
+    N'Mới', N'Giảm căng thẳng và mỏi mắt sau thời gian dài nhìn màn hình
+Cải thiện khả năng tập trung và điều tiết mắt
+Thư giãn tinh thần, giảm stress thị giác
+Hướng dẫn bởi kỹ thuật viên có chuyên môn', 5, 30, 'CARE', 1, 0, 1, GETDATE()),
 
 (2, N'Gói Massage Mắt',
     N'Massage vùng mắt chuyên nghiệp bằng tay kết hợp tinh dầu thiên nhiên, giảm quầng thâm mắt.',
     250000, 30, 2, 'goi-massage-mat',
     'https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?w=600&h=360&fit=crop&auto=format',
     N'Chi tiết gói massage mắt: giúp lưu thông máu quanh vùng mắt...',
-    N'Phổ biến', N'Giá chỉ từ', 8, 45, 'CARE', 1, 1, 2, GETDATE()),
+    N'Phổ biến', N'Tăng lưu thông máu quanh vùng mắt
+Giảm quầng thâm và bọng mắt
+Thư giãn cơ mắt sau ngày dài làm việc
+Sử dụng tinh dầu thiên nhiên an toàn cho da', 8, 45, 'CARE', 1, 1, 2, GETDATE()),
 
 (3, N'Gói Chăm Sóc Mắt Toàn Diện',
     N'Kiểm tra thị lực, massage mắt, chiếu đèn hồng ngoại và tư vấn dinh dưỡng cho mắt.',
     1500000, 60, 3, 'goi-cham-soc-mat-toan-dien',
     'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=600&h=360&fit=crop&auto=format',
     N'Chi tiết gói chăm sóc mắt toàn diện...',
-    N'Best Seller', N'Giá trọn gói', 10, 60, 'CARE', 1, 1, 3, GETDATE()),
+    N'Best Seller', N'Kiểm tra thị lực định kỳ trong suốt liệu trình
+Kết hợp massage, chiếu đèn hồng ngoại và tư vấn dinh dưỡng
+Theo dõi và điều chỉnh liệu trình theo tình trạng mắt
+Đội ngũ kỹ thuật viên và bác sĩ tư vấn chuyên sâu', 10, 60, 'CARE', 1, 1, 3, GETDATE()),
 
 (4, N'Gói Thư Giãn Mắt Công Nghệ Cao',
     N'Máy massage mắt áp suất khí, rung, nhiệt hồng ngoại và nhạc thư giãn phục hồi mắt mệt mỏi.',
     500000, 40, 1, 'goi-thu-gian-mat-cong-nghe-cao',
     'https://images.unsplash.com/photo-1573497491765-dccce02b29df?w=600&h=360&fit=crop&auto=format',
     N'Chi tiết gói thư giãn mắt công nghệ cao...',
-    N'Premium', N'Giá chỉ từ', 6, 30, 'CARE', 1, 0, 4, GETDATE()),
+    N'Premium', N'Công nghệ áp suất khí, rung và nhiệt hồng ngoại hiện đại
+Phục hồi nhanh cho mắt mệt mỏi, khô mắt
+Kết hợp âm nhạc thư giãn trong suốt buổi trị liệu
+Phù hợp với dân văn phòng, người dùng máy tính nhiều', 6, 30, 'CARE', 1, 0, 4, GETDATE()),
 
 (5, N'Liệu Trình Phục Hồi Thị Lực',
     N'Liệu trình chuyên sâu kết hợp bài tập điều tiết mắt đặc biệt và thiền định sâu.',
     2800000, 90, 4, 'lieu-trinh-phuc-hoi-thi-luc',
     'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=600&h=360&fit=crop&auto=format',
     N'Chi tiết liệu trình phục hồi thị lực...',
-    N'Cao cấp', N'Giá trọn gói', 12, 90, 'CARE', 1, 0, 5, GETDATE()),
+    N'Cao cấp', N'Bài tập điều tiết mắt chuyên sâu theo lộ trình cá nhân hoá
+Kết hợp thiền định sâu hỗ trợ phục hồi thị lực
+Theo dõi tiến độ qua từng buổi trị liệu
+Tư vấn 1-1 với chuyên gia trong suốt liệu trình', 12, 90, 'CARE', 1, 0, 5, GETDATE()),
 
 -- Dịch vụ khám/chẩn đoán/phẫu thuật (CLINICAL)
 (6,  N'Chụp bản đồ giác mạc (Topo)',      N'Phân tích hình thái giác mạc bằng máy Topographer.',       250000,   20, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'CLINICAL', 1, 0, 6,  GETDATE()),

@@ -4,12 +4,18 @@ import com.ecms.dto.request.DiscountCampaignRequest;
 import com.ecms.dto.response.DiscountApplicationResponse;
 import com.ecms.dto.response.DiscountCampaignResponse;
 import com.ecms.entity.DiscountCampaign;
+import com.ecms.entity.User;
 import com.ecms.exception.ResourceNotFoundException;
 import com.ecms.repository.DiscountCampaignRepository;
 import com.ecms.repository.UserRepository;
 import com.ecms.service.AuditLogService;
 import com.ecms.service.DiscountCampaignService;
+import com.ecms.service.EmailService;
+import com.ecms.service.NotificationService;
+import com.ecms.util.UnsubscribeTokenUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,11 +29,18 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class DiscountCampaignServiceImpl implements DiscountCampaignService {
 
     private final DiscountCampaignRepository discountCampaignRepository;
     private final UserRepository userRepository;
     private final AuditLogService auditLogService;
+    private final EmailService emailService;
+    private final NotificationService notificationService;
+    private final UnsubscribeTokenUtil unsubscribeTokenUtil;
+
+    @Value("${app.frontend-base-url}")
+    private String frontendBaseUrl;
 
     @Override
     @Transactional
@@ -49,6 +62,8 @@ public class DiscountCampaignServiceImpl implements DiscountCampaignService {
                 .minPurchaseAmount(request.getMinPurchaseAmount())
                 .maxUsageCount(request.getMaxUsageCount())
                 .isActive(request.getIsActive() != null ? request.getIsActive() : true)
+                .thumbnailUrl(request.getThumbnailUrl())
+                .content(request.getContent())
                 .build();
         DiscountCampaign saved = discountCampaignRepository.save(campaign);
 
@@ -77,6 +92,8 @@ public class DiscountCampaignServiceImpl implements DiscountCampaignService {
         campaign.setMinPurchaseAmount(request.getMinPurchaseAmount());
         campaign.setMaxUsageCount(request.getMaxUsageCount());
         if (request.getIsActive() != null) campaign.setIsActive(request.getIsActive());
+        campaign.setThumbnailUrl(request.getThumbnailUrl());
+        campaign.setContent(request.getContent());
         DiscountCampaign saved = discountCampaignRepository.save(campaign);
 
         auditLogService.log(resolveActorId(actorEmail), "EDIT_DISCOUNT_CAMPAIGN", "DiscountCampaign",
@@ -144,6 +161,50 @@ public class DiscountCampaignServiceImpl implements DiscountCampaignService {
                 .discountAmount(discountAmount)
                 .finalAmount(amount.subtract(discountAmount))
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public Map<String, Integer> broadcastAnnouncement(Long id, String actorEmail, String ipAddress) {
+        DiscountCampaign campaign = getOrThrow(id);
+
+        List<User> patients = userRepository.findByRole_Name("PATIENT").stream()
+                .filter(u -> u.getEmail() != null && !u.getEmail().isBlank())
+                .filter(u -> !Boolean.TRUE.equals(u.getMarketingOptOut()))
+                .collect(Collectors.toList());
+
+        String discountLabel = "PERCENTAGE".equals(campaign.getType())
+                ? campaign.getValue().stripTrailingZeros().toPlainString() + "%"
+                : campaign.getValue().longValue() + "đ";
+        String detailUrl = frontendBaseUrl + "/promotions/" + campaign.getId();
+
+        int sentCount = 0;
+        for (User patient : patients) {
+            try {
+                String unsubscribeUrl = frontendBaseUrl + "/unsubscribe?uid=" + patient.getId()
+                        + "&token=" + unsubscribeTokenUtil.generateToken(patient.getId());
+                emailService.sendPromotionAnnouncement(patient.getEmail(), patient.getFullName(),
+                        campaign.getName(), campaign.getDescription(), discountLabel, campaign.getValidTo(),
+                        detailUrl, unsubscribeUrl);
+                sentCount++;
+            } catch (Exception e) {
+                // Best-effort: 1 người gửi lỗi không được chặn những người còn lại.
+                log.error("Lỗi gửi email khuyến mãi cho {}: {}", patient.getEmail(), e.getMessage());
+            }
+        }
+
+        // Bắn kèm thông báo chuông trong app cho bệnh nhân đã đăng nhập — tận dụng hạ tầng
+        // broadcast theo vai trò có sẵn (UC-13), không cần nút bấm riêng.
+        notificationService.createForRole("PATIENT", "🎉 " + campaign.getName() + " — xem ngay!", null);
+
+        auditLogService.log(resolveActorId(actorEmail), "BROADCAST_PROMOTION_EMAIL", "DiscountCampaign",
+                String.valueOf(campaign.getId()), null,
+                Map.of("sentCount", sentCount, "totalPatients", patients.size()), ipAddress);
+
+        Map<String, Integer> result = new HashMap<>();
+        result.put("sentCount", sentCount);
+        result.put("totalPatients", patients.size());
+        return result;
     }
 
     // ── Helpers dùng chung cho quote() và redeemForOrder() — tránh lặp lại logic
@@ -216,6 +277,8 @@ public class DiscountCampaignServiceImpl implements DiscountCampaignService {
                 .totalDiscountGranted(d.getTotalDiscountGranted())
                 .isActive(d.getIsActive())
                 .createdAt(d.getCreatedAt())
+                .thumbnailUrl(d.getThumbnailUrl())
+                .content(d.getContent())
                 .build();
     }
 }

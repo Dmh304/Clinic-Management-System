@@ -22,4 +22,17 @@ export const discountService = {
   // UC-43: xem trước mức giảm của 1 mã cho 1 số tiền — không tăng lượt dùng
   quote: (code, amount) =>
     axiosClient.get('/v1/discount-campaigns/quote', { params: { code, amount } }),
+
+  // Ảnh đại diện cho bài viết khuyến mãi công khai — cùng endpoint upload chung với gói dịch vụ
+  uploadImage: (file) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return axiosClient.post('/v1/files/upload', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+
+  // Manager bấm gửi thủ công — broadcast email + thông báo trong app cho toàn bộ bệnh nhân có email
+  broadcastEmail: (id) =>
+    axiosClient.post(`/v1/discount-campaigns/${id}/broadcast`),
 }

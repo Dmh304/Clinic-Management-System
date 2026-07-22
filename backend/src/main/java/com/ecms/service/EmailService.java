@@ -1,5 +1,6 @@
 package com.ecms.service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -79,4 +80,34 @@ public interface EmailService {
     // UC-55: gửi email báo mật khẩu mới khi admin đặt lại mật khẩu cho một tài khoản
     // (dùng cho cả nhân viên và patient — khác sendNewStaffAccountEmail vốn chỉ dành cho lần activate đầu tiên)
     void sendAdminPasswordResetEmail(String toEmail, String fullName, String tempPassword);
+
+    /**
+     * Tạo ngày 21/07/2026
+     * Gửi email xác nhận đăng ký dịch vụ chăm sóc (CARE) — dùng chung cho cả 3 kênh
+     * đăng ký (tự đặt online, lễ tân đăng ký tại quầy/điện thoại-Zalo, lễ tân đặt
+     * buổi từ đăng ký đã xác nhận), gọi ngay sau khi buổi chăm sóc đầu tiên được đặt.
+     *
+     * @param toEmail            email người nhận (bệnh nhân)
+     * @param patientName        tên bệnh nhân
+     * @param serviceName        tên gói dịch vụ đã đăng ký
+     * @param scheduledDateTime  thời gian buổi chăm sóc đầu tiên
+     */
+    void sendServiceRegistrationConfirmation(String toEmail, String patientName, String serviceName,
+            LocalDateTime scheduledDateTime);
+
+    /**
+     * Gửi email thông báo chương trình khuyến mãi — Manager bấm gửi thủ công cho toàn bộ
+     * bệnh nhân có email trong hệ thống (broadcast, không phải gửi hàng loạt tự động).
+     *
+     * @param toEmail       email người nhận (bệnh nhân)
+     * @param patientName   tên bệnh nhân
+     * @param campaignName  tên chương trình khuyến mãi
+     * @param description   mô tả ngắn (có thể null)
+     * @param discountLabel   giá trị giảm đã định dạng sẵn (vd "20%" hoặc "50.000đ")
+     * @param validTo         ngày hết hạn chương trình
+     * @param detailUrl       link tới trang chi tiết khuyến mãi công khai
+     * @param unsubscribeUrl  link hủy đăng ký nhận email khuyến mãi (không cần đăng nhập)
+     */
+    void sendPromotionAnnouncement(String toEmail, String patientName, String campaignName, String description,
+            String discountLabel, LocalDate validTo, String detailUrl, String unsubscribeUrl);
 }

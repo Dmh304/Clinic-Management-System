@@ -678,12 +678,12 @@ export default function AppointmentManagementPage() {
               style={{ maxWidth: 360, flex: '1 1 240px' }}
             />
             <Space wrap>
-              <Button onClick={goPrev}>‹ Ngày trước</Button>
-              <Button onClick={goToday} type="primary" ghost disabled={isAnchorToday}>Hôm nay</Button>
-              <Button onClick={goNext}>Ngày sau ›</Button>
               {!isAnchorToday && (
                 <Tag color="blue">Đang xem ngày {anchorDate.format('DD/MM/YYYY')}</Tag>
               )}
+              <Button onClick={goPrev}>‹ Ngày trước</Button>
+              <Button onClick={goToday} type="primary" ghost disabled={isAnchorToday}>Hôm nay</Button>
+              <Button onClick={goNext}>Ngày sau ›</Button>
             </Space>
           </div>
 

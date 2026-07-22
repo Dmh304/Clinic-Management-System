@@ -69,6 +69,17 @@ public class DiscountCampaignController {
         return ResponseEntity.ok(ApiResponse.success(discountCampaignService.getActive()));
     }
 
+    /** Manager bấm gửi thủ công — broadcast email + thông báo trong app cho toàn bộ bệnh nhân
+     *  có email trong hệ thống. */
+    @PostMapping("/{id}/broadcast")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Integer>>> broadcast(
+            @PathVariable Long id, Authentication authentication, HttpServletRequest httpRequest) {
+        java.util.Map<String, Integer> result = discountCampaignService.broadcastAnnouncement(
+                id, authentication.getName(), httpRequest.getRemoteAddr());
+        return ResponseEntity.ok(ApiResponse.success(
+                "Đã gửi " + result.get("sentCount") + "/" + result.get("totalPatients") + " email", result));
+    }
+
     /** Xem trước mức giảm của 1 mã cho 1 số tiền — không tăng lượt dùng. Dùng ở mọi màn hình
      *  checkout (hoá đơn khám, đăng ký dịch vụ...) để hiển thị số tiền giảm trước khi xác nhận. */
     @GetMapping("/quote")

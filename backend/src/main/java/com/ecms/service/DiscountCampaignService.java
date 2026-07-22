@@ -27,4 +27,8 @@ public interface DiscountCampaignService {
     /** Áp dụng thật: xác thực lại rồi tăng lượt dùng + luỹ kế số tiền đã giảm — dùng khi đơn hàng
      *  thực sự được tạo (mua gói dịch vụ, xuất hoá đơn...). */
     DiscountApplicationResponse redeemForOrder(String voucherCode, BigDecimal amount);
+
+    /** Manager bấm gửi thủ công — broadcast email + thông báo trong app cho toàn bộ bệnh nhân
+     *  có email trong hệ thống. Trả về số lượng email đã gửi thành công / tổng số bệnh nhân có email. */
+    java.util.Map<String, Integer> broadcastAnnouncement(Long id, String actorEmail, String ipAddress);
 }

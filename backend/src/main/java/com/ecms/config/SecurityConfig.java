@@ -118,6 +118,12 @@ public class SecurityConfig {
                                                 .permitAll()
 
                                                 // ══════════════════════════════════════════════════════════════════
+                                                // ── Users: link hủy đăng ký email khuyến mãi — public ─────────────
+                                                // ══════════════════════════════════════════════════════════════════
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/users/unsubscribe")
+                                                .permitAll()
+
+                                                // ══════════════════════════════════════════════════════════════════
                                                 // ── Services ──────────────────────────────────────────────────────
                                                 // ══════════════════════════════════════════════════════════════════
                                                 // Specific routes FIRST
@@ -132,6 +138,8 @@ public class SecurityConfig {
                                                 .hasAnyRole("RECEPTIONIST", "ADMIN")
                                                 .requestMatchers(HttpMethod.POST, "/api/v1/services/register")
                                                 .hasAnyRole("PATIENT", "RECEPTIONIST")
+                                                .requestMatchers(HttpMethod.POST, "/api/v1/services/register-and-book")
+                                                .hasRole("PATIENT")
                                                 // ── Ảnh đã upload: cho phép xem công khai ───────────────────────
                                                 .requestMatchers(HttpMethod.GET, "/api/uploads/**")
                                                 .permitAll()
@@ -177,6 +185,8 @@ public class SecurityConfig {
                                                 .permitAll()
                                                 .requestMatchers(HttpMethod.POST, "/api/v1/services/register")
                                                 .hasAnyRole("PATIENT", "RECEPTIONIST")
+                                                .requestMatchers(HttpMethod.POST, "/api/v1/services/register-and-book")
+                                                .hasRole("PATIENT")
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/services/registrations")
                                                 .hasAnyRole("RECEPTIONIST", "ADMIN")
                                                 .requestMatchers(HttpMethod.PATCH, "/api/v1/services/registrations/**")
@@ -257,11 +267,17 @@ public class SecurityConfig {
                                                 // ══════════════════════════════════════════════════════════════════
                                                 // ── Discount Campaigns ────────────────────────────────────────────
                                                 // ══════════════════════════════════════════════════════════════════
-                                                .requestMatchers(HttpMethod.GET, "/api/v1/discount-campaigns/active")
+                                                // /active + /{id} công khai để trang khuyến mãi cho khách xem
+                                                // (không cho đăng nhập) — /quote vẫn rơi vào rule hasAnyRole bên
+                                                // dưới vì "quote" không khớp pattern số {id:[0-9]+}.
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/discount-campaigns/active",
+                                                                "/api/v1/discount-campaigns/{id:[0-9]+}")
                                                 .permitAll()
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/discount-campaigns/**")
                                                 .hasAnyRole("MANAGER", "RECEPTIONIST", "ADMIN")
                                                 .requestMatchers(HttpMethod.POST, "/api/v1/discount-campaigns")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers(HttpMethod.POST, "/api/v1/discount-campaigns/*/broadcast")
                                                 .hasAnyRole("MANAGER", "ADMIN")
                                                 .requestMatchers(HttpMethod.PUT, "/api/v1/discount-campaigns/**")
                                                 .hasAnyRole("MANAGER", "ADMIN")

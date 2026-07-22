@@ -12,6 +12,7 @@ import com.ecms.exception.ResourceNotFoundException;
 import com.ecms.repository.PatientRepository;
 import com.ecms.repository.UserRepository;
 import com.ecms.service.UserService;
+import com.ecms.util.UnsubscribeTokenUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +25,7 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final PatientRepository patientRepository;
+    private final UnsubscribeTokenUtil unsubscribeTokenUtil;
 
     // Lấy thông tin hồ sơ người dùng: tìm User theo email, kết hợp dữ liệu Patient
     // nếu có
@@ -96,6 +98,18 @@ public class UserServiceImpl implements UserService {
         }
 
         return buildResponse(user, null);
+    }
+
+    @Override
+    @Transactional
+    public void unsubscribeFromMarketing(Long userId, String token) {
+        if (!unsubscribeTokenUtil.verifyToken(userId, token)) {
+            throw new IllegalArgumentException("Liên kết hủy đăng ký không hợp lệ");
+        }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Người dùng không tồn tại"));
+        user.setMarketingOptOut(true);
+        userRepository.save(user);
     }
 
     // Tạo đối tượng UserProfileResponse từ dữ liệu User và Patient (Patient có thể

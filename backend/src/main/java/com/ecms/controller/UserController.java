@@ -34,4 +34,13 @@ public class UserController {
         UserProfileResponse data = userService.updateProfile(authentication.getName(), request);
         return ResponseEntity.ok(ApiResponse.success("Cập nhật hồ sơ thành công", data));
     }
+
+    // Bấm link "Hủy đăng ký" trong email khuyến mãi — public (không cần đăng nhập), xác thực
+    // bằng token HMAC gắn kèm link thay vì JWT.
+    @GetMapping("/unsubscribe")
+    public ResponseEntity<ApiResponse<Void>> unsubscribe(
+            @RequestParam Long uid, @RequestParam String token) {
+        userService.unsubscribeFromMarketing(uid, token);
+        return ResponseEntity.ok(ApiResponse.success("Đã hủy đăng ký nhận email khuyến mãi", null));
+    }
 }

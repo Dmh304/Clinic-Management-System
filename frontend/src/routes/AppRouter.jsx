@@ -11,6 +11,9 @@ import ProtectedRoute from './ProtectedRoute'
 import HomePage from '../pages/HomePage'
 import BlogListPage from '../pages/BlogListPage'
 import BlogDetailPage from '../pages/BlogDetailPage'
+import PromotionsListPage from '../pages/PromotionsListPage'
+import PromotionsDetailPage from '../pages/PromotionsDetailPage'
+import UnsubscribePage from '../pages/UnsubscribePage'
 import LoginPage from '../pages/auth/LoginPage'
 import RegisterPage from '../pages/auth/RegisterPage'
 import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage'
@@ -30,6 +33,7 @@ import BookingPage from '../pages/patient/BookingPage'
 import MedicalHistoryPage from '../pages/patient/MedicalHistoryPage'
 import PrescriptionViewPage from '../pages/patient/PrescriptionViewPage'
 import ServicePackagesPage from '../pages/patient/ServicePackagesPage'
+import ServiceDetailPage from '../pages/patient/ServiceDetailPage'
 import MySubscriptionsPage from '../pages/patient/MySubscriptionsPage'
 import BookCareSessionPage from '../pages/patient/BookCareSessionPage'
 import MyCareSessionsPage from '../pages/patient/MyCareSessionsPage'
@@ -110,8 +114,12 @@ export default function AppRouter() {
       <Route path="/" element={<WithHeader><HomePage /></WithHeader>} />
       <Route path="/blogs" element={<WithHeader><BlogListPage /></WithHeader>} />
       <Route path="/blogs/:id" element={<WithHeader><BlogDetailPage /></WithHeader>} />
+      <Route path="/promotions" element={<WithHeader><PromotionsListPage /></WithHeader>} />
+      <Route path="/promotions/:id" element={<WithHeader><PromotionsDetailPage /></WithHeader>} />
+      <Route path="/unsubscribe" element={<WithHeader><UnsubscribePage /></WithHeader>} />
       {/* Trang dịch vụ — mọi người đều xem được (chỉ PATIENT/RECEPTIONIST mới đăng ký được) */}
       <Route path="/services" element={<WithHeader><ServicePackagesPage /></WithHeader>} />
+      <Route path="/services/:id" element={<WithHeader><ServiceDetailPage /></WithHeader>} />
 
       {/* ── Auth pages — không có Header ── */}
       <Route path="/login" element={<LoginPage />} />

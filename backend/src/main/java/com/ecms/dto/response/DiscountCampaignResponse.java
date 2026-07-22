@@ -22,4 +22,6 @@ public class DiscountCampaignResponse {
     private BigDecimal totalDiscountGranted;
     private Boolean isActive;
     private LocalDateTime createdAt;
+    private String thumbnailUrl;
+    private String content;
 }

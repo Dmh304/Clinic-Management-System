@@ -1,9 +1,44 @@
 import { useEffect, useRef, useState } from 'react'
+import dayjs from 'dayjs'
+import { Table, Tag, Button, Tooltip, Empty } from 'antd'
+import { EditOutlined, StopOutlined, PlayCircleOutlined, DownloadOutlined, PlusOutlined } from '@ant-design/icons'
 import { serviceService } from '../../services/serviceService'
 
 const INITIAL_FORM = {
-  serviceName: '', description: '', price: '', priceLabel: '', sessionsIncluded: '', validityDays: '',
+  serviceName: '', description: '', price: '', benefits: '', sessionsIncluded: '', validityDays: '',
   durationMinutes: '', badge: '', thumbnailUrl: '', content: '', serviceType: 'CARE', isActive: true, displayOrder: '', isPopular: false,
+}
+
+const PAGE_SIZE = 10
+
+const PKG_ICONS = [
+  [/thiền/i, '🧘'],
+  [/massage/i, '💆'],
+  [/công nghệ|thư giãn/i, '💧'],
+  [/phục hồi/i, '👁️'],
+  [/toàn diện/i, '🌿'],
+]
+function iconFor(name) {
+  const hit = PKG_ICONS.find(([re]) => re.test(name || ''))
+  return hit ? hit[1] : '📦'
+}
+
+// Xuất danh sách gói đang xem ra CSV — thao tác thật, chạy hoàn toàn phía client.
+function exportCsv(rows) {
+  const header = ['Tên gói', 'Loại', 'Giá', 'Số buổi', 'Hiệu lực (ngày)', 'Người đăng ký', 'Trạng thái']
+  const lines = rows.map(p => [
+    p.serviceName, p.serviceType === 'CLINICAL' ? 'Khám lâm sàng' : 'Chăm sóc',
+    p.price ?? '', p.sessionsIncluded ?? '', p.validityDays ?? '', p.subscriberCount ?? 0,
+    p.isActive ? 'Đang bán' : 'Đã ẩn',
+  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
+  const csv = '﻿' + [header.join(','), ...lines].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `goi-dich-vu-${dayjs().format('YYYY-MM-DD')}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 export default function ManageServicePackagesPage() {
@@ -17,16 +52,19 @@ export default function ManageServicePackagesPage() {
   const [fieldErrors, setFieldErrors] = useState({}) // các field bị lỗi để tô viền đỏ
   const [statusFilter, setStatusFilter] = useState('all') // all | active | hidden
   const [uploading, setUploading] = useState(false)
+  const [page, setPage] = useState(1)
   const fileInputRef = useRef(null)
 
-  const fetchPackages = async () => {
-    setLoading(true)
+  // silent=true dùng khi refetch sau thêm/sửa/ngừng bán — không hiện lại màn hình
+  // "Đang tải..." toàn trang (vốn làm mất vị trí cuộn, trông như bị nhảy về đầu trang).
+  const fetchPackages = async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       // Lấy tất cả gói (kể cả đã ẩn) để manager có thể khôi phục gói đã ẩn
       const res = await serviceService.getAllPackages()
       setPackages(res.data || [])
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }
 
@@ -106,7 +144,7 @@ export default function ManageServicePackagesPage() {
         await serviceService.createPackage(payload)
       }
       setModal(null)
-      fetchPackages()
+      fetchPackages(true)
     } catch (err) {
       setError(err.response?.data?.message || 'Lỗi khi lưu')
     } finally {
@@ -117,125 +155,183 @@ export default function ManageServicePackagesPage() {
   const handleToggle = async (id) => {
     try {
       await serviceService.toggleActive(id)
-      fetchPackages()
+      fetchPackages(true)
     } catch (err) {
       alert(err.response?.data?.message || 'Lỗi')
     }
   }
+
+  const changeStatusFilter = (v) => { setStatusFilter(v); setPage(1) }
 
   // Lọc theo trạng thái bán
   const filtered = packages.filter(p =>
     statusFilter === 'all' ? true : statusFilter === 'active' ? p.isActive : !p.isActive
   )
 
+  // ---- Thống kê tổng quan — tất cả tính từ dữ liệu thật (không có số ảo) ----
+  const activeCount = packages.filter(p => p.isActive).length
+  const newThisMonth = packages.filter(p => p.createdAt && dayjs(p.createdAt).isSame(dayjs(), 'month')).length
+  const totalSubscribers = packages.reduce((sum, p) => sum + (p.subscriberCount || 0), 0)
+  const topPackage = packages.length
+    ? packages.reduce((best, p) => (p.subscriberCount || 0) > (best.subscriberCount || 0) ? p : best, packages[0])
+    : null
+
+  const columns = [
+    {
+      title: 'Tên gói',
+      key: 'name',
+      render: (_, pkg) => (
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div style={{ width: 36, height: 36, borderRadius: 8, background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>
+            {iconFor(pkg.serviceName)}
+          </div>
+          <div>
+            <div style={{ fontWeight: 600, color: '#1e293b' }}>{pkg.serviceName}</div>
+            <div style={{ fontSize: 12, color: '#64748b' }}>{pkg.sessionsIncluded || '—'} buổi{pkg.isPopular ? ' • ★ Nổi bật' : ''}</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'Loại',
+      key: 'type',
+      render: (_, pkg) => <Tag color={pkg.serviceType === 'CLINICAL' ? 'blue' : 'green'}>{pkg.serviceType === 'CLINICAL' ? 'Khám lâm sàng' : 'Chăm sóc'}</Tag>,
+    },
+    {
+      title: 'Giá',
+      key: 'price',
+      render: (_, pkg) => <span style={{ fontWeight: 600, color: '#2563eb' }}>{pkg.price ? Number(pkg.price).toLocaleString('vi-VN') + '₫' : '—'}</span>,
+    },
+    {
+      title: 'Người đăng ký',
+      key: 'subscribers',
+      align: 'center',
+      render: (_, pkg) => pkg.subscriberCount ?? 0,
+    },
+    {
+      title: 'Trạng thái',
+      key: 'status',
+      render: (_, pkg) => <Tag color={pkg.isActive ? 'success' : 'default'}>{pkg.isActive ? 'Đang bán' : 'Đã ẩn'}</Tag>,
+    },
+    {
+      title: 'Thao tác',
+      key: 'action',
+      render: (_, pkg) => (
+        <div style={{ display: 'flex', gap: 6 }}>
+          <Tooltip title="Sửa">
+            <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(pkg)} />
+          </Tooltip>
+          <Tooltip title={pkg.isActive ? 'Ngừng bán (ẩn khỏi trang dịch vụ)' : 'Bán lại (hiện trên trang dịch vụ)'}>
+            <Button
+              size="small"
+              danger={pkg.isActive}
+              icon={pkg.isActive ? <StopOutlined /> : <PlayCircleOutlined />}
+              onClick={() => handleToggle(pkg.id)}
+            />
+          </Tooltip>
+        </div>
+      ),
+    },
+  ]
+
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#6b7280' }}>Đang tải...</div>
 
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc', padding: '32px 16px' }}>
-      <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <div style={{ maxWidth: 1180, margin: '0 auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
           <div>
             <h1 style={{ fontSize: 24, fontWeight: 700, color: '#1e293b', margin: 0 }}>Quản lý gói dịch vụ</h1>
             <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: 14 }}>Tạo và cập nhật các gói chăm sóc mắt</p>
           </div>
-          <button onClick={openCreate} style={{ background: '#2563eb', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 8, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
-            + Tạo gói mới
-          </button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+            Tạo gói mới
+          </Button>
         </div>
 
-        {/* Lọc trạng thái — để xem và khôi phục các gói đã ẩn */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
-          <span style={{ fontSize: 13, color: '#64748b' }}>Lọc:</span>
-          {[['all', 'Tất cả'], ['active', 'Đang bán'], ['hidden', 'Đã ẩn']].map(([v, label]) => (
-            <button key={v} onClick={() => setStatusFilter(v)}
-              style={{
-                border: '1px solid', borderColor: statusFilter === v ? '#2563eb' : '#e2e8f0',
-                background: statusFilter === v ? '#eff6ff' : '#fff',
-                color: statusFilter === v ? '#2563eb' : '#64748b',
-                padding: '5px 12px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-              }}>{label}</button>
-          ))}
+        {/* Stat cards */}
+        <div style={{ display: 'flex', gap: 14, marginBottom: 20, flexWrap: 'wrap' }}>
+          <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '16px 18px', flex: 1, minWidth: 200 }}>
+            <div style={{ fontSize: 12, color: '#64748b', fontWeight: 600, marginBottom: 8 }}>Gói đang bán</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <span style={{ fontSize: 24, fontWeight: 700, color: '#1e293b' }}>{activeCount}</span>
+              {newThisMonth > 0 && <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>+{newThisMonth} tháng này</span>}
+            </div>
+          </div>
+          <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '16px 18px', flex: 1, minWidth: 200 }}>
+            <div style={{ fontSize: 12, color: '#64748b', fontWeight: 600, marginBottom: 8 }}>Tổng lượt đăng ký</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: '#1e293b' }}>{totalSubscribers}</div>
+            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>Trên tất cả gói dịch vụ</div>
+          </div>
+          <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '16px 18px', flex: 1, minWidth: 220 }}>
+            <div style={{ fontSize: 12, color: '#64748b', fontWeight: 600, marginBottom: 8 }}>Gói nổi bật nhất</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {topPackage?.subscriberCount ? topPackage.serviceName : '—'}
+            </div>
+            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>
+              {topPackage?.subscriberCount ? `${topPackage.subscriberCount} người đăng ký` : 'Chưa có dữ liệu'}
+            </div>
+          </div>
+        </div>
+
+        {/* Lọc trạng thái + Export */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <span style={{ fontSize: 13, color: '#64748b' }}>Lọc:</span>
+            {[['all', 'Tất cả'], ['active', 'Đang bán'], ['hidden', 'Đã ẩn']].map(([v, label]) => (
+              <button key={v} onClick={() => changeStatusFilter(v)}
+                style={{
+                  border: '1px solid', borderColor: statusFilter === v ? '#2563eb' : '#e2e8f0',
+                  background: statusFilter === v ? '#eff6ff' : '#fff',
+                  color: statusFilter === v ? '#2563eb' : '#64748b',
+                  padding: '5px 12px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                }}>{label}</button>
+            ))}
+          </div>
+          <Button icon={<DownloadOutlined />} onClick={() => exportCsv(filtered)} disabled={filtered.length === 0}>
+            Xuất CSV
+          </Button>
         </div>
 
         <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
-                {['Tên gói', 'Loại', 'Giá', 'Thứ tự', 'Nổi bật', 'Số buổi', 'Hiệu lực', 'Người đăng ký', 'Trạng thái', 'Thao tác'].map(h => (
-                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 && (
-                <tr><td colSpan={10} style={{ padding: 28, textAlign: 'center', color: '#94a3b8', fontSize: 14 }}>Không có gói nào</td></tr>
-              )}
-              {filtered.map((pkg, i) => (
-                <tr key={pkg.id} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
-                  <td style={{ padding: '12px 14px' }}>
-                    <div style={{ fontWeight: 600, color: '#1e293b' }}>{pkg.serviceName}</div>
-                    {pkg.description && <div style={{ fontSize: 12, color: '#64748b', marginTop: 2, maxWidth: 200 }}>{pkg.description.slice(0, 60)}...</div>}
-                  </td>
-                  <td style={{ padding: '12px 14px' }}>
-                    <span style={{
-                      fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999,
-                      background: pkg.serviceType === 'CLINICAL' ? '#e0f2fe' : '#dcfce7',
-                      color: pkg.serviceType === 'CLINICAL' ? '#0369a1' : '#15803d',
-                    }}>
-                      {pkg.serviceType === 'CLINICAL' ? 'Khám lâm sàng' : 'Chăm sóc'}
-                    </span>
-                  </td>
-                  <td style={{ padding: '12px 14px', fontWeight: 600, color: '#2563eb' }}>
-                    {pkg.price ? Number(pkg.price).toLocaleString('vi-VN') + '₫' : '—'}
-                  </td>
-                  <td style={{ padding: '12px 14px', fontWeight: 600, color: '#475569' }}>
-                    {pkg.displayOrder ?? '—'}
-                  </td>
-                  <td style={{ padding: '12px 14px' }}>
-                    {pkg.isPopular ? (
-                      <span style={{ background: '#fef3c7', color: '#d97706', padding: '2px 8px', borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
-                        ★ Nổi bật
-                      </span>
-                    ) : (
-                      <span style={{ color: '#94a3b8' }}>—</span>
-                    )}
-                  </td>
-                  <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                    <span style={{ background: '#dbeafe', color: '#2563eb', padding: '2px 10px', borderRadius: 10, fontWeight: 700 }}>
-                      {pkg.sessionsIncluded || '—'}
-                    </span>
-                  </td>
-                  <td style={{ padding: '12px 14px', fontSize: 13, color: '#64748b' }}>
-                    {pkg.validityDays ? `${pkg.validityDays} ngày` : 'Không giới hạn'}
-                  </td>
-                  <td style={{ padding: '12px 14px', textAlign: 'center', fontSize: 13, fontWeight: 600, color: '#475569' }}>
-                    {pkg.subscriberCount ?? 0}
-                  </td>
-                  <td style={{ padding: '12px 14px' }}>
-                    <span style={{ background: pkg.isActive ? '#dcfce7' : '#f3f4f6', color: pkg.isActive ? '#16a34a' : '#6b7280', padding: '2px 8px', borderRadius: 10, fontSize: 12, fontWeight: 600 }}>
-                      {pkg.isActive ? 'Đang bán' : 'Đã ẩn'}
-                    </span>
-                  </td>
-                  <td style={{ padding: '12px 14px' }}>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button onClick={() => openEdit(pkg)} style={{ background: '#eff6ff', color: '#2563eb', border: 'none', padding: '5px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Sửa</button>
-                      <button onClick={() => handleToggle(pkg.id)}
-                        title={pkg.isActive ? 'Ngừng bán (ẩn khỏi trang dịch vụ)' : 'Bán lại (hiện trên trang dịch vụ)'}
-                        style={{ background: pkg.isActive ? '#fef3c7' : '#dcfce7', color: pkg.isActive ? '#d97706' : '#16a34a', border: 'none', padding: '5px 10px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
-                        {pkg.isActive ? 'Ngừng bán' : 'Bán lại'}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <Table
+            rowKey="id"
+            columns={columns}
+            dataSource={filtered}
+            current={page}
+            pagination={{
+              current: page,
+              pageSize: PAGE_SIZE,
+              onChange: setPage,
+              hideOnSinglePage: true,
+              showTotal: (total, range) => `Hiển thị ${range[0]}-${range[1]} trên ${total} gói`,
+            }}
+            locale={{ emptyText: <Empty description="Không có gói nào" /> }}
+          />
         </div>
       </div>
 
       {modal === 'edit' && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: '100%', maxWidth: 560, maxHeight: '90vh', overflowY: 'auto' }}>
+          <style>{`
+            .svc-modal-scroll::-webkit-scrollbar { display: none; }
+            .svc-modal-scroll { scrollbar-width: none; -ms-overflow-style: none; }
+          `}</style>
+          <div style={{ position: 'relative', width: '100%', maxWidth: 560 }}>
+            <button
+              type="button"
+              onClick={() => setModal(null)}
+              aria-label="Đóng"
+              style={{
+                position: 'absolute', top: -44, right: 0, width: 36, height: 36, borderRadius: '50%',
+                border: 'none', background: '#fff', color: '#1e293b', fontSize: 17, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+              }}
+            >
+              ✕
+            </button>
+            <div className="svc-modal-scroll" style={{ background: '#fff', borderRadius: 16, padding: 28, maxHeight: '90vh', overflowY: 'auto' }}>
             <h2 style={{ margin: '0 0 20px', fontSize: 20, fontWeight: 700, color: '#1e293b' }}>{editingId ? 'Cập nhật gói dịch vụ' : 'Tạo gói dịch vụ mới'}</h2>
             {error && <div style={{ background: '#fee2e2', color: '#dc2626', padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: 14 }}>{error}</div>}
             <form onSubmit={handleSave}>
@@ -258,11 +354,11 @@ export default function ManageServicePackagesPage() {
                 { key: 'serviceName', label: 'Tên gói *', type: 'text', required: true },
                 { key: 'description', label: 'Mô tả *', type: 'textarea', required: true },
                 { key: 'price', label: 'Giá (VNĐ) *', type: 'number', required: true, min: 1 },
-                { key: 'priceLabel', label: 'Nhãn giá (vd: Giá chỉ từ)', type: 'text' },
                 { key: 'sessionsIncluded', label: 'Số buổi *', type: 'number', required: true, min: 1 },
                 { key: 'validityDays', label: 'Hiệu lực (ngày)', type: 'number', min: 1 },
                 { key: 'durationMinutes', label: 'Thời lượng (phút) *', type: 'number', required: true, min: 1 },
                 { key: 'badge', label: 'Nhãn nổi bật (vd: Phổ biến)', type: 'text' },
+                { key: 'benefits', label: 'Lợi ích của gói (mỗi dòng một lợi ích, hiển thị khi khách xem chi tiết dịch vụ)', type: 'textarea', rows: 4 },
                 { key: 'content', label: 'Chi tiết liệu trình (hiển thị khi khách xem chi tiết dịch vụ)', type: 'textarea', rows: 5 },
                 { key: 'displayOrder', label: 'Thứ tự hiển thị', type: 'number' },
               ].map(field => (
@@ -330,6 +426,7 @@ export default function ManageServicePackagesPage() {
                 </button>
               </div>
             </form>
+            </div>
           </div>
         </div>
       )}

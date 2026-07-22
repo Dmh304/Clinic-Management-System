@@ -14,6 +14,8 @@ public class CareSessionResponse {
     private String patientName;
     private String patientCode;
     private String patientPhone;
+    private LocalDate patientDob;
+    private String patientGender;
     private Long nurseId;
     private String nurseName;
     private Long roomId;
