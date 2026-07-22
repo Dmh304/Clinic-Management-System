@@ -652,6 +652,20 @@ CREATE INDEX IX_notifications_user_read ON notifications (target_user_id, is_rea
 GO
 
 -- ----------------------------------------------------------------------------
+-- 23b. blog_categories — danh mục bài viết blog (hiển thị ở sidebar trang Blog)
+-- ----------------------------------------------------------------------------
+CREATE TABLE blog_categories (
+    id            BIGINT          NOT NULL IDENTITY(1,1),
+    name          NVARCHAR(300)   NOT NULL,
+    slug          NVARCHAR(200)   NULL,
+    display_order INT             NOT NULL DEFAULT 0,
+    CONSTRAINT PK_blog_categories PRIMARY KEY (id)
+);
+GO
+CREATE UNIQUE INDEX UQ_blog_categories_slug ON blog_categories(slug) WHERE slug IS NOT NULL;
+GO
+
+-- ----------------------------------------------------------------------------
 -- 24. blog_posts — bài viết blog/tin tức
 -- ----------------------------------------------------------------------------
 CREATE TABLE blog_posts (
@@ -661,6 +675,7 @@ CREATE TABLE blog_posts (
     content       NVARCHAR(MAX)   NOT NULL,
     thumbnail_url NVARCHAR(500)   NULL,
     author_id     BIGINT          NOT NULL,
+    category_id   BIGINT          NULL,
     status        NVARCHAR(20)    NOT NULL DEFAULT 'DRAFT',
     published_at  DATETIME2       NULL,
     created_at    DATETIME2       NOT NULL DEFAULT GETDATE(),
@@ -668,6 +683,7 @@ CREATE TABLE blog_posts (
     CONSTRAINT PK_blog_posts PRIMARY KEY (id),
     CONSTRAINT UQ_blog_posts_slug UNIQUE (slug),
     CONSTRAINT FK_blog_posts_author FOREIGN KEY (author_id) REFERENCES users(id),
+    CONSTRAINT FK_blog_posts_category FOREIGN KEY (category_id) REFERENCES blog_categories(id),
     CONSTRAINT CK_blog_posts_status CHECK (status IN ('DRAFT', 'PUBLISHED', 'ARCHIVED'))
 );
 GO
