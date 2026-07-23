@@ -22,8 +22,10 @@ public class InvoiceResponse {
     // Mã hóa đơn dạng INV-yyyyMMdd-XXXX
     private String invoiceCode;
 
-    // Thông tin lịch hẹn liên quan
+    // Thông tin lịch hẹn liên quan (null nếu hóa đơn tạo từ subscriptionId)
     private Long appointmentId;
+    // UC-21: gói/buổi dịch vụ chăm sóc liên quan (null nếu hóa đơn tạo từ appointmentId)
+    private Long subscriptionId;
     // Thông tin bệnh nhân — dùng để hiển thị và gửi email
     private String patientName;
     private String patientPhone;

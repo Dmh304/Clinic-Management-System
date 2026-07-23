@@ -186,7 +186,7 @@ export default function WalkInRegistrationPage() {
         <UserAddOutlined style={{ fontSize: 24, color: '#1677ff' }} />
         <div>
           <Title level={4} style={{ margin: 0 }}>
-            Đăng ký bệnh nhân vãng lai
+            Tạo tài khoản bệnh nhân
           </Title>
           <Text type="secondary">Tạo hồ sơ cho bệnh nhân chưa có tài khoản</Text>
         </div>
@@ -194,7 +194,7 @@ export default function WalkInRegistrationPage() {
 
       <Card style={{ marginBottom: 24 }}>
         <Text strong style={{ display: 'block', marginBottom: 8 }}>
-          Bước 1: Kiểm tra bệnh nhân đã có hồ sơ chưa
+          Kiểm tra bệnh nhân đã có hồ sơ chưa
         </Text>
         <Input
           placeholder="Tìm theo tên, số điện thoại hoặc CCCD..."
@@ -263,7 +263,7 @@ export default function WalkInRegistrationPage() {
       {!formUnlocked ? null : (
       <Card>
         <Text strong style={{ display: 'block', marginBottom: 16 }}>
-          Bước 2: Thông tin bệnh nhân mới
+          Thông tin bệnh nhân mới
         </Text>
         <Form
           form={form}

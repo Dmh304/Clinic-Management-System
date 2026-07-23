@@ -1,6 +1,7 @@
 package com.ecms.controller;
 
 import com.ecms.dto.request.CounterServiceRegistrationRequest;
+import com.ecms.dto.request.RegisterAndBookRequest;
 import com.ecms.dto.request.ScheduleClinicVisitRequest;
 import com.ecms.dto.request.ServicePackageRequest;
 import com.ecms.dto.request.ServiceRegistrationRequest;
@@ -93,6 +94,19 @@ public class ClinicServiceController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Đã đăng ký dịch vụ và đặt buổi đầu tiên",
                         clinicServiceService.registerServiceAtCounter(request, authentication.getName())));
+    }
+
+    /**
+     * Tạo ngày 21/07/2026 
+     * Bệnh nhân tự đăng ký + đặt buổi đầu tiên cho gói CARE trên website — PATIENT.
+     *  Tạo đăng ký + gói + buổi đầu tiên trong một lần, không cần lễ tân xử lý. */
+    @PostMapping("/register-and-book")
+    public ResponseEntity<ApiResponse<CareSessionResponse>> registerAndBookOnline(
+            @Valid @RequestBody RegisterAndBookRequest request,
+            Authentication authentication) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Đăng ký dịch vụ và đặt buổi đầu tiên thành công",
+                        clinicServiceService.registerAndBookOnline(request, authentication.getName())));
     }
 
     // ── Manager CRUD ──────────────────────────────────────────────

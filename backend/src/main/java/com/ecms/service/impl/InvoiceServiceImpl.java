@@ -1,6 +1,7 @@
 package com.ecms.service.impl;
 
 import com.ecms.dto.request.InvoiceRequest;
+import com.ecms.dto.response.DiscountApplicationResponse;
 import com.ecms.dto.response.InvoiceResponse;
 import com.ecms.entity.*;
 import com.ecms.exception.ResourceNotFoundException;
@@ -8,7 +9,9 @@ import com.ecms.repository.AppointmentRepository;
 import com.ecms.repository.InvoiceRepository;
 import com.ecms.repository.LabOrderRepository;
 import com.ecms.repository.MedicalRecordRepository;
+import com.ecms.repository.PatientServiceSubscriptionRepository;
 import com.ecms.repository.PrescriptionRepository;
+import com.ecms.service.DiscountCampaignService;
 import com.ecms.service.InvoiceService;
 import com.ecms.service.InvoicePdfService;
 import com.ecms.service.NotificationService;
@@ -45,11 +48,15 @@ public class InvoiceServiceImpl implements InvoiceService {
 
     private final InvoiceRepository invoiceRepository;
     private final AppointmentRepository appointmentRepository;
+    private final PatientServiceSubscriptionRepository subscriptionRepository;
+    // Việc gửi email HTML hóa đơn đã tách sang InvoiceMailDispatcher (chạy nền),
+    // nên lớp này không giữ JavaMailSender nữa.
     private final MedicalRecordRepository medicalRecordRepository;
     private final PrescriptionRepository prescriptionRepository;
     private final LabOrderRepository labOrderRepository;
     private final NotificationService notificationService;
     private final InvoicePdfService invoicePdfService;
+    private final DiscountCampaignService discountCampaignService;
 
     // Lấy tất cả hóa đơn (không kèm items) — dùng cho bảng lịch sử hóa đơn
     @Override
@@ -94,19 +101,40 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     /**
-     * Tạo hóa đơn nháp (DRAFT) cho một lịch hẹn đã hoàn thành.
+     * Tạo hóa đơn nháp (DRAFT) cho một lịch hẹn đã hoàn thành, hoặc cho một buổi
+     * chăm sóc dịch vụ đơn lẻ đã check-out (UC-21, "vãng lai" totalSessions=1).
      * Tự động tính tổng phí theo từng nhóm dịch vụ (BR-12).
      * Mã hóa đơn được sinh tự động dạng INV-yyyyMMdd-XXXX.
      */
     @Override
     @Transactional
     public InvoiceResponse createInvoice(InvoiceRequest request) {
-        Appointment appointment = appointmentRepository.findById(request.getAppointmentId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Lịch hẹn không tồn tại: " + request.getAppointmentId()));
+        boolean hasAppointment = request.getAppointmentId() != null;
+        boolean hasSubscription = request.getSubscriptionId() != null;
+        if (hasAppointment == hasSubscription) {
+            throw new IllegalArgumentException("Phải cung cấp đúng một trong hai: appointmentId hoặc subscriptionId");
+        }
 
-        if (invoiceRepository.existsByAppointment_IdAndStatusNot(request.getAppointmentId(), "CANCELLED")) {
-            throw new IllegalStateException("Lịch hẹn này đã có hóa đơn");
+        Appointment appointment = null;
+        PatientServiceSubscription subscription = null;
+        Patient patient;
+
+        if (hasAppointment) {
+            appointment = appointmentRepository.findById(request.getAppointmentId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Lịch hẹn không tồn tại: " + request.getAppointmentId()));
+            if (invoiceRepository.existsByAppointment_IdAndStatusNot(request.getAppointmentId(), "CANCELLED")) {
+                throw new IllegalStateException("Lịch hẹn này đã có hóa đơn");
+            }
+            patient = appointment.getPatient();
+        } else {
+            subscription = subscriptionRepository.findById(request.getSubscriptionId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Gói dịch vụ không tồn tại: " + request.getSubscriptionId()));
+            if (invoiceRepository.existsBySubscription_IdAndStatusNot(request.getSubscriptionId(), "CANCELLED")) {
+                throw new IllegalStateException("Gói dịch vụ này đã có hóa đơn");
+            }
+            patient = subscription.getPatient();
         }
 
         List<InvoiceItem> items = new ArrayList<>();
@@ -146,10 +174,17 @@ public class InvoiceServiceImpl implements InvoiceService {
         BigDecimal subTotal = serviceFee.add(labFee).add(medicineFee);
 
         // BR-11: Total = Examination fee + Lab fee + Medicine fee − Discount.
+        // UC-43: nếu có discountCode, hệ thống tự xác thực + tính mức giảm từ chương trình
+        // giảm giá (ưu tiên hơn số tiền nhập tay); ngược lại giữ hành vi cũ (lễ tân tự nhập).
+        BigDecimal discount;
+        if (request.getDiscountCode() != null && !request.getDiscountCode().isBlank()) {
+            DiscountApplicationResponse applied = discountCampaignService.redeemForOrder(
+                    request.getDiscountCode(), subTotal);
+            discount = applied.getDiscountAmount();
+        } else {
+            discount = request.getDiscountAmount() != null ? request.getDiscountAmount() : BigDecimal.ZERO;
+        }
         // Giới hạn discount trong [0, subTotal] để tổng tiền không âm và không vượt quá phí.
-        BigDecimal discount = request.getDiscountAmount() != null
-                ? request.getDiscountAmount()
-                : BigDecimal.ZERO;
         if (discount.compareTo(BigDecimal.ZERO) < 0) {
             discount = BigDecimal.ZERO;
         } else if (discount.compareTo(subTotal) > 0) {
@@ -159,7 +194,8 @@ public class InvoiceServiceImpl implements InvoiceService {
 
         Invoice invoice = Invoice.builder()
                 .appointment(appointment)
-                .patient(appointment.getPatient())
+                .subscription(subscription)
+                .patient(patient)
                 .invoiceCode(generateInvoiceCode())
                 .serviceFee(serviceFee)
                 .labFee(labFee)
@@ -405,17 +441,24 @@ public class InvoiceServiceImpl implements InvoiceService {
     // Chuyển Invoice entity → DTO (không kèm items) — dùng cho danh sách
     private InvoiceResponse toResponse(Invoice i) {
         Appointment appt = i.getAppointment();
+        PatientServiceSubscription sub = i.getSubscription();
+        String serviceName = null;
+        if (appt != null && appt.getClinicService() != null) {
+            serviceName = appt.getClinicService().getServiceName();
+        } else if (sub != null && sub.getService() != null) {
+            serviceName = sub.getService().getServiceName();
+        }
         return InvoiceResponse.builder()
                 .id(i.getId())
                 .invoiceCode(i.getInvoiceCode())
                 .appointmentId(appt != null ? appt.getId() : null)
+                .subscriptionId(sub != null ? sub.getId() : null)
                 .patientName(i.getPatient() != null ? i.getPatient().getFullName() : null)
                 .patientPhone(i.getPatient() != null ? i.getPatient().getPhone() : null)
                 .patientEmail(i.getPatient() != null ? i.getPatient().getEmail() : null)
                 .patientCode(i.getPatient() != null ? i.getPatient().getPatientCode() : null)
                 .doctorName(appt != null && appt.getDoctor() != null ? appt.getDoctor().getFullName() : null)
-                .serviceName(appt != null && appt.getClinicService() != null
-                        ? appt.getClinicService().getServiceName() : null)
+                .serviceName(serviceName)
                 .appointmentTime(appt != null ? appt.getAppointmentTime() : null)
                 .timeSlot(appt != null ? appt.getTimeSlot() : null)
                 .items(List.of())

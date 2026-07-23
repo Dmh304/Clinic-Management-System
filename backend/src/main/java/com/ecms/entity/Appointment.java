@@ -58,6 +58,15 @@ public class Appointment {
     private ClinicService clinicService;
 
     /**
+     * Phòng khám của lịch hẹn — tự resolve từ phân công phòng của bác sĩ trong ngày (UC-58/UC-59).
+     * Có thể null nếu bác sĩ chưa được phân công phòng nào cho ngày khám.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @NotFound(action = NotFoundAction.IGNORE)
+    @JoinColumn(name = "room_id")
+    private Room room;
+
+    /**
      * Thời gian khám.
      */
     @Column(name = "appointment_time", nullable = false)

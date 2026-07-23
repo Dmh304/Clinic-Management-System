@@ -21,7 +21,33 @@
 -- Các bảng cũ KHÔNG còn code nào dùng đã được loại bỏ:
 --   refresh_tokens, password_reset_tokens (thay bằng verification_tokens),
 --   glasses_orders, lab_order_items, service_assignments, backup_logs.
+--
+-- [GỘP SCHEMA NHÓM] File này là bản HỢP NHẤT giữa schema nhánh `ngan` và schema
+-- chung của 4 thành viên còn lại. Lấy từ schema nhóm: lens_types,
+-- payment_transactions, blog_categories, chat_sessions/chat_messages,
+-- eyeglass_frames/coatings/orders/order_coatings, payroll_periods/payroll_items,
+-- feedback_participant_ratings; các cột doctors.academic_title/achievements/
+-- career_history, services.price_label/is_lab_service, prescriptions.dispenser_name,
+-- lab_orders.service_id, invoices.email_status/email_sent_at, blog_posts.category_id,
+-- medical_records status +CANCELLED, invoice_details item_type +LAB,
+-- eyeglass_prescriptions (lens_type_id + request_in_clinic_fabrication + CK status).
+-- Giữ lại từ nhánh `ngan`: users.marketing_opt_out, discount_campaigns
+-- (total_discount_granted/thumbnail_url/content), care_sessions (room_id +
+-- check-in + is_incident), appointments.room_id, invoices UC-21
+-- (subscription_id + appointment_id NULL + CK_invoices_source), services.benefits.
+-- Bảng rooms/staff_room_assignments lấy theo THIẾT KẾ NHÓM (xem ghi chú mục 31-32).
 -- ============================================================================
+
+-- ⚠️ TÙY CHỌN — RESET SẠCH ĐỂ MỌI MÁY GIỐNG HỆT NHAU (XÓA TOÀN BỘ DỮ LIỆU cũ).
+-- Nếu máy bạn đã có ecms_db cũ bị lệch, bỏ comment khối dưới để xóa và tạo lại.
+-- Sau đó chạy tiếp ecms_data_seed.sql để có dữ liệu demo + tài khoản đăng nhập.
+-- --------------------------------------------------------------------------
+-- IF DB_ID('ecms_db') IS NOT NULL
+-- BEGIN
+--     ALTER DATABASE ecms_db SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+--     DROP DATABASE ecms_db;
+-- END
+-- GO
 
 IF DB_ID('ecms_db') IS NULL
     CREATE DATABASE ecms_db;
@@ -81,6 +107,7 @@ CREATE TABLE users (
     token_version         INT             NOT NULL DEFAULT 0,
     created_at            DATETIME2       NOT NULL DEFAULT GETDATE(),
     deleted_at            DATETIME2       NULL,
+    marketing_opt_out     BIT             NOT NULL DEFAULT 0,
     CONSTRAINT PK_users PRIMARY KEY (id),
     CONSTRAINT UQ_users_email UNIQUE (email),
     CONSTRAINT FK_users_role FOREIGN KEY (role_id) REFERENCES roles(id),
@@ -155,11 +182,14 @@ CREATE TABLE doctors (
     full_name        NVARCHAR(255)   NOT NULL,
     license_number   NVARCHAR(100)   NOT NULL,
     specialty        NVARCHAR(100)   NULL,
+    academic_title   NVARCHAR(150)   NULL,
     department       NVARCHAR(255)   NULL,
     phone_number     NVARCHAR(15)    NULL,
     email            NVARCHAR(255)   NULL,
     experience_years INT             NULL,
     bio              NVARCHAR(MAX)   NULL,
+    achievements     NVARCHAR(MAX)   NULL,
+    career_history   NVARCHAR(MAX)   NULL,
     avatar_url       NVARCHAR(500)   NULL,
     status           NVARCHAR(20)    NOT NULL DEFAULT 'ACTIVE',
     created_at       DATETIME2       NOT NULL DEFAULT GETDATE(),
@@ -207,6 +237,7 @@ CREATE TABLE service_categories (
     CONSTRAINT PK_service_categories PRIMARY KEY (id)
 );
 GO
+-- Filtered unique index thay cho UNIQUE thường: cho phép NHIỀU dòng slug NULL.
 CREATE UNIQUE INDEX UQ_service_categories_slug ON service_categories(slug) WHERE slug IS NOT NULL;
 GO
 
@@ -227,12 +258,14 @@ CREATE TABLE services (
     thumbnail_url     NVARCHAR(500)   NULL,
     content           NVARCHAR(MAX)   NULL,
     badge             NVARCHAR(50)    NULL,
-    price_label       NVARCHAR(100)   NULL,
+    benefits          NVARCHAR(MAX)   NULL,   -- ClinicService.benefits (nhánh ngan)
+    price_label       NVARCHAR(100)   NULL,   -- nhãn giá hiển thị, vd "Từ 500.000đ" (schema nhóm)
     sessions_included INT             NULL,
     validity_days     INT             NULL,
     service_type      NVARCHAR(20)    NOT NULL DEFAULT 'CARE',
     is_active         BIT             NOT NULL DEFAULT 1,
     is_popular        BIT             NOT NULL DEFAULT 0,
+    is_lab_service    BIT             NOT NULL DEFAULT 0,   -- ClinicService.isLabService: đánh dấu dịch vụ xét nghiệm
     display_order     INT             NOT NULL DEFAULT 0,
     created_at        DATETIME2       NOT NULL DEFAULT GETDATE(),
     updated_at        DATETIME2       NULL,
@@ -279,7 +312,10 @@ CREATE TABLE discount_campaigns (
     min_purchase_amount DECIMAL(18,2)   NULL,
     max_usage_count     INT             NULL,
     used_count          INT             NOT NULL DEFAULT 0,
+    total_discount_granted DECIMAL(14,2) NOT NULL DEFAULT 0,
     is_active           BIT             NOT NULL DEFAULT 1,
+    thumbnail_url       NVARCHAR(500)   NULL,
+    content             NVARCHAR(MAX)   NULL,
     created_at          DATETIME2       NULL,
     updated_at          DATETIME2       NULL,
     CONSTRAINT PK_discount_campaigns PRIMARY KEY (id),
@@ -324,12 +360,18 @@ CREATE TABLE care_sessions (
     subscription_id     BIGINT          NOT NULL,
     patient_id          BIGINT          NOT NULL,
     nurse_id            BIGINT          NULL,
+    room_id             BIGINT          NULL,
     scheduled_date_time DATETIME2       NOT NULL,
     status              NVARCHAR(20)    NOT NULL DEFAULT 'BOOKED',
     session_number      INT             NULL,
     notes               NVARCHAR(500)   NULL,
     nurse_notes         NVARCHAR(1000)  NULL,
+    checked_in          BIT             NOT NULL DEFAULT 0,
+    check_in_at         DATETIME2       NULL,
+    check_in_by         BIGINT          NULL,
+    started_at          DATETIME2       NULL,
     completed_at        DATETIME2       NULL,
+    is_incident         BIT             NOT NULL DEFAULT 0,
     assigned_at         DATETIME2       NULL,
     created_at          DATETIME2       NULL,
     updated_at          DATETIME2       NULL,
@@ -337,6 +379,7 @@ CREATE TABLE care_sessions (
     CONSTRAINT FK_care_sessions_subscription FOREIGN KEY (subscription_id) REFERENCES patient_service_subscriptions(id),
     CONSTRAINT FK_care_sessions_patient FOREIGN KEY (patient_id) REFERENCES patients(id),
     CONSTRAINT FK_care_sessions_nurse FOREIGN KEY (nurse_id) REFERENCES users(id),
+    CONSTRAINT FK_care_sessions_check_in_by FOREIGN KEY (check_in_by) REFERENCES users(id),
     CONSTRAINT CK_care_sessions_status CHECK (status IN ('BOOKED', 'IN_PROGRESS', 'COMPLETED', 'CHECKED_OUT', 'CANCELLED'))
 );
 GO
@@ -351,6 +394,7 @@ CREATE TABLE appointments (
     patient_id       BIGINT          NOT NULL,
     doctor_id        BIGINT          NULL,
     service_id       BIGINT          NULL,
+    room_id          BIGINT          NULL,
     appointment_time DATETIME2       NOT NULL,
     time_slot        NVARCHAR(100)   NULL,
     type             NVARCHAR(20)    NULL,
@@ -417,7 +461,7 @@ CREATE TABLE medical_records (
     CONSTRAINT FK_medical_records_patient FOREIGN KEY (patient_id) REFERENCES patients(id),
     CONSTRAINT FK_medical_records_doctor FOREIGN KEY (doctor_id) REFERENCES doctors(id),
     CONSTRAINT FK_medical_records_locked_by FOREIGN KEY (locked_by) REFERENCES users(id),
-    CONSTRAINT CK_medical_records_status CHECK (status IN ('DRAFT', 'IN_PROGRESS', 'COMPLETED'))
+    CONSTRAINT CK_medical_records_status CHECK (status IN ('DRAFT', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'))
 );
 GO
 
@@ -447,6 +491,7 @@ CREATE TABLE prescriptions (
     patient_id        BIGINT          NOT NULL,
     status            NVARCHAR(20)    NOT NULL DEFAULT 'PENDING',
     notes             NVARCHAR(500)   NULL,
+    dispenser_name    NVARCHAR(255)   NULL,   -- Prescription.dispenserName: tên dược sĩ đã phát thuốc
     created_at        DATETIME2       NOT NULL DEFAULT GETDATE(),
     updated_at        DATETIME2       NULL,
     CONSTRAINT PK_prescriptions PRIMARY KEY (id),
@@ -477,32 +522,53 @@ CREATE TABLE prescription_items (
 GO
 
 -- ----------------------------------------------------------------------------
+-- 17b. lens_types — danh mục loại tròng kính (entity LensType)
+-- Phải tạo TRƯỚC eyeglass_prescriptions vì cột lens_type_id tham chiếu bảng này.
+-- ----------------------------------------------------------------------------
+CREATE TABLE lens_types (
+    id          BIGINT          NOT NULL IDENTITY(1,1),
+    name        NVARCHAR(100)   NOT NULL,
+    description NVARCHAR(500)   NULL,
+    base_price  DECIMAL(15,2)   NOT NULL,
+    status      NVARCHAR(20)    NULL,
+    CONSTRAINT PK_lens_types PRIMARY KEY (id)
+);
+GO
+
+-- ----------------------------------------------------------------------------
 -- 18. eyeglass_prescriptions — đơn kính (OD = mắt phải, OS = mắt trái)
+-- lens_type_id: FK tới lens_types (entity hiện tại dùng cột này).
+-- lens_type   : cột chuỗi CŨ, giữ lại (NULL) để tương thích ecms_data_seed.sql;
+--               backend KHÔNG map cột này nữa nên vô hại.
+-- request_in_clinic_fabrication: true = cắt tại phòng khám, false/NULL = cắt ngoài.
 -- ----------------------------------------------------------------------------
 CREATE TABLE eyeglass_prescriptions (
-    id                BIGINT          NOT NULL IDENTITY(1,1),
-    medical_record_id BIGINT          NOT NULL,
-    doctor_id         BIGINT          NOT NULL,
-    patient_id        BIGINT          NOT NULL,
-    od_sph            DECIMAL(5,2)    NULL,
-    od_cyl            DECIMAL(5,2)    NULL,
-    od_axis           INT             NULL,
-    od_add            DECIMAL(5,2)    NULL,
-    os_sph            DECIMAL(5,2)    NULL,
-    os_cyl            DECIMAL(5,2)    NULL,
-    os_axis           INT             NULL,
-    os_add            DECIMAL(5,2)    NULL,
-    pd                DECIMAL(5,2)    NULL,
-    lens_type         NVARCHAR(255)   NULL,
-    notes             NVARCHAR(500)   NULL,
-    status            NVARCHAR(20)    NOT NULL DEFAULT 'PENDING',
-    created_at        DATETIME2       NOT NULL DEFAULT GETDATE(),
-    updated_at        DATETIME2       NULL,
+    id                            BIGINT          NOT NULL IDENTITY(1,1),
+    medical_record_id             BIGINT          NOT NULL,
+    doctor_id                     BIGINT          NOT NULL,
+    patient_id                    BIGINT          NOT NULL,
+    od_sph                        DECIMAL(5,2)    NULL,
+    od_cyl                        DECIMAL(5,2)    NULL,
+    od_axis                       INT             NULL,
+    od_add                        DECIMAL(5,2)    NULL,
+    os_sph                        DECIMAL(5,2)    NULL,
+    os_cyl                        DECIMAL(5,2)    NULL,
+    os_axis                       INT             NULL,
+    os_add                        DECIMAL(5,2)    NULL,
+    pd                            DECIMAL(5,2)    NULL,
+    lens_type_id                  BIGINT          NULL,
+    lens_type                     NVARCHAR(255)   NULL,
+    notes                         NVARCHAR(500)   NULL,
+    status                        NVARCHAR(20)    NOT NULL DEFAULT 'PENDING',
+    request_in_clinic_fabrication BIT             NULL,
+    created_at                    DATETIME2       NOT NULL DEFAULT GETDATE(),
+    updated_at                    DATETIME2       NULL,
     CONSTRAINT PK_eyeglass_prescriptions PRIMARY KEY (id),
     CONSTRAINT FK_eyeglass_prescriptions_medical_record FOREIGN KEY (medical_record_id) REFERENCES medical_records(id),
     CONSTRAINT FK_eyeglass_prescriptions_doctor FOREIGN KEY (doctor_id) REFERENCES doctors(id),
     CONSTRAINT FK_eyeglass_prescriptions_patient FOREIGN KEY (patient_id) REFERENCES patients(id),
-    CONSTRAINT CK_eyeglass_prescriptions_status CHECK (status IN ('PENDING', 'DISPENSED', 'SKIPPED'))
+    CONSTRAINT FK_eyeglass_prescriptions_lens_type FOREIGN KEY (lens_type_id) REFERENCES lens_types(id),
+    CONSTRAINT CK_eyeglass_prescriptions_status CHECK (status IN ('ISSUED', 'PENDING', 'IN_PRODUCTION', 'READY', 'DISPENSED', 'SKIPPED'))
 );
 GO
 
@@ -571,12 +637,16 @@ CREATE TABLE lab_results (
 GO
 
 -- ----------------------------------------------------------------------------
--- 21. invoices — hóa đơn (1 hóa đơn / 1 lịch hẹn)
+-- 21. invoices — hóa đơn (1 hóa đơn / 1 lịch hẹn HOẶC 1 gói/buổi dịch vụ chăm sóc)
+-- UC-21: subscription_id dùng để thu tiền gói dịch vụ (cả gói nhiều buổi lẫn "vãng lai"
+-- 1 buổi) tại lần check-out ĐẦU TIÊN của gói đó; đúng một trong hai cột appointment_id /
+-- subscription_id phải khác NULL.
 -- service_fee/lab_fee/medicine_fee: tách chi phí theo nhóm để hiển thị
 -- ----------------------------------------------------------------------------
 CREATE TABLE invoices (
     id                 BIGINT          NOT NULL IDENTITY(1,1),
-    appointment_id     BIGINT          NOT NULL,
+    appointment_id     BIGINT          NULL,
+    subscription_id    BIGINT          NULL,
     patient_id         BIGINT          NOT NULL,
     invoice_code       NVARCHAR(30)    NULL,
     service_fee        DECIMAL(12,2)   NULL,
@@ -601,12 +671,17 @@ CREATE TABLE invoices (
     updated_at         DATETIME2       NULL,
     CONSTRAINT PK_invoices PRIMARY KEY (id),
     CONSTRAINT FK_invoices_appointment FOREIGN KEY (appointment_id) REFERENCES appointments(id),
+    CONSTRAINT FK_invoices_subscription FOREIGN KEY (subscription_id) REFERENCES patient_service_subscriptions(id),
     CONSTRAINT FK_invoices_patient FOREIGN KEY (patient_id) REFERENCES patients(id),
     CONSTRAINT FK_invoices_issued_by FOREIGN KEY (issued_by) REFERENCES users(id),
     CONSTRAINT CK_invoices_payment_method CHECK (payment_method IN ('CASH', 'VIET_QR', 'OTHER')),
     CONSTRAINT CK_invoices_payment_status CHECK (payment_status IN ('UNPAID', 'PENDING_PAYMENT', 'PAID', 'PAYMENT_FAILED')),
     CONSTRAINT CK_invoices_status CHECK (status IN ('DRAFT', 'ISSUED', 'CANCELLED')),
-    CONSTRAINT CK_invoices_email_status CHECK (email_status IN ('NOT_SENT', 'SENDING', 'SENT', 'FAILED'))
+    CONSTRAINT CK_invoices_email_status CHECK (email_status IN ('NOT_SENT', 'SENDING', 'SENT', 'FAILED')),
+    CONSTRAINT CK_invoices_source CHECK (
+        (appointment_id IS NOT NULL AND subscription_id IS NULL)
+        OR (appointment_id IS NULL AND subscription_id IS NOT NULL)
+    )
 );
 GO
 
@@ -695,6 +770,20 @@ CREATE INDEX IX_notifications_user_read ON notifications (target_user_id, is_rea
 GO
 
 -- ----------------------------------------------------------------------------
+-- 23b. blog_categories — danh mục bài viết blog (hiển thị ở sidebar trang Blog)
+-- ----------------------------------------------------------------------------
+CREATE TABLE blog_categories (
+    id            BIGINT          NOT NULL IDENTITY(1,1),
+    name          NVARCHAR(300)   NOT NULL,
+    slug          NVARCHAR(200)   NULL,
+    display_order INT             NOT NULL DEFAULT 0,
+    CONSTRAINT PK_blog_categories PRIMARY KEY (id)
+);
+GO
+CREATE UNIQUE INDEX UQ_blog_categories_slug ON blog_categories(slug) WHERE slug IS NOT NULL;
+GO
+
+-- ----------------------------------------------------------------------------
 -- 24. blog_posts — bài viết blog/tin tức
 -- ----------------------------------------------------------------------------
 CREATE TABLE blog_posts (
@@ -704,6 +793,7 @@ CREATE TABLE blog_posts (
     content       NVARCHAR(MAX)   NOT NULL,
     thumbnail_url NVARCHAR(500)   NULL,
     author_id     BIGINT          NOT NULL,
+    category_id   BIGINT          NULL,
     status        NVARCHAR(20)    NOT NULL DEFAULT 'DRAFT',
     published_at  DATETIME2       NULL,
     created_at    DATETIME2       NOT NULL DEFAULT GETDATE(),
@@ -711,6 +801,7 @@ CREATE TABLE blog_posts (
     CONSTRAINT PK_blog_posts PRIMARY KEY (id),
     CONSTRAINT UQ_blog_posts_slug UNIQUE (slug),
     CONSTRAINT FK_blog_posts_author FOREIGN KEY (author_id) REFERENCES users(id),
+    CONSTRAINT FK_blog_posts_category FOREIGN KEY (category_id) REFERENCES blog_categories(id),
     CONSTRAINT CK_blog_posts_status CHECK (status IN ('DRAFT', 'PUBLISHED', 'ARCHIVED'))
 );
 GO
@@ -853,6 +944,228 @@ CREATE TABLE feedbacks (
 GO
 
 -- ============================================================================
+-- PHẦN 2B — CÁC BẢNG TÍNH NĂNG MỚI (đã có entity JPA ở nhánh của các thành viên
+-- khác, trước đây bị thiếu trong schema khiến DB các máy lệch nhau).
+-- Thứ tự tạo theo FK dependency.
+--   rooms, staff_room_assignments (quản lý phòng & phân trực)
+--   feedback_participant_ratings (UC-48 điểm từng người tham gia)
+--   chat_sessions, chat_messages  (khung chat lễ tân ↔ bệnh nhân)
+--   eyeglass_frames/coatings/orders + eyeglass_order_coatings (xưởng kính)
+--   payroll_periods, payroll_items (UC-54 bảng lương)
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- 31. rooms — danh mục phòng vật lý (entity Room). category = RoomCategory.
+-- service_id optional: chỉ gán khi phòng phục vụ đúng 1 dịch vụ cụ thể.
+--
+-- ⚠️ GỘP SCHEMA: bảng này lấy theo THIẾT KẾ NHÓM (category / service_id / status),
+-- KHÁC với thiết kế UC-58 cũ trên nhánh `ngan` (room_type / is_active + bảng
+-- room_services). Bảng room_services đã bị BỎ vì rooms.service_id đã thể hiện
+-- đúng ràng buộc "1 phòng chỉ map 1 dịch vụ tại 1 thời điểm".
+-- => Cần sửa lại Room.java, StaffRoomAssignment.java và XÓA RoomService.java
+--    trên nhánh `ngan` cho khớp (xem ghi chú bàn giao).
+-- ----------------------------------------------------------------------------
+CREATE TABLE rooms (
+    id         BIGINT          NOT NULL IDENTITY(1,1),
+    name       NVARCHAR(100)   NOT NULL,
+    category   NVARCHAR(30)    NOT NULL,
+    service_id BIGINT          NULL,
+    capacity   INT             NOT NULL DEFAULT 1,
+    status     NVARCHAR(20)    NOT NULL DEFAULT 'ACTIVE',
+    created_at DATETIME2       NOT NULL DEFAULT SYSUTCDATETIME(),
+    updated_at DATETIME2       NULL,
+    CONSTRAINT PK_rooms PRIMARY KEY (id),
+    CONSTRAINT FK_rooms_service FOREIGN KEY (service_id) REFERENCES services(id),
+    CONSTRAINT UQ_rooms_name_category UNIQUE (name, category),
+    CONSTRAINT CK_rooms_category CHECK (category IN ('CLINICAL_EXAM', 'CARE_RECOVERY', 'DIAGNOSTIC_IMAGING', 'OPTICAL_WORKSHOP')),
+    CONSTRAINT CK_rooms_status CHECK (status IN ('ACTIVE', 'INACTIVE'))
+);
+GO
+
+-- room_id trên appointments/care_sessions được khai báo từ đầu (mục 12-13) nhưng chỉ ràng buộc
+-- FK ở đây vì rooms được tạo sau — tránh lỗi "bảng chưa tồn tại" khi chạy tuần tự từ trên xuống.
+ALTER TABLE appointments ADD CONSTRAINT FK_appointments_room FOREIGN KEY (room_id) REFERENCES rooms(id);
+GO
+ALTER TABLE care_sessions ADD CONSTRAINT FK_care_sessions_room FOREIGN KEY (room_id) REFERENCES rooms(id);
+GO
+
+-- ----------------------------------------------------------------------------
+-- 32. staff_room_assignments — phân trực phòng cho nhân sự theo ngày (entity
+-- StaffRoomAssignment). staff_id là polymorphic theo staff_type (doctors.id /
+-- staffs.id / lab_technicians.id) — KHÔNG có FK, validate ở tầng Service.
+-- ----------------------------------------------------------------------------
+CREATE TABLE staff_room_assignments (
+    id                  BIGINT          NOT NULL IDENTITY(1,1),
+    staff_type          NVARCHAR(20)    NOT NULL,
+    staff_id            BIGINT          NOT NULL,
+    room_id             BIGINT          NOT NULL,
+    effective_from      DATE            NOT NULL,
+    work_date           DATE            NULL,
+    is_one_day_override BIT             NOT NULL DEFAULT 0,
+    assigned_by         BIGINT          NULL,
+    created_at          DATETIME2       NOT NULL DEFAULT SYSUTCDATETIME(),
+    CONSTRAINT PK_staff_room_assignments PRIMARY KEY (id),
+    CONSTRAINT FK_sra_room FOREIGN KEY (room_id) REFERENCES rooms(id),
+    CONSTRAINT FK_sra_assigned_by FOREIGN KEY (assigned_by) REFERENCES users(id),
+    CONSTRAINT CK_sra_staff_type CHECK (staff_type IN ('DOCTOR', 'NURSE', 'LAB_TECHNICIAN'))
+);
+GO
+CREATE INDEX IX_sra_lookup          ON staff_room_assignments (staff_type, staff_id, is_one_day_override, effective_from DESC);
+CREATE INDEX IX_sra_override_lookup ON staff_room_assignments (staff_type, staff_id, work_date) WHERE is_one_day_override = 1;
+CREATE INDEX IX_sra_room_date       ON staff_room_assignments (room_id, work_date);
+GO
+
+-- ----------------------------------------------------------------------------
+-- 33. feedback_participant_ratings — điểm cho từng người tham gia buổi khám
+-- (entity FeedbackParticipantRating, gắn với feedbacks). UC-48.
+-- ----------------------------------------------------------------------------
+CREATE TABLE feedback_participant_ratings (
+    id               BIGINT          NOT NULL IDENTITY(1,1),
+    feedback_id      BIGINT          NOT NULL,
+    participant_role NVARCHAR(30)    NOT NULL,
+    participant_name NVARCHAR(255)   NULL,
+    rating           INT             NOT NULL,
+    CONSTRAINT PK_feedback_participant_ratings PRIMARY KEY (id),
+    CONSTRAINT FK_fpr_feedback FOREIGN KEY (feedback_id) REFERENCES feedbacks(id),
+    CONSTRAINT CK_fpr_rating CHECK (rating BETWEEN 1 AND 5)
+);
+GO
+
+-- ----------------------------------------------------------------------------
+-- 34. chat_sessions — phiên chat lễ tân ↔ bệnh nhân (entity ChatSession)
+-- ----------------------------------------------------------------------------
+CREATE TABLE chat_sessions (
+    id             BIGINT          NOT NULL IDENTITY(1,1),
+    patient_id     BIGINT          NOT NULL,
+    assigned_to_id BIGINT          NULL,
+    status         NVARCHAR(20)    NULL,
+    created_at     DATETIME2       NULL,
+    updated_at     DATETIME2       NULL,
+    CONSTRAINT PK_chat_sessions PRIMARY KEY (id),
+    CONSTRAINT FK_chat_sessions_patient FOREIGN KEY (patient_id) REFERENCES patients(id),
+    CONSTRAINT FK_chat_sessions_assigned_to FOREIGN KEY (assigned_to_id) REFERENCES users(id)
+);
+GO
+
+-- ----------------------------------------------------------------------------
+-- 35. chat_messages — tin nhắn trong phiên chat (entity ChatMessage)
+-- ----------------------------------------------------------------------------
+CREATE TABLE chat_messages (
+    id          BIGINT          NOT NULL IDENTITY(1,1),
+    session_id  BIGINT          NOT NULL,
+    sender_role NVARCHAR(20)    NOT NULL,
+    content     NVARCHAR(MAX)   NOT NULL,
+    created_at  DATETIME2       NULL,
+    CONSTRAINT PK_chat_messages PRIMARY KEY (id),
+    CONSTRAINT FK_chat_messages_session FOREIGN KEY (session_id) REFERENCES chat_sessions(id)
+);
+GO
+
+-- ----------------------------------------------------------------------------
+-- 36. eyeglass_frames — danh mục gọng kính (entity EyeglassFrame)
+-- ----------------------------------------------------------------------------
+CREATE TABLE eyeglass_frames (
+    id             BIGINT          NOT NULL IDENTITY(1,1),
+    name           NVARCHAR(150)   NOT NULL,
+    brand          NVARCHAR(100)   NULL,
+    material       NVARCHAR(100)   NULL,
+    color          NVARCHAR(50)    NULL,
+    price          DECIMAL(15,2)   NOT NULL,
+    stock_quantity INT             NULL DEFAULT 0,
+    status         NVARCHAR(20)    NULL,
+    CONSTRAINT PK_eyeglass_frames PRIMARY KEY (id)
+);
+GO
+
+-- ----------------------------------------------------------------------------
+-- 37. eyeglass_coatings — danh mục lớp phủ tròng (entity EyeglassCoating)
+-- ----------------------------------------------------------------------------
+CREATE TABLE eyeglass_coatings (
+    id          BIGINT          NOT NULL IDENTITY(1,1),
+    name        NVARCHAR(150)   NOT NULL,
+    description NVARCHAR(500)   NULL,
+    price       DECIMAL(15,2)   NOT NULL,
+    CONSTRAINT PK_eyeglass_coatings PRIMARY KEY (id)
+);
+GO
+
+-- ----------------------------------------------------------------------------
+-- 38. eyeglass_orders — đơn đặt cắt kính (entity EyeglassOrder)
+-- status = EyeglassOrderStatus. dispensed_by → staffs(id).
+-- ----------------------------------------------------------------------------
+CREATE TABLE eyeglass_orders (
+    id              BIGINT          NOT NULL IDENTITY(1,1),
+    patient_id      BIGINT          NOT NULL,
+    prescription_id BIGINT          NOT NULL,
+    frame_id        BIGINT          NULL,
+    status          NVARCHAR(25)    NULL,
+    total_amount    DECIMAL(15,2)   NOT NULL,
+    dispensed_by    BIGINT          NULL,
+    dispensed_at    DATETIME2       NULL,
+    cancel_reason   NVARCHAR(MAX)   NULL,
+    created_at      DATETIME2       NULL,
+    updated_at      DATETIME2       NULL,
+    CONSTRAINT PK_eyeglass_orders PRIMARY KEY (id),
+    CONSTRAINT FK_eyeglass_orders_patient FOREIGN KEY (patient_id) REFERENCES patients(id),
+    CONSTRAINT FK_eyeglass_orders_prescription FOREIGN KEY (prescription_id) REFERENCES eyeglass_prescriptions(id),
+    CONSTRAINT FK_eyeglass_orders_frame FOREIGN KEY (frame_id) REFERENCES eyeglass_frames(id),
+    CONSTRAINT FK_eyeglass_orders_dispensed_by FOREIGN KEY (dispensed_by) REFERENCES staffs(id),
+    CONSTRAINT CK_eyeglass_orders_status CHECK (status IN ('PENDING_CONFIRMATION', 'PENDING_LAB', 'IN_PRODUCTION', 'READY', 'DISPENSED', 'CANCELLED'))
+);
+GO
+
+-- ----------------------------------------------------------------------------
+-- 39. eyeglass_order_coatings — bảng nối N-N đơn kính ↔ lớp phủ
+-- (@JoinTable của EyeglassOrder.coatings)
+-- ----------------------------------------------------------------------------
+CREATE TABLE eyeglass_order_coatings (
+    order_id   BIGINT          NOT NULL,
+    coating_id BIGINT          NOT NULL,
+    CONSTRAINT PK_eyeglass_order_coatings PRIMARY KEY (order_id, coating_id),
+    CONSTRAINT FK_eoc_order FOREIGN KEY (order_id) REFERENCES eyeglass_orders(id),
+    CONSTRAINT FK_eoc_coating FOREIGN KEY (coating_id) REFERENCES eyeglass_coatings(id)
+);
+GO
+
+-- ----------------------------------------------------------------------------
+-- 40. payroll_periods — kỳ lương theo tháng (entity PayrollPeriod). UC-54.
+-- ----------------------------------------------------------------------------
+CREATE TABLE payroll_periods (
+    id           BIGINT          NOT NULL IDENTITY(1,1),
+    period_year  INT             NOT NULL,
+    period_month INT             NOT NULL,
+    status       NVARCHAR(20)    NOT NULL DEFAULT 'DRAFT',
+    approved_by  BIGINT          NULL,
+    approved_at  DATETIME2       NULL,
+    created_at   DATETIME2       NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT PK_payroll_periods PRIMARY KEY (id)
+);
+GO
+
+-- ----------------------------------------------------------------------------
+-- 41. payroll_items — dòng lương từng nhân viên trong 1 kỳ (entity PayrollItem)
+-- staff_ref_id polymorphic theo staff_type (doctors.id / staffs.id) — không FK.
+-- ----------------------------------------------------------------------------
+CREATE TABLE payroll_items (
+    id                BIGINT          NOT NULL IDENTITY(1,1),
+    payroll_period_id BIGINT          NOT NULL,
+    staff_type        NVARCHAR(20)    NOT NULL,
+    staff_ref_id      BIGINT          NOT NULL,
+    staff_name        NVARCHAR(255)   NULL,
+    role              NVARCHAR(255)   NULL,
+    base_salary       DECIMAL(14,2)   NULL,
+    activity_count    INT             NULL,
+    performance_bonus DECIMAL(14,2)   NULL,
+    deduction         DECIMAL(14,2)   NULL,
+    net_pay           DECIMAL(14,2)   NULL,
+    note              NVARCHAR(MAX)   NULL,
+    locked            BIT             NOT NULL DEFAULT 0,
+    CONSTRAINT PK_payroll_items PRIMARY KEY (id),
+    CONSTRAINT FK_payroll_items_period FOREIGN KEY (payroll_period_id) REFERENCES payroll_periods(id)
+);
+GO
+
+-- ============================================================================
 -- PHẦN 3 — DỮ LIỆU CẤU HÌNH MẶC ĐỊNH (bắt buộc để app chạy)
 -- ============================================================================
 
@@ -897,7 +1210,7 @@ INSERT INTO notification_templates (template_key, channel, subject, body, variab
 GO
 
 PRINT N'';
-PRINT N'✅ ECMS schema hoàn tất: 30 bảng (27 bảng backend đang dùng + 3 bảng dự phòng)';
+PRINT N'✅ ECMS schema hoàn tất: 44 bảng (bản GỘP nhánh ngan + schema chung của nhóm)';
 PRINT N'   + seed roles (8), system_configs (11), notification_templates (2).';
 PRINT N'👉 Tiếp theo hãy chạy ecms_data_seed.sql để có dữ liệu demo & tài khoản đăng nhập.';
 GO

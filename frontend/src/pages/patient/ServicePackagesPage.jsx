@@ -1,263 +1,98 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { Modal, message, Input, Spin } from "antd";
+import { message, Input, Spin, Pagination, Checkbox, Button } from "antd";
 import {
   AppstoreOutlined,
   UnorderedListOutlined,
   ClockCircleOutlined,
   CalendarOutlined,
-  CheckCircleOutlined,
-  LockOutlined,
   SearchOutlined,
+  FilterOutlined,
 } from "@ant-design/icons";
 import { serviceService } from "../../services/serviceService";
-import { patientService } from "../../services/patientService";
-
-// ─── Design tokens — đồng bộ với dự án Nhãn Khoa Ánh Sao ────────
-const C = {
-  primary: "#1d4ed8",
-  primaryLight: "#eff6ff",
-  primaryDark: "#1e40af",
-  primaryBorder: "#dbeafe",
-  teal: "#0d9488",
-  accent: "#22c55e",
-  accentLight: "#dcfce7",
-  text: "#111827",
-  textSub: "#64748b",
-  textMuted: "#94a3b8",
-  border: "#e2e8f0",
-  bg: "#f8fafc",
-  surface: "#ffffff",
-  shadow: "0 2px 8px rgba(0,0,0,.06)",
-  shadowHover: "0 8px 28px rgba(29,78,216,.14)",
-};
-const font = "system-ui, -apple-system, sans-serif";
-
-function formatPrice(price) {
-  if (!price && price !== 0) return "—";
-  return new Intl.NumberFormat("vi-VN").format(price) + "đ";
-}
-
-// Phân biệt dịch vụ khám lâm sàng (đặt lịch hẹn) và gói chăm sóc (đăng ký tư vấn)
-const isClinical = (s) => s.serviceType === "CLINICAL";
+import { C, font, formatPrice, isClinical, submitReceptionistRegistration } from "./serviceUtils";
+import { ActionButton, TypeTag, CareBookingModal, ReceptionistModal } from "./serviceShared";
+import heroBgImg from "../../assets/dich_vu_kham_mat.png";
 
 // ─── Hero ────────────────────────────────────────────────────────
 function HeroSection({ onScrollToServices }) {
   return (
     <section
       style={{
-        background: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 55%, #e0f2fe 100%)",
-        padding: "72px 0",
+        position: "relative",
+        minHeight: 420,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundImage: `url(${heroBgImg})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
         fontFamily: font,
       }}
     >
+      {/* Lớp phủ tối để làm nổi bật chữ trắng, đồng thời giảm độ chi tiết của ảnh nền */}
       <div
         style={{
-          maxWidth: 1280, margin: "0 auto", padding: "0 24px",
-          display: "flex", alignItems: "center", gap: 56,
+          position: "absolute", inset: 0,
+          background: "linear-gradient(rgba(15,23,42,0.72), rgba(15,23,42,0.72))",
+          backdropFilter: "blur(1px)",
+        }}
+      />
+
+      <div
+        style={{
+          position: "relative", zIndex: 1,
+          maxWidth: 720, margin: "0 auto", padding: "80px 24px",
+          textAlign: "center",
+          display: "flex", flexDirection: "column", alignItems: "center",
         }}
       >
-        <div style={{ flex: 1, maxWidth: 540 }}>
-          <span
-            style={{
-              display: "inline-block", backgroundColor: "#0d9488", color: "#fff",
-              fontSize: 11, fontWeight: 700, letterSpacing: 1,
-              padding: "4px 12px", borderRadius: 999, marginBottom: 20,
-            }}
-          >
-            DỊCH VỤ PHÒNG KHÁM
-          </span>
-
-          <h1
-            style={{
-              fontSize: 40, fontWeight: 800, color: "#0f172a",
-              lineHeight: 1.2, margin: "0 0 18px", letterSpacing: -0.5,
-            }}
-          >
-            Tất cả dịch vụ nhãn khoa
-          </h1>
-
-          <p
-            style={{
-              fontSize: 15, color: C.textSub, lineHeight: 1.75,
-              margin: "0 0 32px", maxWidth: 440,
-            }}
-          >
-            Từ dịch vụ khám lâm sàng chuyên sâu đến các gói chăm sóc và phục hồi
-            thị lực. Chọn dịch vụ phù hợp, xem chi tiết liệu trình và đặt lịch
-            hoặc đăng ký tư vấn chỉ trong vài bước.
-          </p>
-
-          <div style={{ display: "flex", gap: 12 }}>
-            <button
-              onClick={onScrollToServices}
-              style={{
-                backgroundColor: C.primary, color: "#fff", border: "none",
-                borderRadius: 8, padding: "12px 24px", fontSize: 14, fontWeight: 600,
-                cursor: "pointer", fontFamily: font, transition: "background-color 0.15s",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = C.primaryDark)}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = C.primary)}
-            >
-              Xem tất cả dịch vụ
-            </button>
-          </div>
-        </div>
-
-        <div
+        <span
           style={{
-            flex: "0 0 420px", height: 320, borderRadius: 20,
-            overflow: "hidden", boxShadow: "0 16px 48px rgba(29,78,216,.18)",
+            display: "inline-block", backgroundColor: "#0d9488", color: "#fff",
+            fontSize: 11, fontWeight: 700, letterSpacing: 1,
+            padding: "4px 12px", borderRadius: 999, marginBottom: 20,
           }}
         >
-          <img
-            src="https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=840&h=640&fit=crop&auto=format"
-            alt="Chăm sóc mắt chuyên nghiệp"
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          />
-        </div>
+          DỊCH VỤ PHÒNG KHÁM
+        </span>
+
+        <h1
+          style={{
+            fontSize: 42, fontWeight: 800, color: "#fff",
+            lineHeight: 1.2, margin: "0 0 18px", letterSpacing: -0.5,
+            textShadow: "0 2px 16px rgba(0,0,0,0.35)",
+          }}
+        >
+          Tất cả dịch vụ nhãn khoa
+        </h1>
+
+        <p
+          style={{
+            fontSize: 15, color: "#e2e8f0", lineHeight: 1.75,
+            margin: "0 0 32px", maxWidth: 520,
+          }}
+        >
+          Từ dịch vụ khám lâm sàng chuyên sâu đến các gói chăm sóc và phục hồi
+          thị lực. Chọn dịch vụ phù hợp, xem chi tiết liệu trình và đặt lịch
+          hoặc đăng ký tư vấn chỉ trong vài bước.
+        </p>
+
+        <button
+          onClick={onScrollToServices}
+          style={{
+            backgroundColor: C.primary, color: "#fff", border: "none",
+            borderRadius: 8, padding: "12px 28px", fontSize: 14, fontWeight: 600,
+            cursor: "pointer", fontFamily: font, transition: "background-color 0.15s",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = C.primaryDark)}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = C.primary)}
+        >
+          Xem tất cả dịch vụ
+        </button>
       </div>
     </section>
-  );
-}
-
-// ─── Nút hành động (theo loại dịch vụ + vai trò) ──────────────────
-function ActionButton({
-  service, role, isAuthenticated, alreadyPending,
-  onBook, onPatientRegister, onReceptionistOpen, loading, block,
-}) {
-  const navigate = useNavigate();
-  const clinical = isClinical(service);
-  const stop = (fn) => (e) => { e.stopPropagation(); fn(); };
-
-  // Khách chưa đăng nhập
-  if (!isAuthenticated) {
-    return (
-      <button
-        onClick={stop(() => navigate("/login"))}
-        style={{
-          backgroundColor: C.primaryLight, color: C.primary,
-          border: `1px solid ${C.primaryBorder}`, borderRadius: 8,
-          padding: "9px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer",
-          fontFamily: font, display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
-        }}
-      >
-        <LockOutlined style={{ fontSize: 12 }} />
-        {clinical ? "Đăng nhập để đặt lịch" : "Đăng nhập để đăng ký"}
-      </button>
-    );
-  }
-
-  // ── Dịch vụ khám lâm sàng → đặt lịch hẹn ──
-  if (clinical) {
-    if (role === "PATIENT") {
-      return (
-        <button
-          onClick={stop(() => service.id && onBook(service))}
-          disabled={!service.id}
-          style={{
-            backgroundColor: service.id ? C.primary : "#d1d5db", color: "#fff",
-            border: "none", borderRadius: 8, padding: "9px 20px",
-            fontSize: 13, fontWeight: 600, cursor: service.id ? "pointer" : "default",
-            fontFamily: font, whiteSpace: "nowrap", transition: "background-color 0.15s",
-          }}
-          onMouseEnter={(e) => { if (service.id) e.currentTarget.style.backgroundColor = C.primaryDark; }}
-          onMouseLeave={(e) => { if (service.id) e.currentTarget.style.backgroundColor = C.primary; }}
-        >
-          Đặt lịch khám
-        </button>
-      );
-    }
-    // Lễ tân / vai trò khác: dịch vụ khám đặt qua quầy (walk-in), chỉ xem ở đây
-    return <ReadOnlyButton />;
-  }
-
-  // ── Gói chăm sóc → đăng ký tư vấn ──
-  if (role === "PATIENT") {
-    if (alreadyPending) {
-      return (
-        <button
-          disabled
-          style={{
-            backgroundColor: "#fef3c7", color: "#d97706", border: "1px solid #fde68a",
-            borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 600,
-            cursor: "default", fontFamily: font, whiteSpace: "nowrap",
-          }}
-        >
-          ⏳ Đang chờ tư vấn
-        </button>
-      );
-    }
-    return (
-      <button
-        onClick={stop(() => service.id && onPatientRegister(service))}
-        disabled={!service.id || loading || block}
-        style={{
-          backgroundColor: service.id && !block ? C.primary : "#d1d5db", color: "#fff",
-          border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 13, fontWeight: 600,
-          cursor: service.id && !loading && !block ? "pointer" : "default",
-          fontFamily: font, whiteSpace: "nowrap", transition: "background-color 0.15s",
-          opacity: loading ? 0.75 : 1,
-        }}
-        onMouseEnter={(e) => { if (service.id && !loading && !block) e.currentTarget.style.backgroundColor = C.primaryDark; }}
-        onMouseLeave={(e) => { if (service.id && !block) e.currentTarget.style.backgroundColor = C.primary; }}
-      >
-        {loading ? "Đang xử lý..." : "Đăng ký ngay"}
-      </button>
-    );
-  }
-
-  if (role === "RECEPTIONIST") {
-    return (
-      <button
-        onClick={stop(() => service.id && onReceptionistOpen(service))}
-        disabled={!service.id}
-        style={{
-          backgroundColor: service.id ? C.teal : "#d1d5db", color: "#fff",
-          border: "none", borderRadius: 8, padding: "9px 20px", fontSize: 13, fontWeight: 600,
-          cursor: service.id ? "pointer" : "default", fontFamily: font,
-          whiteSpace: "nowrap", transition: "background-color 0.15s",
-        }}
-        onMouseEnter={(e) => { if (service.id) e.currentTarget.style.backgroundColor = "#0f766e"; }}
-        onMouseLeave={(e) => { if (service.id) e.currentTarget.style.backgroundColor = C.teal; }}
-      >
-        Đăng ký cho BN
-      </button>
-    );
-  }
-
-  return <ReadOnlyButton />;
-}
-
-function ReadOnlyButton() {
-  return (
-    <button
-      disabled
-      style={{
-        backgroundColor: "#f1f5f9", color: C.textMuted, border: `1px solid ${C.border}`,
-        borderRadius: 8, padding: "9px 20px", fontSize: 13, fontWeight: 500,
-        cursor: "not-allowed", fontFamily: font, whiteSpace: "nowrap",
-      }}
-    >
-      Chỉ xem
-    </button>
-  );
-}
-
-// Nhãn loại dịch vụ
-function TypeTag({ service }) {
-  const clinical = isClinical(service);
-  return (
-    <span
-      style={{
-        fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 999,
-        backgroundColor: clinical ? "#e0f2fe" : C.accentLight,
-        color: clinical ? "#0369a1" : "#15803d",
-      }}
-    >
-      {clinical ? "Khám lâm sàng" : "Gói chăm sóc"}
-    </span>
   );
 }
 
@@ -319,9 +154,17 @@ function ServiceCard({ service, isListMode, onOpenDetail, actionProps }) {
           {service.serviceName}
         </h3>
 
-        <p style={{ fontSize: 13, color: C.textSub, lineHeight: 1.65, margin: "0 0 16px", flex: 1 }}>
-          {service.description}
-        </p>
+        <div style={{ flex: 1, marginBottom: 16 }}>
+          <p
+            style={{
+              fontSize: 13, color: C.textSub, lineHeight: 1.65, margin: "0 0 4px",
+              display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+            }}
+          >
+            {service.description}
+          </p>
+          <span style={{ fontSize: 12, fontWeight: 600, color: C.primary }}>Xem chi tiết →</span>
+        </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 18 }}>
           {service.durationMinutes != null && (
@@ -345,9 +188,7 @@ function ServiceCard({ service, isListMode, onOpenDetail, actionProps }) {
           }}
         >
           <div>
-            <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>
-              {service.priceLabel || "Giá dịch vụ"}
-            </div>
+            <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 4 }}>Giá dịch vụ</div>
             <div style={{ fontSize: 22, fontWeight: 800, color: C.primary, lineHeight: 1 }}>
               {formatPrice(service.price)}
             </div>
@@ -359,206 +200,102 @@ function ServiceCard({ service, isListMode, onOpenDetail, actionProps }) {
   );
 }
 
-// ─── Modal chi tiết dịch vụ (content do manager nhập từ DB) ───────
-function DetailModal({ service, onClose, actionProps }) {
-  if (!service) return null;
+const PAGE_SIZE = 15;
+
+// ─── Bộ lọc bên trái ────────────────────────────────────────────────
+function FilterSidebar({
+  categories, typeFilter, onToggleType, categoryFilter, onToggleCategory,
+  popularOnly, onTogglePopular, onClear,
+}) {
   return (
-    <Modal
-      open={!!service}
-      onCancel={onClose}
-      footer={null}
-      width={640}
-      title={<span style={{ fontFamily: font, fontWeight: 700 }}>{service.serviceName}</span>}
+    <aside
+      style={{
+        width: 240, flexShrink: 0, backgroundColor: C.surface,
+        border: `1px solid ${C.border}`, borderRadius: 14, padding: "18px 18px 20px",
+        alignSelf: "flex-start", position: "sticky", top: 88,
+      }}
     >
-      <div style={{ fontFamily: font }}>
-        <img
-          src={
-            service.thumbnailUrl ||
-            "https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=600&h=360&fit=crop&auto=format"
-          }
-          alt={service.serviceName}
-          style={{ width: "100%", height: 220, objectFit: "cover", borderRadius: 12, marginBottom: 16 }}
-        />
-
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-          <TypeTag service={service} />
-          {service.categoryName && (
-            <span style={{ fontSize: 12, color: C.textMuted }}>{service.categoryName}</span>
-          )}
-        </div>
-
-        <p style={{ fontSize: 14, color: C.textSub, lineHeight: 1.7, margin: "0 0 16px" }}>
-          {service.description}
-        </p>
-
-        {/* Thông số nhanh */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 10, marginBottom: 18 }}>
-          {service.durationMinutes != null && (
-            <InfoBox label="Thời lượng" value={`${service.durationMinutes} phút`} />
-          )}
-          {!isClinical(service) && service.sessionsIncluded != null && (
-            <InfoBox label="Số buổi" value={`${service.sessionsIncluded} buổi`} />
-          )}
-          {!isClinical(service) && service.validityDays != null && (
-            <InfoBox label="Hiệu lực" value={`${service.validityDays} ngày`} />
-          )}
-          <InfoBox label={service.priceLabel || "Giá"} value={formatPrice(service.price)} highlight />
-        </div>
-
-        {/* Nội dung chi tiết — quản lý nhập trong DB (không hard-code) */}
-        {service.content ? (
-          <div style={{ marginBottom: 20 }}>
-            <h4 style={{ fontSize: 14, fontWeight: 700, color: C.text, margin: "0 0 8px" }}>
-              Chi tiết liệu trình
-            </h4>
-            <div style={{ fontSize: 14, color: C.textSub, lineHeight: 1.75, whiteSpace: "pre-wrap" }}>
-              {service.content}
-            </div>
-          </div>
-        ) : (
-          <div style={{ fontSize: 13, color: C.textMuted, fontStyle: "italic", marginBottom: 20 }}>
-            Thông tin chi tiết đang được cập nhật.
-          </div>
-        )}
-
-        <div style={{ display: "flex", justifyContent: "flex-end", borderTop: `1px solid ${C.border}`, paddingTop: 16 }}>
-          <ActionButton service={service} {...actionProps(service)} />
-        </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+        <FilterOutlined style={{ color: C.primary }} />
+        <span style={{ fontSize: 13, fontWeight: 700, color: C.text, letterSpacing: 0.3 }}>BỘ LỌC TÌM KIẾM</span>
       </div>
-    </Modal>
-  );
-}
 
-function InfoBox({ label, value, highlight }) {
-  return (
-    <div style={{ background: highlight ? C.primaryLight : "#f8fafc", borderRadius: 10, padding: "10px 14px" }}>
-      <div style={{ fontSize: 11, color: C.textMuted, marginBottom: 2 }}>{label}</div>
-      <div style={{ fontSize: 15, fontWeight: 700, color: highlight ? C.primary : C.text }}>{value}</div>
-    </div>
-  );
-}
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: C.textSub, marginBottom: 10 }}>Loại dịch vụ</div>
+        {[
+          { value: "CLINICAL", label: "Khám lâm sàng" },
+          { value: "CARE", label: "Gói chăm sóc" },
+        ].map((opt) => (
+          <label key={opt.value} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 13, color: C.textSub, cursor: "pointer" }}>
+            <Checkbox checked={typeFilter.includes(opt.value)} onChange={() => onToggleType(opt.value)} />
+            {opt.label}
+          </label>
+        ))}
+      </div>
 
-// ─── Receptionist: chọn bệnh nhân ────────────────────────────────
-function ReceptionistModal({ open, service, onClose, onConfirm, loading }) {
-  const [keyword, setKeyword] = useState("");
-  const [patients, setPatients] = useState([]);
-  const [searching, setSearching] = useState(false);
-  const [selected, setSelected] = useState(null);
-  const [notes, setNotes] = useState("");
-
-  useEffect(() => {
-    if (!open) { setKeyword(""); setPatients([]); setSelected(null); setNotes(""); }
-  }, [open]);
-
-  const handleSearch = async () => {
-    if (!keyword.trim()) return;
-    setSearching(true);
-    try {
-      const res = await patientService.searchPatients(keyword.trim());
-      setPatients(res.data ?? []);
-    } catch {
-      message.error("Không thể tìm kiếm bệnh nhân");
-    } finally {
-      setSearching(false);
-    }
-  };
-
-  return (
-    <Modal
-      open={open}
-      title={<span style={{ fontFamily: font, fontWeight: 700 }}>Đăng ký dịch vụ cho bệnh nhân</span>}
-      onCancel={onClose}
-      okText="Xác nhận đăng ký"
-      cancelText="Hủy"
-      okButtonProps={{ disabled: !selected, loading, style: { backgroundColor: C.primary, borderColor: C.primary } }}
-      onOk={() => onConfirm({ patientId: selected.id, notes })}
-      width={520}
-    >
-      <div style={{ fontFamily: font }}>
-        <div style={{ backgroundColor: C.primaryLight, border: `1px solid ${C.primaryBorder}`, borderRadius: 10, padding: "12px 16px", marginBottom: 20 }}>
-          <strong style={{ color: C.text }}>{service?.serviceName}</strong>
-          {service?.price && (
-            <span style={{ color: C.primary, marginLeft: 8, fontWeight: 700 }}>
-              — {formatPrice(service.price)}
-            </span>
-          )}
-        </div>
-
-        <p style={{ fontSize: 13, color: C.textSub, marginBottom: 8 }}>Tìm bệnh nhân (tên hoặc SĐT):</p>
-        <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-          <Input
-            placeholder="Nhập tên hoặc số điện thoại..."
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            onPressEnter={handleSearch}
-            prefix={<SearchOutlined style={{ color: C.textMuted }} />}
-          />
-          <button
-            onClick={handleSearch}
-            disabled={searching || !keyword.trim()}
-            style={{
-              backgroundColor: C.primary, color: "#fff", border: "none", borderRadius: 6,
-              padding: "0 16px", cursor: "pointer", fontFamily: font, fontSize: 13, fontWeight: 600,
-              opacity: searching ? 0.7 : 1,
-            }}
-          >
-            {searching ? "..." : "Tìm"}
-          </button>
-        </div>
-
-        {patients.length > 0 && (
-          <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden", maxHeight: 200, overflowY: "auto", marginBottom: 16 }}>
-            {patients.map((p) => (
-              <div
-                key={p.id}
-                onClick={() => setSelected(p)}
-                style={{
-                  padding: "10px 16px", cursor: "pointer",
-                  backgroundColor: selected?.id === p.id ? C.primaryLight : C.surface,
-                  borderBottom: `1px solid ${C.border}`,
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  fontSize: 13, transition: "background-color 0.1s",
-                }}
-                onMouseEnter={(e) => { if (selected?.id !== p.id) e.currentTarget.style.backgroundColor = "#f8fafc"; }}
-                onMouseLeave={(e) => { if (selected?.id !== p.id) e.currentTarget.style.backgroundColor = C.surface; }}
-              >
-                <div>
-                  <div style={{ fontWeight: 600, color: C.text }}>{p.fullName}</div>
-                  <div style={{ color: C.textMuted, fontSize: 12 }}>{p.phone} · {p.email}</div>
-                </div>
-                {selected?.id === p.id && <CheckCircleOutlined style={{ color: C.primary, fontSize: 16 }} />}
-              </div>
+      {categories.length > 0 && (
+        <>
+          <div style={{ borderTop: `1px solid ${C.border}`, margin: "0 0 16px" }} />
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: C.textSub, marginBottom: 10 }}>Danh mục</div>
+            {categories.map((cat) => (
+              <label key={cat} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, fontSize: 13, color: C.textSub, cursor: "pointer" }}>
+                <Checkbox checked={categoryFilter.includes(cat)} onChange={() => onToggleCategory(cat)} />
+                {cat}
+              </label>
             ))}
           </div>
-        )}
+        </>
+      )}
 
-        {selected && (
-          <div style={{ backgroundColor: C.accentLight, borderRadius: 8, padding: "10px 14px", fontSize: 13, marginBottom: 14, color: "#15803d" }}>
-            ✓ Đã chọn: <strong>{selected.fullName}</strong>
-          </div>
-        )}
+      <div style={{ borderTop: `1px solid ${C.border}`, margin: "0 0 16px" }} />
 
-        <p style={{ fontSize: 13, color: C.textSub, marginBottom: 6 }}>Ghi chú (tùy chọn):</p>
-        <Input.TextArea
-          rows={3}
-          placeholder="Ghi chú về yêu cầu hoặc tình trạng sức khỏe..."
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-        />
-      </div>
-    </Modal>
+      <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18, fontSize: 13, color: C.textSub, cursor: "pointer" }}>
+        <Checkbox checked={popularOnly} onChange={onTogglePopular} />
+        Chỉ hiện dịch vụ nổi bật
+      </label>
+
+      <Button block onClick={onClear} style={{ color: C.textSub }}>
+        Xóa tất cả bộ lọc
+      </Button>
+    </aside>
   );
 }
 
 // ─── Catalog ──────────────────────────────────────────────────────
-function ServiceCatalog({ catalogRef, services, loading, role, isAuthenticated, pendingIds, onRegistered }) {
+function ServiceCatalog({ catalogRef, services, loading, role, isAuthenticated }) {
   const navigate = useNavigate();
   const [isListMode, setIsListMode] = useState(false);
   const [search, setSearch] = useState("");
   const [loadingId, setLoadingId] = useState(null);
-  const [confirmModal, setConfirmModal] = useState({ open: false, service: null });
+  const [careBookModal, setCareBookModal] = useState({ open: false, service: null });
   const [receptionistModal, setReceptionistModal] = useState({ open: false, service: null });
-  const [detail, setDetail] = useState(null);
+
+  // Bộ lọc
+  const [typeFilter, setTypeFilter] = useState([]);
+  const [categoryFilter, setCategoryFilter] = useState([]);
+  const [popularOnly, setPopularOnly] = useState(false);
+  const [page, setPage] = useState(1);
+
+  // Mọi thay đổi bộ lọc/từ khoá đều quay về trang 1 ngay tại nơi thay đổi
+  // (thay vì dùng effect riêng) để tránh cascading render.
+  const toggleInArray = (setFn) => (value) => {
+    setFn((prev) => (prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]));
+    setPage(1);
+  };
+
+  const categories = useMemo(
+    () => [...new Set(services.map((s) => s.categoryName).filter(Boolean))],
+    [services]
+  );
+
+  const handleClearFilters = () => {
+    setTypeFilter([]);
+    setCategoryFilter([]);
+    setPopularOnly(false);
+    setSearch("");
+    setPage(1);
+  };
 
   // Bệnh nhân đặt lịch khám cho dịch vụ lâm sàng → chuyển sang luồng đặt lịch hẹn
   const handleBook = (service) => {
@@ -567,30 +304,33 @@ function ServiceCatalog({ catalogRef, services, loading, role, isAuthenticated, 
     });
   };
 
-  const handlePatientRegister = (service) => setConfirmModal({ open: true, service });
+  const handleOpenCareBook = (service) => setCareBookModal({ open: true, service });
 
-  const handlePatientConfirm = async () => {
-    const { service } = confirmModal;
+  const handleConfirmCareBook = async ({ scheduledDateTime, notes }) => {
+    const { service } = careBookModal;
     setLoadingId(service.id);
     try {
-      await serviceService.register({ serviceId: service.id });
-      message.success(`Đăng ký "${service.serviceName}" thành công! Phòng khám sẽ liên hệ tư vấn sớm.`);
-      onRegistered(service.id);
-      setConfirmModal({ open: false, service: null });
-      setDetail(null);
+      await serviceService.registerAndBookOnline({
+        serviceId: service.id,
+        scheduledDateTime: scheduledDateTime.format("YYYY-MM-DDTHH:mm:ss"),
+        notes: notes || null,
+      });
+      message.success(`Đặt lịch "${service.serviceName}" thành công! Xem chi tiết tại "Dịch vụ của tôi".`);
+      setCareBookModal({ open: false, service: null });
+      navigate("/patient/subscriptions");
     } catch (err) {
-      message.error(err?.response?.data?.message ?? "Đăng ký thất bại, vui lòng thử lại");
+      message.error(err?.response?.data?.message ?? "Đặt lịch thất bại, vui lòng thử lại");
     } finally {
       setLoadingId(null);
     }
   };
 
-  const handleReceptionistConfirm = async ({ patientId, notes }) => {
+  const handleReceptionistConfirm = async (payload) => {
     const { service } = receptionistModal;
     setLoadingId(service.id);
     try {
-      await serviceService.register({ serviceId: service.id, patientId, notes });
-      message.success("Đăng ký dịch vụ cho bệnh nhân thành công!");
+      await submitReceptionistRegistration(service, payload);
+      message.success("Đã đăng ký dịch vụ và đặt buổi đầu tiên cho bệnh nhân!");
       setReceptionistModal({ open: false, service: null });
     } catch (err) {
       message.error(err?.response?.data?.message ?? "Đăng ký thất bại");
@@ -599,25 +339,33 @@ function ServiceCatalog({ catalogRef, services, loading, role, isAuthenticated, 
     }
   };
 
-  // Props cho nút hành động — dùng chung cho card và modal chi tiết
+  // Props cho nút hành động — dùng chung cho card
   const actionProps = (service) => ({
     role,
     isAuthenticated,
-    alreadyPending: pendingIds.has(service.id),
     onBook: handleBook,
-    onPatientRegister: handlePatientRegister,
+    onCareBook: handleOpenCareBook,
     onReceptionistOpen: (svc) => setReceptionistModal({ open: true, service: svc }),
     loading: service.id != null && loadingId === service.id,
   });
 
   // Lọc theo từ khoá: tên / mô tả / danh mục (tìm nhanh khi không nhớ rõ tên)
   const kw = search.trim().toLowerCase();
-  const visible = kw
-    ? services.filter((s) =>
-        [s.serviceName, s.description, s.categoryName]
-          .filter(Boolean)
-          .some((v) => v.toLowerCase().includes(kw)))
-    : services;
+  const filtered = services.filter((s) => {
+    if (kw) {
+      const matchKw = [s.serviceName, s.description, s.categoryName]
+        .filter(Boolean)
+        .some((v) => v.toLowerCase().includes(kw));
+      if (!matchKw) return false;
+    }
+    if (typeFilter.length > 0 && !typeFilter.includes(s.serviceType)) return false;
+    if (categoryFilter.length > 0 && !categoryFilter.includes(s.categoryName)) return false;
+    if (popularOnly && !s.isPopular) return false;
+    return true;
+  });
+
+  const totalFiltered = filtered.length;
+  const visible = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <section ref={catalogRef} style={{ backgroundColor: "#f8fafc", padding: "64px 0", fontFamily: font }}>
@@ -638,7 +386,7 @@ function ServiceCatalog({ catalogRef, services, loading, role, isAuthenticated, 
               allowClear
               placeholder="Tìm dịch vụ theo từ khoá..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               prefix={<SearchOutlined style={{ color: C.textMuted }} />}
               style={{ width: 280, borderRadius: 8 }}
             />
@@ -666,68 +414,73 @@ function ServiceCatalog({ catalogRef, services, loading, role, isAuthenticated, 
           </div>
         </div>
 
-        {/* Cards */}
-        {loading ? (
-          <div style={{ textAlign: "center", padding: "60px 0" }}>
-            <Spin size="large" />
-          </div>
-        ) : visible.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "60px 0", color: C.textMuted, fontSize: 15 }}>
-            {kw ? `Không tìm thấy dịch vụ nào khớp "${search}".` : "Hiện chưa có dịch vụ nào."}
-          </div>
-        ) : (
-          <div
-            style={
-              isListMode
-                ? { display: "flex", flexDirection: "column", gap: 20 }
-                : { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }
-            }
-          >
-            {visible.map((s, i) => (
-              <ServiceCard
-                key={s.id ?? i}
-                service={s}
-                isListMode={isListMode}
-                onOpenDetail={setDetail}
-                actionProps={actionProps}
-              />
-            ))}
-          </div>
-        )}
-      </div>
+        {/* Bộ lọc + Cards */}
+        <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
+          <FilterSidebar
+            categories={categories}
+            typeFilter={typeFilter}
+            onToggleType={toggleInArray(setTypeFilter)}
+            categoryFilter={categoryFilter}
+            onToggleCategory={toggleInArray(setCategoryFilter)}
+            popularOnly={popularOnly}
+            onTogglePopular={() => { setPopularOnly((v) => !v); setPage(1); }}
+            onClear={handleClearFilters}
+          />
 
-      {/* Modal chi tiết */}
-      <DetailModal service={detail} onClose={() => setDetail(null)} actionProps={actionProps} />
-
-      {/* Patient confirm modal */}
-      <Modal
-        open={confirmModal.open}
-        title={<span style={{ fontFamily: font, fontWeight: 700 }}>Xác nhận đăng ký dịch vụ</span>}
-        onCancel={() => setConfirmModal({ open: false, service: null })}
-        okText="Đăng ký ngay"
-        cancelText="Hủy"
-        okButtonProps={{
-          loading: loadingId === confirmModal.service?.id,
-          style: { backgroundColor: C.primary, borderColor: C.primary },
-        }}
-        onOk={handlePatientConfirm}
-      >
-        <div style={{ fontFamily: font }}>
-          <p style={{ color: C.textSub, fontSize: 14 }}>Bạn muốn đăng ký gói dịch vụ:</p>
-          <div style={{ backgroundColor: C.primaryLight, border: `1px solid ${C.primaryBorder}`, borderRadius: 10, padding: "14px 18px", marginTop: 8 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, color: C.text }}>{confirmModal.service?.serviceName}</div>
-            {confirmModal.service?.price && (
-              <div style={{ color: C.primary, fontWeight: 700, marginTop: 4 }}>
-                {formatPrice(confirmModal.service.price)}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {loading ? (
+              <div style={{ textAlign: "center", padding: "60px 0" }}>
+                <Spin size="large" />
               </div>
+            ) : totalFiltered === 0 ? (
+              <div style={{ textAlign: "center", padding: "60px 0", color: C.textMuted, fontSize: 15 }}>
+                {kw ? `Không tìm thấy dịch vụ nào khớp "${search}".` : "Không có dịch vụ nào khớp bộ lọc đã chọn."}
+              </div>
+            ) : (
+              <>
+                <div
+                  style={
+                    isListMode
+                      ? { display: "flex", flexDirection: "column", gap: 20 }
+                      : { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }
+                  }
+                >
+                  {visible.map((s, i) => (
+                    <ServiceCard
+                      key={s.id ?? i}
+                      service={s}
+                      isListMode={isListMode}
+                      onOpenDetail={(svc) => svc.id && navigate(`/services/${svc.id}`)}
+                      actionProps={actionProps}
+                    />
+                  ))}
+                </div>
+
+                {totalFiltered > PAGE_SIZE && (
+                  <div style={{ display: "flex", justifyContent: "center", marginTop: 36 }}>
+                    <Pagination
+                      current={page}
+                      pageSize={PAGE_SIZE}
+                      total={totalFiltered}
+                      onChange={setPage}
+                      showSizeChanger={false}
+                    />
+                  </div>
+                )}
+              </>
             )}
           </div>
-          <p style={{ color: C.textSub, fontSize: 13, marginTop: 14, lineHeight: 1.6 }}>
-            Sau khi đăng ký, đội ngũ phòng khám sẽ liên hệ với bạn để tư vấn và sắp xếp lịch hẹn phù hợp.
-            Đăng ký này sẽ xuất hiện trong "Dịch vụ của tôi" ở trạng thái <strong>Chờ liên hệ tư vấn</strong>.
-          </p>
         </div>
-      </Modal>
+      </div>
+
+      {/* Bệnh nhân: đặt lịch ngay cho gói chăm sóc */}
+      <CareBookingModal
+        open={careBookModal.open}
+        service={careBookModal.service}
+        onClose={() => setCareBookModal({ open: false, service: null })}
+        onConfirm={handleConfirmCareBook}
+        loading={loadingId === careBookModal.service?.id}
+      />
 
       {/* Receptionist modal */}
       <ReceptionistModal
@@ -749,8 +502,6 @@ export default function ServicePackagesPage() {
 
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
-  // serviceId mà bệnh nhân đang có đăng ký chờ tư vấn (PENDING) — chặn đăng ký trùng
-  const [pendingIds, setPendingIds] = useState(new Set());
 
   useEffect(() => {
     serviceService
@@ -759,24 +510,6 @@ export default function ServicePackagesPage() {
       .catch(() => setServices([]))
       .finally(() => setLoading(false));
   }, []);
-
-  // Bệnh nhân: lấy các đăng ký đang chờ tư vấn để khoá nút "Đăng ký ngay"
-  useEffect(() => {
-    if (isAuthenticated && role === "PATIENT") {
-      serviceService
-        .getMyRegistrations()
-        .then((res) => {
-          const ids = (res.data ?? [])
-            .filter((r) => r.status === "PENDING")
-            .map((r) => r.serviceId);
-          setPendingIds(new Set(ids));
-        })
-        .catch(() => {});
-    }
-  }, [isAuthenticated, role]);
-
-  const markPending = (serviceId) =>
-    setPendingIds((prev) => new Set(prev).add(serviceId));
 
   return (
     <div style={{ fontFamily: font, color: C.text }}>
@@ -789,8 +522,6 @@ export default function ServicePackagesPage() {
         loading={loading}
         role={role}
         isAuthenticated={isAuthenticated}
-        pendingIds={pendingIds}
-        onRegistered={markPending}
       />
     </div>
   );

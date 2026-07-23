@@ -25,13 +25,7 @@ public class DoctorController {
     public ResponseEntity<ApiResponse<List<DoctorResponse>>> getAllDoctors() {
         List<DoctorResponse> doctors = doctorRepository.findAll()
                 .stream()
-                .map(d -> DoctorResponse.builder()
-                        .id(d.getId())
-                        .fullName(d.getFullName())
-                        .specialization(d.getSpecialization())
-                        .phone(d.getPhone())
-                        .email(d.getEmail())
-                        .build())
+                .map(this::toResponse)
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(ApiResponse.success(doctors));
