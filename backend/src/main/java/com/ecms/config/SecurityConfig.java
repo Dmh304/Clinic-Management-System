@@ -135,6 +135,8 @@ public class SecurityConfig {
                                                 // ══════════════════════════════════════════════════════════════════
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/doctors")
                                                 .permitAll()
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/doctors/*")
+                                                .permitAll()
 
                                                 // ══════════════════════════════════════════════════════════════════
                                                 // ── Users: link hủy đăng ký email khuyến mãi — public ─────────────
@@ -224,6 +226,23 @@ public class SecurityConfig {
                                                 .requestMatchers(HttpMethod.PATCH, "/api/v1/services/packages/**")
                                                 .hasAnyRole("MANAGER", "ADMIN")
                                                 .requestMatchers(HttpMethod.DELETE, "/api/v1/services/packages/**")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+
+                                                // ══════════════════════════════════════════════════════════════════
+                                                // ── Blogs ─────────────────────────────────────────────────────────
+                                                // ══════════════════════════════════════════════════════════════════
+                                                // Manager routes FIRST (more specific), public GET routes after
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/blogs/manager")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/blogs",
+                                                                "/api/v1/blogs/categories",
+                                                                "/api/v1/blogs/{id:[0-9]+}")
+                                                .permitAll()
+                                                .requestMatchers(HttpMethod.POST, "/api/v1/blogs")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers(HttpMethod.PUT, "/api/v1/blogs/**")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers(HttpMethod.DELETE, "/api/v1/blogs/**")
                                                 .hasAnyRole("MANAGER", "ADMIN")
 
                                                 // ══════════════════════════════════════════════════════════════════
@@ -396,7 +415,13 @@ public class SecurityConfig {
                                                 // ── Doctors list: public ───────────────────────────────────────
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/doctors")
                                                 .permitAll()
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/doctors/*")
+                                                .permitAll()
                                                 .requestMatchers(HttpMethod.PATCH, "/api/v1/doctors/*/avatar")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers(HttpMethod.PATCH, "/api/v1/doctors/*/featured")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers(HttpMethod.PATCH, "/api/v1/doctors/*")
                                                 .hasAnyRole("MANAGER", "ADMIN")
 
                                                 // (Appointments: đã gộp toàn bộ rule vào khối duy nhất phía trên —
