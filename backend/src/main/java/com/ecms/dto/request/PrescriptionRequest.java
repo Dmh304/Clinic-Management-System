@@ -1,4 +1,6 @@
-// DucTKH
+//Author: DucTKH - HE204463
+//Created: 2026-06-01
+//Last Update: 2026-06-25
 // DTO chứa danh sách các loại thuốc và thông tin chung của Đơn thuốc do Frontend gửi lên.
 package com.ecms.dto.request;
 
