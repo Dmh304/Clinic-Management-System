@@ -1,3 +1,8 @@
+/*
+ * Author: DucTKH - HE204463
+ * Created: 2026-06-22
+ * Last Update: 2026-07-22
+ */
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Tag, Space, message, Modal, Typography, Card, Spin, Select, Form, Input } from 'antd';
 import { CheckOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
@@ -12,18 +17,18 @@ export default function ReceptionistOrderPage() {
     const { token } = useSelector(s => s.auth);
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(false);
-    
+
     // Modals visibility
     const [detailModalVisible, setDetailModalVisible] = useState(false);
     const [createModalVisible, setCreateModalVisible] = useState(false);
     const [updateModalVisible, setUpdateModalVisible] = useState(false);
-    
+
     // States for data
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [prescriptionDetails, setPrescriptionDetails] = useState(null);
     const [fetchingDetails, setFetchingDetails] = useState(false);
     const [pendingPrescriptions, setPendingPrescriptions] = useState([]);
-    
+
     // For Update Order
     const [frames, setFrames] = useState([]);
     const [coatings, setCoatings] = useState([]);
@@ -40,11 +45,7 @@ export default function ReceptionistOrderPage() {
     const fetchOrders = async () => {
         setLoading(true);
         try {
-            // Lấy tất cả đơn hàng thay vì chỉ pending để có thể quản lý trọn vẹn CRUD
-            // Hoặc có thể gọi API findAll nếu có, ở đây tôi tạm gọi /pending
-            // Nếu bạn có API get all, hãy dùng nó. Tạm thời dùng axiosClient.get('/eyeglass-orders')
-            // Nhưng hiện tại backend chưa có GET /api/eyeglass-orders (findAll) public cho receptionist.
-            // Dùng getPendingOrders tạm thời, hoặc update backend. Ở đây dùng API /pending
+            // Lấy tất cả đơn hàng thay vì chỉ pending để có thể quản lý
             const res = await axios.get('http://localhost:8080/api/eyeglass-orders/pending', {
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -70,7 +71,8 @@ export default function ReceptionistOrderPage() {
     const fetchPendingPrescriptions = async () => {
         try {
             const res = await axiosClient.get('/v1/eyeglass-prescriptions/pending');
-            setPendingPrescriptions(res.data || []);
+            const validPrescriptions = (res.data || []).filter(p => !p.isExpired && !p.hasNewer);
+            setPendingPrescriptions(validPrescriptions);
         } catch (error) {
             message.error('Lỗi tải toa kính');
         }
@@ -152,14 +154,11 @@ export default function ReceptionistOrderPage() {
     };
 
     const openUpdateModal = () => {
-        // Find existing frame and coatings
         const frame = frames.find(f => f.name === selectedOrder?.frameName);
-        
+
         updateForm.setFieldsValue({
             frameId: frame?.id,
-            // We'd need coating IDs. Since selectedOrder only has names, this is tricky.
-            // A quick fix for now: let receptionist reselect them.
-            coatingIds: [] 
+            coatingIds: []
         });
         setUpdateModalVisible(true);
     };
@@ -189,11 +188,13 @@ export default function ReceptionistOrderPage() {
         { title: 'Mã đơn', dataIndex: 'id', key: 'id' },
         { title: 'Bệnh nhân', dataIndex: 'patientName', key: 'patientName' },
         { title: 'Tổng tiền', dataIndex: 'totalAmount', key: 'totalAmount', render: val => (val || 0).toLocaleString('vi-VN') + ' đ' },
-        { title: 'Trạng thái', dataIndex: 'status', key: 'status', render: val => (
-            <Tag color={val === 'PENDING_CONFIRMATION' ? 'orange' : 'blue'}>
-                {val === 'PENDING_CONFIRMATION' ? 'Chờ xác nhận cọc' : 'Đang xử lý'}
-            </Tag>
-        )},
+        {
+            title: 'Trạng thái', dataIndex: 'status', key: 'status', render: val => (
+                <Tag color={val === 'PENDING_CONFIRMATION' ? 'orange' : 'blue'}>
+                    {val === 'PENDING_CONFIRMATION' ? 'Chờ xác nhận cọc' : 'Đang xử lý'}
+                </Tag>
+            )
+        },
         { title: 'Ngày tạo', dataIndex: 'createdAt', key: 'createdAt', render: val => new Date(val).toLocaleString('vi-VN') },
         {
             title: 'Thao tác',
@@ -258,6 +259,8 @@ export default function ReceptionistOrderPage() {
                     <div>
                         <Card size="small" title="Thông tin chung" style={{ marginBottom: 16 }}>
                             <p><b>Bệnh nhân:</b> {selectedOrder?.patientName}</p>
+                            <p><b>SĐT:</b> {selectedOrder?.patientPhone || 'Chưa cập nhật'} - <b>Giới tính:</b> {selectedOrder?.patientGender === 'MALE' ? 'Nam' : selectedOrder?.patientGender === 'FEMALE' ? 'Nữ' : 'Chưa cập nhật'} - <b>Năm sinh:</b> {selectedOrder?.patientDob ? new Date(selectedOrder.patientDob).getFullYear() : 'Chưa cập nhật'}</p>
+                            <p><b>Địa chỉ:</b> {selectedOrder?.patientAddress || 'Chưa cập nhật'}</p>
                             <p><b>Gọng kính:</b> {selectedOrder?.frameName || 'Không có'}</p>
                             <p><b>Lớp phủ:</b> {selectedOrder?.coatings?.join(', ') || 'Không có'}</p>
                             <p><b>Tổng tiền cọc (Tạm tính):</b> <span style={{ color: '#1677ff', fontWeight: 'bold' }}>{(selectedOrder?.totalAmount || 0).toLocaleString('vi-VN')} đ</span></p>
@@ -266,7 +269,7 @@ export default function ReceptionistOrderPage() {
                         {prescriptionDetails && (
                             <Card size="small" title="Chi tiết toa kính (Thông số mài lắp)" style={{ marginBottom: 16 }}>
                                 <p><b>Loại tròng kính:</b> {prescriptionDetails.lensTypeName} - <b>Giá:</b> {(prescriptionDetails.lensTypePrice || 0).toLocaleString('vi-VN')} đ</p>
-                                <Table 
+                                <Table
                                     dataSource={[
                                         { key: 'OD', eye: 'Mắt phải (OD)', sph: prescriptionDetails.odSph, cyl: prescriptionDetails.odCyl, ax: prescriptionDetails.odAxis, add: prescriptionDetails.odAdd },
                                         { key: 'OS', eye: 'Mắt trái (OS)', sph: prescriptionDetails.osSph, cyl: prescriptionDetails.osCyl, ax: prescriptionDetails.osAxis, add: prescriptionDetails.osAdd }
@@ -330,9 +333,9 @@ export default function ReceptionistOrderPage() {
                 confirmLoading={updating}
             >
                 <Form form={updateForm} layout="vertical" onFinish={handleUpdateOrder}>
-                    <Form.Item 
-                        label="Gọng kính" 
-                        name="frameId" 
+                    <Form.Item
+                        label="Gọng kính"
+                        name="frameId"
                         rules={[{ required: true, message: 'Vui lòng chọn gọng kính' }]}
                     >
                         <Select placeholder="Chọn Gọng kính mới">

@@ -1,13 +1,11 @@
 /** Author: Tuấn - HE204215
+ * Author: DucTKH - HE204463
+ * Created: 2026-06-01
+ * Last Update: 2026-07-17
  * 
  * File này chứa các hàm gọi API (Service) liên quan đến quản lý Lịch hẹn và Hàng đợi
  * Hỗ trợ các thao tác như: lấy danh sách lịch hẹn, cập nhật trạng thái, xác nhận, check-in, và lấy dữ liệu dashboard
 */
-/**
- * Service: appointmentService
- * Chứa danh sách các hàm gọi API liên quan đến nghiệp vụ Lịch hẹn (Appointments).
- * DucTKHHE204463
- */
 
 import axiosClient from '../api/axiosClient'
 

@@ -1,4 +1,6 @@
-// DucTKH
+//Author: DucTKH - HE204463
+//Created: 2026-06-01
+//Last Update: 2026-07-21
 // Entity đại diện cho bảng prescriptions trong cơ sở dữ liệu.
 // Lưu trữ thông tin một đơn thuốc chung, được liên kết với một hồ sơ bệnh án (MedicalRecord).
 package com.ecms.entity;

@@ -1,4 +1,6 @@
-// DucTKH
+//Author: DucTKH - HE204463
+//Created: 2026-06-01
+//Last Update: 2026-06-25
 // Repository cho Entity Medicine, thực hiện các truy vấn cơ sở dữ liệu liên quan đến Thuốc.
 package com.ecms.repository;
 

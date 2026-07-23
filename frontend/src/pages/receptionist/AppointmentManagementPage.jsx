@@ -6,6 +6,8 @@
  *  - Tuần/Tháng: lưới lịch chỉ để xem (fetch qua /schedule-range), không thao tác.
  *  - Click 1 lịch hẹn ở mọi chế độ -> mở modal chi tiết (read-only).
  * DucTKHHE204463 / Le Thi Bich Ngan - HE204710
+ *Created: 2026-06-01
+ *Last Update: 2026-07-20
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -33,11 +35,11 @@ import AppointmentDetailModal from '../../components/receptionist/AppointmentDet
 
 // Trạng thái buổi khám dịch vụ (care session) — khác vòng đời với lịch hẹn khám bác sĩ
 const CARE_SESSION_STATUS_CONFIG = {
-  BOOKED:      { color: 'gold',       label: 'Chờ khám' },
+  BOOKED: { color: 'gold', label: 'Chờ khám' },
   IN_PROGRESS: { color: 'processing', label: 'Đang khám' },
-  COMPLETED:   { color: 'green',      label: 'Hoàn thành' },
-  CHECKED_OUT: { color: 'default',    label: 'Đã check-out' },
-  CANCELLED:   { color: 'red',        label: 'Đã hủy' },
+  COMPLETED: { color: 'green', label: 'Hoàn thành' },
+  CHECKED_OUT: { color: 'default', label: 'Đã check-out' },
+  CANCELLED: { color: 'red', label: 'Đã hủy' },
 }
 
 // Chuyển 1 buổi khám dịch vụ (care session) về dạng hàng bảng dùng chung với lịch hẹn khám bác sĩ,
@@ -78,22 +80,22 @@ function getStatusBucket(record) {
 
 // Cấu hình màu/nhãn cho Tag trạng thái trong bảng (chế độ Ngày)
 const STATUS_CONFIG = {
-  PENDING:     { color: 'gold',       label: 'Chờ xác nhận' },
-  CONFIRMED:   { color: 'blue',       label: 'Đã xác nhận' },
-  WAITING:     { color: 'cyan',       label: 'Chờ khám' },
+  PENDING: { color: 'gold', label: 'Chờ xác nhận' },
+  CONFIRMED: { color: 'blue', label: 'Đã xác nhận' },
+  WAITING: { color: 'cyan', label: 'Chờ khám' },
   IN_PROGRESS: { color: 'processing', label: 'Đang khám' },
-  COMPLETED:   { color: 'green',      label: 'Hoàn thành' },
-  CANCELLED:   { color: 'red',        label: 'Đã hủy' },
+  COMPLETED: { color: 'green', label: 'Hoàn thành' },
+  CANCELLED: { color: 'red', label: 'Đã hủy' },
 }
 
 // Màu nền/chữ cho chip lịch hẹn trong lưới Tuần/Tháng
 const STATUS_INFO = {
-  PENDING:     { label: 'Chờ',          color: '#d97706', bg: '#fef3c7' },
-  CONFIRMED:   { label: 'Đã xác nhận',  color: '#2563eb', bg: '#dbeafe' },
-  WAITING:     { label: 'Đang chờ khám', color: '#7c3aed', bg: '#ede9fe' },
-  IN_PROGRESS: { label: 'Đang khám',    color: '#ea580c', bg: '#ffedd5' },
-  COMPLETED:   { label: 'Hoàn thành',   color: '#16a34a', bg: '#dcfce7' },
-  CANCELLED:   { label: 'Đã huỷ',       color: '#dc2626', bg: '#fee2e2' },
+  PENDING: { label: 'Chờ', color: '#d97706', bg: '#fef3c7' },
+  CONFIRMED: { label: 'Đã xác nhận', color: '#2563eb', bg: '#dbeafe' },
+  WAITING: { label: 'Đang chờ khám', color: '#7c3aed', bg: '#ede9fe' },
+  IN_PROGRESS: { label: 'Đang khám', color: '#ea580c', bg: '#ffedd5' },
+  COMPLETED: { label: 'Hoàn thành', color: '#16a34a', bg: '#dcfce7' },
+  CANCELLED: { label: 'Đã huỷ', color: '#dc2626', bg: '#fee2e2' },
 }
 
 // Giờ làm việc phòng khám — đồng bộ với backend CLINIC_OPEN_TIME/CLINIC_CLOSE_TIME
@@ -206,7 +208,7 @@ export default function AppointmentManagementPage() {
 
   // Tải danh sách bác sĩ một lần khi mount
   useEffect(() => {
-    doctorService.getAllDoctors().then((res) => setDoctors(res.data)).catch(() => {})
+    doctorService.getAllDoctors().then((res) => setDoctors(res.data)).catch(() => { })
   }, [])
 
   // Tải lịch hẹn + thống kê của ngày đang chọn (chế độ Ngày)
@@ -823,7 +825,7 @@ export default function AppointmentManagementPage() {
       )}
 
       {/* Modal xác nhận + phân công bác sĩ (chế độ Ngày) */}
-      
+
 
       {/* Modal xác nhận + phân công bác sĩ (chế độ Ngày) */}
       <Modal

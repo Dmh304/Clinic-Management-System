@@ -1,4 +1,6 @@
-// DucTKH
+//Author: DucTKH - HE204463
+//Created: 2026-06-01
+//Last Update: 2026-07-21
 // Entity đại diện cho bảng invoices trong cơ sở dữ liệu.
 // Dùng để lưu trữ thông tin hóa đơn (bao gồm tiền khám, tiền thuốc, v.v.).
 package com.ecms.entity;

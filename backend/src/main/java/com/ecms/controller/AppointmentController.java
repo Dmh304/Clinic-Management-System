@@ -166,6 +166,7 @@ public class AppointmentController {
                                 ApiResponse.success(appointmentService.getAvailableSlots(doctorId, date)));
         }
 
+        // DucTKH: Tạo lịch hẹn trực tiếp tại quầy (Walk-in) cho bệnh nhân (UC-15).
         @PostMapping("/walk-in")
         public ResponseEntity<ApiResponse<AppointmentResponse>> createWalkInAppointment(
                         @Valid @RequestBody WalkInAppointmentRequest request) {
