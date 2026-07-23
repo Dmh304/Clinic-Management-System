@@ -1,4 +1,6 @@
-// DucTKH
+//Author: DucTKH - HE204463
+//Created: 2026-06-01
+//Last Update: 2026-07-01
 // Entity đại diện cho bảng medicines trong cơ sở dữ liệu.
 // Dùng để lưu trữ thông tin về các loại thuốc có thể kê đơn.
 package com.ecms.entity;

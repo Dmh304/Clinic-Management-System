@@ -1,4 +1,6 @@
-// DucTKH
+//Author: DucTKH - HE204463
+//Created: 2026-06-01
+//Last Update: 2026-07-17
 // Repository cho Entity InvoiceItem, hỗ trợ các thao tác truy xuất chi tiết hóa đơn từ database.
 package com.ecms.repository;
 

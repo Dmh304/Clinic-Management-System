@@ -1,3 +1,6 @@
+//Author: DucTKH - HE204463
+//Created: 2026-06-01
+//Last Update: 2026-07-01
 package com.ecms.entity;
 
 import jakarta.persistence.*;
