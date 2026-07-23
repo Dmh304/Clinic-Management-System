@@ -54,8 +54,8 @@ public class EyeglassPrescriptionRequest {
     @DecimalMax(value = "90.0", message = "Khoảng cách đồng tử (PD) quá lớn, không hợp lý")
     private BigDecimal pd;
 
-    @NotNull(message = "Thiếu loại tròng kính")
-    private String lensType;
+    @NotNull(message = "Thiếu ID loại tròng kính")
+    private Long lensTypeId;
 
     private String notes;
 }

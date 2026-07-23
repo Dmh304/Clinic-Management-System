@@ -50,9 +50,10 @@ public class PrescriptionController {
     @PatchMapping("/{id}/dispense")
     public ResponseEntity<ApiResponse<PrescriptionResponse>> dispensePrescription(
             @PathVariable Long id,
-            @RequestBody(required = false) @Valid DispenseRequest request) {
-        // DucTKH: Gọi tầng Service để xử lý logic phát thuốc (kèm theo số lượng thực tế dược sĩ nhập)
-        PrescriptionResponse response = prescriptionService.dispensePrescription(id, request);
+            @RequestBody(required = false) @Valid DispenseRequest request,
+            Authentication authentication) {
+        String dispenserName = authentication != null ? authentication.getName() : "Unknown";
+        PrescriptionResponse response = prescriptionService.dispensePrescription(id, request, dispenserName);
         return ResponseEntity.ok(ApiResponse.success("Phát thuốc thành công", response));
     }
 
@@ -70,5 +71,16 @@ public class PrescriptionController {
         // DucTKH: Gọi tầng Service để xóa đơn thuốc khỏi cơ sở dữ liệu
         prescriptionService.deletePrescription(id);
         return ResponseEntity.ok(ApiResponse.success("Xóa đơn thuốc thành công", null));
+    }
+
+    // Xuất file PDF Đơn thuốc
+    @GetMapping("/{id}/pdf")
+    public ResponseEntity<byte[]> downloadPdf(@PathVariable Long id, @RequestParam(defaultValue = "false") boolean hideSignature) {
+        byte[] pdf = prescriptionService.generatePrescriptionPdf(id, hideSignature);
+        String filename = "don-thuoc-" + id + ".pdf";
+        return ResponseEntity.ok()
+                .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
+                .body(pdf);
     }
 }

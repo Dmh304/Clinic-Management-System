@@ -77,6 +77,28 @@ const NAV_ITEMS = [
       </svg>
     ),
   },
+  {
+    label: 'Quản lý Đơn Kính',
+    to: '/receptionist/eyeglass-orders',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="10" cy="14" r="4" />
+        <circle cx="22" cy="14" r="4" />
+        <path d="M14 14h4" />
+        <path d="M12.5 10.5 10 10l-2.5.5" />
+        <path d="M21.5 10.5 24 10l2.5.5" />
+      </svg>
+    ),
+  },
+  {
+    label: 'Hỗ trợ trực tuyến',
+    to: '/receptionist/support',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      </svg>
+    ),
+  },
 ]
 
 export default function ReceptionistLayout() {
@@ -176,7 +198,7 @@ export default function ReceptionistLayout() {
               {user?.fullName ?? user?.email}
             </span>
             {/* UC-13: chuông thông báo cạnh tên người dùng */}
-            <NotificationBell viewAllPath="/receptionist/notifications" />
+            <NotificationBell viewAllPath="/receptionist/notifications" align="left" />
           </div>
 
           <button

@@ -17,6 +17,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * UC-48: Bệnh nhân gửi và xem đánh giá của mình.
@@ -39,6 +40,16 @@ public class FeedbackController {
         Long patientId = resolvePatientId(userDetails);
         return ResponseEntity.ok(ApiResponse.success(
                 feedbackService.submitFeedback(patientId, request)));
+    }
+
+    // Thông tin buổi khám + người tham gia (bác sĩ, lễ tân, KTV) để hiển thị khi đánh giá
+    @GetMapping("/appointment/{appointmentId}/participants")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> participants(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long appointmentId) {
+        Long patientId = resolvePatientId(userDetails);
+        return ResponseEntity.ok(ApiResponse.success(
+                feedbackService.getVisitParticipants(patientId, appointmentId)));
     }
 
     // Danh sách đánh giá đã gửi của bệnh nhân đang đăng nhập
