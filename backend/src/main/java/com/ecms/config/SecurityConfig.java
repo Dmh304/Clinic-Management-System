@@ -167,8 +167,9 @@ public class SecurityConfig {
                                                 .hasAnyRole("MANAGER", "ADMIN")
 
                                                 // ── Available slots ────────────────────────────────────────────
+                                                // MANAGER cần xem khung giờ trống khi chuyển lịch hẹn (reassign)
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/appointments/available-slots")
-                                                .hasAnyRole("PATIENT", "ADMIN", "RECEPTIONIST", "DOCTOR")
+                                                .hasAnyRole("PATIENT", "ADMIN", "RECEPTIONIST", "DOCTOR", "MANAGER")
                                                 .requestMatchers(HttpMethod.POST, "/api/v1/appointments/book")
                                                 .hasAnyRole("PATIENT", "ADMIN", "RECEPTIONIST")
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/appointments/my")

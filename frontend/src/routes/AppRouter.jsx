@@ -87,6 +87,7 @@ import ManageDoctorsPage from '../pages/manager/ManageDoctorsPage'
 import ManageDiscountCampaignsPage from '../pages/manager/ManageDiscountCampaignsPage'
 import AssignNursePage from '../pages/manager/AssignNursePage'
 import ReassignAppointmentPage from '../pages/manager/ReassignAppointmentPage'
+import ReassignAppointmentDetailPage from '../pages/manager/ReassignAppointmentDetailPage'
 import RoomManagementPage from '../pages/manager/RoomManagementPage'
 import RoomRosterPage from '../pages/manager/RoomRosterPage'
 
@@ -227,6 +228,7 @@ export default function AppRouter() {
           <Route path="/manager/discount-campaigns" element={<ManageDiscountCampaignsPage />} />
           <Route path="/manager/assign-nurse" element={<AssignNursePage />} />
           <Route path="/manager/reassign-appointment" element={<ReassignAppointmentPage />} />
+          <Route path="/manager/reassign-appointment/:appointmentId" element={<ReassignAppointmentDetailPage />} />
           <Route path="/manager/daily-schedule" element={<DailySchedulePage />} />
           <Route path="/manager/rooms" element={<RoomManagementPage />} />
           <Route path="/manager/room-roster" element={<RoomRosterPage />} />

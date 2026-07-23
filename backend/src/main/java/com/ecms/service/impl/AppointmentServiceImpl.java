@@ -1184,6 +1184,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                 return AppointmentResponse.builder()
                                 .id(a.getId())
                                 .patientId(patient != null ? patient.getId() : null)
+                                .patientCode(patient != null ? patient.getPatientCode() : null)
                                 .patientName(patient != null ? patient.getFullName() : null)
                                 .patientPhone(patient != null ? patient.getPhone() : null)
                                 .patientGender(patient != null ? patient.getGender() : null)
