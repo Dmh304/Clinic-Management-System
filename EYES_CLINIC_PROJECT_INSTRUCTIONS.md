@@ -201,6 +201,8 @@ The system interacts with 7 user actors (Patient, Receptionist, Doctor, Lab Tech
 | UC-52 | Generate Feedback Report | Clinic Manager |
 | UC-53 | Approve Payroll | Clinic Manager |
 | UC-54 | Manage Lab Test Catalogue | Clinic Manager |
+| UC-58 | Manage Room Catalogue & Service Mapping | Clinic Manager |
+| UC-59 | Manage Staff Room Roster | Clinic Manager |
 
 **9. System Admin & Security**
 
@@ -299,6 +301,7 @@ The following Business Rules must be enforced at both layers: Frontend validatio
 | BR-21 | Patient Experience | One Feedback | Maximum one feedback per appointment. Related: UC-47. |
 | BR-22 | Scheduling | Reschedule Restriction | Only PENDING or CONFIRMED appointments can be rescheduled. Related: UC-12a. |
 | BR-23 | Scheduling | Reschedule Reset | Rescheduled appointments reset status to PENDING. Related: UC-12a. |
+| BR-24 | Facility / Scheduling | Staff Room Assignment | Each room maps to exactly one service category; a Care & Recovery room holds at most 1 assigned staff member per day. Standing assignments persist day-to-day until the Clinic Manager changes them. Related: UC-58, UC-59. |
 
 > ✅ **Implementation note (2026-06-28):** `BOOKING_LEAD_TIME_MINUTES` in `AppointmentServiceImpl` is set to 120 minutes, matching BR-04 exactly.
 
@@ -1476,6 +1479,48 @@ The following Business Rules must be enforced at both layers: Frontend validatio
 - **Business Rules:** BR-09
 - **Assumptions:** Reuses the existing `services` table (`is_lab_service` flag) rather than a separate schema; ownership shifted from Admin (UC-56) to Clinic Manager for this catalogue subset.
 - **Relations to other UCs:** Consumed by UC-29; complements UC-56 and UC-42.
+
+#### UC-58: Manage Room Catalogue & Service Mapping
+- **Primary Actor:** Clinic Manager
+- **Secondary Actors:** System
+- **Trigger:** Clinic Manager navigates to 'Room Management'.
+- **Description:** The Clinic Manager maintains the catalogue of physical rooms (Clinical Exam, Surgery, Care & Recovery, Lab/Imaging) and maps each room to the service(s) or lab/imaging test type(s) it is equipped to deliver. A service or test type may have several rooms (e.g., Room A/B/C all serving 'General Eye Exam'); each room serves exactly one service category at a time. This catalogue is the static reference other flows use to resolve which room an appointment, care session, or lab order belongs to.
+- **Preconditions:** PRE-1: Manager authenticated. PRE-2: The service/test type being mapped already exists (UC-42 or UC-54).
+- **Postconditions:** POST-1: Room created/updated/deactivated. POST-2: Room-to-service (or room-to-test-type) mapping persisted. POST-3: Change immediately available to UC-59 and to room resolution in UC-11/UC-19/UC-29. POST-4: Event logged.
+- **Normal Flow:**
+  1. Manager navigates to 'Room Management'.
+  2. System lists existing rooms grouped by category, with mapped service(s)/test type(s) and capacity.
+  3. Manager clicks 'Add New Room' (or selects an existing room to edit).
+  4. Manager enters room name/code, category, capacity (default 1 for Care & Recovery rooms), and selects the service(s)/test type(s) the room serves.
+  5. System validates required fields and that at least one service/test type is mapped.
+  6. Manager saves; system creates/updates the room and its mapping.
+  7. The updated room is immediately selectable in UC-59 and usable for room resolution in booking flows.
+- **Alternative Flows:** ALT-1 — Deactivate a room: status = INACTIVE; that day's existing roster/assignments for the room are flagged for Manager reassignment, and it is hidden from new selection. ALT-2 — One service/test type mapped to multiple rooms (e.g., A/B/C): Manager adds each room individually with the same service mapping.
+- **Exceptions:** E-1 — No service/test type selected: blocks save. E-2 — Duplicate room name within the same category: blocks save, highlights field.
+- **Priority:** Should Have | **Frequency:** Occasional; during facility setup or service-line changes
+- **Business Rules:** BR-09 (No Hard Delete), BR-24 (Staff Room Assignment)
+- **Assumptions:** Net-new `rooms` table and room-service mapping table; no existing entity reused. Capacity for Care & Recovery rooms fixed at 1 staff/patient per the clinic's operating model.
+- **Relations to other UCs:** Precondition for UC-59; consumed by room-resolution logic added to UC-11, UC-19, and UC-29/UC-33.
+
+#### UC-59: Manage Staff Room Roster
+- **Primary Actor:** Clinic Manager
+- **Secondary Actors:** Doctor / Nurse / Lab Technician (notified), System
+- **Trigger:** Clinic Manager opens 'Room Roster' to assign on-duty staff to rooms for a given work day.
+- **Description:** The Clinic Manager assigns each on-duty Doctor, Nurse, or Lab Technician to one room from the catalogue (UC-58) for a given day. An assignment persists unchanged on subsequent days until the Manager explicitly changes it, so staff normally keep the same room day to day unless reassigned. Once assigned, the staff member's room is used to resolve the room for their appointments/care sessions/lab orders that day.
+- **Preconditions:** PRE-1: Manager authenticated. PRE-2: Room catalogue (UC-58) has at least one active room matching the staff member's service category. PRE-3: Staff member is rostered/on duty for the selected day.
+- **Postconditions:** POST-1: Staff-room assignment (staff_id, room_id, work_date) created/updated. POST-2: Assignment carries forward to future days until changed. POST-3: Affected staff notified of a new or changed room. POST-4: Event logged.
+- **Normal Flow:**
+  1. Manager opens 'Room Roster' for the selected date (defaults to today).
+  2. System lists on-duty staff with their current room assignment (carried over from the prior assignment, if any) and any unassigned staff.
+  3. Manager selects a staff member and assigns/changes their room from the list of rooms matching that staff member's category.
+  4. Manager confirms; system persists the assignment for that date forward, until changed again.
+  5. System notifies the affected staff member of their room for the day.
+- **Alternative Flows:** ALT-1 — Change takes effect for today only: Manager marks the change as a one-day override; the prior standing assignment resumes the next day. ALT-2 — Two staff need the same room on the same day (e.g., shift overlap): system warns but allows the Manager to confirm.
+- **Exceptions:** E-1 — No matching room for the staff member's category: 'No room available for this role/category. Configure a room first (UC-58).' E-2 — Room already at its fixed capacity (e.g., a Care & Recovery room already has 1 assigned staff member for that day): blocks unless Manager overrides.
+- **Priority:** Should Have | **Frequency:** Occasional (set once, changed only on reassignment); reviewed daily
+- **Business Rules:** BR-24 (Staff Room Assignment)
+- **Assumptions:** Net-new `staff_room_assignments` table; reuses the assign-with-override UX pattern already established by UC-19 (Assign Nurse to Care Session).
+- **Relations to other UCs:** Depends on UC-58; feeds room resolution used by UC-11 (appointment room), UC-19 (care session room), and UC-29/UC-33 (lab order room).
 
 ---
 

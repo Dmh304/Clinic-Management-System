@@ -207,42 +207,68 @@ SET IDENTITY_INSERT services ON;
 
 INSERT INTO services
     (id, name, description, price, duration_minutes, category_id, slug, thumbnail_url, content,
-     badge, price_label, sessions_included, validity_days, service_type, is_active, is_popular, display_order, created_at)
+     badge, benefits, sessions_included, validity_days, service_type, is_active, is_popular, display_order, created_at)
 VALUES
 (1, N'Gói Thiền Mắt',
     N'Liệu trình thiền và thư giãn cho mắt, giảm căng thẳng thị giác sau thời gian dài dùng màn hình.',
     350000, 45, 1, 'goi-thien-mat',
     'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=600&h=360&fit=crop&auto=format',
     N'Chi tiết gói thiền mắt: kết hợp bài tập yoga mắt và kỹ thuật hít thở...',
-    N'Mới', N'Giá chỉ từ', 5, 30, 'CARE', 1, 0, 1, GETDATE()),
+    N'Mới', N'Giảm căng thẳng và mỏi mắt sau thời gian dài nhìn màn hình
+Cải thiện khả năng tập trung và điều tiết mắt
+Thư giãn tinh thần, giảm stress thị giác
+Hướng dẫn bởi kỹ thuật viên có chuyên môn', 5, 30, 'CARE', 1, 0, 1, GETDATE()),
 
 (2, N'Gói Massage Mắt',
     N'Massage vùng mắt chuyên nghiệp bằng tay kết hợp tinh dầu thiên nhiên, giảm quầng thâm mắt.',
     250000, 30, 2, 'goi-massage-mat',
     'https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?w=600&h=360&fit=crop&auto=format',
     N'Chi tiết gói massage mắt: giúp lưu thông máu quanh vùng mắt...',
-    N'Phổ biến', N'Giá chỉ từ', 8, 45, 'CARE', 1, 1, 2, GETDATE()),
+    N'Phổ biến', N'Tăng lưu thông máu quanh vùng mắt
+Giảm quầng thâm và bọng mắt
+Thư giãn cơ mắt sau ngày dài làm việc
+Sử dụng tinh dầu thiên nhiên an toàn cho da', 8, 45, 'CARE', 1, 1, 2, GETDATE()),
 
 (3, N'Gói Chăm Sóc Mắt Toàn Diện',
     N'Kiểm tra thị lực, massage mắt, chiếu đèn hồng ngoại và tư vấn dinh dưỡng cho mắt.',
     1500000, 60, 3, 'goi-cham-soc-mat-toan-dien',
     'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=600&h=360&fit=crop&auto=format',
     N'Chi tiết gói chăm sóc mắt toàn diện...',
-    N'Best Seller', N'Giá trọn gói', 10, 60, 'CARE', 1, 1, 3, GETDATE()),
+    N'Best Seller', N'Kiểm tra thị lực định kỳ trong suốt liệu trình
+Kết hợp massage, chiếu đèn hồng ngoại và tư vấn dinh dưỡng
+Theo dõi và điều chỉnh liệu trình theo tình trạng mắt
+Đội ngũ kỹ thuật viên và bác sĩ tư vấn chuyên sâu', 10, 60, 'CARE', 1, 1, 3, GETDATE()),
 
 (4, N'Gói Thư Giãn Mắt Công Nghệ Cao',
     N'Máy massage mắt áp suất khí, rung, nhiệt hồng ngoại và nhạc thư giãn phục hồi mắt mệt mỏi.',
     500000, 40, 1, 'goi-thu-gian-mat-cong-nghe-cao',
     'https://images.unsplash.com/photo-1573497491765-dccce02b29df?w=600&h=360&fit=crop&auto=format',
     N'Chi tiết gói thư giãn mắt công nghệ cao...',
-    N'Premium', N'Giá chỉ từ', 6, 30, 'CARE', 1, 0, 4, GETDATE()),
+    N'Premium', N'Công nghệ áp suất khí, rung và nhiệt hồng ngoại hiện đại
+Phục hồi nhanh cho mắt mệt mỏi, khô mắt
+Kết hợp âm nhạc thư giãn trong suốt buổi trị liệu
+Phù hợp với dân văn phòng, người dùng máy tính nhiều', 6, 30, 'CARE', 1, 0, 4, GETDATE()),
 
 (5, N'Liệu Trình Phục Hồi Thị Lực',
     N'Liệu trình chuyên sâu kết hợp bài tập điều tiết mắt đặc biệt và thiền định sâu.',
     2800000, 90, 4, 'lieu-trinh-phuc-hoi-thi-luc',
     'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=600&h=360&fit=crop&auto=format',
     N'Chi tiết liệu trình phục hồi thị lực...',
-    N'Cao cấp', N'Giá trọn gói', 12, 90, 'CARE', 1, 0, 5, GETDATE()),
+    N'Cao cấp', N'Bài tập điều tiết mắt chuyên sâu theo lộ trình cá nhân hoá
+Kết hợp thiền định sâu hỗ trợ phục hồi thị lực
+Theo dõi tiến độ qua từng buổi trị liệu
+Tư vấn 1-1 với chuyên gia trong suốt liệu trình', 12, 90, 'CARE', 1, 0, 5, GETDATE()),
+
+-- UC-21: dịch vụ "vãng lai" — sessions_included=1, đăng ký + check-out xong là thu tiền
+-- ngay (khác gói nhiều buổi đã trả trọn gói lúc đăng ký), dùng để test luồng standalone checkout.
+(15, N'Buổi Chăm Sóc Mắt Đơn Lẻ',
+    N'Trải nghiệm 1 buổi chăm sóc mắt lẻ, không cần mua trọn gói — thanh toán trực tiếp tại quầy sau khi hoàn tất buổi.',
+    150000, 30, 2, 'buoi-cham-soc-mat-don-le',
+    'https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?w=600&h=360&fit=crop&auto=format',
+    N'Buổi chăm sóc mắt đơn lẻ dành cho khách vãng lai, không ràng buộc mua liệu trình nhiều buổi.',
+    N'Vãng lai', N'Trải nghiệm 1 buổi chăm sóc mắt không cần mua trọn gói
+Thanh toán trực tiếp tại quầy sau khi hoàn tất buổi
+Phù hợp khách muốn dùng thử trước khi mua liệu trình dài', 1, 7, 'CARE', 1, 0, 6, GETDATE()),
 
 -- Dịch vụ khám/chẩn đoán/phẫu thuật (CLINICAL)
 (6,  N'Chụp bản đồ giác mạc (Topo)',      N'Phân tích hình thái giác mạc bằng máy Topographer.',       250000,   20, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'CLINICAL', 1, 0, 6,  GETDATE()),
@@ -878,14 +904,47 @@ SET IDENTITY_INSERT feedbacks OFF;
 GO
 
 -- ============================================================================
--- 24. DEMO THANH TOÁN — Bệnh nhân "Trang Thắng Tường" + 3 HÓA ĐƠN CHƯA THANH TOÁN
+-- 24. rooms + staff_room_assignments (quản lý phòng & phân trực)
+--    category: CLINICAL_EXAM (khám tổng quát A/B, phẫu thuật)
+--            | CARE_RECOVERY (chăm sóc & phục hồi)
+--            | DIAGNOSTIC_IMAGING (xét nghiệm / chẩn đoán hình ảnh)
+--            | OPTICAL_WORKSHOP (xưởng cắt kính)
+--    service_id: chỉ gán khi phòng phục vụ ĐÚNG 1 dịch vụ cụ thể; để NULL nếu
+--    phòng dùng chung cho nhiều dịch vụ (thay cho bảng room_services cũ).
+-- ============================================================================
+SET IDENTITY_INSERT rooms ON;
+
+INSERT INTO rooms (id, name, category, service_id, capacity, status, created_at) VALUES
+(1, N'Phòng khám tổng quát A',                N'CLINICAL_EXAM',      9,    1, 'ACTIVE', GETDATE()),
+(2, N'Phòng khám tổng quát B',                N'CLINICAL_EXAM',      9,    1, 'ACTIVE', GETDATE()),
+(3, N'Phòng phẫu thuật',                      N'CLINICAL_EXAM',      8,    1, 'ACTIVE', GETDATE()),
+(4, N'Phòng chăm sóc & phục hồi 1',           N'CARE_RECOVERY',      NULL, 1, 'ACTIVE', GETDATE()),
+(5, N'Phòng chăm sóc & phục hồi 2',           N'CARE_RECOVERY',      NULL, 1, 'ACTIVE', GETDATE()),
+(6, N'Phòng xét nghiệm & chẩn đoán hình ảnh', N'DIAGNOSTIC_IMAGING', NULL, 1, 'ACTIVE', GETDATE());
+
+SET IDENTITY_INSERT rooms OFF;
+GO
+
+-- staff_room_assignments: phân trực standing (is_one_day_override = 0) hiệu lực từ đầu năm —
+-- mỗi bác sĩ/điều dưỡng/KTV giữ nguyên phòng cho tới khi Manager (user 2) đổi.
+-- ⚠️ staff_id là id của BẢNG CHUYÊN MÔN theo staff_type (KHÔNG phải users.id):
+--    DOCTOR → doctors.id | NURSE → staffs.id | LAB_TECHNICIAN → lab_technicians.id
+INSERT INTO staff_room_assignments (staff_type, staff_id, room_id, effective_from, work_date, is_one_day_override, assigned_by, created_at) VALUES
+(N'DOCTOR',         1, 1, '2026-01-01', NULL, 0, 2, GETDATE()), -- BS. Nguyễn Văn An (doctors.id=1) → Phòng khám tổng quát A
+(N'DOCTOR',         2, 2, '2026-01-01', NULL, 0, 2, GETDATE()), -- BS. Trần Thị Bình (doctors.id=2) → Phòng khám tổng quát B
+(N'DOCTOR',         3, 3, '2026-01-01', NULL, 0, 2, GETDATE()), -- BS. Lê Minh Châu (doctors.id=3) → Phòng phẫu thuật
+(N'NURSE',          4, 4, '2026-01-01', NULL, 0, 2, GETDATE()), -- Andrea Lê (staffs.id=4) → Phòng chăm sóc & phục hồi 1
+(N'LAB_TECHNICIAN', 1, 6, '2026-01-01', NULL, 0, 2, GETDATE()); -- Đặng Kỹ Thuật Viên (lab_technicians.id=1) → Phòng xét nghiệm
+
+-- ============================================================================
+-- 25. DEMO THANH TOÁN — Bệnh nhân "Trang Thắng Tường" + 3 HÓA ĐƠN CHƯA THANH TOÁN
 --     Phục vụ demo luồng VietQR / webhook (UC-22): tài khoản này có sẵn 3 hóa đơn
 --     ISSUED + UNPAID với thành phần khác nhau (khám, chẩn đoán hình ảnh, thuốc).
 --     Trả tiền bằng cách bắn webhook với đúng invoice_code (xem docs/payment-webhook-demo.md).
 --     Đăng nhập bệnh nhân: trangthangtuong@gmail.com / Password@123
 -- ============================================================================
 
--- 24.2 patients — hồ sơ bệnh nhân gắn với tài khoản trên
+-- 25.2 patients — hồ sơ bệnh nhân gắn với tài khoản trên
 SET IDENTITY_INSERT patients ON;
 INSERT INTO patients
     (id, user_id, patient_code, full_name, date_of_birth, gender, phone, email, address,
@@ -897,7 +956,7 @@ VALUES
 SET IDENTITY_INSERT patients OFF;
 GO
 
--- 24.3 appointments — 3 lịch đã khám xong (COMPLETED), CHƯA có hóa đơn.
+-- 25.3 appointments — 3 lịch đã khám xong (COMPLETED), CHƯA có hóa đơn.
 -- Cố ý không tạo hóa đơn cho các lịch này → chúng hiện ở tab "Tạo hóa đơn" để demo
 -- luồng lễ tân tạo hóa đơn (tự đổ dịch vụ khám + thuốc đã kê).
 SET IDENTITY_INSERT appointments ON;
@@ -919,7 +978,7 @@ SET IDENTITY_INSERT appointments OFF;
 GO
 
 -- ============================================================================
--- 25. DEMO AUTO-ĐỔ KHOẢN PHÍ — lịch hẹn ĐÃ KHÁM, có đơn thuốc, CHƯA có hóa đơn
+-- 26. DEMO AUTO-ĐỔ KHOẢN PHÍ — lịch hẹn ĐÃ KHÁM, có đơn thuốc, CHƯA có hóa đơn
 --     Dùng để thử tính năng: mở modal "Thu phí" cho lịch hẹn này → hệ thống tự đổ
 --     dịch vụ khám + thuốc bác sĩ đã kê (UC-27) vào danh sách khoản phí.
 --     Bệnh nhân: Trang Thắng Tường (patient 7). KHÔNG tạo hóa đơn cho lịch này.
@@ -972,7 +1031,7 @@ VALUES
 SET IDENTITY_INSERT prescription_items OFF;
 GO
 
--- 25b. Bệnh án + đơn thuốc + lab order (gắn dịch vụ xét nghiệm) cho 3 lịch hẹn còn lại
+-- 26b. Bệnh án + đơn thuốc + lab order (gắn dịch vụ xét nghiệm) cho 3 lịch hẹn còn lại
 --      (10, 11, 12) để cả 4 lịch demo đều tự đổ: dịch vụ khám + xét nghiệm + thuốc.
 SET IDENTITY_INSERT medical_records ON;
 INSERT INTO medical_records (id, appointment_id, patient_id, doctor_id, chief_complaint, diagnosis, status, created_at) VALUES
@@ -1027,6 +1086,7 @@ PRINT N'  invoices                      : 4 (4 PAID gốc, +8 details)';
 PRINT N'  subscriptions                 : 2 (+3 care_sessions) | service_registrations : 2';
 PRINT N'  notifications                 : 5   | blog_posts : 7 (blog_categories: 4) | audit_logs : 5';
 PRINT N'  doctor_schedules              : 7   | feedbacks : 3 | verification_tokens : 2';
+PRINT N'  rooms                         : 6 | staff_room_assignments : 5';
 PRINT N'';
 PRINT N'  ─── TÀI KHOẢN ĐĂNG NHẬP (mật khẩu chung: Password@123) ───';
 PRINT N'  ADMIN         : mh3k42k6@gmail.com';

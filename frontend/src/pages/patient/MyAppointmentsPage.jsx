@@ -236,7 +236,7 @@ export default function MyAppointmentsPage() {
           <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: 320 }}>
             <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700, color: '#1e293b' }}>Đổi giờ khám</h3>
             <DatePicker
-              showTime={{ format: 'HH:mm', minuteStep: 5 }}
+              showTime={{ format: 'HH:mm', minuteStep: 5, hideDisabledOptions: true }}
               format="DD/MM/YYYY HH:mm"
               value={newTime}
               onChange={(val) => setNewTime(val)}

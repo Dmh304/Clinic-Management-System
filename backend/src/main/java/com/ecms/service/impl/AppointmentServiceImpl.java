@@ -1,3 +1,6 @@
+//Author: DucTKH - HE204463
+//Created: 2026-06-01
+//Last Update: 2026-07-21
 package com.ecms.service.impl;
 
 import com.ecms.dto.request.BookAppointmentRequest;
@@ -16,10 +19,13 @@ import com.ecms.repository.ClinicServiceRepository;
 import com.ecms.repository.DoctorRepository;
 import com.ecms.repository.MedicalRecordRepository;
 import com.ecms.repository.PatientRepository;
+import com.ecms.repository.RoomRepository;
 import com.ecms.repository.UserRepository;
+import com.ecms.dto.response.RoomResolutionResponse;
 import com.ecms.service.AppointmentService;
 import com.ecms.service.EmailService;
 import com.ecms.service.NotificationService;
+import com.ecms.service.StaffRoomAssignmentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -77,6 +83,25 @@ public class AppointmentServiceImpl implements AppointmentService {
         private final NotificationService notificationService;
         private final EmailService emailService;
         private final MedicalRecordRepository medicalRecordRepository;
+        private final StaffRoomAssignmentService staffRoomAssignmentService;
+        private final RoomRepository roomRepository;
+
+        /** UC-58/UC-59: phòng của bác sĩ cho 1 ngày khám — best-effort, không chặn luồng đặt/xác nhận
+         *  lịch nếu bác sĩ chưa được phân công phòng nào (trả về null). */
+        private Room resolveRoomForDoctor(Doctor doctor, LocalDate date) {
+                try {
+                        if (doctor == null || doctor.getUser() == null || date == null) return null;
+                        RoomResolutionResponse resolved = staffRoomAssignmentService
+                                        .resolveRoomForUser(doctor.getUser().getId(), date);
+                        return resolved != null && resolved.isResolved()
+                                        ? roomRepository.findById(resolved.getRoomId()).orElse(null)
+                                        : null;
+                } catch (Exception e) {
+                        log.warn("UC-59: Không resolve được phòng cho bác sĩ {} ngày {}: {}",
+                                        doctor.getId(), date, e.getMessage());
+                        return null;
+                }
+        }
 
         @Override
         @Transactional(readOnly = true)
@@ -230,6 +255,7 @@ public class AppointmentServiceImpl implements AppointmentService {
 
                         validateDoctorCapacity(doctorId, appointment.getAppointmentDate());
                         appointment.setDoctor(doctor);
+                        appointment.setRoom(resolveRoomForDoctor(doctor, appointment.getAppointmentDate()));
 
                         // Lưu vết lý do đổi bác sĩ vào notes (giữ nguyên note gốc) — giống luồng chuyển
                         // lịch
@@ -348,6 +374,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                                 .patient(targetPatient)
                                 .bookedBy(bookedByUserId)
                                 .doctor(doctor)
+                                .room(resolveRoomForDoctor(doctor, appointmentTime.toLocalDate()))
                                 .clinicService(clinicService)
                                 .appointmentTime(appointmentTime)
                                 .timeSlot(appointmentTime.toLocalTime().format(SLOT_FMT))
@@ -359,17 +386,22 @@ public class AppointmentServiceImpl implements AppointmentService {
 
                 Appointment saved = appointmentRepository.save(appointment);
 
-                // UC-12 POST-2: gửi email xác nhận đã tiếp nhận yêu cầu đặt lịch cho bệnh nhân.
-                // UC-12 POST-3: thông báo cho lễ tân về lịch hẹn PENDING mới cần duyệt.
-                // Bọc try/catch để lỗi SMTP/thông báo không làm hỏng việc đặt lịch đã lưu.
+                // Le Thi Bich Ngan - HE204710 | Tạo: 18/07/2026
+                // Chức năng: gửi email xác nhận ngay sau khi đặt lịch online thành công
+                // (UC-11) — dùng email tài khoản đăng nhập (luôn có, vì bắt buộc phải
+                // đăng nhập mới đặt được) chứ không phải email của
+                // targetPatient, để đúng người quản lý lịch hẹn ("Lịch hẹn của tôi")
+                // nhận được thông báo kể cả khi đặt hộ người thân.
+                // Bọc try/catch để lỗi SMTP/thông báo không làm hỏng lịch hẹn đã lưu.
                 try {
-                        String patientEmailForNotice = selfPatient.getEmail();
-                        emailService.sendAppointmentConfirmation(patientEmailForNotice,
-                                        targetPatient.getFullName(), doctor.getFullName(),
-                                        appointmentTime);
+                        emailService.sendBookingConfirmation(patientEmail, targetPatient.getFullName(),
+                                        doctor.getFullName(), appointmentTime,
+                                        clinicService != null ? clinicService.getServiceName() : null);
                 } catch (Exception e) {
                         log.warn("Không gửi được email xác nhận đặt lịch: {}", e.getMessage());
                 }
+
+                // UC-12 POST-3: thông báo cho lễ tân về lịch hẹn PENDING mới cần duyệt.
                 try {
                         notificationService.createForReceptionists(
                                         "Lịch hẹn mới cần duyệt: " + targetPatient.getFullName()
@@ -533,6 +565,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                 Appointment appointment = Appointment.builder()
                                 .patient(patient)
                                 .doctor(doctor)
+                                .room(resolveRoomForDoctor(doctor, appointmentDate))
                                 .clinicService(clinicService)
                                 .appointmentTime(walkInTime)
                                 .timeSlot(walkInTime.toLocalTime().format(SLOT_FMT))
@@ -572,6 +605,41 @@ public class AppointmentServiceImpl implements AppointmentService {
                 Doctor oldDoctor = appointment.getDoctor();
                 LocalDateTime oldTime = appointment.getAppointmentTime();
 
+                // Le Thi Bich Ngan - HE204710 | Tạo: 18/07/2026 | Liên quan BR-04 (giờ làm
+                // việc phòng khám 07:30–17:00, vốn áp dụng khi đặt lịch/đổi giờ tự thân)
+                // Chức năng: áp lại đúng ràng buộc giờ làm việc cho luồng lễ tân reassign —
+                // trước đây reassign không kiểm tra khung giờ nên lễ tân có thể xếp giờ
+                // khám ngoài giờ mở cửa.
+                // Giờ mới (nếu có) phải nằm trong giờ làm việc phòng khám — đồng bộ với
+                // đặt lịch/đổi giờ tự thân (reschedulePatientAppointment). Reassign không
+                // bắt buộc cách hiện tại 2 giờ như đặt online vì đây là lễ tân/manager xử
+                // lý trực tiếp, có thể cần xếp ngay trong ngày.
+                if (hasTime) {
+                        LocalTime newLocalTime = request.getNewAppointmentTime().toLocalTime();
+                        if (newLocalTime.isBefore(CLINIC_OPEN_TIME) || newLocalTime.isAfter(CLINIC_CLOSE_TIME)) {
+                                throw new IllegalArgumentException(
+                                                "Giờ khám mới phải trong giờ làm việc của phòng khám (07:30–17:00)");
+                        }
+                }
+
+                // Le Thi Bich Ngan - HE204710 | Tạo: 18/07/2026
+                // Chức năng: chặn double-book khi lễ tân reassign — trước đây thiếu bước
+                // này nên có thể vô tình xếp trùng giờ của cùng 1 bác sĩ khi đổi lịch.
+                // Chặn double-book: nếu đổi bác sĩ và/hoặc giờ khám, khung giờ đích (bác sĩ +
+                // giờ) không được trùng với một lịch hẹn KHÁC còn hiệu lực của đúng bác sĩ đó.
+                // (Thiếu bước này thì lễ tân/manager có thể vô tình xếp trùng giờ khi đổi lịch.)
+                if (hasDoctor || hasTime) {
+                        Long targetDoctorId = hasDoctor ? request.getDoctorId()
+                                        : (oldDoctor != null ? oldDoctor.getId() : null);
+                        LocalDateTime targetTime = hasTime ? request.getNewAppointmentTime() : oldTime;
+                        if (targetDoctorId != null && appointmentRepository
+                                        .existsByDoctor_IdAndAppointmentTimeAndStatusNotAndIdNot(
+                                                        targetDoctorId, targetTime, AppointmentStatus.CANCELLED, id)) {
+                                throw new IllegalStateException(
+                                                "Bác sĩ đã có lịch hẹn khác vào khung giờ này, vui lòng chọn giờ khác");
+                        }
+                }
+
                 boolean doctorChanged = false;
                 if (request.getDoctorId() != null) {
                         // EX-02: bác sĩ không tồn tại hoặc không còn hoạt động
@@ -596,11 +664,20 @@ public class AppointmentServiceImpl implements AppointmentService {
                         }
 
                         appointment.setDoctor(doctor);
+                        LocalDate roomTargetDate = (request.getNewAppointmentTime() != null
+                                        ? request.getNewAppointmentTime()
+                                        : appointment.getAppointmentTime()).toLocalDate();
+                        appointment.setRoom(resolveRoomForDoctor(doctor, roomTargetDate));
                 }
 
                 if (request.getNewAppointmentTime() != null) {
                         appointment.setAppointmentTime(request.getNewAppointmentTime());
                         appointment.setTimeSlot(request.getNewAppointmentTime().toLocalTime().toString());
+                        // Bác sĩ không đổi nhưng ngày khám đổi sang ngày khác → phòng có thể khác (roster theo ngày).
+                        if (!doctorChanged && appointment.getDoctor() != null) {
+                                appointment.setRoom(resolveRoomForDoctor(appointment.getDoctor(),
+                                                request.getNewAppointmentTime().toLocalDate()));
+                        }
                 }
 
                 // UC-18: fix bug overwrite notes — append lý do chuyển lịch, giữ nguyên note
@@ -626,6 +703,21 @@ public class AppointmentServiceImpl implements AppointmentService {
                 return response;
         }
 
+        // Le Thi Bich Ngan - HE204710 | Tạo: 19/07/2026
+        // Chức năng: tách helper lấy email bệnh nhân dùng chung cho 3 luồng gửi mail
+        // (chuyển lịch, nhắc lịch, huỷ lịch) — trước đó logic fallback này chỉ được
+        // viết trực tiếp (inline) trong sendReassignNotifications(), nay tái sử dụng
+        // để sendReminder()/cancelAppointment()/cancelStaleAppointments() cùng dùng.
+        // Ưu tiên email trên hồ sơ bệnh nhân, fallback sang email tài khoản đăng nhập
+        // (patient.email trống với một số bệnh nhân do người thân đặt hộ).
+        private String resolvePatientEmail(Patient patient) {
+                String email = patient.getEmail();
+                if ((email == null || email.isBlank()) && patient.getUser() != null) {
+                        email = patient.getUser().getEmail();
+                }
+                return email;
+        }
+
         /**
          * UC-18 (POST-2): gửi email + in-app notification khi reassign appointment.
          * Không ném ngoại lệ ra ngoài — mọi lỗi đều được log lại.
@@ -639,11 +731,7 @@ public class AppointmentServiceImpl implements AppointmentService {
 
                 // 1. Email cho bệnh nhân
                 if (patient != null) {
-                        String patientEmail = patient.getEmail();
-                        // Ưu tiên email trên user account nếu có, fallback email trên hồ sơ bệnh nhân
-                        if ((patientEmail == null || patientEmail.isBlank()) && patient.getUser() != null) {
-                                patientEmail = patient.getUser().getEmail();
-                        }
+                        String patientEmail = resolvePatientEmail(patient);
                         emailService.sendReassignmentNotice(patientEmail, patient.getFullName(),
                                         oldTime, newTime, doctorChanged ? newDoctorName : null);
 
@@ -805,7 +893,21 @@ public class AppointmentServiceImpl implements AppointmentService {
                 appointment.setCancelledBy(
                                 userRepository.findByEmail(actingUserEmail).map(user -> user.getId()).orElse(null));
 
-                return toResponse(appointmentRepository.save(appointment));
+                Appointment saved = appointmentRepository.save(appointment);
+
+                // Le Thi Bich Ngan - HE204710 | Tạo: 19/07/2026 | BR-05 (bệnh nhân tự huỷ
+                // trước giờ khám ≥1h — điều kiện kiểm ở nhánh isPatientSelf phía trên)
+                // Chức năng: gửi email báo huỷ lịch cho bệnh nhân, áp dụng cho CẢ 2 trường
+                // hợp huỷ qua API này — bệnh nhân tự huỷ (isPatientSelf=true) lẫn lễ tân/
+                // manager/admin huỷ hộ (isPatientSelf=false). Trước đây cancelAppointment()
+                // chỉ đổi trạng thái, không hề gửi thông báo cho bệnh nhân.
+                Patient patient = appointment.getPatient();
+                if (patient != null) {
+                        emailService.sendCancellationNotice(resolvePatientEmail(patient), patient.getFullName(),
+                                        appointment.getAppointmentTime(), appointment.getCancelReason());
+                }
+
+                return toResponse(saved);
         }
 
         @Override
@@ -923,6 +1025,18 @@ public class AppointmentServiceImpl implements AppointmentService {
                 appointment.setReminderSent(true);
                 Appointment saved = appointmentRepository.save(appointment);
 
+                // Le Thi Bich Ngan - HE204710 | Tạo: 19/07/2026 | UC-13 (nhắc lịch hẹn)
+                // Chức năng: bổ sung gửi EMAIL nhắc lịch — trước đây sendReminder() chỉ
+                // tạo in-app notification (theo quyết định cũ "không cần email"), nay gửi
+                // thêm email song song để bệnh nhân không có thói quen check in-app vẫn
+                // nhận được nhắc lịch. Không gắn BR số cụ thể (thuộc đặc tả UC-13).
+                // Email nhắc lịch (gửi kèm, không thay thế in-app notification bên dưới)
+                String patientEmail = resolvePatientEmail(patient);
+                Doctor reminderDoctor = appointment.getDoctor();
+                emailService.sendAppointmentReminder(patientEmail, patientName,
+                                reminderDoctor != null ? reminderDoctor.getFullName() : null,
+                                appointment.getAppointmentTime());
+
                 // Thông báo in-app cho bệnh nhân (kiểu Facebook) — chỉ tạo nếu bệnh nhân có tài
                 // khoản.
                 // Bệnh nhân bấm thông báo để xem chi tiết lịch hẹn của mình.
@@ -981,11 +1095,41 @@ public class AppointmentServiceImpl implements AppointmentService {
                 // - PENDING/CONFIRMED còn treo → bệnh nhân không đến khám (no-show)
                 // - WAITING/IN_PROGRESS còn treo → ca khám bị bỏ dở, không được đóng
                 // (đây là lý do "đang khám" bị kẹt từ ngày hôm trước sang hôm sau).
-                LocalDateTime cutoff = LocalDate.now().atStartOfDay();
-                List<Appointment> noShows = appointmentRepository.findNoShowAppointments(
-                                cutoff,
+                return cancelStaleAppointments(
+                                LocalDate.now().atStartOfDay(),
                                 List.of(AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED,
                                                 AppointmentStatus.WAITING, AppointmentStatus.IN_PROGRESS));
+        }
+
+        // Le Thi Bich Ngan - HE204710 | Tạo: 18/07/2026
+        // Chức năng: method mới huỷ no-show ngay lúc đóng cửa (17:05) — dùng chung
+        // logic huỷ với autoCancelNoShowAppointments() (00:05) qua cancelStaleAppointments()
+        // được tách ra bên dưới, chỉ khác cutoff (thời điểm hiện tại) và statuses
+        // (không đụng WAITING/IN_PROGRESS). Không gắn BR số cụ thể.
+        @Override
+        @Transactional
+        public int autoCancelOverdueTodayAppointments() {
+                // Mốc cắt: thời điểm hiện tại (job này chạy 17:05 — ngay sau giờ đóng cửa
+                // 17:00, nên mọi khung giờ trong ngày lúc này đều đã trôi qua). Chỉ xét
+                // PENDING/CONFIRMED — bệnh nhân chưa từng check-in; KHÔNG đụng
+                // WAITING/IN_PROGRESS vì đó là ca đang khám dở, có thể trễ giờ đóng cửa
+                // bình thường và không phải no-show.
+                return cancelStaleAppointments(
+                                LocalDateTime.now(),
+                                List.of(AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED));
+        }
+
+        // Le Thi Bich Ngan - HE204710 | Tạo: 18/07/2026, Cập nhật: 19/07/2026
+        // Tạo 18/07: tách thành helper dùng chung cho autoCancelNoShowAppointments()
+        // và autoCancelOverdueTodayAppointments() (trước đó mỗi cron tự viết logic
+        // huỷ riêng, trùng lặp code).
+        // Cập nhật 19/07: bổ sung gửi email báo huỷ lịch (emailService.sendCancellationNotice)
+        // cho từng lịch hẹn bị hệ thống tự động huỷ — trước đó chỉ có thông báo in-app,
+        // bệnh nhân không check app sẽ không biết lịch đã bị huỷ.
+        /** Dùng chung cho 2 cron no-show: huỷ mọi lịch hẹn thuộc {@code statuses} có
+         *  giờ khám trước {@code cutoff}, ghi lý do huỷ + thông báo in-app. */
+        private int cancelStaleAppointments(LocalDateTime cutoff, List<AppointmentStatus> statuses) {
+                List<Appointment> noShows = appointmentRepository.findNoShowAppointments(cutoff, statuses);
 
                 for (Appointment a : noShows) {
                         boolean wasInClinic = a.getStatus() == AppointmentStatus.WAITING
@@ -1007,6 +1151,13 @@ public class AppointmentServiceImpl implements AppointmentService {
                                                         ? "Ca khám trước đó của bạn đã được hệ thống đóng do quá hạn chưa hoàn tất."
                                                         : "Lịch hẹn của bạn đã bị huỷ tự động do không đến khám đúng hẹn.",
                                         a.getId());
+
+                        // Email huỷ lịch cho bệnh nhân
+                        Patient p = a.getPatient();
+                        if (p != null) {
+                                emailService.sendCancellationNotice(resolvePatientEmail(p), p.getFullName(),
+                                                a.getAppointmentTime(), a.getCancelReason());
+                        }
                 }
 
                 return noShows.size();
@@ -1036,6 +1187,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                 return AppointmentResponse.builder()
                                 .id(a.getId())
                                 .patientId(patient != null ? patient.getId() : null)
+                                .patientCode(patient != null ? patient.getPatientCode() : null)
                                 .patientName(patient != null ? patient.getFullName() : null)
                                 .patientPhone(patient != null ? patient.getPhone() : null)
                                 .patientGender(patient != null ? patient.getGender() : null)
@@ -1044,6 +1196,8 @@ public class AppointmentServiceImpl implements AppointmentService {
                                 .patientAddress(patient != null ? patient.getAddress() : null)
                                 .doctorId(a.getDoctor() != null ? a.getDoctor().getId() : null)
                                 .doctorName(a.getDoctor() != null ? a.getDoctor().getFullName() : null)
+                                .roomId(a.getRoom() != null ? a.getRoom().getId() : null)
+                                .roomName(a.getRoom() != null ? a.getRoom().getName() : null)
                                 .serviceId(a.getClinicService() != null ? a.getClinicService().getId() : null)
                                 .serviceName(a.getClinicService() != null ? a.getClinicService().getServiceName()
                                                 : null)

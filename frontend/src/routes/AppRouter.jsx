@@ -12,6 +12,9 @@ import HomePage from '../pages/HomePage'
 import BlogListPage from '../pages/BlogListPage'
 import BlogDetailPage from '../pages/BlogDetailPage'
 import DoctorDetailPage from '../pages/DoctorDetailPage'
+import PromotionsListPage from '../pages/PromotionsListPage'
+import PromotionsDetailPage from '../pages/PromotionsDetailPage'
+import UnsubscribePage from '../pages/UnsubscribePage'
 import LoginPage from '../pages/auth/LoginPage'
 import RegisterPage from '../pages/auth/RegisterPage'
 import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage'
@@ -31,6 +34,7 @@ import BookingPage from '../pages/patient/BookingPage'
 import MedicalHistoryPage from '../pages/patient/MedicalHistoryPage'
 import PrescriptionViewPage from '../pages/patient/PrescriptionViewPage'
 import ServicePackagesPage from '../pages/patient/ServicePackagesPage'
+import ServiceDetailPage from '../pages/patient/ServiceDetailPage'
 import MySubscriptionsPage from '../pages/patient/MySubscriptionsPage'
 import BookCareSessionPage from '../pages/patient/BookCareSessionPage'
 import MyCareSessionsPage from '../pages/patient/MyCareSessionsPage'
@@ -85,6 +89,7 @@ import ManageDoctorsPage from '../pages/manager/ManageDoctorsPage'
 import ManageDiscountCampaignsPage from '../pages/manager/ManageDiscountCampaignsPage'
 import AssignNursePage from '../pages/manager/AssignNursePage'
 import ReassignAppointmentPage from '../pages/manager/ReassignAppointmentPage'
+import ReassignAppointmentDetailPage from '../pages/manager/ReassignAppointmentDetailPage'
 import RoomManagementPage from '../pages/manager/RoomManagementPage'
 import RoomRosterPage from '../pages/manager/RoomRosterPage'
 
@@ -125,8 +130,12 @@ export default function AppRouter() {
       <Route path="/blogs" element={<WithHeader><BlogListPage /></WithHeader>} />
       <Route path="/blogs/:id" element={<WithHeader><BlogDetailPage /></WithHeader>} />
       <Route path="/doctors/:id" element={<WithHeader><DoctorDetailPage /></WithHeader>} />
+      <Route path="/promotions" element={<WithHeader><PromotionsListPage /></WithHeader>} />
+      <Route path="/promotions/:id" element={<WithHeader><PromotionsDetailPage /></WithHeader>} />
+      <Route path="/unsubscribe" element={<WithHeader><UnsubscribePage /></WithHeader>} />
       {/* Trang dịch vụ — mọi người đều xem được (chỉ PATIENT/RECEPTIONIST mới đăng ký được) */}
       <Route path="/services" element={<WithHeader><ServicePackagesPage /></WithHeader>} />
+      <Route path="/services/:id" element={<WithHeader><ServiceDetailPage /></WithHeader>} />
 
       {/* ── Auth pages — không có Header ── */}
       <Route path="/login" element={<LoginPage />} />
@@ -223,6 +232,7 @@ export default function AppRouter() {
           <Route path="/manager/discount-campaigns" element={<ManageDiscountCampaignsPage />} />
           <Route path="/manager/assign-nurse" element={<AssignNursePage />} />
           <Route path="/manager/reassign-appointment" element={<ReassignAppointmentPage />} />
+          <Route path="/manager/reassign-appointment/:appointmentId" element={<ReassignAppointmentDetailPage />} />
           <Route path="/manager/daily-schedule" element={<DailySchedulePage />} />
           <Route path="/manager/rooms" element={<RoomManagementPage />} />
           <Route path="/manager/room-roster" element={<RoomRosterPage />} />

@@ -7,11 +7,14 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * Cron job tự động huỷ lịch hẹn no-show: khi sang ngày mới, các lịch hẹn của
- * những ngày đã qua mà bệnh nhân không đến khám (vẫn ở trạng thái PENDING /
- * CONFIRMED) sẽ được chuyển sang CANCELLED.
+ * Cron job tự động huỷ lịch hẹn no-show — chạy 2 mốc trong ngày:
  *
- * Chạy mỗi ngày lúc 00:05 để dọn các lịch hẹn quá hạn của ngày hôm trước.
+ * 1) 17:05 (ngay sau giờ đóng cửa 17:00): huỷ các lịch hẹn HÔM NAY còn
+ *    PENDING/CONFIRMED (bệnh nhân chưa check-in) — đúng yêu cầu "quá giờ
+ *    đóng cửa mà chưa đến thì huỷ luôn trong ngày", không phải đợi qua đêm.
+ * 2) 00:05 (sang ngày mới): lưới an toàn dọn nốt mọi lịch hẹn còn sót của
+ *    ngày hôm trước, kể cả WAITING/IN_PROGRESS bị bỏ dở (ca khám không được
+ *    đóng đúng cách).
  *
  * (@EnableScheduling đã được bật sẵn ở BackendApplication.)
  */
@@ -21,6 +24,20 @@ import org.springframework.stereotype.Component;
 public class NoShowAppointmentScheduler {
 
     private final AppointmentService appointmentService;
+
+    // Le Thi Bich Ngan - HE204710 | Tạo: 18/07/2026
+    // Chức năng: cron mới huỷ no-show ngay khi phòng khám đóng cửa (không gắn
+    // BR số cụ thể) — bổ sung bên cạnh cron 00:05 sẵn có, tránh lịch PENDING/
+    // CONFIRMED của hôm nay phải treo tới nửa đêm mới được dọn.
+    @Scheduled(cron = "0 5 17 * * *") // 17:05 mỗi ngày — ngay sau giờ đóng cửa
+    public void cancelOverdueTodayAppointments() {
+        try {
+            int cancelled = appointmentService.autoCancelOverdueTodayAppointments();
+            log.info("Tự động huỷ no-show (đóng cửa): đã huỷ {} lịch hẹn quá giờ hôm nay", cancelled);
+        } catch (Exception e) {
+            log.error("Tự động huỷ no-show (đóng cửa) thất bại: {}", e.getMessage(), e);
+        }
+    }
 
     @Scheduled(cron = "0 5 0 * * *") // 00:05 mỗi ngày
     public void cancelNoShowAppointments() {

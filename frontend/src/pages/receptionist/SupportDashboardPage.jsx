@@ -1,3 +1,8 @@
+/*
+ * Author: DucTKH - HE204463
+ * Created: 2026-06-22
+ * Last Update: 2026-07-22
+ */
 import React, { useState, useEffect, useRef } from 'react';
 import { Layout, Menu, Input, Button, List, Typography, Badge, Avatar, Tag } from 'antd';
 import { SendOutlined, UserOutlined } from '@ant-design/icons';
@@ -142,10 +147,10 @@ export default function SupportDashboardPage() {
                     itemLayout="horizontal"
                     dataSource={sessions}
                     renderItem={session => (
-                        <List.Item 
+                        <List.Item
                             onClick={() => setActiveSession(session)}
-                            style={{ 
-                                padding: '12px 16px', 
+                            style={{
+                                padding: '12px 16px',
                                 cursor: 'pointer',
                                 background: activeSession?.id === session.id ? '#e6f7ff' : 'transparent',
                                 borderBottom: '1px solid #f0f0f0'
@@ -213,11 +218,11 @@ export default function SupportDashboardPage() {
                                 </div>
                             ) : (
                                 <div style={{ display: 'flex', gap: 12 }}>
-                                    <Input 
-                                        value={inputStr} 
-                                        onChange={(e) => setInputStr(e.target.value)} 
+                                    <Input
+                                        value={inputStr}
+                                        onChange={(e) => setInputStr(e.target.value)}
                                         onPressEnter={sendMessage}
-                                        placeholder="Nhập câu trả lời..." 
+                                        placeholder="Nhập câu trả lời..."
                                         size="large"
                                     />
                                     <Button type="primary" size="large" icon={<SendOutlined />} onClick={sendMessage}>Gửi</Button>

@@ -16,6 +16,7 @@ public class AppointmentResponse {
 
     private Long id;
     private Long patientId;
+    private String patientCode;
     private String patientName;
     private String patientPhone;
     private String patientGender;
@@ -24,6 +25,8 @@ public class AppointmentResponse {
     private String patientAddress;
     private Long doctorId;
     private String doctorName;
+    private Long roomId;
+    private String roomName;
     private Long serviceId;
     private String serviceName;
     private BigDecimal servicePrice;

@@ -1,4 +1,6 @@
-// DucTKH
+//Author: DucTKH - HE204463
+//Created: 2026-06-01
+//Last Update: 2026-07-21
 // Entity đại diện cho bảng invoices trong cơ sở dữ liệu.
 // Dùng để lưu trữ thông tin hóa đơn (bao gồm tiền khám, tiền thuốc, v.v.).
 package com.ecms.entity;
@@ -24,9 +26,17 @@ public class Invoice {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // UC-21: hóa đơn gắn với MỘT trong hai nguồn — lịch hẹn khám bác sĩ (Appointment)
+    // hoặc gói/buổi dịch vụ chăm sóc (PatientServiceSubscription — cả gói nhiều buổi lẫn
+    // "vãng lai" 1 buổi đều thu qua đây, tại lần check-out ĐẦU TIÊN của subscription đó;
+    // các buổi sau trong cùng gói không tạo thêm Invoice vì subscription đã có hóa đơn).
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "appointment_id", nullable = false)
+    @JoinColumn(name = "appointment_id")
     private Appointment appointment;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "subscription_id")
+    private PatientServiceSubscription subscription;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "patient_id", nullable = false)
