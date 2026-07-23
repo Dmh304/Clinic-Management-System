@@ -18,11 +18,11 @@ import com.ecms.repository.MedicalRecordRepository;
 import com.ecms.repository.PatientRepository;
 import com.ecms.repository.RoomRepository;
 import com.ecms.repository.UserRepository;
-import com.ecms.dto.response.StaffRoomAssignmentResponse;
+import com.ecms.dto.response.RoomResolutionResponse;
 import com.ecms.service.AppointmentService;
 import com.ecms.service.EmailService;
 import com.ecms.service.NotificationService;
-import com.ecms.service.RoomRosterService;
+import com.ecms.service.StaffRoomAssignmentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -80,7 +80,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         private final NotificationService notificationService;
         private final EmailService emailService;
         private final MedicalRecordRepository medicalRecordRepository;
-        private final RoomRosterService roomRosterService;
+        private final StaffRoomAssignmentService staffRoomAssignmentService;
         private final RoomRepository roomRepository;
 
         /** UC-58/UC-59: phòng của bác sĩ cho 1 ngày khám — best-effort, không chặn luồng đặt/xác nhận
@@ -88,9 +88,11 @@ public class AppointmentServiceImpl implements AppointmentService {
         private Room resolveRoomForDoctor(Doctor doctor, LocalDate date) {
                 try {
                         if (doctor == null || doctor.getUser() == null || date == null) return null;
-                        StaffRoomAssignmentResponse resolved = roomRosterService
-                                        .resolveRoomForStaffOnDate(doctor.getUser().getId(), date);
-                        return resolved != null ? roomRepository.findById(resolved.getRoomId()).orElse(null) : null;
+                        RoomResolutionResponse resolved = staffRoomAssignmentService
+                                        .resolveRoomForUser(doctor.getUser().getId(), date);
+                        return resolved != null && resolved.isResolved()
+                                        ? roomRepository.findById(resolved.getRoomId()).orElse(null)
+                                        : null;
                 } catch (Exception e) {
                         log.warn("UC-59: Không resolve được phòng cho bác sĩ {} ngày {}: {}",
                                         doctor.getId(), date, e.getMessage());
@@ -387,9 +389,25 @@ public class AppointmentServiceImpl implements AppointmentService {
                 // đăng nhập mới đặt được) chứ không phải email của
                 // targetPatient, để đúng người quản lý lịch hẹn ("Lịch hẹn của tôi")
                 // nhận được thông báo kể cả khi đặt hộ người thân.
-                emailService.sendBookingConfirmation(patientEmail, targetPatient.getFullName(),
-                                doctor.getFullName(), appointmentTime,
-                                clinicService != null ? clinicService.getServiceName() : null);
+                // Bọc try/catch để lỗi SMTP/thông báo không làm hỏng lịch hẹn đã lưu.
+                try {
+                        emailService.sendBookingConfirmation(patientEmail, targetPatient.getFullName(),
+                                        doctor.getFullName(), appointmentTime,
+                                        clinicService != null ? clinicService.getServiceName() : null);
+                } catch (Exception e) {
+                        log.warn("Không gửi được email xác nhận đặt lịch: {}", e.getMessage());
+                }
+
+                // UC-12 POST-3: thông báo cho lễ tân về lịch hẹn PENDING mới cần duyệt.
+                try {
+                        notificationService.createForReceptionists(
+                                        "Lịch hẹn mới cần duyệt: " + targetPatient.getFullName()
+                                                        + " - " + appointmentTime.format(SLOT_FMT)
+                                                        + " " + appointmentTime.toLocalDate(),
+                                        saved.getId());
+                } catch (Exception e) {
+                        log.warn("Không tạo được thông báo lịch mới cho lễ tân: {}", e.getMessage());
+                }
 
                 return toResponse(saved);
         }
@@ -1058,7 +1076,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                 medicalRecordRepository.findByAppointmentId(appointmentId).ifPresent(record -> {
                         // Chỉ revert nếu record chưa COMPLETED (tránh mất dữ liệu đã hoàn tất)
                         if (record.getStatus() != MedicalRecordStatus.COMPLETED) {
-                                record.setStatus(MedicalRecordStatus.DRAFT);
+                                record.setStatus(MedicalRecordStatus.CANCELLED);
                                 medicalRecordRepository.save(record);
                         }
                 });

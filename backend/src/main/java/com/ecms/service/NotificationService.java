@@ -15,6 +15,9 @@ public interface NotificationService {
     /** Tạo 1 thông báo cho toàn bộ người dùng thuộc 1 vai trò bất kỳ (vd "MANAGER"). */
     void createForRole(String role, String message, Long relatedAppointmentId);
 
+    /** Tạo 1 thông báo cho toàn bộ Quản lý phòng khám (targetRole = "MANAGER"). UC-48. */
+    void createForManagers(String message, Long relatedAppointmentId);
+
     /** Tạo 1 thông báo nhắm riêng 1 user (vd 1 bệnh nhân). */
     void createForUser(Long userId, String message, Long relatedAppointmentId);
 

@@ -148,7 +148,7 @@ export default function DoctorDashboard() {
             Bạn có chắc muốn dừng ca khám của bệnh nhân <strong>{record.patientName}</strong>?
           </p>
           <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>
-            Lịch hẹn sẽ bị <strong>Hủy</strong> và Hồ sơ bệnh án sẽ được đưa về trạng thái <strong>Nháp</strong>.
+            Lịch hẹn và Hồ sơ bệnh án sẽ được chuyển sang trạng thái <strong>Đã hủy</strong> (chỉ xem, không thể chỉnh sửa).
           </p>
         </div>
       ),

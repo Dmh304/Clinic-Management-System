@@ -53,6 +53,10 @@ public class InvoiceResponse {
     private String status;          // DRAFT | ISSUED | CANCELLED
     private String paymentStatus;   // UNPAID | PAID | PAYMENT_FAILED
 
+    // Tình trạng gửi email hóa đơn — để UI hiển thị và cho phép gửi lại
+    private String emailStatus;     // NOT_SENT | SENDING | SENT | FAILED
+    private LocalDateTime emailSentAt;
+
     private Long issuedBy;
     private String notes;
     private LocalDateTime paidAt;

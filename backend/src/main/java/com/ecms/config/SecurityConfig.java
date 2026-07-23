@@ -73,9 +73,12 @@ public class SecurityConfig {
                                 // Token thiếu/sai/hết hạn → 401 (để frontend tự xoá session và chuyển về
                                 // /login).
                                 // Đã xác thực nhưng sai quyền (role) vẫn giữ 403 mặc định của Spring Security.
-                                .exceptionHandling(handling -> handling.authenticationEntryPoint(
-                                                (request, response, authException) -> response.sendError(
-                                                                HttpStatus.UNAUTHORIZED.value())))
+                                .exceptionHandling(handling -> handling
+                                                .authenticationEntryPoint((request, response, authException) -> response
+                                                                .sendError(HttpStatus.UNAUTHORIZED.value()))
+                                                .accessDeniedHandler((request, response,
+                                                                accessDeniedException) -> response.sendError(
+                                                                                HttpStatus.FORBIDDEN.value())))
                                 .authorizeHttpRequests(auth -> auth
 
                                                 // ══════════════════════════════════════════════════════════════════
@@ -110,6 +113,22 @@ public class SecurityConfig {
                                                 .permitAll()
                                                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/admin/unlock-user")
                                                 .hasRole("ADMIN")
+                                                .requestMatchers("/ws/**")
+                                                .permitAll()
+
+                                                // ══════════════════════════════════════════════════════════════════
+                                                // ── Payments: webhook cổng thanh toán (UC-22) — ThangNBHE201024 ───
+                                                // ══════════════════════════════════════════════════════════════════
+                                                // Cổng thanh toán (SePay) gọi từ server của họ nên không có JWT của ECMS.
+                                                // Endpoint này buộc phải permitAll để qua được filter chain; việc xác thực
+                                                // do PaymentService đảm nhiệm bằng API key dùng chung:
+                                                // header Authorization: Apikey <payment.webhook.api-key>.
+                                                // Chưa cấu hình key thì mọi webhook đều bị từ chối.
+                                                .requestMatchers(HttpMethod.POST, "/api/v1/payments/webhook")
+                                                .permitAll()
+                                                // Tra cứu trạng thái thanh toán vẫn yêu cầu đăng nhập như mọi API khác
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/payments/invoice/*/status")
+                                                .hasAnyRole("ADMIN", "RECEPTIONIST", "MANAGER", "PATIENT")
 
                                                 // ══════════════════════════════════════════════════════════════════
                                                 // ── Doctors: GET list public ───────────────────────────────────────
@@ -346,9 +365,11 @@ public class SecurityConfig {
                                                 // ── Lab Orders ────────────────────────────────────────────────────
                                                 // ══════════════════════════════════════════════════════════════════
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/lab/technicians")
-                                                .hasAnyRole("DOCTOR", "ADMIN")
+                                                .hasAnyRole("DOCTOR", "ADMIN", "MANAGER")
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/lab/queue")
                                                 .hasAnyRole("LAB_TECHNICIAN", "ADMIN")
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/lab/emr/*/patient")
+                                                .hasAnyRole("PATIENT", "ADMIN")
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/lab/emr/**")
                                                 .hasAnyRole("DOCTOR", "ADMIN")
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/lab/*/results")
@@ -393,6 +414,12 @@ public class SecurityConfig {
                                                 .requestMatchers("/api/v1/notifications/**")
                                                 .authenticated()
                                                 // ── Admin: audit log (UC-57) ────────────────────────────────────
+                                                .requestMatchers("/api/v1/feedbacks/**")
+                                                .hasRole("PATIENT")
+                                                .requestMatchers("/api/v1/reports/**")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers("/api/v1/payroll/**")
+                                                .hasAnyRole("MANAGER", "ADMIN")
                                                 .requestMatchers("/api/v1/admin/**")
                                                 .hasRole("ADMIN")
 

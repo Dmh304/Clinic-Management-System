@@ -11,7 +11,11 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "services")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class ClinicService {
 
     @Id
@@ -65,7 +69,7 @@ public class ClinicService {
 
     @Column(name = "service_type", nullable = false)
     @Builder.Default
-    private String serviceType = "CARE";  // "CLINICAL" hoặc "CARE"
+    private String serviceType = "CARE"; // "CLINICAL" hoặc "CARE"
 
     @Column(name = "is_active")
     private Boolean isActive;
@@ -75,6 +79,12 @@ public class ClinicService {
 
     @Column(name = "is_popular")
     private Boolean isPopular;
+
+    /**
+     * Đánh dấu dịch vụ thuộc nhóm xét nghiệm.
+     */
+    @Column(name = "is_lab_service", nullable = false, columnDefinition = "bit default 0")
+    private Boolean isLabService;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -86,9 +96,15 @@ public class ClinicService {
     private void prePersist() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
-        if (this.isActive == null) this.isActive = true;
-        if (this.displayOrder == null) this.displayOrder = 0;
-        if (this.isPopular == null) this.isPopular = false;
+        if (this.isActive == null)
+            this.isActive = true;
+        if (this.displayOrder == null)
+            this.displayOrder = 0;
+        if (this.isPopular == null)
+            this.isPopular = false;
+        if (isLabService == null) {
+            this.isLabService = false;
+        }
     }
 
     @PreUpdate

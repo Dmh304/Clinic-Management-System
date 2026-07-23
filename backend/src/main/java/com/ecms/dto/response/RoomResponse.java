@@ -1,24 +1,31 @@
 package com.ecms.dto.response;
 
+import com.ecms.entity.RoomCategory;
 import lombok.*;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class RoomResponse {
     private Long id;
     private String name;
-    private String roomType;
+    private RoomCategory category;
+    private Long serviceId;
+    private String serviceName;
     private Integer capacity;
-    private Boolean isActive;
-    private List<ServiceOption> services;
+    private String status;
+
+    /**
+     * Nhân sự đang trực phòng này hôm nay (nếu có) — hiển thị nhanh trên list (bước
+     * 2 UC-55).
+     */
+    private String currentStaffFullName;
+    private String currentStaffType;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-
-    @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
-    public static class ServiceOption {
-        private Long id;
-        private String serviceName;
-    }
 }

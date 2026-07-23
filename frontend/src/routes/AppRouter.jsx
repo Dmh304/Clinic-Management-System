@@ -38,7 +38,10 @@ import MySubscriptionsPage from '../pages/patient/MySubscriptionsPage'
 import BookCareSessionPage from '../pages/patient/BookCareSessionPage'
 import MyCareSessionsPage from '../pages/patient/MyCareSessionsPage'
 import MyAppointmentsPage from '../pages/patient/MyAppointmentsPage'
+import PatientLabResults from '../pages/patient/PatientLabResults'
 import MyInvoicesPage from '../pages/patient/MyInvoicesPage'
+import OrderGlassesPage from '../pages/patient/OrderGlassesPage'
+import FeedbackPage from '../pages/patient/FeedbackPage'
 
 
 
@@ -55,14 +58,20 @@ import DailySchedulePage from '../pages/receptionist/DailySchedulePage'
 import CheckoutCareSessionPage from '../pages/receptionist/CheckoutCareSessionPage'
 import ServiceRegistrationsPage from '../pages/receptionist/ServiceRegistrationsPage'
 import NotificationsPage from '../pages/receptionist/NotificationsPage'
+import ReceptionistOrderPage from '../pages/receptionist/ReceptionistOrderPage'
+import SupportDashboardPage from '../pages/receptionist/SupportDashboardPage'
 import ReceptionistLayout from '../components/layout/ReceptionistLayout'
 import DoctorLayout from '../components/layout/DoctorLayout'
+import ManagerLayout from '../components/layout/ManagerLayout'
+import LabTechnicianLayout from '../components/layout/LabTechnicianLayout'
 
 import CareQueuePage from '../pages/nurse/CareQueuePage'
 import DeliverCareSessionPage from '../pages/nurse/DeliverCareSessionPage'
 
 import LabQueuePage from '../pages/lab/LabQueuePage'
 import LabResultEntryPage from '../pages/lab/LabResultEntryPage'
+import EyeglassPrescriptionDetail from '../pages/lab/EyeglassPrescriptionDetail'
+import EyeglassPrescriptionQueue from '../pages/lab/EyeglassPrescriptionQueue'
 
 import DispensingPage from '../pages/pharmacy/DispensingPage'
 import PharmacyInvoicePage from '../pages/pharmacy/PharmacyInvoicePage'
@@ -70,6 +79,9 @@ import PharmacyInvoicePage from '../pages/pharmacy/PharmacyInvoicePage'
 import ManagerDashboard from '../pages/manager/ManagerDashboard'
 import RevenueReportPage from '../pages/manager/RevenueReportPage'
 import StaffPerformancePage from '../pages/manager/StaffPerformancePage'
+import PatientStatisticsPage from '../pages/manager/PatientStatisticsPage'
+import FeedbackReportPage from '../pages/manager/FeedbackReportPage'
+import PayrollPage from '../pages/manager/PayrollPage'
 import ManageServicePackagesPage from '../pages/manager/ManageServicePackagesPage'
 import ManageDoctorsPage from '../pages/manager/ManageDoctorsPage'
 import ManageDiscountCampaignsPage from '../pages/manager/ManageDiscountCampaignsPage'
@@ -142,12 +154,15 @@ export default function AppRouter() {
         <Route path="/patient/dashboard" element={<PatientDashboard />} />
         <Route path="/patient/booking" element={<BookingPage />} />
         <Route path="/patient/history" element={<MedicalHistoryPage />} />
+        <Route path="/patient/lab-results" element={<PatientLabResults />} />
         <Route path="/patient/prescription" element={<WithHeader><PrescriptionViewPage /></WithHeader>} />
         <Route path="/patient/subscriptions" element={<WithHeader><MySubscriptionsPage /></WithHeader>} />
         <Route path="/patient/book-session" element={<WithHeader><BookCareSessionPage /></WithHeader>} />
         <Route path="/patient/care-sessions" element={<WithHeader><MyCareSessionsPage /></WithHeader>} />
         <Route path="/patient/appointments" element={<WithHeader><MyAppointmentsPage /></WithHeader>} />
         <Route path="/patient/invoices" element={<WithHeader><MyInvoicesPage /></WithHeader>} />
+        <Route path="/patient/order-glasses/:prescriptionId" element={<WithHeader><OrderGlassesPage /></WithHeader>} />
+        <Route path="/patient/feedback" element={<WithHeader><FeedbackPage /></WithHeader>} />
       </Route>
 
       {/* ── Doctor ── */}
@@ -170,6 +185,9 @@ export default function AppRouter() {
           <Route path="/receptionist/notifications" element={<NotificationsPage />} />
           <Route path="/receptionist/checkout-care-sessions" element={<CheckoutCareSessionPage />} />
           <Route path="/receptionist/service-registrations" element={<ServiceRegistrationsPage />} />
+          <Route path="/receptionist/eyeglass-orders" element={<ReceptionistOrderPage />} />
+          <Route path="/receptionist/order-glasses/:prescriptionId" element={<OrderGlassesPage />} />
+          <Route path="/receptionist/support" element={<SupportDashboardPage />} />
         </Route>
       </Route>
 
@@ -181,8 +199,12 @@ export default function AppRouter() {
 
       {/* ── Lab ── */}
       <Route element={<ProtectedRoute allowedRoles={['LAB_TECHNICIAN']} />}>
+      <Route element={<LabTechnicianLayout />}>
         <Route path="/lab/queue" element={<LabQueuePage />} />
         <Route path="/lab/result-entry" element={<LabResultEntryPage />} />
+        <Route path="/lab/eyeglass-queue" element={<EyeglassPrescriptionQueue/>}/>
+        <Route path="/lab/eyeglass-detail" element={<EyeglassPrescriptionDetail/> }/>
+        </Route>
       </Route>
 
       {/* ── Pharmacy ── */}
@@ -193,17 +215,22 @@ export default function AppRouter() {
 
       {/* ── Manager ── */}
       <Route element={<ProtectedRoute allowedRoles={['MANAGER']} />}>
-        <Route path="/manager/dashboard" element={<ManagerDashboard />} />
-        <Route path="/manager/revenue" element={<RevenueReportPage />} />
-        <Route path="/manager/staff" element={<StaffPerformancePage />} />
-        <Route path="/manager/service-packages" element={<WithHeader><ManageServicePackagesPage /></WithHeader>} />
-        <Route path="/manager/doctors" element={<WithHeader><ManageDoctorsPage /></WithHeader>} />
-        <Route path="/manager/discount-campaigns" element={<WithHeader><ManageDiscountCampaignsPage /></WithHeader>} />
-        <Route path="/manager/assign-nurse" element={<WithHeader><AssignNursePage /></WithHeader>} />
-        <Route path="/manager/reassign-appointment" element={<WithHeader><ReassignAppointmentPage /></WithHeader>} />
-        <Route path="/manager/rooms" element={<WithHeader><RoomManagementPage /></WithHeader>} />
-        <Route path="/manager/room-roster" element={<WithHeader><RoomRosterPage /></WithHeader>} />
-        <Route path="/manager/daily-schedule" element={<WithHeader><DailySchedulePage /></WithHeader>} />
+        <Route element={<ManagerLayout />}>
+          <Route path="/manager/dashboard" element={<ManagerDashboard />} />
+          <Route path="/manager/revenue" element={<RevenueReportPage />} />
+          <Route path="/manager/staff" element={<StaffPerformancePage />} />
+          <Route path="/manager/patient-statistics" element={<PatientStatisticsPage />} />
+          <Route path="/manager/feedback-report" element={<FeedbackReportPage />} />
+          <Route path="/manager/payroll" element={<PayrollPage />} />
+          <Route path="/manager/service-packages" element={<ManageServicePackagesPage />} />
+          <Route path="/manager/doctors" element={<ManageDoctorsPage />} />
+          <Route path="/manager/discount-campaigns" element={<ManageDiscountCampaignsPage />} />
+          <Route path="/manager/assign-nurse" element={<AssignNursePage />} />
+          <Route path="/manager/reassign-appointment" element={<ReassignAppointmentPage />} />
+          <Route path="/manager/daily-schedule" element={<DailySchedulePage />} />
+          <Route path="/manager/rooms" element={<RoomManagementPage />} />
+          <Route path="/manager/room-roster" element={<RoomRosterPage />} />
+        </Route>
       </Route>
 
       {/* ── Admin ── */}

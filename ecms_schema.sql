@@ -582,7 +582,7 @@ CREATE TABLE lab_orders (
     medical_record_id BIGINT          NOT NULL,
     ordered_by        BIGINT          NULL,
     assigned_to       BIGINT          NULL,
-    service_id        BIGINT          NULL,   -- dịch vụ xét nghiệm (chụp/đo/soi) để đưa vào hóa đơn (UC-22)
+    service_id        BIGINT          NULL,   -- ThangNBHE201024: dịch vụ xét nghiệm (chụp/đo/soi) để đưa vào hóa đơn (UC-22)
     notes             NVARCHAR(MAX)   NULL,
     priority          NVARCHAR(20)    NOT NULL CONSTRAINT DF_lab_orders_priority DEFAULT 'PRIMARY',
     status            NVARCHAR(20)    NOT NULL DEFAULT 'PENDING',
@@ -684,6 +684,13 @@ CREATE TABLE invoices (
     )
 );
 GO
+
+-- Migration cho DB đã tồn tại (ddl-auto=none nên chạy tay):
+--   ALTER TABLE invoices ADD email_status NVARCHAR(20) NULL DEFAULT 'NOT_SENT', email_sent_at DATETIME2 NULL;
+--   GO
+--   ALTER TABLE invoices ADD CONSTRAINT CK_invoices_email_status
+--       CHECK (email_status IN ('NOT_SENT', 'SENDING', 'SENT', 'FAILED'));
+--   GO
 CREATE UNIQUE INDEX UQ_invoices_invoice_code ON invoices(invoice_code) WHERE invoice_code IS NOT NULL;
 GO
 
@@ -711,6 +718,7 @@ GO
 
 -- ----------------------------------------------------------------------------
 -- 22b. payment_transactions — nhật ký biến động số dư từ cổng thanh toán (UC-22)
+-- ThangNBHE201024
 -- Cổng (SePay) gọi webhook mỗi khi tài khoản phòng khám có tiền vào; hệ thống dò mã
 -- hóa đơn trong nội dung chuyển khoản rồi tự gạch nợ.
 -- gateway_txn_id UNIQUE: chặn xử lý trùng khi cổng retry cùng một giao dịch.

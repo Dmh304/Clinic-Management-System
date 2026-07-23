@@ -162,6 +162,28 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
+    public void sendAppointmentConfirmation(String toEmail, String patientName, String doctorName,
+            LocalDateTime appointmentTime) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("Bỏ qua email xác nhận đặt lịch: bệnh nhân {} không có email", patientName);
+            return;
+        }
+
+        String doctorPart = (doctorName != null && !doctorName.isBlank())
+                ? "Bác sĩ phụ trách: " + doctorName + "\n"
+                : "";
+
+        String body = "Xin chào " + safe(patientName) + ",\n\n"
+                + "Phòng khám Mắt ECMS đã tiếp nhận yêu cầu đặt lịch khám của bạn vào lúc "
+                + appointmentTime.format(TIME_FORMAT) + ".\n"
+                + doctorPart
+                + "\nLịch hẹn đang chờ lễ tân xác nhận. Chúng tôi sẽ gửi thông báo khi lịch được duyệt.\n\n"
+                + "Trân trọng,\nPhòng khám Mắt ECMS";
+
+        sendText(toEmail, "[ECMS] Xác nhận đặt lịch khám", body);
+    }
+
+    @Override
     public void sendCancellationNotice(String toEmail, String patientName, LocalDateTime appointmentTime,
             String reason) {
         if (toEmail == null || toEmail.isBlank()) {

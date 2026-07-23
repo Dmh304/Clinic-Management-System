@@ -1,66 +1,93 @@
-// UC-59: Manage Staff Room Roster
-// Phân công 1 nhân sự (bác sĩ/điều dưỡng/lab) vào 1 phòng.
-// Bản ghi "standing" (isOverride = false) có hiệu lực từ effectiveFrom trở đi cho tới khi có
-// bản ghi standing mới hơn — tra cứu phòng hiện tại của 1 nhân sự = bản ghi standing gần nhất
-// có effectiveFrom <= ngày cần tra, trừ khi có bản ghi override đúng ngày đó (ALT-1, chỉ áp
-// dụng 1 ngày rồi quay lại phân công standing).
+/**
+ * Entity ánh xạ bảng "staff_room_assignments" — phân trực phòng cho nhân sự
+ * theo ngày (UC-56 Manage Staff Room Roster).
+ *
+ * Mô hình "standing assignment + one-day override":
+ *   - Assignment thường (isOneDayOverride = false, workDate = null):
+ *     có hiệu lực từ `effectiveFrom` trở đi cho tới khi bị thay thế bởi
+ *     assignment mới hơn — đúng nghiệp vụ "cố định trừ khi manager đổi".
+ *   - Assignment override (isOneDayOverride = true, workDate = ngày cụ thể):
+ *     chỉ áp dụng đúng ngày đó, không ảnh hưởng tới standing assignment
+ *     (ALT-1 trong UC-56).
+ *
+ * Việc resolve phòng cho 1 nhân sự vào 1 ngày cụ thể luôn ưu tiên override
+ * đúng ngày đó trước, nếu không có mới lấy standing assignment gần nhất
+ * (effectiveFrom <= ngày cần resolve).
+ *
+ * staff_id là polymorphic theo staffType (xem StaffType.java) — validate ở
+ * tầng Service, KHÔNG có FK constraint DB cho cột này.
+ */
 package com.ecms.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "staff_room_assignments")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class StaffRoomAssignment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** Bác sĩ/điều dưỡng/lab được phân công — dùng users.id giống care_sessions.nurse_id. */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "staff_user_id", nullable = false)
-    private User staffUser;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "staff_type", nullable = false, length = 20)
+    private StaffType staffType;
+
+    /**
+     * Polymorphic FK — trỏ tới doctors.id / staffs.id / lab_technicians.id
+     * tuỳ staffType. Validate ở Service layer.
+     */
+    @Column(name = "staff_id", nullable = false)
+    private Long staffId;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @NotFound(action = NotFoundAction.IGNORE)
     @JoinColumn(name = "room_id", nullable = false)
     private Room room;
 
-    /** Ngày bắt đầu có hiệu lực của phân công standing (bỏ qua nếu isOverride = true). */
-    @Column(name = "effective_from")
+    /**
+     * Ngày assignment này bắt đầu có hiệu lực (dùng cho standing assignment).
+     */
+    @Column(name = "effective_from", nullable = false)
     private LocalDate effectiveFrom;
 
-    /** ALT-1: đổi phòng chỉ trong 1 ngày, hôm sau quay lại phân công standing trước đó. */
-    @Column(name = "is_override", nullable = false)
+    /**
+     * Chỉ set khi đây là override 1 ngày (ALT-1). Null với standing assignment.
+     */
+    @Column(name = "work_date")
+    private LocalDate workDate;
+
+    @Column(name = "is_one_day_override", nullable = false)
     @Builder.Default
-    private Boolean isOverride = false;
+    private Boolean isOneDayOverride = false;
 
-    @Column(name = "override_date")
-    private LocalDate overrideDate;
+    /**
+     * ID của Clinic Manager thực hiện phân trực (users.id), phục vụ Audit Log.
+     */
+    @Column(name = "assigned_by")
+    private Long assignedBy;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "assigned_by", nullable = false)
-    private User assignedBy;
-
-    @Column(name = "created_at")
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
 
     @PrePersist
     private void prePersist() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-        if (this.isOverride == null) this.isOverride = false;
-    }
-
-    @PreUpdate
-    private void preUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        if (createdAt == null)
+            createdAt = LocalDateTime.now();
+        if (isOneDayOverride == null)
+            isOneDayOverride = false;
+        if (effectiveFrom == null)
+            effectiveFrom = LocalDate.now();
     }
 }

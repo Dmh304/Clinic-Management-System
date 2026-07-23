@@ -144,6 +144,19 @@ export default function NotificationBell({ viewAllPath, iconColor = '#64748b', p
         loadCount()
       }
       setOpen(false)
+
+      // Thông báo thanh toán (UC-22):
+      //  - "Yêu cầu thanh toán" (chứa "cần thanh toán") → sang trang Hóa đơn của tôi để quét QR.
+      //  - "Thanh toán thành công" → giữ nguyên trang, chỉ đánh dấu đã đọc.
+      const msg = n.message || ''
+      if (isPatient && msg.includes('cần thanh toán')) {
+        navigate('/patient/invoices')
+        return
+      }
+      if (msg.includes('Thanh toán thành công')) {
+        return
+      }
+
       if (n.relatedAppointmentId) {
         // Bệnh nhân điều hướng tới trang lịch hẹn của mình (không gọi API staff);
         // nhân viên mở modal chi tiết lịch hẹn.

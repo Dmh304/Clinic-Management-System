@@ -21,6 +21,7 @@ import java.util.stream.Collectors;
 public class NotificationServiceImpl implements NotificationService {
 
     private static final String ROLE_RECEPTIONIST = "RECEPTIONIST";
+    private static final String ROLE_MANAGER = "MANAGER";
 
     private final NotificationRepository notificationRepository;
 
@@ -44,6 +45,13 @@ public class NotificationServiceImpl implements NotificationService {
                 .relatedAppointmentId(relatedAppointmentId)
                 .isRead(false)
                 .build());
+    }
+
+    /** Trường hợp riêng hay dùng của createForRole — giữ lại cho các caller UC-48. */
+    @Override
+    @Transactional
+    public void createForManagers(String message, Long relatedAppointmentId) {
+        createForRole(ROLE_MANAGER, message, relatedAppointmentId);
     }
 
     @Override

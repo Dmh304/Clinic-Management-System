@@ -9,4 +9,5 @@ export const prescriptionService = {
   dispense: (id, payload) => axiosClient.patch(`/v1/prescriptions/${id}/dispense`, payload),
   skip: (id) => axiosClient.patch(`/v1/prescriptions/${id}/skip`),
   delete: (id) => axiosClient.delete(`/v1/prescriptions/${id}`),
+  downloadPdf: (id, hideSignature = false) => axiosClient.get(`/v1/prescriptions/${id}/pdf?hideSignature=${hideSignature}`, { responseType: 'blob' }),
 };

@@ -43,9 +43,17 @@ VALUES
 (6,  N'bichngan1826@gmail.com', @pw, N'Lê Bích Ngân',       N'0901000006', '2004-06-18', 'FEMALE',
      N'6 Bạch Đằng, Q.BT, TP.HCM',       N'Lễ tân',        4, 'ACTIVE', 'LOCAL', GETDATE()),
 
+(17, N'ngobachthang2k6@gmail.com', @pw, N'Ngô Bạch Thắng', N'0967000017', '2006-01-01', 'MALE',
+     N'Kim Thành, Hải Dương',            N'Lễ tân',        4, 'ACTIVE', 'LOCAL', GETDATE()),
+
 (15, N'andreale389@gmail.com',  @pw, N'Andrea Lê',          N'0901000099', '2004-04-10', 'FEMALE',
      N'15 Lê Văn Sỹ, Q3, TP.HCM',        N'Điều dưỡng',    7, 'ACTIVE', 'LOCAL', GETDATE()),
 
+(16, N'trangthangtuong@gmail.com', @pw, N'Trang Thắng Tường', N'0920000002', '2001-11-12', 'MALE',
+     N'88 Nguyễn Trãi, Q5, TP.HCM', NULL, 8, 'ACTIVE', 'LOCAL', GETDATE()),
+
+(18, N'thanggamer2k24@gmail.com', @pw, N'Ngô Thắng',      N'0971254653', '2006-12-02', 'MALE',
+     N'Đông Anh, Hà Nội',                N'Ban giám đốc',  2, 'ACTIVE', 'LOCAL', GETDATE()),
 -- ===== Nhân viên (email ảo @ecms.vn) =====
 (2,  N'manager@ecms.vn',        @pw, N'Trần Thị Quản Lý',   N'0901000002', '1988-07-20', 'FEMALE',
      N'2 Nguyễn Huệ, Q1, TP.HCM',        N'Ban giám đốc',  2, 'ACTIVE', 'LOCAL', GETDATE()),
@@ -137,7 +145,9 @@ VALUES
 (1, 6,  N'EMP001', N'Lê Bích Ngân',       N'Lễ tân',      N'Lễ tân viên',  N'0901000006', '2024-01-15', 'ACTIVE', GETDATE()),
 (2, 7,  N'EMP002', N'Hoàng Lễ Tân',       N'Lễ tân',      N'Lễ tân viên',  N'0901000007', '2023-03-01', 'ACTIVE', GETDATE()),
 (3, 8,  N'EMP003', N'Vũ Dược Sĩ',         N'Nhà thuốc',   N'Dược sĩ',      N'0901000008', '2021-06-10', 'ACTIVE', GETDATE()),
-(4, 15, N'EMP004', N'Andrea Lê',          N'Điều dưỡng',  N'Điều dưỡng viên', N'0901000099', '2024-09-20', 'ACTIVE', GETDATE());
+(4, 15, N'EMP004', N'Andrea Lê',          N'Điều dưỡng',  N'Điều dưỡng viên', N'0901000099', '2024-09-20', 'ACTIVE', GETDATE()),
+(5, 17, N'EMP005', N'Ngô Bách Thắng',     N'Lễ tân',      N'Lễ tân viên',  N'0967000017', '2025-01-06', 'ACTIVE', GETDATE()),
+(6, 18, N'EMP006', N'Ngô Thắng',          N'Ban giám đốc', N'Quản lý',     N'0971254653', '2025-07-01', 'ACTIVE', GETDATE());
 
 SET IDENTITY_INSERT staffs OFF;
 GO
@@ -813,6 +823,137 @@ INSERT INTO staff_room_assignments (staff_type, staff_id, room_id, effective_fro
 (N'DOCTOR',         3, 3, '2026-01-01', NULL, 0, 2, GETDATE()), -- BS. Lê Minh Châu (doctors.id=3) → Phòng phẫu thuật
 (N'NURSE',          4, 4, '2026-01-01', NULL, 0, 2, GETDATE()), -- Andrea Lê (staffs.id=4) → Phòng chăm sóc & phục hồi 1
 (N'LAB_TECHNICIAN', 1, 6, '2026-01-01', NULL, 0, 2, GETDATE()); -- Đặng Kỹ Thuật Viên (lab_technicians.id=1) → Phòng xét nghiệm
+
+-- ============================================================================
+-- 25. DEMO THANH TOÁN — Bệnh nhân "Trang Thắng Tường" + 3 HÓA ĐƠN CHƯA THANH TOÁN
+--     Phục vụ demo luồng VietQR / webhook (UC-22): tài khoản này có sẵn 3 hóa đơn
+--     ISSUED + UNPAID với thành phần khác nhau (khám, chẩn đoán hình ảnh, thuốc).
+--     Trả tiền bằng cách bắn webhook với đúng invoice_code (xem docs/payment-webhook-demo.md).
+--     Đăng nhập bệnh nhân: trangthangtuong@gmail.com / Password@123
+-- ============================================================================
+
+-- 25.2 patients — hồ sơ bệnh nhân gắn với tài khoản trên
+SET IDENTITY_INSERT patients ON;
+INSERT INTO patients
+    (id, user_id, patient_code, full_name, date_of_birth, gender, phone, email, address,
+     cccd, blood_type, allergy_notes, emergency_contact_name, emergency_contact_phone, status, created_at)
+VALUES
+(7, 16, N'PAT007', N'Trang Thắng Tường', '2001-11-12', 'MALE', N'0920000002', N'trangthangtuong@gmail.com',
+    N'88 Nguyễn Trãi, Q5, TP.HCM', N'079201009999', 'O', NULL,
+    N'Trang Văn Tư', N'0920000012', 'ACTIVE', GETDATE());
+SET IDENTITY_INSERT patients OFF;
+GO
+
+-- 25.3 appointments — 3 lịch đã khám xong (COMPLETED), CHƯA có hóa đơn.
+-- Cố ý không tạo hóa đơn cho các lịch này → chúng hiện ở tab "Tạo hóa đơn" để demo
+-- luồng lễ tân tạo hóa đơn (tự đổ dịch vụ khám + thuốc đã kê).
+SET IDENTITY_INSERT appointments ON;
+DECLARE @dm5 DATETIME2 = CAST(CAST(DATEADD(DAY,-5,GETDATE()) AS DATE) AS DATETIME2);
+DECLARE @dm4 DATETIME2 = CAST(CAST(DATEADD(DAY,-4,GETDATE()) AS DATE) AS DATETIME2);
+DECLARE @dm1 DATETIME2 = CAST(CAST(DATEADD(DAY,-1,GETDATE()) AS DATE) AS DATETIME2);
+INSERT INTO appointments
+    (id, patient_id, doctor_id, service_id, appointment_time, time_slot, type, status,
+     notes, queue_number, check_in_time, check_in_by, booked_by,
+     cancel_reason, cancelled_by, cancelled_at, created_at)
+VALUES
+(10, 7, 1, 9,  DATEADD(MINUTE, 8*60,  @dm5), N'08:00 - 08:30', 'ONLINE',  'COMPLETED',
+    N'Khám mắt định kỳ + chụp OCT',  1, DATEADD(MINUTE, 7*60+55, @dm5), 6, 16, NULL, NULL, NULL, DATEADD(DAY,-6,GETDATE())),
+(11, 7, 2, 11, DATEADD(MINUTE, 9*60,  @dm4), N'09:00 - 09:30', 'ONLINE',  'COMPLETED',
+    N'Đo khúc xạ, kê thuốc nhỏ mắt', 2, DATEADD(MINUTE, 8*60+55, @dm4), 6, 16, NULL, NULL, NULL, DATEADD(DAY,-5,GETDATE())),
+(12, 7, 1, 9,  DATEADD(MINUTE, 10*60, @dm1), N'10:00 - 10:30', 'WALK_IN', 'COMPLETED',
+    N'Tái khám, soi đáy mắt',        3, DATEADD(MINUTE, 9*60+55, @dm1), 7, 16, NULL, NULL, NULL, DATEADD(DAY,-2,GETDATE()));
+SET IDENTITY_INSERT appointments OFF;
+GO
+
+-- ============================================================================
+-- 26. DEMO AUTO-ĐỔ KHOẢN PHÍ — lịch hẹn ĐÃ KHÁM, có đơn thuốc, CHƯA có hóa đơn
+--     Dùng để thử tính năng: mở modal "Thu phí" cho lịch hẹn này → hệ thống tự đổ
+--     dịch vụ khám + thuốc bác sĩ đã kê (UC-27) vào danh sách khoản phí.
+--     Bệnh nhân: Trang Thắng Tường (patient 7). KHÔNG tạo hóa đơn cho lịch này.
+-- ============================================================================
+SET IDENTITY_INSERT appointments ON;
+INSERT INTO appointments
+    (id, patient_id, doctor_id, service_id, appointment_time, time_slot, type, status,
+     notes, queue_number, check_in_time, check_in_by, booked_by,
+     cancel_reason, cancelled_by, cancelled_at, created_at)
+VALUES
+(13, 7, 1, 9,
+    DATEADD(MINUTE, 11*60, CAST(CAST(DATEADD(DAY,-1,GETDATE()) AS DATE) AS DATETIME2)),
+    N'11:00 - 11:30', 'WALK_IN', 'COMPLETED',
+    N'Viêm kết mạc, bác sĩ đã kê thuốc — CHƯA thu phí (demo auto-đổ khoản phí)',
+    4, DATEADD(MINUTE, 10*60+55, CAST(CAST(DATEADD(DAY,-1,GETDATE()) AS DATE) AS DATETIME2)),
+    6, 16, NULL, NULL, NULL, DATEADD(DAY,-1,GETDATE()));
+SET IDENTITY_INSERT appointments OFF;
+GO
+
+SET IDENTITY_INSERT medical_records ON;
+INSERT INTO medical_records
+    (id, appointment_id, patient_id, doctor_id, chief_complaint, symptoms, diagnosis,
+     treatment_plan, total_amount, locked_at, locked_by, status, created_at)
+VALUES
+(5, 13, 7, 1,
+    N'Mắt đỏ, cộm, chảy nước mắt',
+    N'Kết mạc cương tụ nhẹ hai mắt',
+    N'Viêm kết mạc cấp',
+    N'Nhỏ kháng sinh + nước mắt nhân tạo 7 ngày',
+    NULL, DATEADD(DAY,-1,GETDATE()), 3, 'COMPLETED', DATEADD(DAY,-1,GETDATE()));
+SET IDENTITY_INSERT medical_records OFF;
+GO
+
+SET IDENTITY_INSERT prescriptions ON;
+INSERT INTO prescriptions (id, medical_record_id, doctor_id, patient_id, status, notes, created_at)
+VALUES
+(2, 5, 1, 7, 'DISPENSED',
+    N'Kháng sinh sáng-tối, nước mắt nhân tạo khi khô mắt, kháng sinh dự phòng buổi tối.',
+    DATEADD(DAY,-1,GETDATE()));
+SET IDENTITY_INSERT prescriptions OFF;
+GO
+
+SET IDENTITY_INSERT prescription_items ON;
+INSERT INTO prescription_items
+    (id, prescription_id, medicine_id, quantity, dosage, frequency, duration, instructions, unit_price)
+VALUES
+(3, 2, 1, 2, N'1 giọt/mắt', N'Sáng và tối',    7, N'Nhỏ sau khi rửa mặt', 45000),  -- Tobramycin x2
+(4, 2, 3, 1, N'1 giọt/mắt', N'Khi khô mắt',    30, NULL,                   85000),  -- Hylo-Comod x1
+(5, 2, 6, 1, N'1 giọt/mắt', N'Tối trước khi ngủ', 7, NULL,                 42000);  -- Ciprofloxacin x1
+SET IDENTITY_INSERT prescription_items OFF;
+GO
+
+-- 26b. Bệnh án + đơn thuốc + lab order (gắn dịch vụ xét nghiệm) cho 3 lịch hẹn còn lại
+--      (10, 11, 12) để cả 4 lịch demo đều tự đổ: dịch vụ khám + xét nghiệm + thuốc.
+SET IDENTITY_INSERT medical_records ON;
+INSERT INTO medical_records (id, appointment_id, patient_id, doctor_id, chief_complaint, diagnosis, status, created_at) VALUES
+(6, 10, 7, 1, N'Khám định kỳ', N'Theo dõi',  'COMPLETED', DATEADD(DAY,-6,GETDATE())),
+(7, 11, 7, 2, N'Đo khúc xạ',   N'Cận thị',   'COMPLETED', DATEADD(DAY,-5,GETDATE())),
+(8, 12, 7, 1, N'Tái khám',     N'Ổn định',   'COMPLETED', DATEADD(DAY,-2,GETDATE()));
+SET IDENTITY_INSERT medical_records OFF;
+GO
+
+SET IDENTITY_INSERT prescriptions ON;
+INSERT INTO prescriptions (id, medical_record_id, doctor_id, patient_id, status, created_at) VALUES
+(3, 6, 1, 7, 'DISPENSED', DATEADD(DAY,-6,GETDATE())),
+(4, 7, 2, 7, 'DISPENSED', DATEADD(DAY,-5,GETDATE())),
+(5, 8, 1, 7, 'DISPENSED', DATEADD(DAY,-2,GETDATE()));
+SET IDENTITY_INSERT prescriptions OFF;
+GO
+
+SET IDENTITY_INSERT prescription_items ON;
+INSERT INTO prescription_items (id, prescription_id, medicine_id, quantity, dosage, frequency, duration, unit_price) VALUES
+(6, 3, 1, 2, N'1 giọt/mắt', N'Sáng và tối', 7,  45000),   -- Tobramycin x2 (appt 10)
+(7, 4, 3, 1, N'1 giọt/mắt', N'Khi khô mắt', 30, 85000),   -- Hylo-Comod x1 (appt 11)
+(8, 5, 2, 1, N'1 giọt/mắt', N'Tối',         7,  38000);   -- Dexamethasone x1 (appt 12)
+SET IDENTITY_INSERT prescription_items OFF;
+GO
+
+-- Lab order gắn dịch vụ xét nghiệm (chụp/đo/soi) — service_id trỏ tới dịch vụ CLINICAL có giá.
+-- getSuggestedItems đọc lab_orders.service_id để tự đổ khoản xét nghiệm vào hóa đơn (UC-22).
+SET IDENTITY_INSERT lab_orders ON;
+INSERT INTO lab_orders (id, medical_record_id, ordered_by, service_id, priority, status, created_at) VALUES
+(4, 6, 1, 14, 'PRIMARY', 'APPROVED', DATEADD(DAY,-6,GETDATE())),  -- appt 10 → Chụp OCT
+(5, 7, 2, 12, 'PRIMARY', 'APPROVED', DATEADD(DAY,-5,GETDATE())),  -- appt 11 → Đo nhãn áp
+(6, 8, 1, 13, 'PRIMARY', 'APPROVED', DATEADD(DAY,-2,GETDATE())),  -- appt 12 → Soi đáy mắt
+(7, 5, 1, 14, 'PRIMARY', 'APPROVED', DATEADD(DAY,-1,GETDATE()));  -- appt 13 → Chụp OCT
+SET IDENTITY_INSERT lab_orders OFF;
 GO
 
 -- ============================================================================
@@ -821,15 +962,15 @@ GO
 PRINT N'';
 PRINT N'✅ ECMS Seed Data hoàn tất!';
 PRINT N'';
-PRINT N'  users                         : 15 (9 nhân viên + 1 manager... + 5 bệnh nhân)';
-PRINT N'  doctors                       : 3   | lab_technicians : 1 | staffs : 4';
-PRINT N'  patients                      : 6 (5 có tài khoản + 1 bệnh nhi vãng lai)';
+PRINT N'  users                         : 17 (10 nhân viên + 1 manager... + 6 bệnh nhân)';
+PRINT N'  doctors                       : 3   | lab_technicians : 1 | staffs : 5';
+PRINT N'  patients                      : 7 (6 có tài khoản + 1 bệnh nhi vãng lai)';
 PRINT N'  services                      : 14 (5 CARE + 9 CLINICAL) | categories : 4';
 PRINT N'  medicines                     : 6   | discount_campaigns : 2';
-PRINT N'  appointments                  : 9 (đủ trạng thái) | medical_records : 4';
-PRINT N'  prescriptions                 : 1 (+2 items) | eyeglass_prescriptions : 2';
-PRINT N'  lab_orders                    : 3   | lab_results : 2';
-PRINT N'  invoices                      : 4 (+8 details, tất cả PAID)';
+PRINT N'  appointments                  : 13 (9 gốc + 4 demo COMPLETED chưa có HĐ) | medical_records : 8';
+PRINT N'  prescriptions                 : 5 (+8 items) | eyeglass_prescriptions : 2';
+PRINT N'  lab_orders                    : 7 (3 gốc + 4 demo gắn dịch vụ XN) | lab_results : 2';
+PRINT N'  invoices                      : 4 (4 PAID gốc, +8 details)';
 PRINT N'  subscriptions                 : 2 (+3 care_sessions) | service_registrations : 2';
 PRINT N'  notifications                 : 5   | blog_posts : 3 | audit_logs : 5';
 PRINT N'  doctor_schedules              : 7   | feedbacks : 3 | verification_tokens : 2';
@@ -837,11 +978,12 @@ PRINT N'  rooms                         : 6 | staff_room_assignments : 5';
 PRINT N'';
 PRINT N'  ─── TÀI KHOẢN ĐĂNG NHẬP (mật khẩu chung: Password@123) ───';
 PRINT N'  ADMIN         : mh3k42k6@gmail.com';
-PRINT N'  RECEPTIONIST  : bichngan1826@gmail.com  (+ reception2@ecms.vn)';
+PRINT N'  RECEPTIONIST  : bichngan1826@gmail.com  (+ reception2@ecms.vn, ngobachthang2k6@gmail.com)';
 PRINT N'  NURSE         : andreale389@gmail.com';
 PRINT N'  MANAGER       : manager@ecms.vn';
 PRINT N'  DOCTOR        : doctor.nguyen@ecms.vn / doctor.tran@ecms.vn / doctor.le@ecms.vn';
 PRINT N'  PHARMACIST    : pharmacist@ecms.vn';
 PRINT N'  LAB_TECH      : labtech@ecms.vn';
 PRINT N'  PATIENT (ảo)  : patient1@gmail.com … patient5@gmail.com';
+PRINT N'  PATIENT DEMO  : trangthangtuong@gmail.com  (4 lịch hẹn COMPLETED chưa có HĐ — demo tạo hóa đơn)';
 GO

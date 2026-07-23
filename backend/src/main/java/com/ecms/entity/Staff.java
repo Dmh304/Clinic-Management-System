@@ -6,6 +6,7 @@ package com.ecms.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -24,17 +25,20 @@ public class Staff {
     @Column(name = "employee_code", nullable = false, unique = true, length = 20)
     private String employeeCode;
 
-    @Column(name = "full_name", nullable = false)
+    @Column(name = "full_name", columnDefinition = "NVARCHAR(100)", nullable = false)
     private String fullName;
 
-    @Column(name = "department", length = 100)
+    @Column(name = "department", columnDefinition = "NVARCHAR(100)")
     private String department;
 
-    @Column(name = "position", nullable = false, length = 100)
+    @Column(name = "position", columnDefinition = "NVARCHAR(100)", nullable = false)
     private String position;
 
-    @Column(name = "phone_number", length = 15)
+    @Column(name = "phone_number", length = 20)
     private String phoneNumber;
+
+    @Column(name = "hire_date")
+    private LocalDate hireDate;
 
     @Column(name = "status", nullable = false, length = 20)
     private String status;
@@ -42,9 +46,18 @@ public class Staff {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
     @PrePersist
-    private void prePersist() {
+    protected void onCreate() {
         if (createdAt == null) createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
         if (status == null) status = "ACTIVE";
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
     }
 }

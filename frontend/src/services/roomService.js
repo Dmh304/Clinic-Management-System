@@ -1,34 +1,39 @@
+// roomService.js
+// Gọi API cho UC-55 (Room Catalogue) và UC-56 (Staff Room Roster).
 import axiosClient from '../api/axiosClient'
 
-// UC-58: Manage Room Catalogue & Service Mapping
 export const roomService = {
-  getAll: () =>
-    axiosClient.get('/v1/rooms'),
+  // ── UC-55: Room Catalogue ──────────────────────────────────────
+  getAllRooms: (includeInactive = false) =>
+    axiosClient.get('/v1/rooms', { params: { includeInactive } }),
 
-  getById: (id) =>
+  getRoomsByCategory: (category) =>
+    axiosClient.get(`/v1/rooms/category/${category}`),
+
+  getRoomById: (id) =>
     axiosClient.get(`/v1/rooms/${id}`),
 
-  getActiveByType: (roomType) =>
-    axiosClient.get(`/v1/rooms/by-type/${roomType}`),
+  createRoom: (payload) =>
+    axiosClient.post('/v1/rooms', payload),
 
-  create: (data) =>
-    axiosClient.post('/v1/rooms', data),
+  updateRoom: (id, payload) =>
+    axiosClient.put(`/v1/rooms/${id}`, payload),
 
-  update: (id, data) =>
-    axiosClient.put(`/v1/rooms/${id}`, data),
+  deactivateRoom: (id) =>
+    axiosClient.put(`/v1/rooms/${id}/deactivate`),
 
-  deactivate: (id) =>
-    axiosClient.delete(`/v1/rooms/${id}`),
-}
+  reactivateRoom: (id) =>
+    axiosClient.put(`/v1/rooms/${id}/reactivate`),
 
-// UC-59: Manage Staff Room Roster
-export const roomRosterService = {
-  getRosterForDate: (date) =>
-    axiosClient.get('/v1/room-roster', { params: { date } }),
+  // ── UC-56: Staff Room Roster ────────────────────────────────────
+  getRoster: (date) =>
+    axiosClient.get('/v1/room-roster', { params: date ? { date } : {} }),
 
-  assign: (data) =>
-    axiosClient.post('/v1/room-roster/assign', data),
+  assignRoom: (payload) =>
+    axiosClient.post('/v1/room-roster', payload),
 
-  getAssignmentsByRoom: (roomId) =>
-    axiosClient.get(`/v1/room-roster/by-room/${roomId}`),
+  resolveRoom: (staffType, staffId, date) =>
+    axiosClient.get('/v1/room-roster/resolve', {
+      params: { staffType, staffId, ...(date ? { date } : {}) },
+    }),
 }

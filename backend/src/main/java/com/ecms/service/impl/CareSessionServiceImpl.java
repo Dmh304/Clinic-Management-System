@@ -5,14 +5,14 @@ import com.ecms.dto.request.BookCareSessionRequest;
 import com.ecms.dto.response.AutoAssignResult;
 import com.ecms.dto.response.CareSessionResponse;
 import com.ecms.dto.response.NurseResponse;
-import com.ecms.dto.response.StaffRoomAssignmentResponse;
+import com.ecms.dto.response.RoomResolutionResponse;
 import com.ecms.entity.*;
 import com.ecms.exception.ResourceNotFoundException;
 import com.ecms.repository.*;
 import com.ecms.service.AuditLogService;
 import com.ecms.service.CareSessionService;
 import com.ecms.service.NotificationService;
-import com.ecms.service.RoomRosterService;
+import com.ecms.service.StaffRoomAssignmentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -58,7 +58,7 @@ public class CareSessionServiceImpl implements CareSessionService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final AuditLogService auditLogService;
-    private final RoomRosterService roomRosterService;
+    private final StaffRoomAssignmentService staffRoomAssignmentService;
     private final RoomRepository roomRepository;
     // UC-21: xác định subscription đã được thu tiền (có hóa đơn chưa hủy) hay chưa,
     // để CheckoutCareSessionPage biết buổi này có cần redirect sang thanh toán không.
@@ -69,8 +69,10 @@ public class CareSessionServiceImpl implements CareSessionService {
     private Room resolveRoomForNurse(User nurse, LocalDate date) {
         try {
             if (nurse == null || date == null) return null;
-            StaffRoomAssignmentResponse resolved = roomRosterService.resolveRoomForStaffOnDate(nurse.getId(), date);
-            return resolved != null ? roomRepository.findById(resolved.getRoomId()).orElse(null) : null;
+            RoomResolutionResponse resolved = staffRoomAssignmentService.resolveRoomForUser(nurse.getId(), date);
+            return resolved != null && resolved.isResolved()
+                    ? roomRepository.findById(resolved.getRoomId()).orElse(null)
+                    : null;
         } catch (Exception e) {
             log.warn("UC-59: Không resolve được phòng cho điều dưỡng {} ngày {}: {}",
                     nurse.getId(), date, e.getMessage());
@@ -80,7 +82,7 @@ public class CareSessionServiceImpl implements CareSessionService {
 
     /** Mở rộng UC-20: tự động chọn điều dưỡng đang rảnh đúng khung giờ để gán ngay lúc đặt
      *  lịch, thay vì luôn để trống chờ Manager phân công tay. Chỉ xét điều dưỡng đã được
-     *  phân công phòng cho đúng ngày đó (RoomRosterService — tín hiệu gần nhất hệ thống đang
+     *  phân công phòng cho đúng ngày đó (StaffRoomAssignmentService — tín hiệu gần nhất hệ thống đang
      *  có cho "đang trực hôm đó"), chưa đủ trần BR-16 (12 buổi/ngày) và không trùng khung giờ
      *  với buổi đã có (so theo [giờ đặt, giờ đặt + thời lượng dịch vụ)). Không tìm được ai phù
      *  hợp thì trả về null — buổi vẫn được tạo bình thường, Manager xử lý tay như trước (không

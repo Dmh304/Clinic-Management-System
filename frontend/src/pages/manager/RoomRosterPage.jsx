@@ -1,143 +1,243 @@
-// UC-59: Manage Staff Room Roster
 import { useEffect, useState } from 'react'
-import { roomService, roomRosterService } from '../../services/roomService'
+import { roomService } from '../../services/roomService'
+import { staffDirectoryService } from '../../services/staffDirectoryService'
+import { doctorService } from '../../services/doctorService'
+import Header from '../../components/layout/Header'
 
-const ROLE_TO_ROOM_TYPE = { DOCTOR: 'DOCTOR', NURSE: 'NURSE', LAB_TECHNICIAN: 'LAB' }
-const ROLE_LABEL = { DOCTOR: 'Bác sĩ', NURSE: 'Điều dưỡng', LAB_TECHNICIAN: 'Kỹ thuật viên xét nghiệm' }
+// Map loại nhân sự -> category phòng tương ứng, đúng validateCategoryMatchesStaffType ở backend
+const STAFF_TYPE_CONFIG = {
+  DOCTOR: { label: 'Bác sĩ', category: 'CLINICAL_EXAM' },
+  NURSE: { label: 'Điều dưỡng', category: 'CARE_RECOVERY' },
+  LAB_TECHNICIAN: { label: 'Kỹ thuật viên xét nghiệm', category: 'DIAGNOSTIC_IMAGING' },
+}
+
+const todayIso = () => {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 10);
+}
 
 export default function RoomRosterPage() {
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0])
-  const [roster, setRoster] = useState([])
-  const [roomsByType, setRoomsByType] = useState({ DOCTOR: [], NURSE: [], LAB: [] })
+  const [date, setDate] = useState(todayIso())
+  const [roster, setRoster] = useState([]) // [{staffType, staffId, staffFullName, roomId, roomName, isOneDayOverride}]
+  const [doctors, setDoctors] = useState([])
+  const [nurses, setNurses] = useState([])
+  const [labTechs, setLabTechs] = useState([])
+  const [roomsByCategory, setRoomsByCategory] = useState({})
   const [loading, setLoading] = useState(true)
-  const [selectedRoom, setSelectedRoom] = useState({}) // {staffUserId: roomId}
-  const [oneDayOnly, setOneDayOnly] = useState({}) // {staffUserId: boolean}
-  const [assigning, setAssigning] = useState(null)
+  const [error, setError] = useState('')
+  const [pendingSelection, setPendingSelection] = useState({}) // key `${type}:${id}` -> roomId
+  const [oneDayOverride, setOneDayOverride] = useState({}) // key -> boolean
+  const [saving, setSaving] = useState('')
 
-  const loadData = () => {
+  const loadAll = async () => {
     setLoading(true)
-    return Promise.all([
-      roomRosterService.getRosterForDate(date),
-      roomService.getActiveByType('DOCTOR'),
-      roomService.getActiveByType('NURSE'),
-      roomService.getActiveByType('LAB'),
-    ]).then(([rosterRes, doctorRooms, nurseRooms, labRooms]) => {
-      setRoster(rosterRes.data || [])
-      setRoomsByType({ DOCTOR: doctorRooms.data || [], NURSE: nurseRooms.data || [], LAB: labRooms.data || [] })
-    }).finally(() => setLoading(false))
-  }
-
-  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
-  useEffect(() => { loadData() }, [date])
-
-  const doAssign = async (staffUserId, roomId, oneDay, forceOverrideCapacity) => {
-    setAssigning(staffUserId)
+    setError('')
     try {
-      await roomRosterService.assign({
-        staffUserId,
-        roomId: Number(roomId),
-        effectiveFrom: oneDay ? null : date,
-        oneDayOnly: oneDay,
-        overrideDate: oneDay ? date : null,
-        forceOverrideCapacity,
+      const [rosterRes, doctorsRes, clinicalRooms, careRooms, imagingRooms, workshopRooms] = await Promise.all([
+        roomService.getRoster(date),
+        doctorService.getAllDoctors(),
+        roomService.getRoomsByCategory('CLINICAL_EXAM'),
+        roomService.getRoomsByCategory('CARE_RECOVERY'),
+        roomService.getRoomsByCategory('DIAGNOSTIC_IMAGING'),
+        roomService.getRoomsByCategory('OPTICAL_WORKSHOP'),
+      ])
+
+      setRoster(rosterRes.data || [])
+      setDoctors(doctorsRes.data || [])
+      setRoomsByCategory({
+        CLINICAL_EXAM: clinicalRooms.data || [],
+        CARE_RECOVERY: careRooms.data || [],
+        // Lab Technician có thể trực 1 trong 2 category — gộp lại để chọn chung
+        LAB: [...(imagingRooms.data || []), ...(workshopRooms.data || [])],
       })
-      alert('Phân công phòng thành công!')
-      loadData()
-    } catch (err) {
-      const msg = err.response?.data?.message || 'Lỗi khi phân công phòng'
-      // UC-59 E-2: phòng đã đủ sức chứa → hỏi lại Manager có muốn ghi đè không.
-      if (msg.includes('đủ sức chứa')) {
-        if (window.confirm(msg + '\n\nVẫn phân công (ghi đè)?')) {
-          return doAssign(staffUserId, roomId, oneDay, true)
-        }
-        return
+
+      // ⚠️ Hai lời gọi dưới đây phụ thuộc staffDirectoryService — xem TODO
+      // trong file đó. Bọc try/catch riêng để 1 API lỗi không sập cả trang.
+      try {
+        const nursesRes = await staffDirectoryService.getActiveNurses()
+        setNurses(nursesRes.data || [])
+      } catch {
+        setNurses([])
       }
-      alert(msg)
+      try {
+        const labTechRes = await staffDirectoryService.getActiveLabTechnicians()
+        setLabTechs(labTechRes.data || [])
+      } catch {
+        setLabTechs([])
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Lỗi khi tải dữ liệu phân trực')
     } finally {
-      setAssigning(null)
+      setLoading(false)
     }
   }
 
-  const handleAssign = (staffUserId) => {
-    const roomId = selectedRoom[staffUserId]
-    if (!roomId) return alert('Vui lòng chọn phòng')
-    doAssign(staffUserId, roomId, !!oneDayOnly[staffUserId], false)
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { loadAll() }, [date])
+
+  const findCurrentAssignment = (staffType, staffId) =>
+    roster.find((r) => r.staffType === staffType && r.staffId === staffId)
+
+  const staffKey = (type, id) => `${type}:${id}`
+
+  const handleAssign = async (staffType, staffId) => {
+    const key = staffKey(staffType, staffId)
+    const roomId = pendingSelection[key]
+    if (!roomId) { setError('Vui lòng chọn phòng trước khi gán'); return }
+
+    setSaving(key)
+    setError('')
+    try {
+      await roomService.assignRoom({
+        staffType,
+        staffId,
+        roomId: Number(roomId),
+        date,
+        oneDayOverride: !!oneDayOverride[key],
+        forceOverride: false,
+      })
+      await loadAll()
+    } catch (err) {
+      const msg = err.response?.data?.message || ''
+      if (msg.includes('already has staff assigned')) {
+        // ALT-2: phòng đã có người trực trùng ngày — hỏi xác nhận ghi đè
+        if (window.confirm('Phòng này đã có người trực hôm nay. Vẫn muốn gán đè?')) {
+          try {
+            await roomService.assignRoom({
+              staffType, staffId, roomId: Number(roomId), date,
+              oneDayOverride: !!oneDayOverride[key], forceOverride: true,
+            })
+            await loadAll()
+          } catch (err2) {
+            setError(err2.response?.data?.message || 'Lỗi khi gán phòng')
+          }
+        }
+      } else {
+        setError(msg || 'Lỗi khi gán phòng')
+      }
+    } finally {
+      setSaving('')
+    }
   }
 
-  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#6b7280' }}>Đang tải...</div>
+  const renderStaffSection = (staffType, staffList) => {
+    const config = STAFF_TYPE_CONFIG[staffType]
+    const rooms = staffType === 'LAB_TECHNICIAN' ? roomsByCategory.LAB : roomsByCategory[config.category]
 
-  const grouped = ['DOCTOR', 'NURSE', 'LAB_TECHNICIAN'].map(role => ({
-    role,
-    entries: roster.filter(r => r.staffRole === role),
-  }))
+    return (
+      <>
+      {/* <Header/> */}
+      <div key={staffType} style={{ marginBottom: 28 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: 10 }}>
+          {config.label}
+        </h3>
+        <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+                {['Nhân sự', 'Phòng hiện tại', 'Gán phòng mới', 'Chỉ hôm nay?', ''].map((h) => (
+                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {staffList.length === 0 && (
+                <tr><td colSpan={5} style={{ padding: 20, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>Không có dữ liệu</td></tr>
+              )}
+              {staffList.map((staff, i) => {
+                const current = findCurrentAssignment(staffType, staff.id)
+                const key = staffKey(staffType, staff.id)
+                return (
+                  <tr key={staff.id} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
+                    <td style={{ padding: '12px 14px', fontWeight: 600, color: '#1e293b' }}>{staff.fullName}</td>
+                    <td style={{ padding: '12px 14px', fontSize: 13, color: '#374151' }}>
+                      {current
+                        ? <span>{current.roomName} {current.isOneDayOverride && <em style={{ color: '#f59e0b' }}> (hôm nay)</em>}</span>
+                        : <span style={{ color: '#94a3b8' }}>Chưa phân trực</span>}
+                    </td>
+                    <td style={{ padding: '12px 14px' }}>
+                      <select
+                        value={pendingSelection[key] || ''}
+                        onChange={(e) => setPendingSelection({ ...pendingSelection, [key]: e.target.value })}
+                        style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13 }}
+                      >
+                        <option value="">-- Chọn phòng --</option>
+                        {(rooms || []).map((r) => (
+                          <option key={r.id} value={r.id}>{r.name}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td style={{ padding: '12px 14px', textAlign: 'center' }}>
+                      <input
+                        type="checkbox"
+                        checked={!!oneDayOverride[key]}
+                        onChange={(e) => setOneDayOverride({ ...oneDayOverride, [key]: e.target.checked })}
+                      />
+                    </td>
+                    <td style={{ padding: '12px 14px' }}>
+                      <button
+                        onClick={() => handleAssign(staffType, staff.id)}
+                        disabled={saving === key}
+                        style={{
+                          background: '#2563eb', color: '#fff', border: 'none', padding: '6px 14px',
+                          borderRadius: 6, cursor: saving === key ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 600,
+                        }}
+                      >
+                        {saving === key ? 'Đang gán...' : 'Gán'}
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      </>
+    )
+  }
+
+  if (loading) return (
+    <div style={{ padding: 40, textAlign: 'center', color: '#6b7280' }}>Đang tải...</div>
+  )
 
   return (
+    <>
+    <Header/>
     <div style={{ minHeight: '100vh', background: '#f8fafc', padding: '32px 16px' }}>
-      <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-        <div style={{ marginBottom: 24 }}>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#1e293b', margin: 0 }}>Phân công phòng theo ngày (UC-59)</h1>
-          <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: 14 }}>
-            Gán bác sĩ/điều dưỡng/kỹ thuật viên vào phòng — phân công giữ nguyên cho tới khi bạn đổi lại
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
-          <input type="date" value={date} onChange={e => setDate(e.target.value)}
-            style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 14, outline: 'none' }} />
-        </div>
-
-        {grouped.map(({ role, entries }) => (
-          <div key={role} style={{ marginBottom: 24 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#64748b', marginBottom: 10, textTransform: 'uppercase' }}>
-              {ROLE_LABEL[role]} ({entries.length})
-            </div>
-            {entries.length === 0 ? (
-              <div style={{ background: '#fff', borderRadius: 12, padding: 20, textAlign: 'center', border: '1px solid #e2e8f0', color: '#94a3b8', fontSize: 13 }}>
-                Chưa có nhân sự thuộc vai trò này
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {entries.map(entry => {
-                  const roomOptions = roomsByType[ROLE_TO_ROOM_TYPE[role]] || []
-                  return (
-                    <div key={entry.staffUserId} style={{ background: '#fff', borderRadius: 12, padding: '14px 18px', border: '1px solid #e2e8f0' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-                        <div>
-                          <div style={{ fontWeight: 700, color: '#1e293b' }}>{entry.staffFullName}</div>
-                          <div style={{ fontSize: 13, color: entry.roomName ? '#16a34a' : '#dc2626', marginTop: 2 }}>
-                            {entry.roomName
-                              ? `Phòng hiện tại: ${entry.roomName}${entry.isOverrideToday ? ' (đổi riêng ngày này)' : ''}`
-                              : 'Chưa được phân công phòng'}
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#64748b' }}>
-                            <input type="checkbox" checked={!!oneDayOnly[entry.staffUserId]}
-                              onChange={e => setOneDayOnly(prev => ({ ...prev, [entry.staffUserId]: e.target.checked }))} />
-                            Chỉ áp dụng ngày này
-                          </label>
-                          <select value={selectedRoom[entry.staffUserId] || ''}
-                            onChange={e => setSelectedRoom(prev => ({ ...prev, [entry.staffUserId]: e.target.value }))}
-                            style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 13, outline: 'none' }}>
-                            <option value="">-- Chọn phòng --</option>
-                            {roomOptions.map(r => (
-                              <option key={r.id} value={r.id}>{r.name}</option>
-                            ))}
-                          </select>
-                          <button onClick={() => handleAssign(entry.staffUserId)} disabled={assigning === entry.staffUserId || !selectedRoom[entry.staffUserId]}
-                            style={{ background: assigning === entry.staffUserId ? '#93c5fd' : '#2563eb', color: '#fff', border: 'none', padding: '9px 16px', borderRadius: 8, cursor: assigning === entry.staffUserId ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap' }}>
-                            {assigning === entry.staffUserId ? '...' : (entry.roomName ? 'Đổi phòng' : 'Phân công')}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+      <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+        <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <h1 style={{ fontSize: 24, fontWeight: 700, color: '#1e293b', margin: 0 }}>Phân trực phòng (UC-56)</h1>
+            <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: 14 }}>
+              Gán phòng cho nhân sự — assignment mặc định áp dụng lâu dài cho tới khi bạn đổi lại
+            </p>
           </div>
-        ))}
+          <div>
+            <label style={{ fontSize: 13, color: '#64748b', marginRight: 8 }}>Ngày:</label>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 14 }}
+            />
+          </div>
+        </div>
+
+        {error && (
+          <div style={{ background: '#fee2e2', color: '#dc2626', padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: 14 }}>
+            {error}
+          </div>
+        )}
+
+        {renderStaffSection('DOCTOR', doctors)}
+        {renderStaffSection('NURSE', nurses)}
+        {renderStaffSection('LAB_TECHNICIAN', labTechs)}
       </div>
     </div>
+    </>
   )
 }

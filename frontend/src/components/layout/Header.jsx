@@ -31,17 +31,21 @@ const MGR_ICON = (
     <rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
   </svg>
 )
-// Chỉ liệt kê các trang ĐÃ làm xong — bỏ /manager/revenue và /manager/staff vì
-// hai trang đó hiện vẫn là stub (return null), bấm vào sẽ ra trang trắng.
 const MANAGER_LINKS = [
+  { label: 'Dashboard vận hành', to: '/manager/dashboard' },
+  { label: 'Báo cáo doanh thu', to: '/manager/revenue' },
+  { label: 'Thống kê bệnh nhân', to: '/manager/patient-statistics' },
+  { label: 'Hiệu suất nhân viên', to: '/manager/staff' },
+  { label: 'Báo cáo đánh giá', to: '/manager/feedback-report' },
+  { label: 'Bảng lương', to: '/manager/payroll' },
   { label: 'Lịch khám', to: '/manager/daily-schedule' },
   { label: 'Quản lý gói dịch vụ', to: '/manager/service-packages' },
   { label: 'Quản lý bác sĩ', to: '/manager/doctors' },
   { label: 'Chương trình giảm giá', to: '/manager/discount-campaigns' },
   { label: 'Phân công điều dưỡng', to: '/manager/assign-nurse' },
   { label: 'Chuyển lịch hẹn', to: '/manager/reassign-appointment' },
-  { label: 'Danh mục phòng', to: '/manager/rooms' },
-  { label: 'Phân công phòng', to: '/manager/room-roster' },
+  { label: 'Quản lý phòng', to: '/manager/rooms' },
+  { label: 'Phân công trực phòng', to: '/manager/room-roster' }
 ].map(x => ({ ...x, icon: MGR_ICON }))
 
 const PUBLIC_LINKS = [
@@ -575,8 +579,16 @@ export default function Header() {
                           icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
                         },
                         {
+                          label: 'Kết quả xét nghiệm', to: '/patient/lab-results',
+                          icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 18h8"/><path d="M3 22h18"/><path d="M14 22a7 7 0 1 0 0-14h-1"/><path d="M9 14h2"/><path d="M9 12a2 2 0 0 1-2-2V6h6v4a2 2 0 0 1-2 2Z"/><path d="M12 6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3"/></svg>
+                        },
+                        {
                           label: 'Hóa đơn của tôi', to: '/patient/invoices',
                           icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M7 8h10M7 12h6"/></svg>
+                        },
+                        {
+                          label: 'Đánh giá buổi khám', to: '/patient/feedback',
+                          icon: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15 9 22 9 17 14 19 21 12 17 5 21 7 14 2 9 9 9"/></svg>
                         }
                       ] : []),
                       // Manager: liệt kê thẳng các trang quản lý (chưa có dashboard tổng hợp)
