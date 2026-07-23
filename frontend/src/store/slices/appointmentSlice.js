@@ -1,4 +1,7 @@
 /** Author: Tuấn - HE204215
+ * Author: DucTKH - HE204463
+ * Created: 2026-06-01
+ * Last Update: 2026-07-01
 * 
 * File này định nghĩa Redux Slice để quản lý trạng thái của Lịch hẹn trên toàn bộ ứng dụng frontend.
 * Cung cấp các action bất đồng bộ (async thunks) để gọi API và cập nhật lại store sau khi có kết quả.
@@ -6,11 +9,6 @@
 */
 
 /* Action bất đồng bộ để gọi API lấy danh sách lịch hẹn hôm nay */
-/**
- * Redux Slice: appointment
- * Quản lý trạng thái danh sách lịch khám của phòng khám và các thao tác thay đổi trạng thái (xác nhận, check-in, hủy).
- * DucTKHHE204463
- */
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 import { appointmentService } from '../../services/appointmentService'
 

@@ -1,4 +1,6 @@
-// DucTKH
+//Author: DucTKH - HE204463
+//Created: 2026-06-22
+//Last Update: 2026-06-25
 // DTO trả về thông tin chi tiết từng loại thuốc trong Đơn thuốc.
 package com.ecms.dto.response;
 

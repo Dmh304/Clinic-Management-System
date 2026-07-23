@@ -1,4 +1,7 @@
-// DucTKH
+//Author: DucTKH - HE204463
+//Created: 2026-06-22
+//Last Update: 2026-07-22
+
 // Service xử lý logic nghiệp vụ liên quan đến Thuốc, như tìm kiếm và lấy danh sách thuốc.
 package com.ecms.service.impl;
 
@@ -18,7 +21,7 @@ public class MedicineServiceImpl implements MedicineService {
 
     private final MedicineRepository medicineRepository;
 
-    // Lấy toàn bộ danh sách thuốc hiện có trong hệ thống 
+    // DucTKH: Lấy toàn bộ danh sách thuốc hiện có trong hệ thống phục vụ Bác sĩ kê đơn (UC-29).
     @Override
     public List<MedicineResponse> getAllMedicines() {
         return medicineRepository.findAll().stream().map(this::toResponse).collect(Collectors.toList());
