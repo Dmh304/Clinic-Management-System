@@ -65,6 +65,10 @@ public class Doctor {
     @Column(name = "status", nullable = false, length = 20)
     private String status;
 
+    // Có hiển thị ở khối "Bác sĩ - Chuyên gia" trên trang chủ hay không
+    @Column(name = "featured", nullable = false)
+    private Boolean featured;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
@@ -76,6 +80,7 @@ public class Doctor {
     private void prePersist() {
         if (createdAt == null) createdAt = LocalDateTime.now();
         if (status == null) status = "ACTIVE";
+        if (featured == null) featured = false;
     }
 
     @PreUpdate

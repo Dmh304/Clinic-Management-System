@@ -419,6 +419,10 @@ public class SecurityConfig {
                                                 .permitAll()
                                                 .requestMatchers(HttpMethod.PATCH, "/api/v1/doctors/*/avatar")
                                                 .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers(HttpMethod.PATCH, "/api/v1/doctors/*/featured")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers(HttpMethod.PATCH, "/api/v1/doctors/*")
+                                                .hasAnyRole("MANAGER", "ADMIN")
 
                                                 // (Appointments: đã gộp toàn bộ rule vào khối duy nhất phía trên —
                                                 // trước đây có 1 bản sao y hệt ở đây khiến các rule wildcard

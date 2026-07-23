@@ -255,7 +255,7 @@ export default function HomePage() {
 
   useEffect(() => {
     doctorService
-      .getAllDoctors()
+      .getFeaturedDoctors()
       .then((res) => {
         const data = res.data ?? []
         if (data.length > 0) setExpertDoctors(data)
@@ -362,7 +362,11 @@ export default function HomePage() {
             <div style={s.expertsGrid}>
               {visibleDoctors.map((doc) => (
                 <div key={doc.id} style={s.expertCard}>
-                  <div style={s.expertPhoto}>🧑‍⚕️</div>
+                  <div style={s.expertPhoto}>
+                    {doc.avatarUrl
+                      ? <img src={doc.avatarUrl} alt={doc.fullName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : '🧑‍⚕️'}
+                  </div>
                   <div style={s.expertFooter}>
                     {doc.academicTitle && <div style={s.expertTitle}>{doc.academicTitle}</div>}
                     <div style={s.expertName}>{doc.fullName}</div>

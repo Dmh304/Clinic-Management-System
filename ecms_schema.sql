@@ -197,6 +197,7 @@ CREATE TABLE doctors (
     career_history   NVARCHAR(MAX)   NULL,
     avatar_url       NVARCHAR(500)   NULL,
     status           NVARCHAR(20)    NOT NULL DEFAULT 'ACTIVE',
+    featured         BIT             NOT NULL DEFAULT 0,
     created_at       DATETIME2       NOT NULL DEFAULT GETDATE(),
     updated_at       DATETIME2       NULL,
     CONSTRAINT PK_doctors PRIMARY KEY (id),

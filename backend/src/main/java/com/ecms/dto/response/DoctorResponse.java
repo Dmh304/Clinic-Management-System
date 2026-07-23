@@ -16,4 +16,5 @@ public class DoctorResponse {
     private String achievements;
     private String careerHistory;
     private String avatarUrl;
+    private Boolean featured;
 }
