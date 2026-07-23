@@ -60,6 +60,9 @@ public class CareSessionServiceImpl implements CareSessionService {
     private final AuditLogService auditLogService;
     private final RoomRosterService roomRosterService;
     private final RoomRepository roomRepository;
+    // UC-21: xác định subscription đã được thu tiền (có hóa đơn chưa hủy) hay chưa,
+    // để CheckoutCareSessionPage biết buổi này có cần redirect sang thanh toán không.
+    private final InvoiceRepository invoiceRepository;
 
     /** UC-58/UC-59: phòng của điều dưỡng cho 1 ngày chăm sóc — best-effort, không chặn phân
      *  công nếu điều dưỡng chưa được phân công phòng nào (trả về null). */
@@ -576,6 +579,8 @@ public class CareSessionServiceImpl implements CareSessionService {
                 .id(s.getId())
                 .subscriptionId(sub.getId())
                 .serviceName(sub.getService().getServiceName())
+                .subscriptionFinalPrice(sub.getFinalPrice())
+                .subscriptionInvoiced(invoiceRepository.existsBySubscription_IdAndStatusNot(sub.getId(), "CANCELLED"))
                 .patientId(s.getPatient().getId())
                 .patientName(s.getPatient().getFullName())
                 .patientCode(s.getPatient().getPatientCode())

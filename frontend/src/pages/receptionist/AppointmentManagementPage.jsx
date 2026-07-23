@@ -24,7 +24,6 @@ import {
   fetchDashboard,
   confirmAppointment,
   checkInAppointment,
-  changeAppointmentStatus,
 } from '../../store/slices/appointmentSlice'
 import { doctorService } from '../../services/doctorService'
 import { appointmentService } from '../../services/appointmentService'
@@ -515,7 +514,7 @@ export default function AppointmentManagementPage() {
           // Chỉ trỏ sang trang Check-out khi buổi đã COMPLETED — trang đó chỉ liệt kê
           // đúng trạng thái này, trỏ sớm hơn sẽ khiến lễ tân vào thấy trống, gây hiểu nhầm.
           if (record.status === 'COMPLETED') {
-            return <span style={{ color: '#94a3b8', fontSize: 12 }}>Xem tại "Check-out buổi khám"</span>
+            return <span style={{ color: '#94a3b8', fontSize: 12 }}>Xem tại "Check-out dịch vụ"</span>
           }
           // Khách phải check-in tại quầy trước khi vào hàng đợi điều dưỡng — cùng luồng
           // check-in đã có ở lịch khám bác sĩ (CONFIRMED → Check-in → WAITING).
@@ -575,15 +574,9 @@ export default function AppointmentManagementPage() {
           )}
           {record.status === 'WAITING' && (
             <>
-              <Button size="small" type="primary"
-                style={{ backgroundColor: '#8b5cf6', borderColor: '#8b5cf6' }}
-                onClick={() => dispatch(changeAppointmentStatus({ id: record.id, status: 'IN_PROGRESS' }))
-                  .unwrap()
-                  .then(() => { message.success('Bắt đầu khám'); dispatch(fetchDashboard(dayParam)) })
-                  .catch((err) => message.error(err))
-                }>
-                Bắt đầu khám
-              </Button>
+              {/* Bắt đầu khám là hành động của Bác sĩ (xem DoctorDashboard.jsx) — lễ tân
+                  chỉ theo dõi trạng thái chờ, không được bấm thay bác sĩ. */}
+              <span style={{ color: '#94a3b8', fontSize: 12 }}>Chờ bác sĩ bắt đầu khám</span>
               {/* Khách đã check-in nhưng có việc đột xuất cần đổi giờ/bác sĩ ngay —
                   dùng lại modal/luồng reassign chung, giữ nguyên trạng thái WAITING. */}
               <Button size="small" icon={<SwapOutlined />}

@@ -26,6 +26,9 @@ function initials(name) {
 
 export default function AssignNursePage() {
   const [sessions, setSessions] = useState([])
+  // Toàn bộ buổi (mọi trạng thái, trừ CANCELLED) trong ngày — dùng để tính khối lượng công việc
+  // thật của điều dưỡng, khác với `sessions` (chỉ BOOKED) dùng cho 2 bảng phân công.
+  const [allDaySessions, setAllDaySessions] = useState([])
   const [nurses, setNurses] = useState([])
   const [loading, setLoading] = useState(true)
   const [assigning, setAssigning] = useState(null)
@@ -42,8 +45,9 @@ export default function AssignNursePage() {
       careSessionService.getAll(dateStr),
       careSessionService.getNurses(),
     ]).then(([sessRes, nurseRes]) => {
-      const booked = (sessRes.data || []).filter(s => s.status === 'BOOKED')
-      setSessions(booked)
+      const all = (sessRes.data || []).filter(s => s.status !== 'CANCELLED')
+      setAllDaySessions(all)
+      setSessions(all.filter(s => s.status === 'BOOKED'))
       setNurses(nurseRes.data || [])
     }).finally(() => setLoading(false))
   }
@@ -51,15 +55,16 @@ export default function AssignNursePage() {
   // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
   useEffect(() => { loadData() }, [dateStr])
 
-  // UC-19 bước 2: tải hiện tại của từng điều dưỡng trong ngày đang xem — tính trực tiếp
-  // từ danh sách buổi BOOKED đã tải (không cần thêm API riêng).
+  // UC-19 bước 2: tải hiện tại của từng điều dưỡng trong ngày đang xem — tính trên TOÀN BỘ
+  // buổi đã phân công trong ngày (BOOKED/IN_PROGRESS/COMPLETED/CHECKED_OUT), không chỉ buổi
+  // còn ở trạng thái BOOKED, để khớp với cách backend tính capacity (countByNurseOnDate).
   const workloadByNurse = useMemo(() => {
     const map = {}
-    for (const s of sessions) {
+    for (const s of allDaySessions) {
       if (s.nurseId) map[s.nurseId] = (map[s.nurseId] || 0) + 1
     }
     return map
-  }, [sessions])
+  }, [allDaySessions])
 
   const unassignedSessions = useMemo(
     () => [...sessions.filter(s => !s.nurseId)].sort((a, b) => new Date(a.scheduledDateTime) - new Date(b.scheduledDateTime)),

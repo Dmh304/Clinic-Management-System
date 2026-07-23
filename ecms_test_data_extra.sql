@@ -98,10 +98,13 @@ BEGIN
     VALUES
         (@NurseUserId, N'EMP005', N'Đặng Thị Thanh Thảo', N'Điều dưỡng', N'Điều dưỡng viên', N'0901000098', '2026-07-22', 'ACTIVE', GETDATE());
 
+    -- staff_room_assignments.staff_id = staffs.id (KHÔNG phải users.id) khi staff_type = NURSE
+    DECLARE @NurseStaffId BIGINT = CAST(SCOPE_IDENTITY() AS BIGINT);
+
     INSERT INTO staff_room_assignments
-        (staff_user_id, room_id, effective_from, is_override, override_date, assigned_by, created_at)
+        (staff_type, staff_id, room_id, effective_from, work_date, is_one_day_override, assigned_by, created_at)
     VALUES
-        (@NurseUserId, 5, '2026-01-01', 0, NULL, 2, GETDATE());
+        (N'NURSE', @NurseStaffId, 5, '2026-01-01', NULL, 0, 2, GETDATE());
 
     PRINT N'✅ Đã thêm điều dưỡng thứ 2: nurse2@ecms.vn (Đặng Thị Thanh Thảo, mật khẩu Password@123) — phân vào Phòng chăm sóc & phục hồi 2.';
 END

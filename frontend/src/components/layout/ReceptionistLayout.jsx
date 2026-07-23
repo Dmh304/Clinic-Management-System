@@ -49,7 +49,7 @@ const NAV_ITEMS = [
     ),
   },
   {
-    label: 'Check-out buổi khám',
+    label: 'Check-out dịch vụ',
     to: '/receptionist/checkout-care-sessions',
     icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -1,6 +1,5 @@
 package com.ecms.dto.request;
 
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -9,8 +8,11 @@ import java.util.List;
 @Data
 public class InvoiceRequest {
 
-    @NotNull(message = "Lịch hẹn không được để trống")
+    // Đúng một trong hai: appointmentId (khám bác sĩ) hoặc subscriptionId (gói/buổi dịch vụ
+    // chăm sóc — UC-21, thu tại lần check-out đầu tiên của gói).
     private Long appointmentId;
+
+    private Long subscriptionId;
 
     private List<InvoiceItemRequest> items;
 

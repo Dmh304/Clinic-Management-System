@@ -249,6 +249,17 @@ Kết hợp thiền định sâu hỗ trợ phục hồi thị lực
 Theo dõi tiến độ qua từng buổi trị liệu
 Tư vấn 1-1 với chuyên gia trong suốt liệu trình', 12, 90, 'CARE', 1, 0, 5, GETDATE()),
 
+-- UC-21: dịch vụ "vãng lai" — sessions_included=1, đăng ký + check-out xong là thu tiền
+-- ngay (khác gói nhiều buổi đã trả trọn gói lúc đăng ký), dùng để test luồng standalone checkout.
+(15, N'Buổi Chăm Sóc Mắt Đơn Lẻ',
+    N'Trải nghiệm 1 buổi chăm sóc mắt lẻ, không cần mua trọn gói — thanh toán trực tiếp tại quầy sau khi hoàn tất buổi.',
+    150000, 30, 2, 'buoi-cham-soc-mat-don-le',
+    'https://images.unsplash.com/photo-1616394584738-fc6e612e71b9?w=600&h=360&fit=crop&auto=format',
+    N'Buổi chăm sóc mắt đơn lẻ dành cho khách vãng lai, không ràng buộc mua liệu trình nhiều buổi.',
+    N'Vãng lai', N'Trải nghiệm 1 buổi chăm sóc mắt không cần mua trọn gói
+Thanh toán trực tiếp tại quầy sau khi hoàn tất buổi
+Phù hợp khách muốn dùng thử trước khi mua liệu trình dài', 1, 7, 'CARE', 1, 0, 6, GETDATE()),
+
 -- Dịch vụ khám/chẩn đoán/phẫu thuật (CLINICAL)
 (6,  N'Chụp bản đồ giác mạc (Topo)',      N'Phân tích hình thái giác mạc bằng máy Topographer.',       250000,   20, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'CLINICAL', 1, 0, 6,  GETDATE()),
 (7,  N'Xét nghiệm sinh hóa máu cơ bản',   N'Xét nghiệm đường huyết, mỡ máu phục vụ tiền phẫu.',        180000,   60, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'CLINICAL', 1, 0, 7,  GETDATE()),
@@ -771,43 +782,37 @@ SET IDENTITY_INSERT feedbacks OFF;
 GO
 
 -- ============================================================================
--- 24. rooms + room_services + staff_room_assignments (UC-58/UC-59)
---    room_type: DOCTOR (khám tổng quát A/B, phẫu thuật) | NURSE (chăm sóc & phục hồi) | LAB (xét nghiệm/chẩn đoán hình ảnh)
+-- 24. rooms + staff_room_assignments (quản lý phòng & phân trực)
+--    category: CLINICAL_EXAM (khám tổng quát A/B, phẫu thuật)
+--            | CARE_RECOVERY (chăm sóc & phục hồi)
+--            | DIAGNOSTIC_IMAGING (xét nghiệm / chẩn đoán hình ảnh)
+--            | OPTICAL_WORKSHOP (xưởng cắt kính)
+--    service_id: chỉ gán khi phòng phục vụ ĐÚNG 1 dịch vụ cụ thể; để NULL nếu
+--    phòng dùng chung cho nhiều dịch vụ (thay cho bảng room_services cũ).
 -- ============================================================================
 SET IDENTITY_INSERT rooms ON;
 
-INSERT INTO rooms (id, name, room_type, capacity, is_active, created_at) VALUES
-(1, N'Phòng khám tổng quát A',              N'DOCTOR', 1, 1, GETDATE()),
-(2, N'Phòng khám tổng quát B',              N'DOCTOR', 1, 1, GETDATE()),
-(3, N'Phòng phẫu thuật',                    N'DOCTOR', 1, 1, GETDATE()),
-(4, N'Phòng chăm sóc & phục hồi 1',         N'NURSE',  1, 1, GETDATE()),
-(5, N'Phòng chăm sóc & phục hồi 2',         N'NURSE',  1, 1, GETDATE()),
-(6, N'Phòng xét nghiệm & chẩn đoán hình ảnh', N'LAB',  1, 1, GETDATE());
+INSERT INTO rooms (id, name, category, service_id, capacity, status, created_at) VALUES
+(1, N'Phòng khám tổng quát A',                N'CLINICAL_EXAM',      9,    1, 'ACTIVE', GETDATE()),
+(2, N'Phòng khám tổng quát B',                N'CLINICAL_EXAM',      9,    1, 'ACTIVE', GETDATE()),
+(3, N'Phòng phẫu thuật',                      N'CLINICAL_EXAM',      8,    1, 'ACTIVE', GETDATE()),
+(4, N'Phòng chăm sóc & phục hồi 1',           N'CARE_RECOVERY',      NULL, 1, 'ACTIVE', GETDATE()),
+(5, N'Phòng chăm sóc & phục hồi 2',           N'CARE_RECOVERY',      NULL, 1, 'ACTIVE', GETDATE()),
+(6, N'Phòng xét nghiệm & chẩn đoán hình ảnh', N'DIAGNOSTIC_IMAGING', NULL, 1, 'ACTIVE', GETDATE());
 
 SET IDENTITY_INSERT rooms OFF;
 GO
 
--- room_services: Phòng khám tổng quát A/B phục vụ "Khám tổng quát mắt" (service 9, 2 phòng A/B
--- cùng dịch vụ); Phòng phẫu thuật phục vụ "Phẫu thuật đục thủy tinh thể" (service 8); 2 phòng
--- Chăm sóc & phục hồi phục vụ chung mọi gói CARE (service 1-5); Phòng xét nghiệm phục vụ các
--- dịch vụ đo/chụp/xét nghiệm (service 6,7,10,11,12,13,14).
-INSERT INTO room_services (room_id, service_id, created_at) VALUES
-(1, 9, GETDATE()),
-(2, 9, GETDATE()),
-(3, 8, GETDATE()),
-(4, 1, GETDATE()), (4, 2, GETDATE()), (4, 3, GETDATE()), (4, 4, GETDATE()), (4, 5, GETDATE()),
-(5, 1, GETDATE()), (5, 2, GETDATE()), (5, 3, GETDATE()), (5, 4, GETDATE()), (5, 5, GETDATE()),
-(6, 6, GETDATE()), (6, 7, GETDATE()), (6, 10, GETDATE()), (6, 11, GETDATE()), (6, 12, GETDATE()), (6, 13, GETDATE()), (6, 14, GETDATE());
-GO
-
--- staff_room_assignments: phân công standing (không override) hiệu lực từ đầu năm — mỗi bác
--- sĩ/điều dưỡng/KTV giữ nguyên phòng cho tới khi Manager (user 2) đổi qua UC-59.
-INSERT INTO staff_room_assignments (staff_user_id, room_id, effective_from, is_override, override_date, assigned_by, created_at) VALUES
-(3,  1, '2026-01-01', 0, NULL, 2, GETDATE()), -- BS. Nguyễn Văn An → Phòng khám tổng quát A
-(4,  2, '2026-01-01', 0, NULL, 2, GETDATE()), -- BS. Trần Thị Bình → Phòng khám tổng quát B
-(5,  3, '2026-01-01', 0, NULL, 2, GETDATE()), -- BS. Lê Minh Châu (chuyên phẫu thuật) → Phòng phẫu thuật
-(15, 4, '2026-01-01', 0, NULL, 2, GETDATE()), -- Andrea Lê (điều dưỡng) → Phòng chăm sóc & phục hồi 1
-(9,  6, '2026-01-01', 0, NULL, 2, GETDATE()); -- Đặng Kỹ Thuật Viên (lab) → Phòng xét nghiệm & chẩn đoán hình ảnh
+-- staff_room_assignments: phân trực standing (is_one_day_override = 0) hiệu lực từ đầu năm —
+-- mỗi bác sĩ/điều dưỡng/KTV giữ nguyên phòng cho tới khi Manager (user 2) đổi.
+-- ⚠️ staff_id là id của BẢNG CHUYÊN MÔN theo staff_type (KHÔNG phải users.id):
+--    DOCTOR → doctors.id | NURSE → staffs.id | LAB_TECHNICIAN → lab_technicians.id
+INSERT INTO staff_room_assignments (staff_type, staff_id, room_id, effective_from, work_date, is_one_day_override, assigned_by, created_at) VALUES
+(N'DOCTOR',         1, 1, '2026-01-01', NULL, 0, 2, GETDATE()), -- BS. Nguyễn Văn An (doctors.id=1) → Phòng khám tổng quát A
+(N'DOCTOR',         2, 2, '2026-01-01', NULL, 0, 2, GETDATE()), -- BS. Trần Thị Bình (doctors.id=2) → Phòng khám tổng quát B
+(N'DOCTOR',         3, 3, '2026-01-01', NULL, 0, 2, GETDATE()), -- BS. Lê Minh Châu (doctors.id=3) → Phòng phẫu thuật
+(N'NURSE',          4, 4, '2026-01-01', NULL, 0, 2, GETDATE()), -- Andrea Lê (staffs.id=4) → Phòng chăm sóc & phục hồi 1
+(N'LAB_TECHNICIAN', 1, 6, '2026-01-01', NULL, 0, 2, GETDATE()); -- Đặng Kỹ Thuật Viên (lab_technicians.id=1) → Phòng xét nghiệm
 GO
 
 -- ============================================================================
@@ -828,7 +833,7 @@ PRINT N'  invoices                      : 4 (+8 details, tất cả PAID)';
 PRINT N'  subscriptions                 : 2 (+3 care_sessions) | service_registrations : 2';
 PRINT N'  notifications                 : 5   | blog_posts : 3 | audit_logs : 5';
 PRINT N'  doctor_schedules              : 7   | feedbacks : 3 | verification_tokens : 2';
-PRINT N'  rooms                         : 6 (UC-58) | room_services : 19 | staff_room_assignments : 5 (UC-59)';
+PRINT N'  rooms                         : 6 | staff_room_assignments : 5';
 PRINT N'';
 PRINT N'  ─── TÀI KHOẢN ĐĂNG NHẬP (mật khẩu chung: Password@123) ───';
 PRINT N'  ADMIN         : mh3k42k6@gmail.com';

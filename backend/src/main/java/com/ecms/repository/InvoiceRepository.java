@@ -24,6 +24,8 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
             LEFT JOIN FETCH i.patient p
             LEFT JOIN FETCH a.doctor
             LEFT JOIN FETCH a.clinicService
+            LEFT JOIN FETCH i.subscription sub
+            LEFT JOIN FETCH sub.service
             ORDER BY i.createdAt DESC
             """)
     List<Invoice> findAllWithDetails();
@@ -47,6 +49,8 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
             LEFT JOIN FETCH i.patient p
             LEFT JOIN FETCH a.doctor
             LEFT JOIN FETCH a.clinicService
+            LEFT JOIN FETCH i.subscription sub
+            LEFT JOIN FETCH sub.service
             WHERE LOWER(i.patient.fullName) LIKE LOWER(CONCAT('%', :keyword, '%'))
                OR i.patient.phone LIKE CONCAT('%', :keyword, '%')
                OR i.invoiceCode LIKE CONCAT('%', :keyword, '%')
@@ -66,6 +70,10 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     // Kiểm tra lịch hẹn đã có hóa đơn CHƯA BỊ HỦY chưa — dùng để tránh tạo trùng
     // khi hóa đơn cũ đã CANCELLED, lễ tân vẫn có thể tạo lại cho lịch hẹn đó.
     boolean existsByAppointment_IdAndStatusNot(Long appointmentId, String status);
+
+    // UC-21: kiểm tra gói/buổi dịch vụ chăm sóc đã có hóa đơn CHƯA BỊ HỦY chưa —
+    // dùng cả khi tạo hóa đơn lẫn khi hiển thị cờ "đã thu tiền" trên CareSessionResponse.
+    boolean existsBySubscription_IdAndStatusNot(Long subscriptionId, String status);
 
     // Lấy tất cả hóa đơn của một bệnh nhân kèm chi tiết — dùng cho trang "Hóa đơn của tôi" (Patient)
     @Query("""
