@@ -257,6 +257,8 @@ export default function ProfilePage() {
                       {editing ? (
                         <input
                           type="date" name="dateOfBirth" value={form.dateOfBirth} onChange={handleChange}
+                          min={`${new Date().getFullYear() - 120}-01-01`}
+                          max={new Date().toISOString().slice(0, 10)}
                           style={inputStyle(false)}
                           onFocus={e => { e.target.style.borderColor = '#1d4ed8' }}
                           onBlur={e => { e.target.style.borderColor = '#e2e8f0' }}

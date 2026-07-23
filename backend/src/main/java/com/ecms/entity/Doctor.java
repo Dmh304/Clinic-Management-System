@@ -29,10 +29,10 @@ public class Doctor {
     @Column(name = "license_number", nullable = false, unique = true, length = 100)
     private String licenseNumber;
 
-    @Column(name = "specialty", nullable = false, length = 100)
+    @Column(name = "specialty", nullable = false, columnDefinition = "NVARCHAR(100)")
     private String specialization;
 
-    @Column(name = "department")
+    @Column(name = "department", columnDefinition = "NVARCHAR(255)")
     private String department;
 
     // Cột thật chứa SĐT là "phone_number"
@@ -45,7 +45,7 @@ public class Doctor {
     @Column(name = "experience_years")
     private Integer experienceYears;
 
-    @Column(name = "bio")
+    @Column(name = "bio", columnDefinition = "NVARCHAR(MAX)")
     private String bio;
 
     @Column(name = "avatar_url")

@@ -215,7 +215,7 @@ public class AppointmentController {
                         @PathVariable Long id,
                         @RequestBody(required = false) CancelAppointmentRequest request,
                         @AuthenticationPrincipal UserDetails userDetails) {
-                boolean isPatientSelf = patientRepository.findByEmail(userDetails.getUsername()).isPresent();
+                boolean isPatientSelf = patientRepository.findByUser_Email(userDetails.getUsername()).isPresent();
                 return ResponseEntity.ok(ApiResponse.success(
                                 appointmentService.cancelAppointment(id, request, userDetails.getUsername(),
                                                 isPatientSelf)));

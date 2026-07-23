@@ -73,7 +73,7 @@ public class LabOrder {
     private ClinicService service;
 
     /* Ghi chú hoặc yêu cầu đặc biệt từ bác sĩ chỉ định */
-    @Column(name = "notes")
+    @Column(name = "notes", columnDefinition = "NVARCHAR(MAX)")
     private String notes;
 
     /* Mức độ ưu tiên của đơn xét nghiệm */
@@ -91,7 +91,7 @@ public class LabOrder {
     private LabOrderStatus status;
 
     /* Lý do bác sĩ từ chối kết quả xét nghiệm */
-    @Column(name = "rejection_reason")
+    @Column(name = "rejection_reason", columnDefinition = "NVARCHAR(MAX)")
     private String rejectionReason;
 
     /* Thời điểm bác sĩ thực hiện từ chối kết quả xét nghiệm */
