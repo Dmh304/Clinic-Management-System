@@ -3,6 +3,7 @@
 // Được triển khai bởi BlogServiceImpl.
 package com.ecms.service;
 
+import com.ecms.dto.request.BlogRequest;
 import com.ecms.dto.response.BlogCategoryResponse;
 import com.ecms.dto.response.BlogResponse;
 
@@ -19,4 +20,16 @@ public interface BlogService {
 
     // Lấy danh sách danh mục bài viết blog, sắp xếp theo display_order
     List<BlogCategoryResponse> getAllCategories();
+
+    // Lấy toàn bộ bài blog (mọi trạng thái) cho trang quản lý — MANAGER/ADMIN
+    List<BlogResponse> getAllForManager();
+
+    // Tạo bài blog mới; authorEmail là email người dùng đang đăng nhập (từ JWT)
+    BlogResponse createBlog(BlogRequest request, String authorEmail);
+
+    // Cập nhật bài blog theo ID; ném ngoại lệ nếu không tìm thấy
+    BlogResponse updateBlog(Long id, BlogRequest request);
+
+    // Xoá bài blog theo ID; ném ngoại lệ nếu không tìm thấy
+    void deleteBlog(Long id);
 }

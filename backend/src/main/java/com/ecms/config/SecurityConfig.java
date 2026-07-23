@@ -218,6 +218,23 @@ public class SecurityConfig {
                                                 .hasAnyRole("MANAGER", "ADMIN")
 
                                                 // ══════════════════════════════════════════════════════════════════
+                                                // ── Blogs ─────────────────────────────────────────────────────────
+                                                // ══════════════════════════════════════════════════════════════════
+                                                // Manager routes FIRST (more specific), public GET routes after
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/blogs/manager")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/blogs",
+                                                                "/api/v1/blogs/categories",
+                                                                "/api/v1/blogs/{id:[0-9]+}")
+                                                .permitAll()
+                                                .requestMatchers(HttpMethod.POST, "/api/v1/blogs")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers(HttpMethod.PUT, "/api/v1/blogs/**")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers(HttpMethod.DELETE, "/api/v1/blogs/**")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+
+                                                // ══════════════════════════════════════════════════════════════════
                                                 // ── Appointments ──────────────────────────────────────────────────
                                                 // ══════════════════════════════════════════════════════════════════
                                                 // Specific routes FIRST, wildcard LAST
