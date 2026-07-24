@@ -1,5 +1,6 @@
 -- ============================================================================
 -- Patch bổ sung cho DB đã có sẵn dữ liệu blog cũ (chạy 1 lần, an toàn khi chạy lại):
+--   0) Thêm cột doctors.featured (nếu chưa có) — theo merge test-branch
 --   1) Thêm 4 blog_categories (nếu bảng đang trống)
 --   2) Gán category_id cho 3 bài viết cũ (id 1-3), publish bài Phaco (id 3),
 --      chỉ thêm ảnh mẫu cho bài NÀO CHƯA CÓ ảnh (không ghi đè ảnh đã upload thủ công)
@@ -8,6 +9,16 @@
 SET NOCOUNT ON;
 SET QUOTED_IDENTIFIER ON;
 SET ANSI_NULLS ON;
+GO
+
+-- 0) doctors.featured
+IF NOT EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID('doctors') AND name = 'featured'
+)
+BEGIN
+    ALTER TABLE doctors ADD featured BIT NOT NULL DEFAULT 0;
+END
 GO
 
 -- 1) blog_categories
