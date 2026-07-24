@@ -11,6 +11,7 @@ import ProtectedRoute from './ProtectedRoute'
 import HomePage from '../pages/HomePage'
 import BlogListPage from '../pages/BlogListPage'
 import BlogDetailPage from '../pages/BlogDetailPage'
+import DoctorDetailPage from '../pages/DoctorDetailPage'
 import PromotionsListPage from '../pages/PromotionsListPage'
 import PromotionsDetailPage from '../pages/PromotionsDetailPage'
 import UnsubscribePage from '../pages/UnsubscribePage'
@@ -83,6 +84,7 @@ import PatientStatisticsPage from '../pages/manager/PatientStatisticsPage'
 import FeedbackReportPage from '../pages/manager/FeedbackReportPage'
 import PayrollPage from '../pages/manager/PayrollPage'
 import ManageServicePackagesPage from '../pages/manager/ManageServicePackagesPage'
+import ManageBlogPage from '../pages/manager/ManageBlogPage'
 import ManageDoctorsPage from '../pages/manager/ManageDoctorsPage'
 import ManageDiscountCampaignsPage from '../pages/manager/ManageDiscountCampaignsPage'
 import AssignNursePage from '../pages/manager/AssignNursePage'
@@ -127,6 +129,7 @@ export default function AppRouter() {
       <Route path="/" element={<WithHeader><HomePage /></WithHeader>} />
       <Route path="/blogs" element={<WithHeader><BlogListPage /></WithHeader>} />
       <Route path="/blogs/:id" element={<WithHeader><BlogDetailPage /></WithHeader>} />
+      <Route path="/doctors/:id" element={<WithHeader><DoctorDetailPage /></WithHeader>} />
       <Route path="/promotions" element={<WithHeader><PromotionsListPage /></WithHeader>} />
       <Route path="/promotions/:id" element={<WithHeader><PromotionsDetailPage /></WithHeader>} />
       <Route path="/unsubscribe" element={<WithHeader><UnsubscribePage /></WithHeader>} />
@@ -224,6 +227,7 @@ export default function AppRouter() {
           <Route path="/manager/feedback-report" element={<FeedbackReportPage />} />
           <Route path="/manager/payroll" element={<PayrollPage />} />
           <Route path="/manager/service-packages" element={<ManageServicePackagesPage />} />
+          <Route path="/manager/blogs" element={<ManageBlogPage />} />
           <Route path="/manager/doctors" element={<ManageDoctorsPage />} />
           <Route path="/manager/discount-campaigns" element={<ManageDiscountCampaignsPage />} />
           <Route path="/manager/assign-nurse" element={<AssignNursePage />} />

@@ -22,19 +22,24 @@
 --   refresh_tokens, password_reset_tokens (thay bằng verification_tokens),
 --   glasses_orders, lab_order_items, service_assignments, backup_logs.
 --
--- [GỘP SCHEMA NHÓM] File này là bản HỢP NHẤT giữa schema nhánh `ngan` và schema
--- chung của 4 thành viên còn lại. Lấy từ schema nhóm: lens_types,
--- payment_transactions, blog_categories, chat_sessions/chat_messages,
--- eyeglass_frames/coatings/orders/order_coatings, payroll_periods/payroll_items,
--- feedback_participant_ratings; các cột doctors.academic_title/achievements/
--- career_history, services.price_label/is_lab_service, prescriptions.dispenser_name,
--- lab_orders.service_id, invoices.email_status/email_sent_at, blog_posts.category_id,
--- medical_records status +CANCELLED, invoice_details item_type +LAB,
--- eyeglass_prescriptions (lens_type_id + request_in_clinic_fabrication + CK status).
--- Giữ lại từ nhánh `ngan`: users.marketing_opt_out, discount_campaigns
--- (total_discount_granted/thumbnail_url/content), care_sessions (room_id +
--- check-in + is_incident), appointments.room_id, invoices UC-21
--- (subscription_id + appointment_id NULL + CK_invoices_source), services.benefits.
+-- [CẬP NHẬT ĐỒNG BỘ] Bổ sung các bảng tính năng mới trước đây bị thiếu khiến DB
+-- các máy lệch nhau (PHẦN 2B): lens_types, rooms, staff_room_assignments,
+-- feedback_participant_ratings, chat_sessions, chat_messages, eyeglass_frames,
+-- eyeglass_coatings, eyeglass_orders, eyeglass_order_coatings, payroll_periods,
+-- payroll_items. Đồng thời sửa cột theo entity: services.is_lab_service,
+-- prescriptions.dispenser_name, eyeglass_prescriptions (lens_type_id +
+-- request_in_clinic_fabrication + status 6 giá trị), medical_records status thêm
+-- CANCELLED. prescriptions.doctor_id ĐÃ có sẵn (không cần "fix bug sql.sql" nữa).
+--
+-- [GỘP SCHEMA NHÓM] File này còn là bản HỢP NHẤT giữa schema nhánh `ngan` và
+-- schema chung của 4 thành viên còn lại. Lấy thêm từ schema nhóm:
+-- payment_transactions, blog_categories; các cột doctors.academic_title/
+-- achievements/career_history, services.price_label, lab_orders.service_id,
+-- invoices.email_status/email_sent_at, blog_posts.category_id,
+-- invoice_details item_type +LAB. Giữ lại từ nhánh `ngan`: users.marketing_opt_out,
+-- discount_campaigns (total_discount_granted/thumbnail_url/content),
+-- care_sessions (check-in + is_incident), invoices UC-21 (subscription_id +
+-- appointment_id NULL + CK_invoices_source), services.benefits.
 -- Bảng rooms/staff_room_assignments lấy theo THIẾT KẾ NHÓM (xem ghi chú mục 31-32).
 -- ============================================================================
 
@@ -192,6 +197,7 @@ CREATE TABLE doctors (
     career_history   NVARCHAR(MAX)   NULL,
     avatar_url       NVARCHAR(500)   NULL,
     status           NVARCHAR(20)    NOT NULL DEFAULT 'ACTIVE',
+    featured         BIT             NOT NULL DEFAULT 0,
     created_at       DATETIME2       NOT NULL DEFAULT GETDATE(),
     updated_at       DATETIME2       NULL,
     CONSTRAINT PK_doctors PRIMARY KEY (id),
@@ -944,10 +950,9 @@ CREATE TABLE feedbacks (
 GO
 
 -- ============================================================================
--- PHẦN 2B — CÁC BẢNG TÍNH NĂNG MỚI (đã có entity JPA ở nhánh của các thành viên
--- khác, trước đây bị thiếu trong schema khiến DB các máy lệch nhau).
--- Thứ tự tạo theo FK dependency.
---   rooms, staff_room_assignments (quản lý phòng & phân trực)
+-- PHẦN 2B — CÁC BẢNG TÍNH NĂNG MỚI (đã có entity JPA, trước đây bị thiếu trong
+-- schema khiến DB các máy lệch nhau). Thứ tự tạo theo FK dependency.
+--   rooms, staff_room_assignments (UC-55/56 quản lý phòng & phân trực)
 --   feedback_participant_ratings (UC-48 điểm từng người tham gia)
 --   chat_sessions, chat_messages  (khung chat lễ tân ↔ bệnh nhân)
 --   eyeglass_frames/coatings/orders + eyeglass_order_coatings (xưởng kính)
@@ -1210,7 +1215,7 @@ INSERT INTO notification_templates (template_key, channel, subject, body, variab
 GO
 
 PRINT N'';
-PRINT N'✅ ECMS schema hoàn tất: 44 bảng (bản GỘP nhánh ngan + schema chung của nhóm)';
+PRINT N'✅ ECMS schema hoàn tất: 44 bảng (khớp 1-1 với entity JPA hiện tại, đã gộp nhánh ngan)';
 PRINT N'   + seed roles (8), system_configs (11), notification_templates (2).';
 PRINT N'👉 Tiếp theo hãy chạy ecms_data_seed.sql để có dữ liệu demo & tài khoản đăng nhập.';
 GO
