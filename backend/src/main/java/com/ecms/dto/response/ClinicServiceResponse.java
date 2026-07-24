@@ -19,7 +19,7 @@ public class ClinicServiceResponse {
     private String serviceName;
     private String description;
     private BigDecimal price;
-    private String priceLabel;
+    private String benefits;
     private Integer durationMinutes;
     private String badge;
     private String thumbnailUrl;

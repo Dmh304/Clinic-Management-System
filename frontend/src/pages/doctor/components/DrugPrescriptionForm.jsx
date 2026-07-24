@@ -1,4 +1,6 @@
-// DucTKH
+//Author: DucTKH - HE204463
+//Created: 2026-06-22
+//Last Update: 2026-07-01
 // Component form kê đơn thuốc cho bác sĩ
 import React, { useState, useEffect, useRef } from 'react';
 import { Form, Input, Button, Table, InputNumber, message, AutoComplete, Popconfirm, Modal, Tag } from 'antd';
@@ -13,7 +15,7 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
     const [searchKeyword, setSearchKeyword] = useState('');
     const [notes, setNotes] = useState('');
     const [existingPrescriptions, setExistingPrescriptions] = useState([]);
-    
+
     // Preview Modal state
     const [previewVisible, setPreviewVisible] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -66,7 +68,7 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
             message.warning('Thuốc này đã được thêm vào đơn');
             return;
         }
-        
+
         setSelectedItems([...selectedItems, {
             medicineId: medicine.id,
             medicineName: medicine.name,
@@ -95,7 +97,7 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
 
     const handlePreview = async () => {
         let currentEmrId = emr?.id;
-        
+
         if (!currentEmrId) {
             if (onAutoSaveEMR) {
                 const savedEmr = await onAutoSaveEMR();
@@ -168,10 +170,10 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
             key: 'quantity',
             width: 100,
             render: (val, record) => (
-                <InputNumber 
-                    min={1} 
-                    value={val} 
-                    onChange={v => updateItem(record.medicineId, 'quantity', v)} 
+                <InputNumber
+                    min={1}
+                    value={val}
+                    onChange={v => updateItem(record.medicineId, 'quantity', v)}
                     disabled={isReadOnly}
                     style={{ width: '100%' }}
                 />
@@ -183,9 +185,9 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
             key: 'duration',
             width: 90,
             render: (val, record) => (
-                <InputNumber 
-                    min={1} 
-                    value={val} 
+                <InputNumber
+                    min={1}
+                    value={val}
                     onChange={v => updateItem(record.medicineId, 'duration', v)}
                     disabled={isReadOnly}
                     style={{ width: '100%' }}
@@ -197,8 +199,8 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
             dataIndex: 'instructions',
             key: 'instructions',
             render: (val, record) => (
-                <Input 
-                    value={val} 
+                <Input
+                    value={val}
                     onChange={e => updateItem(record.medicineId, 'instructions', e.target.value)}
                     disabled={isReadOnly}
                     placeholder="VD: Sáng 1 viên, tối 1 viên sau ăn..."
@@ -259,7 +261,7 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
                 </div>
             )}
 
-            <Table 
+            <Table
                 dataSource={selectedItems}
                 columns={columns}
                 rowKey="medicineId"
@@ -270,12 +272,12 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
 
             <div style={{ marginBottom: 16 }}>
                 <div style={{ marginBottom: 8, fontWeight: 500 }}>Ghi chú đơn thuốc</div>
-                <Input.TextArea 
-                    rows={2} 
-                    value={notes} 
-                    onChange={e => setNotes(e.target.value)} 
-                    disabled={isReadOnly} 
-                    placeholder="Ghi chú thêm cho dược sĩ hoặc bệnh nhân..." 
+                <Input.TextArea
+                    rows={2}
+                    value={notes}
+                    onChange={e => setNotes(e.target.value)}
+                    disabled={isReadOnly}
+                    placeholder="Ghi chú thêm cho dược sĩ hoặc bệnh nhân..."
                 />
             </div>
 
@@ -306,7 +308,7 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
                     <p style={{ color: '#4b5563', marginBottom: 12 }}>
                         Vui lòng kiểm tra lại danh sách thuốc trước khi gửi cho bộ phận Dược để phát thuốc:
                     </p>
-                    <Table 
+                    <Table
                         dataSource={selectedItems}
                         rowKey="medicineId"
                         pagination={false}
@@ -346,10 +348,10 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
                                 )}
                             </div>
                             {p.notes && <div style={{ fontSize: 13, color: '#64748b', marginBottom: 8 }}>Ghi chú: {p.notes}</div>}
-                            <Table 
-                                dataSource={p.items} 
-                                rowKey="id" 
-                                pagination={false} 
+                            <Table
+                                dataSource={p.items}
+                                rowKey="id"
+                                pagination={false}
                                 size="small"
                                 columns={[
                                     { title: 'Tên thuốc', dataIndex: 'medicineName', render: (t, r) => <b>{t} ({r.dosageForm})</b> },

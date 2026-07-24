@@ -1,6 +1,7 @@
 package com.ecms.service;
 
 import com.ecms.dto.request.CounterServiceRegistrationRequest;
+import com.ecms.dto.request.RegisterAndBookRequest;
 import com.ecms.dto.request.ScheduleClinicVisitRequest;
 import com.ecms.dto.request.ServicePackageRequest;
 import com.ecms.dto.request.ServiceRegistrationRequest;
@@ -42,6 +43,15 @@ public interface ClinicServiceService {
          */
         CareSessionResponse registerServiceAtCounter(CounterServiceRegistrationRequest request,
                         String currentUserEmail);
+
+        /**
+         * Tạo ngày 21/07/2026
+         * Bệnh nhân tự đăng ký + đặt buổi đầu tiên cho gói dịch vụ CARE ngay trên
+         * website (kênh Website — không qua bước "chờ tư vấn"): tạo đăng ký (đã
+         * hoàn tất) + gói (subscription) + buổi care-session đầu tiên trong một
+         * giao dịch, luôn áp cho tài khoản bệnh nhân đang đăng nhập.
+         */
+        CareSessionResponse registerAndBookOnline(RegisterAndBookRequest request, String currentUserEmail);
 
         // Manager CRUD
         List<ClinicServiceResponse> getAllPackages(); // tất cả gói kể cả đã ẩn

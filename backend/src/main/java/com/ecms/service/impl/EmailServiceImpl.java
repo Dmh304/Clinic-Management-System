@@ -12,6 +12,7 @@ import jakarta.mail.internet.MimeMessage;
 import org.springframework.mail.javamail.MimeMessageHelper;
 
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -34,6 +35,108 @@ public class EmailServiceImpl implements EmailService {
     // Địa chỉ gửi đi — mặc định lấy theo tài khoản SMTP đã cấu hình
     @Value("${spring.mail.username:no-reply@ecms.vn}")
     private String fromAddress;
+
+    // Le Thi Bich Ngan - HE204710 | Tạo: 18/07/2026
+    // Chức năng: soạn nội dung HTML + gửi email xác nhận đặt lịch (UC-11) — dùng
+    // sendHtmlSafe() để lỗi SMTP không làm rollback giao dịch đặt lịch chính.
+    @Override
+    public void sendBookingConfirmation(String toEmail, String patientName, String doctorName,
+            LocalDateTime appointmentTime, String serviceName) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("Bỏ qua email xác nhận đặt lịch: {} không có email", patientName);
+            return;
+        }
+
+        String servicePart = (serviceName != null && !serviceName.isBlank())
+                ? "<p><strong>Dịch vụ:</strong> " + serviceName + "</p>"
+                : "";
+        String doctorPart = (doctorName != null && !doctorName.isBlank())
+                ? "<p><strong>Bác sĩ phụ trách:</strong> " + doctorName + "</p>"
+                : "";
+
+        String html = """
+                <div style="font-family:Segoe UI,Arial,sans-serif;max-width:480px;margin:auto">
+                  <h2 style="color:#1d4ed8">Đặt lịch khám thành công</h2>
+                  <p>Xin chào %s,</p>
+                  <p>Phòng khám Mắt ECMS đã nhận được lịch hẹn của bạn với thông tin sau:</p>
+                  <p><strong>Thời gian khám:</strong> %s</p>
+                  %s
+                  %s
+                  <p style="color:#92400e;background:#fef3c7;padding:8px 12px;border-radius:6px;display:inline-block">
+                    Trạng thái: Đang chờ xác nhận (PENDING)
+                  </p>
+                  <p>Lễ tân sẽ xác nhận lịch hẹn trong thời gian sớm nhất. Vui lòng đến trước giờ khám 10–15 phút để làm thủ tục.</p>
+                  <p style="color:#6b7280;font-size:13px">Nếu bạn không thực hiện yêu cầu này, vui lòng liên hệ phòng khám.</p>
+                </div>
+                """.formatted(safe(patientName), appointmentTime.format(TIME_FORMAT), servicePart, doctorPart);
+
+        sendHtmlSafe(toEmail, "[ECMS] Xác nhận đặt lịch khám", html);
+    }
+
+    // Chức năng: soạn nội dung HTML + gửi email xác nhận đăng ký dịch vụ chăm sóc
+    // (CARE) — dùng chung cho cả 3 kênh đăng ký (online tự đặt, tại quầy/điện
+    // thoại-Zalo, lễ tân đặt buổi từ đăng ký đã xác nhận).
+    @Override
+    public void sendServiceRegistrationConfirmation(String toEmail, String patientName, String serviceName,
+            LocalDateTime scheduledDateTime) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("Bỏ qua email xác nhận đăng ký dịch vụ: {} không có email", patientName);
+            return;
+        }
+
+        String html = """
+                <div style="font-family:Segoe UI,Arial,sans-serif;max-width:480px;margin:auto">
+                  <h2 style="color:#1d4ed8">Đăng ký dịch vụ thành công</h2>
+                  <p>Xin chào %s,</p>
+                  <p>Phòng khám Mắt ECMS đã ghi nhận đăng ký dịch vụ của bạn với thông tin sau:</p>
+                  <p><strong>Dịch vụ:</strong> %s</p>
+                  <p><strong>Buổi đầu tiên:</strong> %s</p>
+                  <p style="color:#166534;background:#dcfce7;padding:8px 12px;border-radius:6px;display:inline-block">
+                    Trạng thái: Đã đặt lịch
+                  </p>
+                  <p>Vui lòng đến trước giờ hẹn 10–15 phút để làm thủ tục. Thanh toán được thực hiện trực tiếp tại phòng khám sau khi trải nghiệm dịch vụ.</p>
+                  <p style="color:#92400e;background:#fef3c7;padding:8px 12px;border-radius:6px">
+                    Lưu ý trước khi đến: không trang điểm vùng mắt hoặc đeo kính áp tròng trong ngày làm dịch vụ; nếu mắt đang viêm nhiễm cấp tính, vừa phẫu thuật mắt hoặc có bệnh lý về mắt cần theo dõi, vui lòng thông báo trước cho nhân viên để được tư vấn phù hợp.
+                  </p>
+                  <p style="color:#6b7280;font-size:13px">Nếu bạn không thực hiện yêu cầu này, vui lòng liên hệ phòng khám.</p>
+                </div>
+                """.formatted(safe(patientName), safe(serviceName), scheduledDateTime.format(TIME_FORMAT));
+
+        sendHtmlSafe(toEmail, "[ECMS] Xác nhận đăng ký dịch vụ", html);
+    }
+
+    // Gửi thông báo khuyến mãi — Manager bấm gửi thủ công từ trang quản lý chương trình
+    // giảm giá, broadcast cho toàn bộ bệnh nhân có email trong hệ thống.
+    @Override
+    public void sendPromotionAnnouncement(String toEmail, String patientName, String campaignName, String description,
+            String discountLabel, LocalDate validTo, String detailUrl, String unsubscribeUrl) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("Bỏ qua email khuyến mãi: {} không có email", patientName);
+            return;
+        }
+
+        String descPart = (description != null && !description.isBlank())
+                ? "<p>" + safe(description) + "</p>"
+                : "";
+
+        String html = """
+                <div style="font-family:Segoe UI,Arial,sans-serif;max-width:480px;margin:auto">
+                  <h2 style="color:#1d4ed8">🎉 %s</h2>
+                  <p>Xin chào %s,</p>
+                  <p>Phòng khám Mắt ECMS đang triển khai chương trình ưu đãi dành cho bạn:</p>
+                  %s
+                  <p style="color:#166534;background:#dcfce7;padding:8px 12px;border-radius:6px;display:inline-block;font-weight:bold">
+                    Ưu đãi: %s
+                  </p>
+                  <p><strong>Áp dụng đến hết:</strong> %s</p>
+                  <p><a href="%s" style="display:inline-block;background:#1d4ed8;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;margin-top:8px">Xem chi tiết khuyến mãi</a></p>
+                  <p style="color:#6b7280;font-size:13px;margin-top:16px">Đây là email thông báo khuyến mãi từ Phòng khám Mắt ECMS. <a href="%s" style="color:#6b7280">Hủy đăng ký nhận email khuyến mãi</a>.</p>
+                </div>
+                """.formatted(safe(campaignName), safe(patientName), descPart, safe(discountLabel),
+                validTo.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")), detailUrl, unsubscribeUrl);
+
+        sendHtmlSafe(toEmail, "[ECMS] 🎉 " + campaignName, html);
+    }
 
     @Override
     public void sendAppointmentReminder(String toEmail, String patientName, String doctorName,
@@ -238,6 +341,20 @@ public class EmailServiceImpl implements EmailService {
                 </div>
                 """.formatted(fullName, tempPassword);
         sendHtml(toEmail, "Mật khẩu ECMS của bạn đã được đặt lại", html);
+    }
+
+    // Le Thi Bich Ngan - HE204710 | Tạo: 18/07/2026
+    // Chức năng: helper dùng chung cho mọi email phát sinh giữa luồng nghiệp vụ
+    // đặt lịch (xác nhận đặt lịch, nhắc lịch, huỷ lịch...) — bắt lỗi SMTP và chỉ
+    // log lại, không ném ra ngoài, để việc gửi mail thất bại không làm rollback
+    // giao dịch appointment chính (đặt lịch/huỷ lịch vẫn phải thành công dù mail lỗi).
+    private void sendHtmlSafe(String toEmail, String subject, String html) {
+        try {
+            sendHtml(toEmail, subject, html);
+            log.info("Đã gửi email '{}' tới {}", subject, toEmail);
+        } catch (Exception e) {
+            log.error("Gửi email '{}' tới {} thất bại: {}", subject, toEmail, e.getMessage());
+        }
     }
 
     private void sendHtml(String toEmail, String subject, String html) {

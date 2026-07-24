@@ -1,5 +1,8 @@
-﻿/**
+/**
  * Author: TuanTD
+ * Author: DucTKH - HE204463
+ * Created: 2026-06-01
+ * Last Update: 2026-07-22
  *  
  * * Màn hình: Quản lý và Xem Lịch sử / Chi tiết Hồ sơ bệnh án điện tử (EMR) dành cho Bệnh nhân
  * Tính năng chính:
@@ -682,7 +685,15 @@ export default function MedicalHistoryPage() {
                                                     <ConfigProvider componentDisabled={false}>
                                                         <div>
                                                             <Button icon={<PrinterOutlined />} onClick={() => handlePrint(p.id, 'eye')} style={{ marginRight: 8 }}>In đơn kính</Button>
-                                                            <Button type="primary" onClick={() => navigate(`/patient/order-glasses/${p.id}`)}>Đặt Kính</Button>
+                                                            {p.isExpired ? (
+                                                                <Tag color="red">Đã hết hạn (Quá 12 tháng)</Tag>
+                                                            ) : p.hasNewer ? (
+                                                                <Tag color="orange">Đã có toa mới hơn</Tag>
+                                                            ) : p.isOrdered ? (
+                                                                <Tag color="green">Đã đặt kính</Tag>
+                                                            ) : (
+                                                                <Button type="primary" onClick={() => navigate(`/patient/order-glasses/${p.id}`)}>Đặt Kính</Button>
+                                                            )}
                                                         </div>
                                                     </ConfigProvider>
                                                 </div>

@@ -9,6 +9,9 @@ const userService = {
 
   // Cập nhật thông tin hồ sơ cá nhân (họ tên, SĐT, ngày sinh, giới tính, địa chỉ)
   updateProfile: (data) => axiosClient.put('/v1/users/me', data),
+
+  // Bấm link "Hủy đăng ký" trong email khuyến mãi — không cần đăng nhập
+  unsubscribe: (uid, token) => axiosClient.get('/v1/users/unsubscribe', { params: { uid, token } }),
 }
 
 export default userService

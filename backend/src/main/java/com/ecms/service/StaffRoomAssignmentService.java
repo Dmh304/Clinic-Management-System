@@ -27,4 +27,18 @@ public interface StaffRoomAssignmentService {
      * phòng theo bác sĩ/nurse/kỹ thuật viên đã chọn.
      */
     RoomResolutionResponse resolveRoomForStaff(StaffType staffType, Long staffId, LocalDate date);
+
+    /**
+     * Như resolveRoomForStaff nhưng nhận users.id và tự suy ra staffType —
+     * tiện cho các luồng chỉ cầm User/Doctor (UC-11 đặt lịch, UC-19 buổi chăm
+     * sóc, UC-29 đơn xét nghiệm) mà không phải tự tra bảng chuyên môn.
+     * Trả về resolved = false nếu user không thuộc nhân sự nào có phân trực.
+     */
+    RoomResolutionResponse resolveRoomForUser(Long staffUserId, LocalDate date);
+
+    /**
+     * UC-55 ALT-1: các phân công đang trỏ tới 1 phòng — dùng khi Manager định vô
+     * hiệu hoá phòng và cần biết ai đang trực để xử lý trước.
+     */
+    List<StaffRoomAssignmentResponse> getAssignmentsByRoom(Long roomId);
 }

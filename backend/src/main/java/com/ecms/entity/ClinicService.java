@@ -54,9 +54,9 @@ public class ClinicService {
     @Column(name = "badge", length = 50)
     private String badge;
 
-    /** Nhãn giá, ví dụ: "Giá chỉ từ", "Giá trọn gói" */
-    @Column(name = "price_label", length = 100)
-    private String priceLabel;
+    /** Lợi ích của gói — mỗi dòng một lợi ích, hiển thị dạng danh sách khi khách xem chi tiết dịch vụ */
+    @Column(columnDefinition = "NVARCHAR(MAX)")
+    private String benefits;
 
     // ── Quản lý hiển thị ───────────────────────────────────────────
     /** Số buổi khám bao gồm trong gói dịch vụ */

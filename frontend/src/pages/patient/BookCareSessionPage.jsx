@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { DatePicker } from 'antd'
 import dayjs from 'dayjs'
 import { subscriptionService } from '../../services/subscriptionService'
 import { careSessionService } from '../../services/careSessionService'
-import { CLINIC_HOURS, validateClinicTime } from '../../constants/clinicInfo'
+import { CLINIC_HOURS, validateClinicTime, disabledClinicDate, disabledClinicTime } from '../../constants/clinicInfo'
 
 export default function BookCareSessionPage() {
   const [searchParams] = useSearchParams()
@@ -12,7 +13,7 @@ export default function BookCareSessionPage() {
   const preselectedId = searchParams.get('subscriptionId')
   const [subscriptions, setSubscriptions] = useState([])
   const [selectedSub, setSelectedSub] = useState(preselectedId || '')
-  const [scheduledDateTime, setScheduledDateTime] = useState('')
+  const [scheduledDateTime, setScheduledDateTime] = useState(null)
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -32,14 +33,14 @@ export default function BookCareSessionPage() {
     if (!selectedSub) return setError('Vui lòng chọn gói đăng ký')
     if (!scheduledDateTime) return setError('Vui lòng chọn ngày giờ')
     // Chỉ cho đặt trong giờ làm việc phòng khám (07:30–17:00), không đặt quá khứ
-    const timeError = validateClinicTime(dayjs(scheduledDateTime), dayjs)
+    const timeError = validateClinicTime(scheduledDateTime, dayjs)
     if (timeError) return setError(timeError)
     setSubmitting(true)
     setError('')
     try {
       await careSessionService.book({
         subscriptionId: Number(selectedSub),
-        scheduledDateTime: scheduledDateTime.replace('T', 'T'),
+        scheduledDateTime: scheduledDateTime.format('YYYY-MM-DDTHH:mm:ss'),
         notes,
       })
       alert('Đặt buổi khám thành công!')
@@ -95,9 +96,16 @@ export default function BookCareSessionPage() {
 
             <div style={{ marginBottom: 20 }}>
               <label style={{ display: 'block', fontWeight: 600, marginBottom: 8, color: '#374151', fontSize: 14 }}>Ngày & Giờ khám *</label>
-              <input type="datetime-local" value={scheduledDateTime} onChange={e => setScheduledDateTime(e.target.value)} required
-                min={new Date().toISOString().slice(0, 16)}
-                style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #d1d5db', fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
+              <DatePicker
+                showTime={{ format: 'HH:mm', minuteStep: 5, hideDisabledOptions: true }}
+                format="DD/MM/YYYY HH:mm"
+                value={scheduledDateTime}
+                onChange={(val) => setScheduledDateTime(val)}
+                disabledDate={(d) => disabledClinicDate(d, dayjs)}
+                disabledTime={(d) => disabledClinicTime(d, dayjs)}
+                showNow={false}
+                placeholder="Chọn ngày và giờ khám"
+                style={{ width: '100%' }} />
               <div style={{ marginTop: 6, fontSize: 12, color: '#94a3b8' }}>
                 Phòng khám làm việc {CLINIC_HOURS.openLabel}–{CLINIC_HOURS.closeLabel}. Vui lòng chọn trong khung giờ này.
               </div>

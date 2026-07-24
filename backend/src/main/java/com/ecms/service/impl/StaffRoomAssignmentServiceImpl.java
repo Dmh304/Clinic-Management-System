@@ -161,6 +161,44 @@ public class StaffRoomAssignmentServiceImpl implements StaffRoomAssignmentServic
                 .build();
     }
 
+    @Override
+    @Transactional
+    public RoomResolutionResponse resolveRoomForUser(Long staffUserId, LocalDate date) {
+        if (staffUserId == null) {
+            return RoomResolutionResponse.builder()
+                    .resolved(false)
+                    .message("Thiếu thông tin nhân sự để resolve phòng.")
+                    .build();
+        }
+
+        // users.id -> (staffType, id bảng chuyên môn). Thứ tự tra: bác sĩ -> điều dưỡng -> KTV.
+        Optional<StaffRoomAssignmentTarget> target = doctorRepository.findByUserId(staffUserId)
+                .map(d -> new StaffRoomAssignmentTarget(StaffType.DOCTOR, d.getId()))
+                .or(() -> staffRepository.findByUserId(staffUserId)
+                        .map(s -> new StaffRoomAssignmentTarget(StaffType.NURSE, s.getId())))
+                .or(() -> labTechnicianRepository.findByUserId(staffUserId)
+                        .map(lt -> new StaffRoomAssignmentTarget(StaffType.LAB_TECHNICIAN, lt.getId())));
+
+        return target
+                .map(t -> resolveRoomForStaff(t.staffType(), t.staffId(), date))
+                .orElseGet(() -> RoomResolutionResponse.builder()
+                        .resolved(false)
+                        .message("Người dùng này không phải bác sĩ/điều dưỡng/kỹ thuật viên nên không có phân trực phòng.")
+                        .build());
+    }
+
+    /** Cặp (loại nhân sự, id bảng chuyên môn) suy ra từ users.id. */
+    private record StaffRoomAssignmentTarget(StaffType staffType, Long staffId) {
+    }
+
+    @Override
+    public List<StaffRoomAssignmentResponse> getAssignmentsByRoom(Long roomId) {
+        return assignmentRepository.findByRoomIdOrderByCreatedAtDesc(roomId)
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────
 
     private boolean isRoomOccupied(Long roomId, LocalDate date, StaffType requestingStaffType, Long requestingStaffId) {

@@ -1,3 +1,6 @@
+//Author: DucTKH - HE204463
+//Created: 2026-06-01
+//Last Update: 2026-07-01
 package com.ecms.entity;
 
 import jakarta.persistence.*;
@@ -53,6 +56,15 @@ public class Appointment {
     @NotFound(action = NotFoundAction.IGNORE)
     @JoinColumn(name = "service_id")
     private ClinicService clinicService;
+
+    /**
+     * Phòng khám của lịch hẹn — tự resolve từ phân công phòng của bác sĩ trong ngày (UC-58/UC-59).
+     * Có thể null nếu bác sĩ chưa được phân công phòng nào cho ngày khám.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @NotFound(action = NotFoundAction.IGNORE)
+    @JoinColumn(name = "room_id")
+    private Room room;
 
     /**
      * Thời gian khám.

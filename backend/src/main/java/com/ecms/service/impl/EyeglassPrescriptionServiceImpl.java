@@ -1,4 +1,6 @@
-// DucTKH
+//Author: TuanTD, DucTKH
+//Created: 2026-06-22
+//Last Update: 2026-07-22
 // Service xử lý logic nghiệp vụ cho Đơn kính (tạo mới và lấy danh sách đơn kính của bệnh nhân).
 package com.ecms.service.impl;
 
@@ -13,6 +15,8 @@ import com.ecms.repository.DoctorRepository;
 import com.ecms.repository.EyeglassPrescriptionRepository;
 import com.ecms.repository.LensTypeRepository;
 import com.ecms.repository.MedicalRecordRepository;
+import com.ecms.repository.EyeglassOrderRepository;
+import com.ecms.entity.EyeglassOrderStatus;
 import com.ecms.service.EyeglassPrescriptionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -29,6 +33,7 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
     private final MedicalRecordRepository medicalRecordRepository;
     private final DoctorRepository doctorRepository;
     private final LensTypeRepository lensTypeRepository;
+    private final EyeglassOrderRepository eyeglassOrderRepository;
 
     // Tạo mới một đơn kính — bác sĩ chỉ lưu vào EMR (thông số lâm sàng).
     // Vòng đời sản xuất/giao kính (PENDING_LAB -> IN_PRODUCTION -> READY ->
@@ -114,6 +119,12 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
 
     // Hàm bổ trợ để chuyển đổi từ Entity sang DTO để trả về cho Frontend
     private EyeglassPrescriptionResponse toResponse(EyeglassPrescription p) {
+        boolean isOrdered = eyeglassOrderRepository.existsByPrescriptionIdAndStatusNot(p.getId(), EyeglassOrderStatus.CANCELLED);
+        boolean isExpired = p.getCreatedAt().plusMonths(12).isBefore(java.time.LocalDateTime.now());
+        
+        List<EyeglassPrescription> latestList = eyeglassPrescriptionRepository.findByPatientIdOrderByCreatedAtDesc(p.getPatient().getId());
+        boolean hasNewer = !latestList.isEmpty() && !latestList.get(0).getId().equals(p.getId());
+
         return EyeglassPrescriptionResponse.builder()
                 .id(p.getId())
                 .medicalRecordId(p.getMedicalRecord().getId())
@@ -136,6 +147,9 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
                 .notes(p.getNotes())
                 // .status(p.getStatus())
                 .createdAt(p.getCreatedAt())
+                .isOrdered(isOrdered)
+                .isExpired(isExpired)
+                .hasNewer(hasNewer)
                 .build();
     }
 }

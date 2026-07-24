@@ -3,6 +3,7 @@ package com.ecms.service.impl;
 import com.ecms.dto.request.BookCareSessionRequest;
 import com.ecms.dto.request.CounterServiceRegistrationRequest;
 import com.ecms.dto.request.PurchaseServiceRequest;
+import com.ecms.dto.request.RegisterAndBookRequest;
 import com.ecms.dto.request.ScheduleClinicVisitRequest;
 import com.ecms.dto.request.ServicePackageRequest;
 import com.ecms.dto.request.ServiceRegistrationRequest;
@@ -17,12 +18,14 @@ import com.ecms.exception.ResourceNotFoundException;
 import com.ecms.repository.*;
 import com.ecms.service.CareSessionService;
 import com.ecms.service.ClinicServiceService;
+import com.ecms.service.EmailService;
 import com.ecms.service.ServiceSubscriptionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -39,6 +42,7 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
         private final PatientServiceSubscriptionRepository subscriptionRepository;
         private final ServiceSubscriptionService subscriptionService;
         private final CareSessionService careSessionService;
+        private final EmailService emailService;
 
         @Override
         @Transactional(readOnly = true)
@@ -210,6 +214,9 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
                 registration.setStatus("COMPLETED");
                 serviceRegistrationRepository.save(registration);
 
+                sendRegistrationConfirmationSafe(registration.getPatient(), registration.getService().getServiceName(),
+                                request.getScheduledDateTime());
+
                 return session;
 
         }
@@ -251,7 +258,64 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
                                 .scheduledDateTime(request.getScheduledDateTime())
                                 .notes(request.getNotes())
                                 .build();
-                return careSessionService.book(bookRequest, currentUserEmail);
+                CareSessionResponse session = careSessionService.book(bookRequest, currentUserEmail);
+
+                sendRegistrationConfirmationSafe(patient, service.getServiceName(), request.getScheduledDateTime());
+
+                return session;
+        }
+
+        @Override
+        @Transactional
+        public CareSessionResponse registerAndBookOnline(RegisterAndBookRequest request, String currentUserEmail) {
+                Patient patient = patientRepository.findByUser_Email(currentUserEmail)
+                                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ bệnh nhân"));
+                ClinicService service = clinicServiceRepository.findById(request.getServiceId())
+                                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy gói dịch vụ"));
+                if (!"CARE".equals(service.getServiceType())) {
+                        throw new IllegalArgumentException(
+                                        "Chỉ áp dụng đặt lịch trực tuyến cho gói dịch vụ chăm sóc (CARE)");
+                }
+
+                // 1) Ghi nhận đăng ký (đã hoàn tất ngay — bệnh nhân tự đặt trên website)
+                ServiceRegistration registration = ServiceRegistration.builder()
+                                .service(service)
+                                .patient(patient)
+                                .registeredBy(patient.getUser())
+                                .registrationDate(LocalDate.now())
+                                .status("COMPLETED")
+                                .notes(request.getNotes())
+                                .build();
+                serviceRegistrationRepository.save(registration);
+
+                // 2) Tạo gói (subscription) cho bệnh nhân
+                PurchaseServiceRequest purchaseRequest = PurchaseServiceRequest.builder()
+                                .serviceId(service.getId())
+                                .patientId(patient.getId())
+                                .notes(request.getNotes())
+                                .build();
+                ServiceSubscriptionResponse subscription = subscriptionService.purchase(purchaseRequest,
+                                currentUserEmail);
+
+                // 3) Đặt buổi care-session đầu tiên (book() kiểm tra giờ làm việc 07:30–17:00)
+                BookCareSessionRequest bookRequest = BookCareSessionRequest.builder()
+                                .subscriptionId(subscription.getId())
+                                .scheduledDateTime(request.getScheduledDateTime())
+                                .notes(request.getNotes())
+                                .build();
+                CareSessionResponse session = careSessionService.book(bookRequest, currentUserEmail);
+
+                sendRegistrationConfirmationSafe(patient, service.getServiceName(), request.getScheduledDateTime());
+
+                return session;
+        }
+
+        // sendServiceRegistrationConfirmation() đã tự bọc lỗi SMTP bên trong
+        // (sendHtmlSafe) nên gọi thẳng, không cần try/catch lại ở đây.
+        private void sendRegistrationConfirmationSafe(Patient patient, String serviceName,
+                        LocalDateTime scheduledDateTime) {
+                emailService.sendServiceRegistrationConfirmation(patient.getEmail(), patient.getFullName(),
+                                serviceName, scheduledDateTime);
         }
 
         // ── Manager CRUD ───────────────────────────────────────────────
@@ -283,7 +347,7 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
                                 .serviceName(request.getServiceName())
                                 .description(request.getDescription())
                                 .price(request.getPrice())
-                                .priceLabel(request.getPriceLabel())
+                                .benefits(request.getBenefits())
                                 .durationMinutes(request.getDurationMinutes())
                                 .sessionsIncluded(request.getSessionsIncluded())
                                 .validityDays(request.getValidityDays())
@@ -314,7 +378,7 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
                 service.setServiceName(request.getServiceName());
                 service.setDescription(request.getDescription());
                 service.setPrice(request.getPrice());
-                service.setPriceLabel(request.getPriceLabel());
+                service.setBenefits(request.getBenefits());
                 service.setDurationMinutes(request.getDurationMinutes());
                 service.setSessionsIncluded(request.getSessionsIncluded());
                 service.setValidityDays(request.getValidityDays());
@@ -360,7 +424,7 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
                                 .serviceName(s.getServiceName())
                                 .description(s.getDescription())
                                 .price(s.getPrice())
-                                .priceLabel(s.getPriceLabel())
+                                .benefits(s.getBenefits())
                                 .durationMinutes(s.getDurationMinutes())
                                 .badge(s.getBadge())
                                 .thumbnailUrl(s.getThumbnailUrl())

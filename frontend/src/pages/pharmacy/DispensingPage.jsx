@@ -1,4 +1,6 @@
-// DucTKH
+//Author: DucTKH - HE204463
+//Created: 2026-06-01
+//Last Update: 2026-07-21
 // Màn hình quản lý Cấp phát thuốc dành cho Dược sĩ.
 // Cho phép xem danh sách đơn thuốc chờ phát, xem chi tiết và xác nhận phát thuốc.
 import React, { useState, useEffect } from 'react';
@@ -153,18 +155,18 @@ export default function DispensingPage() {
     const itemColumns = [
         { title: 'Tên thuốc', dataIndex: 'medicineName', key: 'name', render: (text, record) => <b>{text} ({record.dosageForm})</b> },
         { title: 'ĐVT', dataIndex: 'unit', key: 'unit', width: 80 },
-        { 
-            title: 'Số lượng', 
-            dataIndex: 'quantity', 
-            key: 'quantity', 
-            width: 120, 
+        {
+            title: 'Số lượng',
+            dataIndex: 'quantity',
+            key: 'quantity',
+            width: 120,
             render: (val, record, index) => (
-                <InputNumber 
-                    min={0} 
-                    value={val} 
-                    onChange={(newVal) => handleQuantityChange(index, newVal)} 
+                <InputNumber
+                    min={0}
+                    value={val}
+                    onChange={(newVal) => handleQuantityChange(index, newVal)}
                 />
-            ) 
+            )
         },
         { title: 'Đơn giá', dataIndex: 'unitPrice', key: 'unitPrice', render: val => val ? val.toLocaleString('vi-VN') : '0' },
         { title: 'Thành tiền', dataIndex: 'totalPrice', key: 'totalPrice', render: (_, record) => ((record.quantity || 0) * (record.unitPrice || 0)).toLocaleString('vi-VN') + ' đ' },
@@ -179,10 +181,10 @@ export default function DispensingPage() {
             </div>
 
             <div style={{ backgroundColor: '#fff', padding: 24, borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                <Table 
-                    columns={columns} 
-                    dataSource={prescriptions} 
-                    rowKey="id" 
+                <Table
+                    columns={columns}
+                    dataSource={prescriptions}
+                    rowKey="id"
                     loading={loading}
                     pagination={{ pageSize: 10 }}
                 />
@@ -195,23 +197,23 @@ export default function DispensingPage() {
                 width={900}
                 footer={[
                     <Button key="cancel" onClick={() => setIsModalVisible(false)}>Đóng</Button>,
-                    <Button 
-                        key="print" 
+                    <Button
+                        key="print"
                         onClick={() => handlePrintPrescription(selectedPrescription?.id)}
                         loading={actionLoading}
                     >
                         Xuất file đơn thuốc
                     </Button>,
-                    <Popconfirm 
-                        key="skip" 
-                        title="Xác nhận khách không mua thuốc?" 
+                    <Popconfirm
+                        key="skip"
+                        title="Xác nhận khách không mua thuốc?"
                         onConfirm={() => handleSkip(selectedPrescription?.id)}
                     >
                         <Button danger loading={actionLoading}>Khách không mua</Button>
                     </Popconfirm>,
-                    <Popconfirm 
-                        key="dispense" 
-                        title="Xác nhận đã phát đủ thuốc theo đơn?" 
+                    <Popconfirm
+                        key="dispense"
+                        title="Xác nhận đã phát đủ thuốc theo đơn?"
                         onConfirm={() => handleDispense(selectedPrescription?.id)}
                     >
                         <Button type="primary" style={{ backgroundColor: '#059669' }} loading={actionLoading}>Đã phát xong</Button>
@@ -223,12 +225,12 @@ export default function DispensingPage() {
                         <b>Ghi chú của bác sĩ: </b> {selectedPrescription.notes}
                     </div>
                 )}
-                
-                <Table 
-                    columns={itemColumns} 
-                    dataSource={editableItems} 
-                    rowKey="id" 
-                    pagination={false} 
+
+                <Table
+                    columns={itemColumns}
+                    dataSource={editableItems}
+                    rowKey="id"
+                    pagination={false}
                     size="small"
                 />
 

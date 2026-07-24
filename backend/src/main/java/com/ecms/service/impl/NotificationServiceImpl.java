@@ -38,13 +38,20 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     @Transactional
-    public void createForManagers(String message, Long relatedAppointmentId) {
+    public void createForRole(String role, String message, Long relatedAppointmentId) {
         notificationRepository.save(Notification.builder()
                 .message(message)
-                .targetRole(ROLE_MANAGER)
+                .targetRole(role)
                 .relatedAppointmentId(relatedAppointmentId)
                 .isRead(false)
                 .build());
+    }
+
+    /** Trường hợp riêng hay dùng của createForRole — giữ lại cho các caller UC-48. */
+    @Override
+    @Transactional
+    public void createForManagers(String message, Long relatedAppointmentId) {
+        createForRole(ROLE_MANAGER, message, relatedAppointmentId);
     }
 
     @Override

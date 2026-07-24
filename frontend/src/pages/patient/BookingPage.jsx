@@ -145,6 +145,32 @@ const fmtVND = (amount) =>
 const toLocalISODate = (d) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
+// Le Thi Bich Ngan - HE204710 | Tạo: 18/07/2026
+// Chức năng: 2 component render ảnh đại diện bác sĩ dùng chung cho cả 3 bước
+// đặt lịch (chọn bác sĩ / xem lại / xác nhận) — thay cho emoji cũ lặp lại ở
+// từng bước, và hiện placeholder chuyên nghiệp khi bác sĩ chưa có ảnh thật.
+// Không gắn BR cụ thể (thuần UI, thuộc UC-11 đặt lịch online).
+/** Ảnh đại diện mặc định khi bác sĩ chưa có ảnh thật — silhouette chuyên
+ *  nghiệp thay cho emoji, tránh trông thiếu uy tín trên thẻ lớn. */
+const DoctorAvatarPlaceholder = () => (
+  <svg viewBox="0 0 100 100" width="100%" height="100%" style={{ display: "block" }}>
+    <rect width="100" height="100" fill={C.primaryLight} />
+    <circle cx="50" cy="40" r="17" fill="#aab8ee" />
+    <path d="M50 62c-19 0-34 12.5-34 28v10h68V90c0-15.5-15-28-34-28z" fill="#aab8ee" />
+  </svg>
+);
+
+const DoctorAvatar = ({ doctor, size = 44, radius = 12 }) => (
+  <div style={{
+    width: size, height: size, borderRadius: radius, flexShrink: 0, overflow: "hidden",
+    background: C.primaryLight,
+  }}>
+    {doctor.avatarUrl
+      ? <img src={doctor.avatarUrl} alt={doctor.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      : <DoctorAvatarPlaceholder />}
+  </div>
+);
+
 /**
  * Trang 1: Chọn bác sĩ khám
  * @returns
@@ -166,7 +192,6 @@ function Page1({ onNext, service }) {
           experienceYears: d.experienceYears,
           bio: d.bio,
           avatarUrl: d.avatarUrl,
-          avatar: '👨‍⚕️',
         })));
       })
       .catch(() => setDoctors([]))
@@ -207,13 +232,13 @@ function Page1({ onNext, service }) {
           <h2 style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 12 }}>
             Chọn Bác Sĩ
           </h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))", gap: 18 }}>
             {loadingDoctors ? (
-              <div style={{ textAlign: "center", padding: 32, color: C.textMuted, fontSize: 14 }}>
+              <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: 32, color: C.textMuted, fontSize: 14 }}>
                 Đang tải danh sách bác sĩ...
               </div>
             ) : doctors.length === 0 ? (
-              <div style={{ textAlign: "center", padding: 32, color: C.textMuted, fontSize: 14 }}>
+              <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: 32, color: C.textMuted, fontSize: 14 }}>
                 Không có bác sĩ nào
               </div>
             ) : doctors.map(doc => {
@@ -222,52 +247,53 @@ function Page1({ onNext, service }) {
                 <button key={doc.id}
                   onClick={() => setSelectedDoc(doc)}
                   style={{
-                    padding: "16px 18px", borderRadius: 12,
+                    width: "100%", padding: 0, borderRadius: 16, overflow: "hidden",
                     border: `2px solid ${active ? C.primary : C.border}`,
-                    background: active ? C.primaryLight : C.surface,
-                    cursor: "pointer", textAlign: "left", transition: "all .2s",
-                    display: "flex", alignItems: "flex-start", gap: 16,
+                    background: C.surface, cursor: "pointer", textAlign: "left",
+                    transition: "all .2s", position: "relative",
+                    boxShadow: active ? C.shadowLg : C.shadow, fontFamily: font,
                   }}
                 >
-                  <div style={{
-                    width: 44, height: 44, borderRadius: 12,
-                    background: active ? C.primary : C.bg,
-                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22,
-                    flexShrink: 0, overflow: "hidden",
-                  }}>
-                    {doc.avatarUrl
-                      ? <img src={doc.avatarUrl} alt={doc.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                      : doc.avatar}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                      <span style={{ fontSize: 14, fontWeight: 600, color: active ? C.primary : C.text, fontFamily: font }}>
-                        {doc.name}
-                      </span>
-                      <span style={{
-                        fontSize: 11, padding: "2px 8px", borderRadius: 20,
-                        background: active ? "#fff" : C.bg, color: C.textSub,
-                      }}>{doc.title}</span>
-                      {doc.experienceYears != null && (
-                        <span style={{ fontSize: 11, color: C.textMuted }}>
-                          • {doc.experienceYears} năm kinh nghiệm
-                        </span>
-                      )}
-                    </div>
-                    {doc.department && (
-                      <div style={{ fontSize: 12, color: C.textSub, marginTop: 3 }}>{doc.department}</div>
-                    )}
-                    {doc.bio && (
-                      <div style={{ fontSize: 12, color: C.textMuted, marginTop: 3, lineHeight: 1.4 }}>{doc.bio}</div>
-                    )}
-                  </div>
                   {active && (
                     <div style={{
-                      width: 22, height: 22, borderRadius: "50%", background: C.primary,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 12, color: "#fff", flexShrink: 0, marginTop: 2,
+                      position: "absolute", top: 10, right: 10, width: 24, height: 24, borderRadius: "50%",
+                      background: C.primary, display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 13, color: "#fff", zIndex: 2, boxShadow: "0 2px 6px rgba(0,0,0,.25)",
                     }}>✓</div>
                   )}
+                  {/* Ảnh bác sĩ — dùng ảnh thật do phòng khám tải lên (Quản lý bác sĩ);
+                      hiện placeholder chuyên nghiệp khi chưa có ảnh, tránh emoji nhỏ thiếu uy tín. */}
+                  <div style={{ width: "100%", aspectRatio: "4 / 5", background: C.primaryLight }}>
+                    {doc.avatarUrl
+                      ? <img src={doc.avatarUrl} alt={doc.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      : <DoctorAvatarPlaceholder />}
+                  </div>
+                  <div style={{ padding: "14px 16px 16px" }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: active ? C.primary : C.text }}>
+                      {doc.name}
+                    </div>
+                    <div style={{ fontSize: 12, color: C.textSub, marginTop: 2 }}>{doc.title}</div>
+                    {(doc.department || doc.experienceYears != null) && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 9 }}>
+                        {doc.department && (
+                          <span style={{ fontSize: 11, padding: "3px 9px", borderRadius: 20, background: C.bg, color: C.textSub }}>
+                            {doc.department}
+                          </span>
+                        )}
+                        {doc.experienceYears != null && (
+                          <span style={{ fontSize: 11, padding: "3px 9px", borderRadius: 20, background: C.accentLight, color: "#166534", fontWeight: 600 }}>
+                            {doc.experienceYears}+ năm kinh nghiệm
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {doc.bio && (
+                      <div style={{
+                        fontSize: 12, color: C.textMuted, marginTop: 9, lineHeight: 1.4,
+                        display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+                      }}>{doc.bio}</div>
+                    )}
+                  </div>
                 </button>
               );
             })}
@@ -382,14 +408,7 @@ function Page2({ data, onNext, onBack }) {
           background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12,
           padding: "14px 18px", marginBottom: 24, display: "flex", alignItems: "center", gap: 14,
         }}>
-          <div style={{
-            width: 42, height: 42, borderRadius: 10, background: C.primaryLight,
-            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, overflow: "hidden",
-          }}>
-            {data.doctor.avatarUrl
-              ? <img src={data.doctor.avatarUrl} alt={data.doctor.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              : data.doctor.avatar}
-          </div>
+          <DoctorAvatar doctor={data.doctor} size={42} radius={10} />
           <div style={{ flex: 1 }}>
             <span style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{data.doctor.name}</span>
             <span style={{ fontSize: 12, color: C.textSub, display: "block" }}>
@@ -715,14 +734,7 @@ function Page3({ data, onConfirm, onBack, submitting, submitError }) {
           background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14,
           padding: "16px 18px", marginBottom: 20, display: "flex", gap: 14, alignItems: "flex-start",
         }}>
-          <div style={{
-            width: 52, height: 52, borderRadius: 12, background: C.primaryLight, flexShrink: 0,
-            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, overflow: "hidden",
-          }}>
-            {data.doctor.avatarUrl
-              ? <img src={data.doctor.avatarUrl} alt={data.doctor.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              : data.doctor.avatar}
-          </div>
+          <DoctorAvatar doctor={data.doctor} size={52} radius={12} />
           <div style={{ flex: 1 }}>
             <p style={{ margin: 0, fontSize: 11, color: C.textMuted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".4px" }}>
               Đặt lịch khám
@@ -986,8 +998,15 @@ function Page4({ data, onReset }) {
           <span style={{ fontSize: 20 }}>📧</span>
           <div>
             <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#166534" }}>Email Xác Nhận Đã Gửi</p>
+            {/*
+              Le Thi Bich Ngan - HE204710 | Tạo: 18/07/2026
+              Chức năng: sửa lỗi hiển thị sai — trước đây in nhầm user.id (số
+              định danh tài khoản) thay vì user.email, khiến bệnh nhân không
+              biết chính xác email nào đã nhận thư xác nhận đặt lịch (UC-11,
+              đi kèm emailService.sendBookingConfirmation() ở backend).
+            */}
             <p style={{ margin: "3px 0 0", fontSize: 12, color: "#15803d" }}>
-              Email xác nhận đã được gửi đến <strong>{user.id}</strong>. Vui lòng kiểm tra hộp thư đến (và thư mục spam).
+              Email xác nhận đã được gửi đến <strong>{user.email}</strong>. Vui lòng kiểm tra hộp thư đến (và thư mục spam).
             </p>
           </div>
         </div>

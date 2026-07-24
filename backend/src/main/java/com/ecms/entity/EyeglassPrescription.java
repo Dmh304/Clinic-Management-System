@@ -1,4 +1,6 @@
-// DucTKH
+//Author: DucTKH - HE204463
+//Created: 2026-06-01
+//Last Update: 2026-07-21
 // Entity đại diện cho bảng eyeglass_prescriptions trong cơ sở dữ liệu.
 // Dùng để lưu trữ thông tin đơn kính (mắt phải, mắt trái, PD, loại tròng).
 package com.ecms.entity;

@@ -24,7 +24,8 @@ public class ServicePackageRequest {
     @DecimalMin(value = "0", inclusive = false, message = "Giá phải lớn hơn 0")
     private BigDecimal price;
 
-    private String priceLabel;
+    // Lợi ích của gói — mỗi dòng một lợi ích, hiển thị dạng danh sách khi khách xem chi tiết dịch vụ
+    private String benefits;
 
     @NotNull(message = "Vui lòng nhập thời lượng")
     @Min(value = 1, message = "Thời lượng phải lớn hơn 0")

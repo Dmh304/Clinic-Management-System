@@ -59,6 +59,12 @@ public class RoomController {
         return ResponseEntity.ok(ApiResponse.success(roomService.getRoomsByCategory(category)));
     }
 
+    /** Phòng đang active phục vụ 1 dịch vụ/loại xét nghiệm cụ thể — dùng để resolve phòng lúc đặt lịch. */
+    @GetMapping("/by-service/{serviceId}")
+    public ResponseEntity<ApiResponse<List<RoomResponse>>> getRoomsByService(@PathVariable Long serviceId) {
+        return ResponseEntity.ok(ApiResponse.success(roomService.getRoomsByService(serviceId)));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<RoomResponse>> getRoomById(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success(roomService.getRoomById(id)));

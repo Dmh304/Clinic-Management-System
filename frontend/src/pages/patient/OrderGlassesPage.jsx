@@ -1,3 +1,8 @@
+/*
+ * Author: DucTKH - HE204463
+ * Created: 2026-06-22
+ * Last Update: 2026-07-22
+ */
 import React, { useState, useEffect } from 'react';
 import { Card, Button, Form, Select, Spin, Typography, message, Divider, Tag, List, Avatar } from 'antd';
 import { ShoppingCartOutlined, CheckCircleOutlined } from '@ant-design/icons';
@@ -31,6 +36,24 @@ export default function OrderGlassesPage() {
         try {
             // Fetch prescription details
             const pRes = await axiosClient.get(`/v1/eyeglass-prescriptions/${prescriptionId}`);
+            const isReceptionist = user && user.role === 'RECEPTIONIST';
+            const fallbackRoute = isReceptionist ? '/receptionist/eyeglass-orders' : '/patient/history';
+
+            if (pRes.data.isExpired) {
+                message.error('Toa kính này đã hết hạn, vui lòng khám để đo lại mắt!');
+                navigate(fallbackRoute);
+                return;
+            }
+            if (pRes.data.hasNewer) {
+                message.error('Bạn đã có toa kính mới hơn, không thể dùng toa cũ!');
+                navigate(fallbackRoute);
+                return;
+            }
+            if (pRes.data.isOrdered && !isReceptionist) {
+                message.error('Toa kính này đã được sử dụng để đặt kính!');
+                navigate(fallbackRoute);
+                return;
+            }
             setPrescription(pRes.data);
 
             // Fetch frames and coatings

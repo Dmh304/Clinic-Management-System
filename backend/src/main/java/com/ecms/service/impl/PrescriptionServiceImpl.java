@@ -1,4 +1,6 @@
-// DucTKH
+//Author: DucTKH - HE204463
+//Created: 2026-06-01
+//Last Update: 2026-07-21
 // Service xử lý logic nghiệp vụ cho Đơn thuốc (tạo đơn, phát thuốc, lấy danh sách).
 package com.ecms.service.impl;
 
@@ -124,7 +126,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
     @Override
     @Transactional
     public PrescriptionResponse dispensePrescription(Long id, DispenseRequest request, String dispenserEmail) {
-        // DucTKH: Tương tác DB - Lấy đơn thuốc theo id
+        //Lấy đơn thuốc theo id
         Prescription p = prescriptionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn thuốc"));
 
@@ -151,7 +153,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         }
 
         p.setStatus(PrescriptionStatus.DISPENSED);
-        // DucTKH: Tương tác DB - Cập nhật trạng thái đơn thuốc thành Đã phát
+        //Cập nhật trạng thái đơn thuốc thành Đã phát
         prescriptionRepository.save(p);
 
         // Sinh hóa đơn (Invoice) cho tiền thuốc
@@ -169,7 +171,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
                 .totalAmount(BigDecimal.ZERO)
                 .build();
 
-        // DucTKH: Tương tác DB - Lưu trước bản ghi Invoice để có ID phục vụ cho
+        //Lưu trước bản ghi Invoice để có ID phục vụ cho
         // InvoiceItem
         invoice = invoiceRepository.save(invoice);
 
@@ -196,9 +198,9 @@ public class PrescriptionServiceImpl implements PrescriptionService {
 
         invoice.setSubTotal(totalAmount);
         invoice.setTotalAmount(totalAmount);
-        // DucTKH: Tương tác DB - Cập nhật lại tổng tiền cho Invoice
+        // Cập nhật lại tổng tiền cho Invoice
         invoiceRepository.save(invoice);
-        // DucTKH: Tương tác DB - Lưu hàng loạt các chi tiết hóa đơn
+        // Lưu hàng loạt các chi tiết hóa đơn
         invoiceItemRepository.saveAll(invoiceItems);
 
         PrescriptionResponse response = toResponse(p);
@@ -218,7 +220,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
     @Override
     @Transactional
     public PrescriptionResponse skipPrescription(Long id) {
-        // DucTKH: Tương tác DB - Lấy đơn thuốc theo id
+        //Lấy đơn thuốc theo id
         Prescription p = prescriptionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn thuốc"));
 
@@ -228,7 +230,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         }
 
         p.setStatus(PrescriptionStatus.SKIPPED);
-        // DucTKH: Tương tác DB - Lưu trạng thái Hủy đơn
+        //Lưu trạng thái Hủy đơn
         return toResponse(prescriptionRepository.save(p));
     }
 
@@ -256,11 +258,11 @@ public class PrescriptionServiceImpl implements PrescriptionService {
 
         // DucTKH: Điều kiện - Nếu đơn thuốc đã xuất, lấy số lượng thực tế từ Hóa đơn
         if (i.getPrescription().getStatus() == PrescriptionStatus.DISPENSED) {
-            // DucTKH: Tương tác DB - Tìm chi tiết hóa đơn dựa vào reference ID (id của chi
+            //Tìm chi tiết hóa đơn dựa vào reference ID (id của chi
             // tiết đơn thuốc)
             Optional<InvoiceItem> invoiceItemOpt = invoiceItemRepository.findFirstByRefIdAndItemType(i.getId(),
                     "MEDICINE");
-            // DucTKH: Điều kiện - Nếu tìm thấy chi tiết hóa đơn
+            // Điều kiện - Nếu tìm thấy chi tiết hóa đơn
             if (invoiceItemOpt.isPresent()) {
                 actualQuantity = invoiceItemOpt.get().getQuantity();
             }
@@ -293,7 +295,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
     @Override
     @Transactional
     public void deletePrescription(Long id) {
-        // DucTKH: Tương tác DB - Lấy đơn thuốc theo id
+        //Lấy đơn thuốc theo id
         Prescription p = prescriptionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn thuốc"));
 
@@ -302,7 +304,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
             throw new IllegalStateException("Đơn thuốc đã được xuất hoặc phát, không thể xóa!");
         }
 
-        // DucTKH: Tương tác DB - Thực hiện xóa đơn thuốc khỏi cơ sở dữ liệu
+        //Thực hiện xóa đơn thuốc khỏi cơ sở dữ liệu
         prescriptionRepository.delete(p);
     }
 }
