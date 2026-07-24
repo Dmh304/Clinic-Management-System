@@ -3,7 +3,7 @@
 package com.ecms.repository;
 
 import com.ecms.entity.Prescription;
-import com.ecms.entity.PrescriptionStatus;
+//import com.ecms.entity.PrescriptionStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -14,8 +14,9 @@ import java.util.List;
 public interface PrescriptionRepository extends JpaRepository<Prescription, Long> {
     // Lấy danh sách đơn thuốc của một bệnh nhân, sắp xếp mới nhất lên đầu
     List<Prescription> findByPatientIdOrderByCreatedAtDesc(Long patientId);
-    
-    // Lấy danh sách đơn thuốc theo trạng thái (ví dụ: PENDING để dược sĩ phát thuốc)
+
+    // Lấy danh sách đơn thuốc theo trạng thái (ví dụ: PENDING để dược sĩ phát
+    // thuốc)
     List<Prescription> findByStatusOrderByCreatedAtAsc(PrescriptionStatus status);
 
     // Lấy danh sách đơn thuốc theo hồ sơ bệnh án

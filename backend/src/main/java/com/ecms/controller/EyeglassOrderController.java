@@ -12,14 +12,15 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/eyeglass-orders")
+@RequestMapping("/api/v1/eyeglass-orders")
 @RequiredArgsConstructor
 public class EyeglassOrderController {
 
     private final EyeglassOrderService eyeglassOrderService;
 
     @PostMapping
-    public ResponseEntity<EyeglassOrderResponse> createOrder(@Valid @RequestBody EyeglassOrderRequest request, Authentication authentication) {
+    public ResponseEntity<EyeglassOrderResponse> createOrder(@Valid @RequestBody EyeglassOrderRequest request,
+            Authentication authentication) {
         return ResponseEntity.ok(eyeglassOrderService.createOrder(request, authentication));
     }
 
@@ -42,12 +43,13 @@ public class EyeglassOrderController {
     public ResponseEntity<EyeglassOrderResponse> confirmOrderOnline(@PathVariable Long id) {
         return ResponseEntity.ok(eyeglassOrderService.confirmOrderOnline(id));
     }
-    
+
     @PutMapping("/{id}")
-    public ResponseEntity<EyeglassOrderResponse> updateOrder(@PathVariable Long id, @Valid @RequestBody EyeglassOrderRequest request) {
+    public ResponseEntity<EyeglassOrderResponse> updateOrder(@PathVariable Long id,
+            @Valid @RequestBody EyeglassOrderRequest request) {
         return ResponseEntity.ok(eyeglassOrderService.updateOrder(id, request));
     }
-    
+
     @PatchMapping("/{id}/cancel")
     public ResponseEntity<Void> cancelOrder(@PathVariable Long id, @RequestBody java.util.Map<String, String> payload) {
         String cancelReason = payload.get("cancelReason");
@@ -59,5 +61,23 @@ public class EyeglassOrderController {
     public ResponseEntity<EyeglassOrderResponse> dispenseOrder(@PathVariable Long id, Authentication authentication) {
         String staffEmail = authentication.getName();
         return ResponseEntity.ok(eyeglassOrderService.dispenseOrder(id, staffEmail));
+    }
+
+    @GetMapping("/fabrication-queue")
+    public ResponseEntity<ApiResponse<List<EyeglassOrderResponse>>> getFabricationQueue() {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Lấy hàng đợi gia công kính thành công", eyeglassOrderService.getFabricationQueue()));
+    }
+
+    @PatchMapping("/{id}/start-fabrication")
+    public ResponseEntity<ApiResponse<EyeglassOrderResponse>> startFabrication(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Đã bắt đầu gia công đơn kính", eyeglassOrderService.startFabrication(id)));
+    }
+
+    @PatchMapping("/{id}/complete-fabrication")
+    public ResponseEntity<ApiResponse<EyeglassOrderResponse>> completeFabrication(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Đã hoàn tất gia công đơn kính", eyeglassOrderService.completeFabrication(id)));
     }
 }

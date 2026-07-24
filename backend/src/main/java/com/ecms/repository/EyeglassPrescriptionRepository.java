@@ -3,7 +3,7 @@
 package com.ecms.repository;
 
 import com.ecms.entity.EyeglassPrescription;
-import com.ecms.entity.EyeglassPrescriptionStatus;
+//import com.ecms.entity.EyeglassPrescriptionStatus;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -16,7 +16,9 @@ public interface EyeglassPrescriptionRepository extends JpaRepository<EyeglassPr
 
     List<EyeglassPrescription> findByMedicalRecordId(Long medicalRecordId);
 
-    List<EyeglassPrescription> findByStatusOrderByCreatedAtAsc(EyeglassPrescriptionStatus status);
+    // List<EyeglassPrescription>
+    // findByStatusOrderByCreatedAtAsc(EyeglassPrescriptionStatus status);
 
-    List<EyeglassPrescription> findByStatusInOrderByCreatedAtAsc(List<EyeglassPrescriptionStatus> statuses);
+    // List<EyeglassPrescription>
+    // findByStatusInOrderByCreatedAtAsc(List<EyeglassPrescriptionStatus> statuses);
 }

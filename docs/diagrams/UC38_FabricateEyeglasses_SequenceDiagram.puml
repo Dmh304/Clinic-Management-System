@@ -1,0 +1,133 @@
+@startuml UC38_FabricateEyeglasses_SequenceDiagram
+<style>
+document {
+  ParticipantPadding 10
+  BoxPadding 10
+}
+</style>
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 250
+
+skinparam participant {
+    BackgroundColor #DDEEFF
+    BorderColor     #336699
+    FontStyle       bold
+}
+skinparam actor {
+    BackgroundColor #FFFACD
+    BorderColor     #CC9900
+}
+skinparam note {
+    BackgroundColor #FFFFF0
+    BorderColor     #AAAAAA
+}
+skinparam ArrowColor #336699
+skinparam LifeLineBorderColor #336699
+
+title UC-38: Fabricate Eyeglasses\n(Simplified Sequence Diagram)
+
+actor       "Optician / Lab Tech"                    as Actor
+participant "<<Controller>>\nEyeglassOrderController" as C
+participant "<<Service>>\nEyeglassOrderService"       as S
+participant "<<ServiceImpl>>\nEyeglassOrderServiceImpl" as SImpl
+participant "<<Repository>>\nEyeglassOrderRepository" as Repo
+
+note over Actor
+  PRE: Actor is authenticated.
+  Orders are in PENDING_LAB status.
+end note
+
+== Step 1: View Fabrication Queue ==
+Actor -> C : getFabricationQueue()
+activate C
+
+C -> S : getFabricationQueue()
+activate S
+S -> SImpl : getFabricationQueue()
+activate SImpl
+
+note right of SImpl
+  Fetches orders where status IN
+  (PENDING_LAB, IN_PRODUCTION)
+end note
+
+SImpl -> Repo : findByStatusIn([PENDING_LAB, IN_PRODUCTION])
+activate Repo
+Repo --> SImpl : List<EyeglassOrder>
+deactivate Repo
+
+SImpl --> S : List<EyeglassOrderResponse>
+deactivate SImpl
+S --> C : List<EyeglassOrderResponse>
+deactivate S
+
+C --> Actor : HTTP 200 OK (ApiResponse<List<EyeglassOrderResponse>>)
+deactivate C
+
+== Step 2: Start Fabrication ==
+Actor -> C : startFabrication(orderId)
+activate C
+
+C -> S : startFabrication(orderId)
+activate S
+S -> SImpl : startFabrication(orderId)
+activate SImpl
+
+SImpl -> Repo : findById(orderId)
+activate Repo
+Repo --> SImpl : EyeglassOrder (status = PENDING_LAB)
+deactivate Repo
+
+note right of SImpl
+  Validation: check if status == PENDING_LAB
+  Action: set status = IN_PRODUCTION
+end note
+
+SImpl -> Repo : save(order)
+activate Repo
+Repo --> SImpl : EyeglassOrder
+deactivate Repo
+
+SImpl --> S : EyeglassOrderResponse
+deactivate SImpl
+S --> C : EyeglassOrderResponse
+deactivate S
+
+C --> Actor : HTTP 200 OK (ApiResponse<EyeglassOrderResponse>)
+deactivate C
+
+== Step 3: Complete Fabrication ==
+Actor -> C : completeFabrication(orderId)
+activate C
+
+C -> S : completeFabrication(orderId)
+activate S
+S -> SImpl : completeFabrication(orderId)
+activate SImpl
+
+SImpl -> Repo : findById(orderId)
+activate Repo
+Repo --> SImpl : EyeglassOrder (status = IN_PRODUCTION)
+deactivate Repo
+
+note right of SImpl
+  Validation: check if status == IN_PRODUCTION
+  Action: set status = READY
+end note
+
+SImpl -> Repo : save(order)
+activate Repo
+Repo --> SImpl : EyeglassOrder
+deactivate Repo
+
+SImpl --> S : EyeglassOrderResponse
+deactivate SImpl
+S --> C : EyeglassOrderResponse
+deactivate S
+
+C --> Actor : HTTP 200 OK (ApiResponse<EyeglassOrderResponse>)
+deactivate C
+
+@enduml

@@ -71,11 +71,12 @@ public class EyeglassPrescription {
     @Column(columnDefinition = "NVARCHAR(500)")
     private String notes;
 
-    @Enumerated(EnumType.STRING)
-    @Column(length = 20)
-    private EyeglassPrescriptionStatus status;
+    // @Enumerated(EnumType.STRING)
+    // @Column(length = 20)
+    // private EyeglassPrescriptionStatus status;
 
-    private Boolean requestInClinicFabrication; // true = cắt tại phòng khám (PENDING), false/null = cắt ngoài (SKIPPED)
+    // private Boolean requestInClinicFabrication; // true = cắt tại phòng khám
+    // (PENDING), false/null = cắt ngoài (SKIPPED)
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -87,8 +88,8 @@ public class EyeglassPrescription {
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
-        if (status == null)
-            status = EyeglassPrescriptionStatus.PENDING;
+        // if (status == null)
+        // status = EyeglassPrescriptionStatus.PENDING;
     }
 
     @PreUpdate
