@@ -1145,19 +1145,18 @@ public class AppointmentServiceImpl implements AppointmentService {
                                                 AppointmentStatus.WAITING, AppointmentStatus.IN_PROGRESS));
         }
 
-        // Le Thi Bich Ngan - HE204710 | Tạo: 18/07/2026
-        // Chức năng: method mới huỷ no-show ngay lúc đóng cửa (17:05) — dùng chung
-        // logic huỷ với autoCancelNoShowAppointments() (00:05) qua cancelStaleAppointments()
-        // được tách ra bên dưới, chỉ khác cutoff (thời điểm hiện tại) và statuses
-        // (không đụng WAITING/IN_PROGRESS). Không gắn BR số cụ thể.
+        // Le Thi Bich Ngan - HE204710 | Tạo: 18/07/2026, sửa 2026-07-25 (huỷ ngay khi trễ giờ)
+        // Chức năng: dùng chung logic huỷ với autoCancelNoShowAppointments() (00:05) qua
+        // cancelStaleAppointments() được tách ra bên dưới, chỉ khác cutoff (thời điểm hiện
+        // tại) và statuses (không đụng WAITING/IN_PROGRESS). Không gắn BR số cụ thể.
         @Override
         @Transactional
         public int autoCancelOverdueTodayAppointments() {
-                // Mốc cắt: thời điểm hiện tại (job này chạy 17:05 — ngay sau giờ đóng cửa
-                // 17:00, nên mọi khung giờ trong ngày lúc này đều đã trôi qua). Chỉ xét
-                // PENDING/CONFIRMED — bệnh nhân chưa từng check-in; KHÔNG đụng
-                // WAITING/IN_PROGRESS vì đó là ca đang khám dở, có thể trễ giờ đóng cửa
-                // bình thường và không phải no-show.
+                // Mốc cắt: thời điểm hiện tại — job này giờ chạy lặp lại mỗi 5 phút suốt giờ
+                // làm việc (không còn chỉ chạy 1 lần lúc đóng cửa), nên bất kỳ lịch hẹn nào
+                // vừa quá giờ hẹn mà bệnh nhân chưa check-in sẽ bị huỷ ở lần quét kế tiếp,
+                // không cần đợi tới cuối ngày. Chỉ xét PENDING/CONFIRMED — bệnh nhân chưa
+                // từng check-in; KHÔNG đụng WAITING/IN_PROGRESS vì đó là ca đang khám dở.
                 return cancelStaleAppointments(
                                 LocalDateTime.now(),
                                 List.of(AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED));
