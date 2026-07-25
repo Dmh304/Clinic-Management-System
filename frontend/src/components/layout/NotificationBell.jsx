@@ -136,6 +136,16 @@ export default function NotificationBell({ viewAllPath, iconColor = '#64748b', p
     if (next) loadList()
   }
 
+  const handleMarkAllRead = async () => {
+    try {
+      await notificationService.markAllAsRead()
+      setItems((prev) => prev.map((x) => ({ ...x, isRead: true })))
+      setUnread(0)
+    } catch {
+      /* im lặng */
+    }
+  }
+
   const handleClickItem = async (n) => {
     try {
       if (!n.isRead) {
@@ -145,8 +155,8 @@ export default function NotificationBell({ viewAllPath, iconColor = '#64748b', p
       }
       setOpen(false)
 
-      // Thông báo thanh toán (UC-22):
-      //  - "Yêu cầu thanh toán" (chứa "cần thanh toán") → sang trang Hóa đơn của tôi để quét QR.
+      // Thông báo thanh toán (UC-22) — chưa gắn relatedEntityType nên vẫn nhận diện theo nội dung:
+      //  - "cần thanh toán" → sang trang Hóa đơn của tôi để quét QR.
       //  - "Thanh toán thành công" → giữ nguyên trang, chỉ đánh dấu đã đọc.
       const msg = n.message || ''
       if (isPatient && msg.includes('cần thanh toán')) {
@@ -156,17 +166,86 @@ export default function NotificationBell({ viewAllPath, iconColor = '#64748b', p
       if (msg.includes('Thanh toán thành công')) {
         return
       }
-
       if (n.relatedAppointmentId) {
-        // Bệnh nhân điều hướng tới trang lịch hẹn của mình (không gọi API staff);
-        // nhân viên mở modal chi tiết lịch hẹn.
+      const role = user?.role
+      const type = n.relatedEntityType
+      const entityId = n.relatedAppointmentId
+
+      // Đặt buổi dịch vụ thành công — patient sang lịch sử buổi khám của đúng gói đó.
+      if (type === 'SUBSCRIPTION') {
+        if (entityId && role === 'PATIENT') navigate(`/patient/subscriptions/${entityId}/sessions`)
+        return
+      }
+
+      // Buổi dịch vụ hoàn thành, sẵn sàng check-out — lễ tân sang thẳng hàng đợi check-out.
+      if (type === 'CARE_SESSION_CHECKOUT') {
+        if (role === 'RECEPTIONIST') navigate('/receptionist/checkout-care-sessions')
+        return
+      }
+
+      // Điều dưỡng được/gỡ phân công, hoặc sự cố buổi chăm sóc báo Manager.
+      if (type === 'CARE_SESSION') {
+        if (role === 'NURSE') navigate('/nurse/queue')
+        else if (role === 'MANAGER') navigate('/manager/assign-nurse')
+        return
+      }
+
+      // Khuyến mãi mới — sang trang chi tiết khuyến mãi (hoặc danh sách nếu thiếu id).
+      if (type === 'PROMOTION') {
+        navigate(entityId ? `/promotions/${entityId}` : '/promotions')
+        return
+      }
+
+      // Đánh giá mới cần duyệt — Manager sang trang báo cáo đánh giá.
+      if (type === 'FEEDBACK') {
+        if (role === 'MANAGER') navigate('/manager/feedback-report')
+        return
+      }
+
+      // Mặc định (type null hoặc "APPOINTMENT"): hành vi cũ — bệnh nhân điều hướng tới trang
+      // lịch hẹn của mình, nhân viên mở modal chi tiết lịch hẹn.
+      if (entityId) {
         if (isPatient) {
           navigate(`/patient/appointments?highlight=${n.relatedAppointmentId}`)
-        } else {
+        } 
+        // ── DOCTOR ──
+        else if (user?.role === 'DOCTOR') {
+          // Bác sĩ bấm vào thông báo liên quan đến xét nghiệm
+          if (msg.toLowerCase().includes('xét nghiệm')) {
+            navigate(`/doctor/lab-order?appointmentId=${n.relatedAppointmentId}`)
+          } else {
+            navigate(`/doctor/emr?appointmentId=${n.relatedAppointmentId}`)
+          }
+        } 
+        // ── LAB TECHNICIAN ──
+        else if (user?.role === 'LAB_TECHNICIAN') {
+          // KTV bấm vào thông báo đơn kính
+          if (msg.toLowerCase().includes('đơn kính')) {
+            navigate(`/lab/eyeglass-queue?appointmentId=${n.relatedAppointmentId}`)
+          } 
+          // KTV bấm vào thông báo xét nghiệm
+          else if (msg.toLowerCase().includes('xét nghiệm')) {
+            navigate(`/lab/queue?appointmentId=${n.relatedAppointmentId}`)
+          }
+        }
+        // ── RECEPTIONIST ──
+        else if (user?.role === 'RECEPTIONIST') {
+          // Lễ tân bấm vào thông báo bệnh nhân đặt kính
+          if (msg.toLowerCase().includes('đơn kính')) {
+            navigate(`/receptionist/eyeglass-orders?appointmentId=${n.relatedAppointmentId}`)
+          } else {
+            // Mở modal lịch hẹn bình thường
+            const res = await appointmentService.getById(n.relatedAppointmentId)
+            setDetail(res.data)
+          }
+        } 
+        // Các role khác (Receptionist, Manager) mở modal chi tiết lịch hẹn
+        else {
           const res = await appointmentService.getById(n.relatedAppointmentId)
           setDetail(res.data)
         }
       }
+    }
     } catch {
       /* im lặng */
     }
@@ -213,9 +292,29 @@ export default function NotificationBell({ viewAllPath, iconColor = '#64748b', p
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>Thông báo</span>
-            {unread > 0 && (
-              <span style={{ fontSize: 11, color: '#ef4444', fontWeight: 600 }}>{unread} chưa đọc</span>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {unread > 0 && (
+                <span style={{ fontSize: 11, color: '#ef4444', fontWeight: 600 }}>{unread} chưa đọc</span>
+              )}
+              {items.some((x) => !x.isRead) && (
+                <button
+                  onClick={handleMarkAllRead}
+                  title="Đánh dấu tất cả đã đọc"
+                  aria-label="Đánh dấu tất cả đã đọc"
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer', color: '#2563eb',
+                    padding: 4, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    borderRadius: 6,
+                  }}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 6 7 17l-5-5" />
+                    <path d="m22 10-7.5 7.5L13 16" />
+                  </svg>
+                </button>
+              )}
+            </div>
           </div>
 
           {loading ? (

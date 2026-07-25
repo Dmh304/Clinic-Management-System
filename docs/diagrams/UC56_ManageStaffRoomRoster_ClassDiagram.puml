@@ -1,0 +1,106 @@
+@startuml UC56_ManageStaffRoomRoster_ClassDiagram
+
+skinparam classAttributeIconSize 0
+skinparam monochrome false
+skinparam backgroundColor white
+skinparam roundcorner 5
+skinparam class {
+    BackgroundColor #f9f9f9
+    ArrowColor #336699
+    BorderColor #336699
+}
+
+class StaffRoomAssignmentController {
+    + assignRoom(request: StaffRoomAssignmentRequest, userDetails: UserDetails): ResponseEntity<ApiResponse<StaffRoomAssignmentResponse>>
+    + getRoster(date: LocalDate): ResponseEntity<ApiResponse<List<StaffRoomAssignmentResponse>>>
+    + resolveRoom(staffType: StaffType, staffId: Long, date: LocalDate): ResponseEntity<ApiResponse<RoomResolutionResponse>>
+}
+
+interface StaffRoomAssignmentService {
+    + assignRoom(request: StaffRoomAssignmentRequest, managerUserId: Long): StaffRoomAssignmentResponse
+    + getRosterForDate(date: LocalDate): List<StaffRoomAssignmentResponse>
+    + resolveRoomForStaff(staffType: StaffType, staffId: Long, date: LocalDate): RoomResolutionResponse
+}
+
+class StaffRoomAssignmentServiceImpl {
+    + assignRoom(request: StaffRoomAssignmentRequest, managerUserId: Long): StaffRoomAssignmentResponse
+    + getRosterForDate(date: LocalDate): List<StaffRoomAssignmentResponse>
+    + resolveRoomForStaff(staffType: StaffType, staffId: Long, date: LocalDate): RoomResolutionResponse
+}
+
+class StaffRoomAssignmentRepository {
+    + save(assignment: StaffRoomAssignment): StaffRoomAssignment
+    + findByWorkDateOrEffectiveFrom(date: LocalDate): List<StaffRoomAssignment>
+}
+
+class UserRepository {
+    + findByEmail(email: String): Optional<User>
+}
+
+class StaffRoomAssignment {
+    - id: Long
+    - staffType: StaffType
+    - staffId: Long
+    - effectiveFrom: LocalDate
+    - workDate: LocalDate
+    - isOneDayOverride: Boolean
+    - assignedBy: Long
+    - createdAt: LocalDateTime
+    + prePersist(): void
+}
+
+enum StaffType {
+    DOCTOR
+    NURSE
+    LAB_TECHNICIAN
+}
+
+class Room {
+    - id: Long
+    - name: String
+}
+
+class StaffRoomAssignmentRequest {
+    - staffType: StaffType
+    - staffId: Long
+    - roomId: Long
+    - effectiveFrom: LocalDate
+    - isOneDayOverride: Boolean
+    - workDate: LocalDate
+}
+
+class StaffRoomAssignmentResponse {
+    - id: Long
+    - staffType: StaffType
+    - staffId: Long
+    - roomId: Long
+    - isOneDayOverride: Boolean
+    - workDate: LocalDate
+}
+
+class RoomResolutionResponse {
+    - roomId: Long
+    - roomName: String
+}
+
+class ApiResponse<T> {
+    - status: int
+    - message: String
+    - data: T
+}
+
+StaffRoomAssignmentController ..> StaffRoomAssignmentService : uses
+StaffRoomAssignmentController ..> UserRepository : uses
+StaffRoomAssignmentController ..> ApiResponse : creates
+
+StaffRoomAssignmentService <|.. StaffRoomAssignmentServiceImpl : implements
+StaffRoomAssignmentServiceImpl ..> StaffRoomAssignmentRepository : uses
+StaffRoomAssignmentServiceImpl ..> StaffRoomAssignmentRequest : consumes
+StaffRoomAssignmentServiceImpl ..> StaffRoomAssignmentResponse : creates
+StaffRoomAssignmentServiceImpl ..> RoomResolutionResponse : creates
+
+StaffRoomAssignmentRepository ..> StaffRoomAssignment : manages
+StaffRoomAssignment "1" *-- "1" Room : assigns to >
+StaffRoomAssignment --> StaffType : indicates role >
+
+@enduml

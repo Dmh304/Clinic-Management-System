@@ -1,0 +1,123 @@
+@startuml UC55_ManageRoomCatalogue_SequenceDiagram
+<style>
+document {
+  ParticipantPadding 10
+  BoxPadding 10
+}
+</style>
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 250
+
+skinparam participant {
+    BackgroundColor #DDEEFF
+    BorderColor     #336699
+    FontStyle       bold
+}
+skinparam actor {
+    BackgroundColor #FFFACD
+    BorderColor     #CC9900
+}
+skinparam note {
+    BackgroundColor #FFFFF0
+    BorderColor     #AAAAAA
+}
+skinparam ArrowColor #336699
+skinparam LifeLineBorderColor #336699
+
+title UC-55: Manage Room Catalogue & Service Mapping\n(Simplified Sequence Diagram)
+
+actor       "Clinic Manager"                         as Actor
+participant "<<Controller>>\nRoomController"         as C
+participant "<<Service>>\nRoomService"               as S
+participant "<<ServiceImpl>>\nRoomServiceImpl"       as SImpl
+participant "<<Repository>>\nRoomRepository"         as Repo
+
+note over Actor
+  PRE: Clinic Manager is authenticated.
+end note
+
+== Step 1: View Room Catalogue ==
+Actor -> C : getAllRooms(includeInactive=false)
+activate C
+
+C -> S : getAllRooms(false)
+activate S
+S -> SImpl : getAllRooms(false)
+activate SImpl
+
+SImpl -> Repo : findAll(spec)
+activate Repo
+Repo --> SImpl : List<Room>
+deactivate Repo
+
+SImpl --> S : List<RoomResponse>
+deactivate SImpl
+S --> C : List<RoomResponse>
+deactivate S
+
+C --> Actor : HTTP 200 OK (ApiResponse<List<RoomResponse>>)
+deactivate C
+
+== Step 2: Add New Room ==
+Actor -> C : createRoom(request: RoomRequest)
+activate C
+
+C -> S : createRoom(request)
+activate S
+S -> SImpl : createRoom(request)
+activate SImpl
+
+note right of SImpl
+  BR Validation:
+  - Check for duplicate room name in category.
+  - Set default capacity = 1 if not provided.
+end note
+
+SImpl -> Repo : save(room: Room)
+activate Repo
+Repo --> SImpl : Room
+deactivate Repo
+
+SImpl --> S : RoomResponse
+deactivate SImpl
+S --> C : RoomResponse
+deactivate S
+
+C --> Actor : HTTP 200 OK (ApiResponse<RoomResponse>)
+deactivate C
+
+== Step 3: Deactivate Room (Soft Delete) ==
+Actor -> C : deactivateRoom(id: Long)
+activate C
+
+C -> S : deactivateRoom(id: Long)
+activate S
+S -> SImpl : deactivateRoom(id: Long)
+activate SImpl
+
+SImpl -> Repo : findById(id)
+activate Repo
+Repo --> SImpl : Room
+deactivate Repo
+
+note right of SImpl
+  BR-09 (No Hard Delete):
+  Sets status = "INACTIVE".
+end note
+
+SImpl -> Repo : save(room: Room)
+activate Repo
+Repo --> SImpl : Room
+deactivate Repo
+
+SImpl --> S : RoomResponse
+deactivate SImpl
+S --> C : RoomResponse
+deactivate S
+
+C --> Actor : HTTP 200 OK (ApiResponse<RoomResponse>)
+deactivate C
+
+@enduml

@@ -1,0 +1,100 @@
+@startuml UC38_FabricateEyeglasses_ClassDiagram
+
+skinparam classAttributeIconSize 0
+skinparam monochrome false
+skinparam backgroundColor white
+skinparam roundcorner 5
+skinparam class {
+    BackgroundColor #f9f9f9
+    ArrowColor #336699
+    BorderColor #336699
+}
+
+class EyeglassOrderController {
+    + getFabricationQueue(): ResponseEntity<ApiResponse<List<EyeglassOrderResponse>>>
+    + startFabrication(id: Long): ResponseEntity<ApiResponse<EyeglassOrderResponse>>
+    + completeFabrication(id: Long): ResponseEntity<ApiResponse<EyeglassOrderResponse>>
+}
+
+interface EyeglassOrderService {
+    + getFabricationQueue(): List<EyeglassOrderResponse>
+    + startFabrication(id: Long): EyeglassOrderResponse
+    + completeFabrication(id: Long): EyeglassOrderResponse
+}
+
+class EyeglassOrderServiceImpl {
+    + getFabricationQueue(): List<EyeglassOrderResponse>
+    + startFabrication(id: Long): EyeglassOrderResponse
+    + completeFabrication(id: Long): EyeglassOrderResponse
+}
+
+class EyeglassOrderRepository {
+    + findByStatusIn(statuses: List<EyeglassOrderStatus>): List<EyeglassOrder>
+    + findById(id: Long): Optional<EyeglassOrder>
+    + save(order: EyeglassOrder): EyeglassOrder
+}
+
+class EyeglassOrder {
+    - id: Long
+    - totalAmount: BigDecimal
+    - dispensedAt: LocalDateTime
+    - cancelReason: String
+    - status: EyeglassOrderStatus
+    - createdAt: LocalDateTime
+    - updatedAt: LocalDateTime
+    + onCreate(): void
+    + onUpdate(): void
+}
+
+enum EyeglassOrderStatus {
+    PENDING_CONFIRMATION
+    PENDING_LAB
+    IN_PRODUCTION
+    READY
+    DISPENSED
+    CANCELLED
+}
+
+class Patient {
+    - id: Long
+}
+
+class EyeglassPrescription {
+    - id: Long
+}
+
+class EyeglassFrame {
+    - id: Long
+}
+
+class Staff {
+    - id: Long
+}
+
+class EyeglassOrderResponse {
+    - id: Long
+    - totalAmount: BigDecimal
+    - status: EyeglassOrderStatus
+}
+
+class ApiResponse<T> {
+    - status: int
+    - message: String
+    - data: T
+}
+
+EyeglassOrderController ..> EyeglassOrderService : uses
+EyeglassOrderController ..> ApiResponse : creates
+EyeglassOrderService <|.. EyeglassOrderServiceImpl : implements
+
+EyeglassOrderServiceImpl ..> EyeglassOrderRepository : uses
+EyeglassOrderServiceImpl ..> EyeglassOrderResponse : creates
+
+EyeglassOrderRepository ..> EyeglassOrder : manages
+EyeglassOrder --> EyeglassOrderStatus : uses
+EyeglassOrder "1" *-- "1" Patient : belongs to >
+EyeglassOrder "1" *-- "1" EyeglassPrescription : based on >
+EyeglassOrder "1" *-- "0..1" EyeglassFrame : includes >
+EyeglassOrder "1" *-- "0..1" Staff : dispensed by >
+
+@enduml

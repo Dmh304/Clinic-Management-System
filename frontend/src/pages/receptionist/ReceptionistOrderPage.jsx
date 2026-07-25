@@ -46,10 +46,10 @@ export default function ReceptionistOrderPage() {
         setLoading(true);
         try {
             // Lấy tất cả đơn hàng thay vì chỉ pending để có thể quản lý
-            const res = await axios.get('http://localhost:8080/api/eyeglass-orders/pending', {
+            const res = await axios.get('http://localhost:8080/api/v1/eyeglass-orders/pending', {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            setOrders(res.data);
+            setOrders(res.data?.data ?? res.data ?? []);
         } catch (error) {
             message.error('Lỗi khi tải danh sách đơn kính');
         } finally {
@@ -59,9 +59,9 @@ export default function ReceptionistOrderPage() {
 
     const fetchCatalog = async () => {
         try {
-            const fRes = await axiosClient.get('/eyeglass-catalog/frames');
+            const fRes = await axiosClient.get('/v1/eyeglass-catalog/frames');
             setFrames(fRes.filter(f => f.status === 'ACTIVE'));
-            const cRes = await axiosClient.get('/eyeglass-catalog/coatings');
+            const cRes = await axiosClient.get('/v1/eyeglass-catalog/coatings');
             setCoatings(cRes);
         } catch (error) {
             console.error('Lỗi tải catalog', error);
@@ -86,7 +86,7 @@ export default function ReceptionistOrderPage() {
             cancelText: 'Hủy',
             onOk: async () => {
                 try {
-                    await axios.patch(`http://localhost:8080/api/eyeglass-orders/${orderId}/confirm`, {}, {
+                    await axios.patch(`http://localhost:8080/api/v1/eyeglass-orders/${orderId}/confirm`, {}, {
                         headers: { Authorization: `Bearer ${token}` }
                     });
                     message.success('Xác nhận thành công!');
@@ -118,7 +118,7 @@ export default function ReceptionistOrderPage() {
                     return Promise.reject();
                 }
                 try {
-                    await axios.patch(`http://localhost:8080/api/eyeglass-orders/${orderId}/cancel`, { cancelReason }, {
+                    await axios.patch(`http://localhost:8080/api/v1/eyeglass-orders/${orderId}/cancel`, { cancelReason }, {
                         headers: { Authorization: `Bearer ${token}` }
                     });
                     message.success('Hủy đơn thành công!');
@@ -166,7 +166,7 @@ export default function ReceptionistOrderPage() {
     const handleUpdateOrder = async (values) => {
         setUpdating(true);
         try {
-            await axios.put(`http://localhost:8080/api/eyeglass-orders/${selectedOrder.id}`, {
+            await axios.put(`http://localhost:8080/api/v1/eyeglass-orders/${selectedOrder.id}`, {
                 prescriptionId: selectedOrder.prescriptionId,
                 frameId: values.frameId,
                 coatingIds: values.coatingIds || []
@@ -309,7 +309,7 @@ export default function ReceptionistOrderPage() {
                         optionFilterProp="children"
                         onChange={(val) => {
                             setCreateModalVisible(false);
-                            navigate(`/receptionist/order-glasses/${val}`);
+                            navigate(`/v1/receptionist/order-glasses/${val}`);
                         }}
                     >
                         {pendingPrescriptions.map(p => (

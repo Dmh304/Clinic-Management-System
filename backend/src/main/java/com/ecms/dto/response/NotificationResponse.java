@@ -20,6 +20,7 @@ public class NotificationResponse {
     private String targetRole;
     private Long targetUserId;
     private Long relatedAppointmentId;
+    private String relatedEntityType;
     private Boolean isRead;
     private LocalDateTime createdAt;
 
@@ -30,6 +31,7 @@ public class NotificationResponse {
                 .targetRole(n.getTargetRole())
                 .targetUserId(n.getTargetUserId())
                 .relatedAppointmentId(n.getRelatedAppointmentId())
+                .relatedEntityType(n.getRelatedEntityType())
                 .isRead(n.getIsRead())
                 .createdAt(n.getCreatedAt())
                 .build();

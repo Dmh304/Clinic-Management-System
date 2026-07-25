@@ -38,7 +38,7 @@ export default function EyeglassPrescriptionForm({ emr, isReadOnly, onPrescripti
     useEffect(() => {
         const fetchLensTypes = async () => {
             try {
-                const res = await axiosClient.get('/eyeglass-catalog/lens-types');
+                const res = await axiosClient.get('/v1/eyeglass-catalog/lens-types');
                 setLensTypes(res || []);
             } catch (error) {
                 console.error('Lỗi khi tải danh sách loại tròng kính', error);

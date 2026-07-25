@@ -27,6 +27,8 @@ public class LabOrderRequest {
     /* ID của kỹ thuật viên phòng xét nghiệm được phân công xử lý đơn này */
     private Long labTechnicianId;
 
+    private Long serviceId;
+
     /* Ghi chú hoặc yêu cầu, chỉ dẫn đặc biệt từ bác sĩ chỉ định */
     private String notes;
 

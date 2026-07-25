@@ -315,8 +315,9 @@ public class LabOrderController {
                         return null;
                 }
 
-                return patientRepository.findByEmail(userDetails.getUsername())
+                return patientRepository.findByUser_Email(userDetails.getUsername())
                                 .map(Patient::getId)
                                 .orElse(null);
         }
+
 }

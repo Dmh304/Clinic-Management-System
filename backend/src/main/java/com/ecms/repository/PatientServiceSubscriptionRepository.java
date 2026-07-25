@@ -22,6 +22,10 @@ public interface PatientServiceSubscriptionRepository extends JpaRepository<Pati
 
     List<PatientServiceSubscription> findAllByOrderByCreatedAtDesc();
 
+    // Bệnh nhân đã từng mua dịch vụ này chưa (bất kỳ trạng thái) — dùng để miễn bước
+    // tư vấn cho lần mua LẶP LẠI, chỉ bắt buộc tư vấn ở lần mua ĐẦU TIÊN.
+    boolean existsByPatient_IdAndService_Id(Long patientId, Long serviceId);
+
     // Đếm số người đăng ký (subscription) của một gói dịch vụ — phục vụ cột "Người đăng ký" ở màn Quản lý gói dịch vụ
     long countByService_Id(Long serviceId);
 }

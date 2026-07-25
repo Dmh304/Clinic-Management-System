@@ -126,22 +126,32 @@ public class Invoice {
         createdAt = LocalDateTime.now();
 
         // Trạng thái chung
-        if (status == null) status = "DRAFT";
-        if (paymentStatus == null) paymentStatus = "UNPAID";
-        if (emailStatus == null) emailStatus = "NOT_SENT";
+        if (status == null)
+            status = "DRAFT";
+        if (paymentStatus == null)
+            paymentStatus = "UNPAID";
+        if (emailStatus == null)
+            emailStatus = "NOT_SENT";
 
         // Khởi tạo các giá trị tiền tệ của hệ thống Dược (nhánh Duc)
-        if (subTotal == null) subTotal = BigDecimal.ZERO;
-        if (discountAmount == null) discountAmount = BigDecimal.ZERO;
-        if (tax == null) tax = BigDecimal.ZERO;
+        if (subTotal == null)
+            subTotal = BigDecimal.ZERO;
+        if (discountAmount == null)
+            discountAmount = BigDecimal.ZERO;
+        if (tax == null)
+            tax = BigDecimal.ZERO;
 
         // Khởi tạo các giá trị tiền tệ của hệ thống Khám bệnh/Xét nghiệm (nhánh main)
-        if (serviceFee == null) serviceFee = BigDecimal.ZERO;
-        if (labFee == null) labFee = BigDecimal.ZERO;
-        if (medicineFee == null) medicineFee = BigDecimal.ZERO;
+        if (serviceFee == null)
+            serviceFee = BigDecimal.ZERO;
+        if (labFee == null)
+            labFee = BigDecimal.ZERO;
+        if (medicineFee == null)
+            medicineFee = BigDecimal.ZERO;
 
         // Tổng tiền
-        if (totalAmount == null) totalAmount = BigDecimal.ZERO;
+        if (totalAmount == null)
+            totalAmount = BigDecimal.ZERO;
     }
 
     @PreUpdate

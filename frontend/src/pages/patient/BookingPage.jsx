@@ -699,7 +699,21 @@ function Page3({ data, onConfirm, onBack, submitting, submitError }) {
     ? data.date.toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" })
     : "";
 
-  const canConfirm = pName.trim() && pPhone.trim() && pDob && pGender;
+  const minDob = toLocalISODate(new Date(new Date().getFullYear() - 120, 0, 1));
+  const maxDob = toLocalISODate(new Date());
+  const dobValid = pDob && pDob >= minDob && pDob <= maxDob;
+
+  const nameTrimmed = pName.trim();
+  const nameValid = nameTrimmed.length >= 2 && /^[\p{L}\s]+$/u.test(nameTrimmed);
+
+  const phoneTrimmed = pPhone.trim();
+  const phoneValid = /^\d+$/.test(phoneTrimmed) && phoneTrimmed.startsWith("0")
+    && phoneTrimmed.length >= 10 && phoneTrimmed.length <= 11;
+
+  const emailTrimmed = pEmail.trim();
+  const emailValid = !emailTrimmed || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed);
+
+  const canConfirm = nameValid && phoneValid && emailValid && dobValid && pGender;
 
   const inputStyle = {
     width: "100%", padding: "10px 12px", borderRadius: 8, border: `1.5px solid ${C.border}`,
@@ -801,6 +815,11 @@ function Page3({ data, onConfirm, onBack, submitting, submitError }) {
             <label style={labelStyle}>Họ tên người khám *</label>
             <input value={pName} onChange={e => setPName(e.target.value)}
               placeholder="Ghi rõ họ và tên, ví dụ: Trần Văn Phú" style={inputStyle} />
+            {nameTrimmed && !nameValid && (
+              <span style={{ fontSize: 11, color: "#dc2626", display: "block", marginTop: 4 }}>
+                Họ tên chỉ được chứa chữ cái, tối thiểu 2 ký tự
+              </span>
+            )}
           </div>
 
           <div style={{ marginBottom: 14 }}>
@@ -825,18 +844,33 @@ function Page3({ data, onConfirm, onBack, submitting, submitError }) {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
             <div>
               <label style={labelStyle}>Số điện thoại *</label>
-              <input value={pPhone} onChange={e => setPPhone(e.target.value)} placeholder="0912 345 678" style={inputStyle} />
+              <input value={pPhone} onChange={e => setPPhone(e.target.value)} placeholder="0912345678" style={inputStyle} />
+              {phoneTrimmed && !phoneValid && (
+                <span style={{ fontSize: 11, color: "#dc2626", display: "block", marginTop: 4 }}>
+                  SĐT gồm 10-11 chữ số, bắt đầu bằng 0
+                </span>
+              )}
             </div>
             <div>
               <label style={labelStyle}>Năm sinh *</label>
               <input type="date" value={pDob} onChange={e => setPDob(e.target.value)}
-                max={toLocalISODate(new Date())} style={inputStyle} />
+                min={minDob} max={maxDob} style={inputStyle} />
+              {pDob && !dobValid && (
+                <span style={{ fontSize: 11, color: "#dc2626", display: "block", marginTop: 4 }}>
+                  Ngày sinh không hợp lệ
+                </span>
+              )}
             </div>
           </div>
 
           <div style={{ marginBottom: 14 }}>
             <label style={labelStyle}>Email <span style={{ color: C.textMuted, fontWeight: 400 }}>(không bắt buộc)</span></label>
             <input value={pEmail} onChange={e => setPEmail(e.target.value)} placeholder="example@email.com" style={inputStyle} />
+            {emailTrimmed && !emailValid && (
+              <span style={{ fontSize: 11, color: "#dc2626", display: "block", marginTop: 4 }}>
+                Email không hợp lệ
+              </span>
+            )}
           </div>
 
           <div>

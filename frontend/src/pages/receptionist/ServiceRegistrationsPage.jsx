@@ -19,8 +19,8 @@ const STATUS_TAG = {
   CANCELLED: { color: 'red', label: 'Đã huỷ' },
 }
 
-// Chặn chọn ngày quá khứ trên DatePicker
-const disabledClinicDate = (current) => current && current < dayjs().startOf('day')
+// Chặn chọn ngày quá khứ và Chủ nhật (phòng khám nghỉ) trên DatePicker
+const disabledClinicDate = (current) => current && (current < dayjs().startOf('day') || current.day() === 0)
 
 // Chặn chọn giờ ngoài giờ làm việc phòng khám (07:30–17:00) và giờ đã qua nếu là hôm nay.
 const disabledClinicTime = (current) => {

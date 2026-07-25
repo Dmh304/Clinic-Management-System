@@ -76,10 +76,11 @@
 **Action (Retest):** If the results are anomalous or unclear, the status is reverted to `PENDING` or set to `RETEST`, invalidating the current result.
 **Result:** The controller returns `200 OK` with an `ApiResponse<LabOrderResponse>`.
 
-## UC-36: Fabricate Eyeglasses
-**Process:** The Optician views the prescription queue and selects a specific prescription to dispense via `EyeglassPrescriptionController.dispenseGlasses()`.
-**Action:** `EyeglassPrescriptionService` updates the `EyeglassPrescription` status to `DISPENSED` (or `COMPLETED`) via the repository.
-**Result:** The controller returns `200 OK` with an `ApiResponse<EyeglassPrescriptionResponse>`.
+## UC-38: Fabricate Eyeglasses
+**Process:** The Optician views the fabrication queue to see all pending orders via `EyeglassOrderController.getFabricationQueue()`. This returns orders with status `PENDING_LAB` or `IN_PRODUCTION`.
+**Action (Start):** The Optician selects a `PENDING_LAB` order and clicks start. The system calls `EyeglassOrderController.startFabrication(orderId)`. `EyeglassOrderService` updates the status to `IN_PRODUCTION`.
+**Action (Complete):** Once the glasses are ready, the Optician calls `EyeglassOrderController.completeFabrication(orderId)`. `EyeglassOrderService` updates the status from `IN_PRODUCTION` to `READY`.
+**Result:** The updated `EyeglassOrder` is saved via `EyeglassOrderRepository`, and the controller returns `200 OK`. The order is now ready for the patient to pick up.
 
 ## UC-45: View Diagnostic Results
 **Process:** The Patient navigates to the 'My Test Results' section to view their historical lab and imaging records. The system first retrieves a summary list of all diagnostic orders via `LabOrderController.getPatientLabOrders()`.
@@ -94,3 +95,15 @@
 **Business Rule (BR-09):** The system enforces soft deletion. If a Manager deactivates a test type via `ClinicServiceController.toggleActive()`, the `isActive` flag is toggled. The test is hidden from new selections but existing pending orders are unaffected.
 **Action:** `ClinicServiceService` saves the new or updated `ClinicService` entity to the `ClinicServiceRepository` with the `serviceType` set to `"CLINICAL"`. It also logs the action in the `AuditLog`.
 **Result:** The controller returns `201 Created` or `200 OK` with the `ApiResponse<ClinicServiceResponse>`, and the updated catalogue becomes immediately available for doctors to use when issuing lab orders (UC-53).
+
+## UC-55: Manage Room Catalogue & Service Mapping
+**Process:** The Clinic Manager accesses the Room Management screen to view the catalogue of physical rooms and their mapped services via `RoomController.getAllRooms()`.
+**Action:** The Manager can create a new room or update an existing one via `RoomController.createRoom()` or `updateRoom()`. Each room is associated with a specific category (`CLINICAL_EXAM`, `SURGERY`, etc.) and optionally mapped to a `ClinicService`. The capacity defaults to 1.
+**Business Rule (BR-09):** The system enforces soft deletion for rooms. If a Manager wishes to remove a room, they must deactivate it via `RoomController.deactivateRoom()`, which updates its status to `INACTIVE` rather than hard deleting it.
+**Result:** The updated room catalogue is persisted via `RoomRepository` and immediately becomes available for room resolution in booking and routing flows (UC-11, UC-19, UC-30).
+
+## UC-56: Manage Staff Room Roster
+**Process:** The Clinic Manager opens the Room Roster for a specific day. The system fetches the roster list via `StaffRoomAssignmentController.getRoster()`, which queries `StaffRoomAssignmentRepository` for assignments effective on or before that date, or specific overrides for that date.
+**Action:** The Manager assigns a Doctor, Nurse, or Lab Technician to a room via `StaffRoomAssignmentController.assignRoom()`. The Manager can specify if this is a standing assignment (effective from a date onwards) or a one-day override (valid only for a specific `workDate`).
+**Business Rule (BR-24):** The system relies on this roster to resolve which room a staff member is operating in on a given day. Other use cases (e.g., patient check-in, lab orders) call `StaffRoomAssignmentController.resolveRoom()` which prioritizes one-day overrides before falling back to the most recent standing assignment.
+**Result:** The assignment is saved to `StaffRoomAssignmentRepository`. The resolved room will be used by the system to direct patients appropriately for their appointments and tests.

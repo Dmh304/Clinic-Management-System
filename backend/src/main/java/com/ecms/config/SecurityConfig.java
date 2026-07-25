@@ -311,6 +311,7 @@ public class SecurityConfig {
                                                 // (không cho đăng nhập) — /quote vẫn rơi vào rule hasAnyRole bên
                                                 // dưới vì "quote" không khớp pattern số {id:[0-9]+}.
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/discount-campaigns/active",
+                                                                "/api/v1/discount-campaigns/public",
                                                                 "/api/v1/discount-campaigns/{id:[0-9]+}")
                                                 .permitAll()
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/discount-campaigns/**")

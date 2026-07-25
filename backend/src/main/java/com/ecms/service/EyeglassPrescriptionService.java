@@ -8,12 +8,6 @@ import java.util.List;
 public interface EyeglassPrescriptionService {
     EyeglassPrescriptionResponse getById(Long id);
 
-    List<EyeglassPrescriptionResponse> getFabricationQueue();
-
-    EyeglassPrescriptionResponse startFabrication(Long id);
-
-    EyeglassPrescriptionResponse completeFabrication(Long id);
-
     EyeglassPrescriptionResponse createPrescription(EyeglassPrescriptionRequest request, String doctorEmail);
 
     List<EyeglassPrescriptionResponse> getPatientPrescriptions(Long patientId);
@@ -22,9 +16,4 @@ public interface EyeglassPrescriptionService {
 
     List<EyeglassPrescriptionResponse> getPendingPrescriptions();
 
-    EyeglassPrescriptionResponse dispensePrescription(Long id);
-
-    EyeglassPrescriptionResponse skipPrescription(Long id);
-
-    List<EyeglassPrescriptionResponse> getReadyPrescriptions();
 }
