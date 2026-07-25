@@ -132,6 +132,12 @@ public class DiscountCampaignServiceImpl implements DiscountCampaignService {
     }
 
     @Override
+    public List<DiscountCampaignResponse> getAllPublic() {
+        return discountCampaignRepository.findAllByOrderByValidFromDesc()
+                .stream().map(this::toResponse).collect(Collectors.toList());
+    }
+
+    @Override
     public DiscountApplicationResponse quote(String voucherCode, BigDecimal amount) {
         DiscountCampaign discount = validateForApplication(voucherCode, amount);
         BigDecimal discountAmount = computeDiscountAmount(discount, amount);

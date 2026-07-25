@@ -44,7 +44,7 @@ export function ActionButton({
         }}
       >
         <LockOutlined style={{ fontSize: 12 }} />
-        {clinical ? "Đăng nhập để đặt lịch" : "Đăng nhập để đăng ký"}
+        Đăng nhập
       </button>
     );
   }
