@@ -166,7 +166,7 @@ export default function NotificationBell({ viewAllPath, iconColor = '#64748b', p
       if (msg.includes('Thanh toán thành công')) {
         return
       }
-
+      if (n.relatedAppointmentId) {
       const role = user?.role
       const type = n.relatedEntityType
       const entityId = n.relatedAppointmentId
@@ -206,12 +206,46 @@ export default function NotificationBell({ viewAllPath, iconColor = '#64748b', p
       // lịch hẹn của mình, nhân viên mở modal chi tiết lịch hẹn.
       if (entityId) {
         if (isPatient) {
-          navigate(`/patient/appointments?highlight=${entityId}`)
-        } else {
-          const res = await appointmentService.getById(entityId)
+          navigate(`/patient/appointments?highlight=${n.relatedAppointmentId}`)
+        } 
+        // ── DOCTOR ──
+        else if (user?.role === 'DOCTOR') {
+          // Bác sĩ bấm vào thông báo liên quan đến xét nghiệm
+          if (msg.toLowerCase().includes('xét nghiệm')) {
+            navigate(`/doctor/lab-order?appointmentId=${n.relatedAppointmentId}`)
+          } else {
+            navigate(`/doctor/emr?appointmentId=${n.relatedAppointmentId}`)
+          }
+        } 
+        // ── LAB TECHNICIAN ──
+        else if (user?.role === 'LAB_TECHNICIAN') {
+          // KTV bấm vào thông báo đơn kính
+          if (msg.toLowerCase().includes('đơn kính')) {
+            navigate(`/lab/eyeglass-queue?appointmentId=${n.relatedAppointmentId}`)
+          } 
+          // KTV bấm vào thông báo xét nghiệm
+          else if (msg.toLowerCase().includes('xét nghiệm')) {
+            navigate(`/lab/queue?appointmentId=${n.relatedAppointmentId}`)
+          }
+        }
+        // ── RECEPTIONIST ──
+        else if (user?.role === 'RECEPTIONIST') {
+          // Lễ tân bấm vào thông báo bệnh nhân đặt kính
+          if (msg.toLowerCase().includes('đơn kính')) {
+            navigate(`/receptionist/eyeglass-orders?appointmentId=${n.relatedAppointmentId}`)
+          } else {
+            // Mở modal lịch hẹn bình thường
+            const res = await appointmentService.getById(n.relatedAppointmentId)
+            setDetail(res.data)
+          }
+        } 
+        // Các role khác (Receptionist, Manager) mở modal chi tiết lịch hẹn
+        else {
+          const res = await appointmentService.getById(n.relatedAppointmentId)
           setDetail(res.data)
         }
       }
+    }
     } catch {
       /* im lặng */
     }

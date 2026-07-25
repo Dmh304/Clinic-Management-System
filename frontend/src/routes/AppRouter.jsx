@@ -71,8 +71,8 @@ import DeliverCareSessionPage from '../pages/nurse/DeliverCareSessionPage'
 
 import LabQueuePage from '../pages/lab/LabQueuePage'
 import LabResultEntryPage from '../pages/lab/LabResultEntryPage'
-import EyeglassPrescriptionDetail from '../pages/lab/EyeglassPrescriptionDetail'
-import EyeglassPrescriptionQueue from '../pages/lab/EyeglassPrescriptionQueue'
+import EyeglassOrderDetail from '../pages/lab/EyeglassOrderDetail'
+import EyeglassOrderQueue from '../pages/lab/EyeglassOrderQueue'
 
 import DispensingPage from '../pages/pharmacy/DispensingPage'
 import PharmacyInvoicePage from '../pages/pharmacy/PharmacyInvoicePage'
@@ -207,8 +207,8 @@ export default function AppRouter() {
       <Route element={<LabTechnicianLayout />}>
         <Route path="/lab/queue" element={<LabQueuePage />} />
         <Route path="/lab/result-entry" element={<LabResultEntryPage />} />
-        <Route path="/lab/eyeglass-queue" element={<EyeglassPrescriptionQueue/>}/>
-        <Route path="/lab/eyeglass-detail" element={<EyeglassPrescriptionDetail/> }/>
+        <Route path="/lab/eyeglass-queue" element={<EyeglassOrderQueue/>}/>
+        <Route path="/lab/eyeglass-detail" element={<EyeglassOrderDetail/> }/>
         </Route>
       </Route>
 

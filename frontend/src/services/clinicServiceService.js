@@ -5,4 +5,6 @@ export const clinicServiceService = {
     axiosClient.get('/v1/services'),
   getServicesByType: (type) =>
     axiosClient.get('/v1/services', { params: { type } }),
+  getLabTestServices: () => 
+    axiosClient.get('/v1/services/lab-tests'),
 }

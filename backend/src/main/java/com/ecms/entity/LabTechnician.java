@@ -12,11 +12,13 @@ import java.time.LocalDateTime;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.LocalDateTime;
-
 @Entity
 @Table(name = "lab_technicians")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class LabTechnician {
 
     /* ID định danh duy nhất của kỹ thuật viên (Tự động tăng) */
@@ -71,8 +73,10 @@ public class LabTechnician {
     /* Tự động gán thời điểm tạo hồ sơ trước khi lưu vào cơ sở dữ liệu lần đầu */
     @PrePersist
     private void prePersist() {
-        if (createdAt == null) createdAt = LocalDateTime.now();
-        if (status == null) status = "ACTIVE";
+        if (createdAt == null)
+            createdAt = LocalDateTime.now();
+        if (status == null)
+            status = "ACTIVE";
     }
 
     /*

@@ -22,6 +22,7 @@ public class NotificationServiceImpl implements NotificationService {
 
     private static final String ROLE_RECEPTIONIST = "RECEPTIONIST";
     private static final String ROLE_MANAGER = "MANAGER";
+    private static final String ROLE_LAB_TECHNICIAN = "LAB_TECHNICIAN";
 
     private final NotificationRepository notificationRepository;
 
@@ -65,7 +66,9 @@ public class NotificationServiceImpl implements NotificationService {
                 .build());
     }
 
-    /** Trường hợp riêng hay dùng của createForRole — giữ lại cho các caller UC-48. */
+    /**
+     * Trường hợp riêng hay dùng của createForRole — giữ lại cho các caller UC-48.
+     */
     @Override
     @Transactional
     public void createForManagers(String message, Long relatedAppointmentId) {
@@ -127,5 +130,15 @@ public class NotificationServiceImpl implements NotificationService {
     @Transactional
     public void markAllAsReadForRecipient(Long userId, String role) {
         notificationRepository.markAllAsReadForRecipient(userId, role);
+    }
+
+    @Override
+    public void createForLabTechnicians(String message, Long relatedAppointmentId) {
+        notificationRepository.save(Notification.builder()
+                .message(message)
+                .targetRole(ROLE_LAB_TECHNICIAN)
+                .relatedAppointmentId(relatedAppointmentId)
+                .isRead(false)
+                .build());
     }
 }
