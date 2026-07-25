@@ -115,9 +115,9 @@ export default function RoomManagementPage() {
       <div style={{ maxWidth: 1000, margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
           <div>
-            <h1 style={{ fontSize: 24, fontWeight: 700, color: '#1e293b', margin: 0 }}>Quản lý phòng (UC-55)</h1>
+            <h1 style={{ fontSize: 24, fontWeight: 700, color: '#1e293b', margin: 0 }}>Quản lý phòng</h1>
             <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: 14 }}>
-              Danh mục phòng vật lý và ánh xạ dịch vụ — dùng làm nguồn tham chiếu cho phân trực (UC-56)
+              Danh mục phòng vật lý và ánh xạ dịch vụ — dùng làm nguồn tham chiếu cho phân trực
             </p>
           </div>
           <button
@@ -181,12 +181,18 @@ export default function RoomManagementPage() {
                   style={inputStyle}
                 >
                   <option value="">-- Không gắn dịch vụ cụ thể (phục vụ nhiều dịch vụ) --</option>
-                  <optgroup label="Dịch vụ khám (CLINICAL)">
-                    {services.filter((s) => s.serviceType === 'CLINICAL').map((s) => (
+                  
+                  <optgroup label="Khám Bệnh (EXAM)">
+                    {services.filter((s) => s.serviceType === 'EXAM').map((s) => (
                       <option key={s.id} value={s.id}>{s.serviceName}</option>
                     ))}
                   </optgroup>
-                  <optgroup label="Gói chăm sóc (CARE)">
+                  <optgroup label="Chẩn Đoán & Xét Nghiệm (DIAGNOSTIC)">
+                    {services.filter((s) => s.serviceType === 'DIAGNOSTIC').map((s) => (
+                      <option key={s.id} value={s.id}>{s.serviceName}</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Gói Chăm Sóc (CARE)">
                     {services.filter((s) => s.serviceType === 'CARE').map((s) => (
                       <option key={s.id} value={s.id}>{s.serviceName}</option>
                     ))}

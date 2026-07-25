@@ -135,6 +135,14 @@ public class SecurityConfig {
                                                 // ══════════════════════════════════════════════════════════════════
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/doctors")
                                                 .permitAll()
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/doctors/*")
+                                                .permitAll()
+
+                                                // ══════════════════════════════════════════════════════════════════
+                                                // ── Users: link hủy đăng ký email khuyến mãi — public ─────────────
+                                                // ══════════════════════════════════════════════════════════════════
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/users/unsubscribe")
+                                                .permitAll()
 
                                                 // ══════════════════════════════════════════════════════════════════
                                                 // ── Services ──────────────────────────────────────────────────────
@@ -151,6 +159,8 @@ public class SecurityConfig {
                                                 .hasAnyRole("RECEPTIONIST", "ADMIN")
                                                 .requestMatchers(HttpMethod.POST, "/api/v1/services/register")
                                                 .hasAnyRole("PATIENT", "RECEPTIONIST")
+                                                .requestMatchers(HttpMethod.POST, "/api/v1/services/register-and-book")
+                                                .hasRole("PATIENT")
                                                 // ── Ảnh đã upload: cho phép xem công khai ───────────────────────
                                                 .requestMatchers(HttpMethod.GET, "/api/uploads/**")
                                                 .permitAll()
@@ -159,8 +169,9 @@ public class SecurityConfig {
                                                 .hasAnyRole("MANAGER", "ADMIN")
 
                                                 // ── Available slots ────────────────────────────────────────────
+                                                // MANAGER cần xem khung giờ trống khi chuyển lịch hẹn (reassign)
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/appointments/available-slots")
-                                                .hasAnyRole("PATIENT", "ADMIN", "RECEPTIONIST", "DOCTOR")
+                                                .hasAnyRole("PATIENT", "ADMIN", "RECEPTIONIST", "DOCTOR", "MANAGER")
                                                 .requestMatchers(HttpMethod.POST, "/api/v1/appointments/book")
                                                 .hasAnyRole("PATIENT", "ADMIN", "RECEPTIONIST")
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/appointments/my")
@@ -196,6 +207,8 @@ public class SecurityConfig {
                                                 .permitAll()
                                                 .requestMatchers(HttpMethod.POST, "/api/v1/services/register")
                                                 .hasAnyRole("PATIENT", "RECEPTIONIST")
+                                                .requestMatchers(HttpMethod.POST, "/api/v1/services/register-and-book")
+                                                .hasRole("PATIENT")
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/services/registrations")
                                                 .hasAnyRole("RECEPTIONIST", "ADMIN")
                                                 .requestMatchers(HttpMethod.PATCH, "/api/v1/services/registrations/**")
@@ -216,6 +229,23 @@ public class SecurityConfig {
                                                 .hasAnyRole("MANAGER", "ADMIN")
 
                                                 // ══════════════════════════════════════════════════════════════════
+                                                // ── Blogs ─────────────────────────────────────────────────────────
+                                                // ══════════════════════════════════════════════════════════════════
+                                                // Manager routes FIRST (more specific), public GET routes after
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/blogs/manager")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/blogs",
+                                                                "/api/v1/blogs/categories",
+                                                                "/api/v1/blogs/{id:[0-9]+}")
+                                                .permitAll()
+                                                .requestMatchers(HttpMethod.POST, "/api/v1/blogs")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers(HttpMethod.PUT, "/api/v1/blogs/**")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers(HttpMethod.DELETE, "/api/v1/blogs/**")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+
+                                                // ══════════════════════════════════════════════════════════════════
                                                 // ── Appointments ──────────────────────────────────────────────────
                                                 // ══════════════════════════════════════════════════════════════════
                                                 // Specific routes FIRST, wildcard LAST
@@ -225,8 +255,16 @@ public class SecurityConfig {
                                                 .hasAnyRole("PATIENT", "ADMIN", "RECEPTIONIST")
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/appointments/daily-schedule")
                                                 .hasAnyRole("ADMIN", "DOCTOR", "RECEPTIONIST", "MANAGER")
+                                                // RECEPTIONIST được thêm vào đây: lễ tân là đầu mối đổi lịch
+                                                // (đổi giờ/bác sĩ) khi khách đã tới quầy — không chỉ MANAGER.
                                                 .requestMatchers(HttpMethod.PATCH, "/api/v1/appointments/*/reassign")
-                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .hasAnyRole("MANAGER", "ADMIN", "RECEPTIONIST")
+                                                .requestMatchers(HttpMethod.PATCH, "/api/v1/appointments/*/cancel")
+                                                .hasAnyRole("PATIENT", "RECEPTIONIST", "ADMIN", "MANAGER")
+                                                .requestMatchers(HttpMethod.PATCH, "/api/v1/appointments/*/reschedule")
+                                                .hasAnyRole("PATIENT", "RECEPTIONIST", "ADMIN", "MANAGER")
+                                                .requestMatchers(HttpMethod.PATCH, "/api/v1/appointments/*/notes")
+                                                .hasAnyRole("RECEPTIONIST", "ADMIN", "MANAGER")
                                                 // Wildcard: covers all other /appointments/** (no PATIENT here)
                                                 .requestMatchers("/api/v1/appointments/**")
                                                 .hasAnyRole("ADMIN", "DOCTOR", "RECEPTIONIST", "MANAGER")
@@ -268,15 +306,39 @@ public class SecurityConfig {
                                                 // ══════════════════════════════════════════════════════════════════
                                                 // ── Discount Campaigns ────────────────────────────────────────────
                                                 // ══════════════════════════════════════════════════════════════════
-                                                .requestMatchers(HttpMethod.GET, "/api/v1/discount-campaigns/active")
+                                                // /active + /{id} công khai để trang khuyến mãi cho khách xem
+                                                // (không cho đăng nhập) — /quote vẫn rơi vào rule hasAnyRole bên
+                                                // dưới vì "quote" không khớp pattern số {id:[0-9]+}.
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/discount-campaigns/active",
+                                                                "/api/v1/discount-campaigns/public",
+                                                                "/api/v1/discount-campaigns/{id:[0-9]+}")
                                                 .permitAll()
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/discount-campaigns/**")
                                                 .hasAnyRole("MANAGER", "RECEPTIONIST", "ADMIN")
                                                 .requestMatchers(HttpMethod.POST, "/api/v1/discount-campaigns")
                                                 .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers(HttpMethod.POST, "/api/v1/discount-campaigns/*/broadcast")
+                                                .hasAnyRole("MANAGER", "ADMIN")
                                                 .requestMatchers(HttpMethod.PUT, "/api/v1/discount-campaigns/**")
                                                 .hasAnyRole("MANAGER", "ADMIN")
                                                 .requestMatchers(HttpMethod.DELETE, "/api/v1/discount-campaigns/**")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+
+                                                // ══════════════════════════════════════════════════════════════════
+                                                // ── Rooms (UC-58) & Room Roster (UC-59) ───────────────────────────
+                                                // ══════════════════════════════════════════════════════════════════
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/rooms/by-type/**",
+                                                                "/api/v1/rooms/by-service/**")
+                                                .hasAnyRole("MANAGER", "RECEPTIONIST", "ADMIN")
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/rooms/**")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers(HttpMethod.POST, "/api/v1/rooms")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers(HttpMethod.PUT, "/api/v1/rooms/**")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers(HttpMethod.DELETE, "/api/v1/rooms/**")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers("/api/v1/room-roster/**")
                                                 .hasAnyRole("MANAGER", "ADMIN")
 
                                                 // ══════════════════════════════════════════════════════════════════
@@ -304,12 +366,16 @@ public class SecurityConfig {
                                                 .hasAnyRole("MANAGER", "ADMIN")
                                                 .requestMatchers(HttpMethod.POST, "/api/v1/care-sessions")
                                                 .hasRole("PATIENT")
+                                                .requestMatchers(HttpMethod.PATCH, "/api/v1/care-sessions/*/check-in")
+                                                .hasAnyRole("RECEPTIONIST", "MANAGER", "ADMIN")
                                                 .requestMatchers(HttpMethod.PATCH, "/api/v1/care-sessions/*/start")
                                                 .hasRole("NURSE")
                                                 .requestMatchers(HttpMethod.PATCH, "/api/v1/care-sessions/*/complete")
                                                 .hasRole("NURSE")
                                                 .requestMatchers(HttpMethod.PATCH,
                                                                 "/api/v1/care-sessions/*/assign-nurse")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+                                                .requestMatchers(HttpMethod.POST, "/api/v1/care-sessions/auto-assign")
                                                 .hasAnyRole("MANAGER", "ADMIN")
                                                 .requestMatchers(HttpMethod.PATCH, "/api/v1/care-sessions/*/checkout")
                                                 .hasAnyRole("RECEPTIONIST", "MANAGER", "ADMIN")
@@ -350,22 +416,20 @@ public class SecurityConfig {
                                                 // ── Doctors list: public ───────────────────────────────────────
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/doctors")
                                                 .permitAll()
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/doctors/*")
+                                                .permitAll()
                                                 .requestMatchers(HttpMethod.PATCH, "/api/v1/doctors/*/avatar")
                                                 .hasAnyRole("MANAGER", "ADMIN")
-
-                                                // ── Appointments ───────────────────────────────────────────────
-                                                .requestMatchers(HttpMethod.GET, "/api/v1/appointments/daily-schedule")
-                                                .hasAnyRole("ADMIN", "DOCTOR", "RECEPTIONIST", "MANAGER")
-                                                .requestMatchers(HttpMethod.PATCH, "/api/v1/appointments/*/reassign")
+                                                .requestMatchers(HttpMethod.PATCH, "/api/v1/doctors/*/featured")
                                                 .hasAnyRole("MANAGER", "ADMIN")
-                                                .requestMatchers(HttpMethod.PATCH, "/api/v1/appointments/*/cancel")
-                                                .hasAnyRole("PATIENT", "RECEPTIONIST", "ADMIN", "MANAGER")
-                                                .requestMatchers(HttpMethod.PATCH, "/api/v1/appointments/*/reschedule")
-                                                .hasAnyRole("PATIENT", "RECEPTIONIST", "ADMIN", "MANAGER")
-                                                .requestMatchers(HttpMethod.PATCH, "/api/v1/appointments/*/notes")
-                                                .hasAnyRole("RECEPTIONIST", "ADMIN", "MANAGER")
-                                                .requestMatchers("/api/v1/appointments/**")
-                                                .hasAnyRole("ADMIN", "DOCTOR", "RECEPTIONIST", "MANAGER")
+                                                .requestMatchers(HttpMethod.PATCH, "/api/v1/doctors/*")
+                                                .hasAnyRole("MANAGER", "ADMIN")
+
+                                                // (Appointments: đã gộp toàn bộ rule vào khối duy nhất phía trên —
+                                                // trước đây có 1 bản sao y hệt ở đây khiến các rule wildcard
+                                                // "/appointments/**" đứng TRƯỚC che mất rule /cancel /reschedule
+                                                // của PATIENT trong khối phía trên, vì Spring Security khớp theo
+                                                // đúng thứ tự khai báo — matcher nào khớp trước dùng luôn rule đó.)
 
                                                 // ── Patients ───────────────────────────────────────────────────
                                                 .requestMatchers("/api/v1/patients/**")

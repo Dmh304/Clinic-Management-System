@@ -13,10 +13,13 @@ import java.time.LocalDateTime;
 public class FeedbackResponse {
     private Long id;
     private Long appointmentId;
+    private Long careSessionId;
     private Long patientId;
     private String patientName;   // null nếu gửi ẩn danh
     private Long doctorId;
     private String doctorName;
+    private Long nurseId;
+    private String nurseName;
     private Integer rating;
     private String content;
     private Boolean isAnonymous;

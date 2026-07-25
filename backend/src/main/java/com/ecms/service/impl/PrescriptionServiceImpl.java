@@ -238,7 +238,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         }
 
         p.setStatus(PrescriptionStatus.DISPENSED);
-        //Cập nhật trạng thái đơn thuốc thành Đã phát
+        // Cập nhật trạng thái đơn thuốc thành Đã phát
         prescriptionRepository.save(p);
 
         // Sinh hóa đơn (Invoice) cho tiền thuốc
@@ -246,15 +246,15 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         List<InvoiceItem> invoiceItems = new ArrayList<>();
 
         Invoice invoice = Invoice.builder()
-            .patient(p.getPatient())
-            .appointment(p.getMedicalRecord().getAppointment())
-            .paymentStatus("UNPAID")
-            .status("DRAFT")
-            .subTotal(BigDecimal.ZERO)
-            .discountAmount(BigDecimal.ZERO)
-            .tax(BigDecimal.ZERO)
-            .totalAmount(BigDecimal.ZERO)
-            .build();
+                .patient(p.getPatient())
+                .appointment(p.getMedicalRecord().getAppointment())
+                .paymentStatus("UNPAID")
+                .status("DRAFT")
+                .subTotal(BigDecimal.ZERO)
+                .discountAmount(BigDecimal.ZERO)
+                .tax(BigDecimal.ZERO)
+                .totalAmount(BigDecimal.ZERO)
+                .build();
 
         // Lưu trước bản ghi Invoice để có ID tạo InvoiceItem
         invoice = invoiceRepository.save(invoice);
@@ -268,15 +268,15 @@ public class PrescriptionServiceImpl implements PrescriptionService {
             totalAmount = totalAmount.add(itemTotal); // Cộng dồn tổng tiền hóa đơn
 
             InvoiceItem invoiceItem = InvoiceItem.builder()
-                .invoice(invoice)
-                .itemType("MEDICINE")
-                .description(item.getMedicine().getName() + " (" + item.getMedicine().getDosageForm() + ")")
-                .quantity(dispensedQuantity)
-                .unitPrice(unitPrice)
-                .subTotal(itemTotal)
-                .refId(item.getId()) // Link với PrescriptionItem ID
-                .status("ACTIVE")
-                .build();
+                    .invoice(invoice)
+                    .itemType("MEDICINE")
+                    .description(item.getMedicine().getName() + " (" + item.getMedicine().getDosageForm() + ")")
+                    .quantity(dispensedQuantity)
+                    .unitPrice(unitPrice)
+                    .subTotal(itemTotal)
+                    .refId(item.getId()) // Link với PrescriptionItem ID
+                    .status("ACTIVE")
+                    .build();
             invoiceItems.add(invoiceItem);
         }
 

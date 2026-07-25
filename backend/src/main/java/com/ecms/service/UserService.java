@@ -12,4 +12,8 @@ public interface UserService {
 
     // Cập nhật thông tin hồ sơ cá nhân của người dùng theo email
     UserProfileResponse updateProfile(String email, UpdateProfileRequest request);
+
+    /** Bấm link "Hủy đăng ký" trong email khuyến mãi — không cần đăng nhập, xác thực bằng
+     *  token HMAC gắn kèm link. Ném IllegalArgumentException nếu userId/token không khớp. */
+    void unsubscribeFromMarketing(Long userId, String token);
 }

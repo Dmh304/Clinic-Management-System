@@ -37,9 +37,18 @@ public class Notification {
     @Column(name = "target_user_id")
     private Long targetUserId;
 
-    // ID lịch hẹn liên quan (nếu có) — dùng để mở modal chi tiết khi click thông báo
+    // ID thực thể liên quan (nếu có) — dùng để điều hướng đúng trang khi click thông báo.
+    // Tên cột giữ nguyên "appointment" vì lịch sử đa số thông báo là về lịch hẹn, nhưng từ
+    // khi có relatedEntityType thì trường này mang ID của BẤT KỲ thực thể nào (care session,
+    // subscription, promotion...) — đọc kèm relatedEntityType để biết đang trỏ tới cái gì.
     @Column(name = "related_appointment_id")
     private Long relatedAppointmentId;
+
+    // Loại thực thể mà relatedAppointmentId đang trỏ tới: null/"APPOINTMENT" (mặc định, lịch
+    // sử), "SUBSCRIPTION", "CARE_SESSION", "PROMOTION", "FEEDBACK"... Frontend dùng để quyết
+    // định điều hướng khi click 1 thông báo.
+    @Column(name = "related_entity_type", length = 30)
+    private String relatedEntityType;
 
     // Trạng thái đã đọc / chưa đọc
     @Column(name = "is_read")

@@ -14,7 +14,11 @@ import java.util.List;
 
 @Entity
 @Table(name = "prescriptions")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class Prescription {
 
     @Id
@@ -58,8 +62,10 @@ public class Prescription {
         // DucTKH: Thiết lập thời gian tạo và cập nhật mặc định
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
-        // DucTKH: Điều kiện - Nếu trạng thái chưa được set, mặc định là PENDING (Chưa phát)
-        if (status == null) status = PrescriptionStatus.PENDING;
+        // DucTKH: Điều kiện - Nếu trạng thái chưa được set, mặc định là PENDING (Chưa
+        // phát)
+        if (status == null)
+            status = PrescriptionStatus.PENDING;
     }
 
     // Cập nhật lại thời gian sửa đổi

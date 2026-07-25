@@ -1,6 +1,7 @@
 package com.ecms.service.impl;
 
 import com.ecms.dto.request.InvoiceRequest;
+import com.ecms.dto.response.DiscountApplicationResponse;
 import com.ecms.dto.response.InvoiceResponse;
 import com.ecms.entity.*;
 import com.ecms.exception.ResourceNotFoundException;
@@ -8,7 +9,9 @@ import com.ecms.repository.AppointmentRepository;
 import com.ecms.repository.InvoiceRepository;
 import com.ecms.repository.LabOrderRepository;
 import com.ecms.repository.MedicalRecordRepository;
+import com.ecms.repository.PatientServiceSubscriptionRepository;
 import com.ecms.repository.PrescriptionRepository;
+import com.ecms.service.DiscountCampaignService;
 import com.ecms.service.InvoiceService;
 import com.ecms.service.InvoicePdfService;
 import com.ecms.service.NotificationService;
@@ -28,16 +31,16 @@ import java.util.stream.Collectors;
  * ThangNBHE201024
  *
  * Triển khai toàn bộ nghiệp vụ hóa đơn của phòng khám:
- *  - Tạo hóa đơn nháp (DRAFT) với danh sách khoản phí phân loại theo nhóm
- *  - Phát hành hóa đơn (ISSUED) sau khi thu tiền mặt hoặc QR Code
- *  - Hủy hóa đơn nháp chưa phát hành
- *  - Gửi hóa đơn điện tử qua email (JavaMailSender + HTML template)
- *  - Xuất PDF hóa đơn (delegate sang InvoicePdfService)
+ * - Tạo hóa đơn nháp (DRAFT) với danh sách khoản phí phân loại theo nhóm
+ * - Phát hành hóa đơn (ISSUED) sau khi thu tiền mặt hoặc QR Code
+ * - Hủy hóa đơn nháp chưa phát hành
+ * - Gửi hóa đơn điện tử qua email (JavaMailSender + HTML template)
+ * - Xuất PDF hóa đơn (delegate sang InvoicePdfService)
  *
  * Quy tắc nghiệp vụ:
- *  - Mỗi lịch hẹn chỉ được tạo một hóa đơn (kiểm tra existsByAppointment_Id)
- *  - Chỉ hóa đơn DRAFT mới được phát hành hoặc hủy
- *  - Mã hóa đơn tự sinh theo định dạng INV-yyyyMMdd-XXXX (tăng dần trong ngày)
+ * - Mỗi lịch hẹn chỉ được tạo một hóa đơn (kiểm tra existsByAppointment_Id)
+ * - Chỉ hóa đơn DRAFT mới được phát hành hoặc hủy
+ * - Mã hóa đơn tự sinh theo định dạng INV-yyyyMMdd-XXXX (tăng dần trong ngày)
  */
 @Service
 @RequiredArgsConstructor
@@ -45,11 +48,15 @@ public class InvoiceServiceImpl implements InvoiceService {
 
     private final InvoiceRepository invoiceRepository;
     private final AppointmentRepository appointmentRepository;
+    private final PatientServiceSubscriptionRepository subscriptionRepository;
+    // Việc gửi email HTML hóa đơn đã tách sang InvoiceMailDispatcher (chạy nền),
+    // nên lớp này không giữ JavaMailSender nữa.
     private final MedicalRecordRepository medicalRecordRepository;
     private final PrescriptionRepository prescriptionRepository;
     private final LabOrderRepository labOrderRepository;
     private final NotificationService notificationService;
     private final InvoicePdfService invoicePdfService;
+    private final DiscountCampaignService discountCampaignService;
 
     // Lấy tất cả hóa đơn (không kèm items) — dùng cho bảng lịch sử hóa đơn
     @Override
@@ -74,7 +81,8 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .collect(Collectors.toList());
     }
 
-    // Lấy chi tiết hóa đơn kèm danh sách khoản phí — dùng khi mở modal chi tiết hoặc in/gửi email
+    // Lấy chi tiết hóa đơn kèm danh sách khoản phí — dùng khi mở modal chi tiết
+    // hoặc in/gửi email
     @Override
     @Transactional(readOnly = true)
     public InvoiceResponse getInvoiceById(Long id) {
@@ -83,7 +91,8 @@ public class InvoiceServiceImpl implements InvoiceService {
         return toResponseWithItems(invoice);
     }
 
-    // Tìm hóa đơn theo lịch hẹn — dùng khi dashboard kiểm tra lịch hẹn đã có HĐ chưa
+    // Tìm hóa đơn theo lịch hẹn — dùng khi dashboard kiểm tra lịch hẹn đã có HĐ
+    // chưa
     @Override
     @Transactional(readOnly = true)
     public InvoiceResponse getInvoiceByAppointmentId(Long appointmentId) {
@@ -94,19 +103,40 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     /**
-     * Tạo hóa đơn nháp (DRAFT) cho một lịch hẹn đã hoàn thành.
+     * Tạo hóa đơn nháp (DRAFT) cho một lịch hẹn đã hoàn thành, hoặc cho một buổi
+     * chăm sóc dịch vụ đơn lẻ đã check-out (UC-21, "vãng lai" totalSessions=1).
      * Tự động tính tổng phí theo từng nhóm dịch vụ (BR-12).
      * Mã hóa đơn được sinh tự động dạng INV-yyyyMMdd-XXXX.
      */
     @Override
     @Transactional
     public InvoiceResponse createInvoice(InvoiceRequest request) {
-        Appointment appointment = appointmentRepository.findById(request.getAppointmentId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Lịch hẹn không tồn tại: " + request.getAppointmentId()));
+        boolean hasAppointment = request.getAppointmentId() != null;
+        boolean hasSubscription = request.getSubscriptionId() != null;
+        if (hasAppointment == hasSubscription) {
+            throw new IllegalArgumentException("Phải cung cấp đúng một trong hai: appointmentId hoặc subscriptionId");
+        }
 
-        if (invoiceRepository.existsByAppointment_IdAndStatusNot(request.getAppointmentId(), "CANCELLED")) {
-            throw new IllegalStateException("Lịch hẹn này đã có hóa đơn");
+        Appointment appointment = null;
+        PatientServiceSubscription subscription = null;
+        Patient patient;
+
+        if (hasAppointment) {
+            appointment = appointmentRepository.findById(request.getAppointmentId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Lịch hẹn không tồn tại: " + request.getAppointmentId()));
+            if (invoiceRepository.existsByAppointment_IdAndStatusNot(request.getAppointmentId(), "CANCELLED")) {
+                throw new IllegalStateException("Lịch hẹn này đã có hóa đơn");
+            }
+            patient = appointment.getPatient();
+        } else {
+            subscription = subscriptionRepository.findById(request.getSubscriptionId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Gói dịch vụ không tồn tại: " + request.getSubscriptionId()));
+            if (invoiceRepository.existsBySubscription_IdAndStatusNot(request.getSubscriptionId(), "CANCELLED")) {
+                throw new IllegalStateException("Gói dịch vụ này đã có hóa đơn");
+            }
+            patient = subscription.getPatient();
         }
 
         List<InvoiceItem> items = new ArrayList<>();
@@ -146,10 +176,20 @@ public class InvoiceServiceImpl implements InvoiceService {
         BigDecimal subTotal = serviceFee.add(labFee).add(medicineFee);
 
         // BR-11: Total = Examination fee + Lab fee + Medicine fee − Discount.
-        // Giới hạn discount trong [0, subTotal] để tổng tiền không âm và không vượt quá phí.
-        BigDecimal discount = request.getDiscountAmount() != null
-                ? request.getDiscountAmount()
-                : BigDecimal.ZERO;
+        // UC-43: nếu có discountCode, hệ thống tự xác thực + tính mức giảm từ chương
+        // trình
+        // giảm giá (ưu tiên hơn số tiền nhập tay); ngược lại giữ hành vi cũ (lễ tân tự
+        // nhập).
+        BigDecimal discount;
+        if (request.getDiscountCode() != null && !request.getDiscountCode().isBlank()) {
+            DiscountApplicationResponse applied = discountCampaignService.redeemForOrder(
+                    request.getDiscountCode(), subTotal);
+            discount = applied.getDiscountAmount();
+        } else {
+            discount = request.getDiscountAmount() != null ? request.getDiscountAmount() : BigDecimal.ZERO;
+        }
+        // Giới hạn discount trong [0, subTotal] để tổng tiền không âm và không vượt quá
+        // phí.
         if (discount.compareTo(BigDecimal.ZERO) < 0) {
             discount = BigDecimal.ZERO;
         } else if (discount.compareTo(subTotal) > 0) {
@@ -159,7 +199,8 @@ public class InvoiceServiceImpl implements InvoiceService {
 
         Invoice invoice = Invoice.builder()
                 .appointment(appointment)
-                .patient(appointment.getPatient())
+                .subscription(subscription)
+                .patient(patient)
                 .invoiceCode(generateInvoiceCode())
                 .serviceFee(serviceFee)
                 .labFee(labFee)
@@ -173,7 +214,8 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .paymentReference(request.getPaymentReference())
                 .status("DRAFT")
                 .paymentStatus("VIET_QR".equals(request.getPaymentMethod())
-                        ? "PENDING_PAYMENT" : "UNPAID")
+                        ? "PENDING_PAYMENT"
+                        : "UNPAID")
                 .notes(request.getNotes())
                 .build();
 
@@ -185,7 +227,8 @@ public class InvoiceServiceImpl implements InvoiceService {
 
         Invoice saved = invoiceRepository.save(invoice);
 
-        // Hóa đơn QR (PENDING_PAYMENT) → tự thông báo cho bệnh nhân là có hóa đơn cần trả.
+        // Hóa đơn QR (PENDING_PAYMENT) → tự thông báo cho bệnh nhân là có hóa đơn cần
+        // trả.
         // Hóa đơn tiền mặt (UNPAID → phát hành ngay) không cần vì thu tại quầy.
         if ("PENDING_PAYMENT".equals(saved.getPaymentStatus())) {
             notifyPaymentRequested(saved);
@@ -195,17 +238,21 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     /**
-     * ThangNBHE201024 — Gợi ý khoản phí cho một lịch hẹn để đổ sẵn vào modal tạo hóa đơn.
+     * ThangNBHE201024 — Gợi ý khoản phí cho một lịch hẹn để đổ sẵn vào modal tạo
+     * hóa đơn.
      *
      * Gộp 2 nguồn dữ liệu, giúp lễ tân không phải nhập tay từng khoản:
-     *   1. Dịch vụ khám đã đặt trong lịch hẹn (Appointment.clinicService).
-     *   2. Thuốc bác sĩ đã kê trong bệnh án của lịch hẹn (UC-27): duyệt các đơn thuốc
-     *      của MedicalRecord, bỏ qua đơn SKIPPED (thuốc không phát cho bệnh nhân).
+     * 1. Dịch vụ khám đã đặt trong lịch hẹn (Appointment.clinicService).
+     * 2. Thuốc bác sĩ đã kê trong bệnh án của lịch hẹn (UC-27): duyệt các đơn thuốc
+     * của MedicalRecord, bỏ qua đơn SKIPPED (thuốc không phát cho bệnh nhân).
      *
-     * Lab order KHÔNG được đưa vào: trong mô hình hiện tại LabOrder không có giá và không
-     * trỏ tới một xét nghiệm riêng — "dịch vụ" của nó chỉ trùng đúng dịch vụ khám ở trên.
+     * Lab order KHÔNG được đưa vào: trong mô hình hiện tại LabOrder không có giá và
+     * không
+     * trỏ tới một xét nghiệm riêng — "dịch vụ" của nó chỉ trùng đúng dịch vụ khám ở
+     * trên.
      *
-     * Chỉ TRẢ GỢI Ý, không tạo hóa đơn. Lễ tân vẫn sửa/xóa/thêm được trước khi thu tiền.
+     * Chỉ TRẢ GỢI Ý, không tạo hóa đơn. Lễ tân vẫn sửa/xóa/thêm được trước khi thu
+     * tiền.
      */
     @Override
     @Transactional(readOnly = true)
@@ -214,16 +261,20 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Lịch hẹn không tồn tại: " + appointmentId));
 
-        // Ưu tiên: nếu lịch hẹn từng có hóa đơn BỊ HỦY, đổ lại đúng khoản phí của hóa đơn
-        // đã hủy gần nhất. Nhờ vậy "hủy rồi tạo lại" khôi phục nguyên trạng (gồm cả dịch vụ
-        // phụ và khoản nhập tay mà không suy ra được từ lịch hẹn/đơn thuốc), thay vì mất trắng.
+        // Ưu tiên: nếu lịch hẹn từng có hóa đơn BỊ HỦY, đổ lại đúng khoản phí của hóa
+        // đơn
+        // đã hủy gần nhất. Nhờ vậy "hủy rồi tạo lại" khôi phục nguyên trạng (gồm cả
+        // dịch vụ
+        // phụ và khoản nhập tay mà không suy ra được từ lịch hẹn/đơn thuốc), thay vì
+        // mất trắng.
         List<Invoice> cancelled = invoiceRepository
                 .findByAppointment_IdAndStatusOrderByCreatedAtDesc(appointmentId, "CANCELLED");
         if (!cancelled.isEmpty()) {
             List<InvoiceRequest.InvoiceItemRequest> restored = new ArrayList<>();
             for (InvoiceItem it : cancelled.get(0).getItems()) {
                 // Bỏ dòng đã bị vô hiệu trong hóa đơn cũ
-                if (it.getStatus() != null && !"ACTIVE".equals(it.getStatus())) continue;
+                if (it.getStatus() != null && !"ACTIVE".equals(it.getStatus()))
+                    continue;
                 InvoiceRequest.InvoiceItemRequest req = new InvoiceRequest.InvoiceItemRequest();
                 req.setItemType(it.getItemType());
                 req.setRefId(it.getRefId());
@@ -232,7 +283,8 @@ public class InvoiceServiceImpl implements InvoiceService {
                 req.setUnitPrice(it.getUnitPrice() != null ? it.getUnitPrice() : BigDecimal.ZERO);
                 restored.add(req);
             }
-            if (!restored.isEmpty()) return restored;
+            if (!restored.isEmpty())
+                return restored;
         }
 
         List<InvoiceRequest.InvoiceItemRequest> suggestions = new ArrayList<>();
@@ -252,16 +304,16 @@ public class InvoiceServiceImpl implements InvoiceService {
         // 2) Xét nghiệm/cận lâm sàng (chụp/đo/soi) đã chỉ định + 3) thuốc bác sĩ đã kê,
         // đều lấy qua bệnh án của lịch hẹn. Gộp theo id để cùng một mục ra MỘT dòng
         // (cộng dồn số lượng) — tránh dòng trùng mô tả khiến modal chặn khi lưu.
-        java.util.LinkedHashMap<Long, InvoiceRequest.InvoiceItemRequest> labByService =
-                new java.util.LinkedHashMap<>();
-        java.util.LinkedHashMap<Long, InvoiceRequest.InvoiceItemRequest> medById =
-                new java.util.LinkedHashMap<>();
+        java.util.LinkedHashMap<Long, InvoiceRequest.InvoiceItemRequest> labByService = new java.util.LinkedHashMap<>();
+        java.util.LinkedHashMap<Long, InvoiceRequest.InvoiceItemRequest> medById = new java.util.LinkedHashMap<>();
         medicalRecordRepository.findByAppointmentId(appointmentId).ifPresent(emr -> {
             // 2) Xét nghiệm: mỗi lab order gắn một dịch vụ CLINICAL (chụp/đo/soi) có giá
             for (LabOrder lo : labOrderRepository.findByMedicalRecordIdOrderByCreatedAt(emr.getId())) {
                 ClinicService svc = lo.getService();
-                if (svc == null) continue; // đơn cũ không gắn dịch vụ thì bỏ qua
-                if (labByService.containsKey(svc.getId())) continue;
+                if (svc == null)
+                    continue; // đơn cũ không gắn dịch vụ thì bỏ qua
+                if (labByService.containsKey(svc.getId()))
+                    continue;
                 InvoiceRequest.InvoiceItemRequest item = new InvoiceRequest.InvoiceItemRequest();
                 item.setItemType("LAB");
                 item.setRefId(svc.getId());
@@ -274,11 +326,13 @@ public class InvoiceServiceImpl implements InvoiceService {
             // 3) Thuốc đã kê
             for (Prescription pres : prescriptionRepository.findByMedicalRecordId(emr.getId())) {
                 // Bỏ đơn SKIPPED: thuốc không phát cho bệnh nhân thì không tính tiền
-                if (pres.getStatus() == PrescriptionStatus.SKIPPED) continue;
+                if (pres.getStatus() == PrescriptionStatus.SKIPPED)
+                    continue;
 
                 for (PrescriptionItem it : pres.getItems()) {
                     Medicine med = it.getMedicine();
-                    if (med == null) continue;
+                    if (med == null)
+                        continue;
 
                     int qty = it.getQuantity() != null ? it.getQuantity() : 1;
                     // Ưu tiên giá snapshot lúc kê; thiếu thì lấy giá hiện tại của thuốc
@@ -321,11 +375,15 @@ public class InvoiceServiceImpl implements InvoiceService {
         }
 
         // ThangNBHE201024 — chặn phát hành tay hóa đơn QR đang chờ ngân hàng (UC-22).
-        // Hóa đơn QR nằm ở PENDING_PAYMENT: tiền chỉ được coi là đã thu khi cổng thanh toán
-        // bắn webhook về (PaymentServiceImpl). Nếu vẫn cho gọi endpoint này với VIET_QR thì
-        // lễ tân đánh dấu PAID được mà không cần ngân hàng xác nhận — đúng lỗ hổng mà cả
+        // Hóa đơn QR nằm ở PENDING_PAYMENT: tiền chỉ được coi là đã thu khi cổng thanh
+        // toán
+        // bắn webhook về (PaymentServiceImpl). Nếu vẫn cho gọi endpoint này với VIET_QR
+        // thì
+        // lễ tân đánh dấu PAID được mà không cần ngân hàng xác nhận — đúng lỗ hổng mà
+        // cả
         // luồng webhook sinh ra để bịt.
-        // Vẫn cho phép chuyển sang CASH: bệnh nhân bỏ QR quay lại trả tiền mặt là hợp lệ,
+        // Vẫn cho phép chuyển sang CASH: bệnh nhân bỏ QR quay lại trả tiền mặt là hợp
+        // lệ,
         // và khi đó có lễ tân cầm tiền chịu trách nhiệm.
         boolean waitingForBank = "PENDING_PAYMENT".equals(invoice.getPaymentStatus());
         String effectiveMethod = paymentMethod != null ? paymentMethod : invoice.getPaymentMethod();
@@ -346,7 +404,8 @@ public class InvoiceServiceImpl implements InvoiceService {
         invoice.setPaymentStatus("PAID");
         invoice.setPaidAt(LocalDateTime.now());
 
-        // UC-23 POST-3: khi hóa đơn đã thu tiền, đảm bảo lượt khám ở trạng thái COMPLETED.
+        // UC-23 POST-3: khi hóa đơn đã thu tiền, đảm bảo lượt khám ở trạng thái
+        // COMPLETED.
         markAppointmentCompleted(invoice);
 
         return toResponseWithItems(invoiceRepository.save(invoice));
@@ -358,7 +417,8 @@ public class InvoiceServiceImpl implements InvoiceService {
     // persistence context nên thay đổi được flush tự động.
     private void markAppointmentCompleted(Invoice invoice) {
         Appointment appt = invoice.getAppointment();
-        if (appt == null) return;
+        if (appt == null)
+            return;
         if (appt.getStatus() != AppointmentStatus.CANCELLED
                 && appt.getStatus() != AppointmentStatus.COMPLETED) {
             appt.setStatus(AppointmentStatus.COMPLETED);
@@ -392,12 +452,14 @@ public class InvoiceServiceImpl implements InvoiceService {
 
     private void notifyPaymentRequested(Invoice invoice) {
         Patient p = invoice.getPatient();
-        if (p == null || p.getUser() == null) return;
+        if (p == null || p.getUser() == null)
+            return;
         try {
             Long apptId = invoice.getAppointment() != null ? invoice.getAppointment().getId() : null;
             notificationService.createForUser(p.getUser().getId(),
                     "Bạn có hóa đơn " + invoice.getInvoiceCode()
-                            + " cần thanh toán. Vào 'Hóa đơn của tôi' để quét mã QR.", apptId);
+                            + " cần thanh toán. Vào 'Hóa đơn của tôi' để quét mã QR.",
+                    apptId);
         } catch (Exception e) {
         }
     }
@@ -405,17 +467,24 @@ public class InvoiceServiceImpl implements InvoiceService {
     // Chuyển Invoice entity → DTO (không kèm items) — dùng cho danh sách
     private InvoiceResponse toResponse(Invoice i) {
         Appointment appt = i.getAppointment();
+        PatientServiceSubscription sub = i.getSubscription();
+        String serviceName = null;
+        if (appt != null && appt.getClinicService() != null) {
+            serviceName = appt.getClinicService().getServiceName();
+        } else if (sub != null && sub.getService() != null) {
+            serviceName = sub.getService().getServiceName();
+        }
         return InvoiceResponse.builder()
                 .id(i.getId())
                 .invoiceCode(i.getInvoiceCode())
                 .appointmentId(appt != null ? appt.getId() : null)
+                .subscriptionId(sub != null ? sub.getId() : null)
                 .patientName(i.getPatient() != null ? i.getPatient().getFullName() : null)
                 .patientPhone(i.getPatient() != null ? i.getPatient().getPhone() : null)
                 .patientEmail(i.getPatient() != null ? i.getPatient().getEmail() : null)
                 .patientCode(i.getPatient() != null ? i.getPatient().getPatientCode() : null)
                 .doctorName(appt != null && appt.getDoctor() != null ? appt.getDoctor().getFullName() : null)
-                .serviceName(appt != null && appt.getClinicService() != null
-                        ? appt.getClinicService().getServiceName() : null)
+                .serviceName(serviceName)
                 .appointmentTime(appt != null ? appt.getAppointmentTime() : null)
                 .timeSlot(appt != null ? appt.getTimeSlot() : null)
                 .items(List.of())
@@ -486,7 +555,8 @@ public class InvoiceServiceImpl implements InvoiceService {
         return invoicePdfService.generate(getInvoiceById(id));
     }
 
-    // Xuất PDF từ DTO đã load sẵn — dùng khi caller đã có InvoiceResponse để tránh load DB lần 2
+    // Xuất PDF từ DTO đã load sẵn — dùng khi caller đã có InvoiceResponse để tránh
+    // load DB lần 2
     @Override
     public byte[] generateInvoicePdf(InvoiceResponse inv) {
         return invoicePdfService.generate(inv);

@@ -8,6 +8,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
+import Header from '../../components/layout/Header'
 import { Form, Input, InputNumber, Tabs, Button, message, Tag, Spin, Collapse, Divider, Modal, Select, Pagination } from 'antd'
 import { emrService } from '../../services/emrService'
 import { labService } from '../../services/labService'
@@ -15,6 +16,7 @@ import DrugPrescriptionForm from './components/DrugPrescriptionForm'
 import EyeglassPrescriptionForm from './components/EyeglassPrescriptionForm'
 import useConfirmAction from '../../hooks/useConfirmAction'
 import { appointmentService } from '../../services/appointmentService'
+import { clinicServiceService } from '../../services/clinicServiceService'
 
 const { TextArea } = Input
 const { Panel } = Collapse
@@ -166,6 +168,9 @@ export default function EMRPage() {
   const [labModal,       setLabModal]       = useState(false)
   const [labTechnicianId,   setLabTechnicianId]   = useState(null)
   const [labPriority,    setLabPriority]    = useState('PRIMARY')
+  const [labServiceId, setLabServiceId] = useState(null)
+  const [labServiceOptions, setLabServiceOptions] = useState([])
+  const [loadingLabServices, setLoadingLabServices] = useState(false)
   const [labNotes,       setLabNotes]       = useState('')
   const [labTechnicians,    setLabTechnicians]    = useState([])   // danh sách dịch vụ XN từ backend
   const [loadingLabTechs,  setLoadingLabTechs]  = useState(false)
@@ -202,19 +207,23 @@ export default function EMRPage() {
   // Load danh sách Lab Technician khi mở modal
   const openLabModal = async () => {
     setLabModal(true)
-    if (labTechnicians.length > 0) return
-    setLoadingLabTechs(true)
-    try {
-      const res = await labService.getActiveLabTechnicians()
-      setLabTechnicians(res.data ?? [])
-    } catch {
-      message.error('Không thể tải danh sách kỹ thuật viên')
-    } finally {
-      setLoadingLabTechs(false)
+    if (labTechnicians.length === 0) {
+      setLoadingLabTechs(true)
+      labService.getActiveLabTechnicians()
+        .then((res) => setLabTechnicians(res.data ?? []))
+        .catch(() => message.error('Không thể tải danh sách kỹ thuật viên'))
+        .finally(() => setLoadingLabTechs(false))
+    }
+    if (labServiceOptions.length === 0) {
+      setLoadingLabServices(true)
+      clinicServiceService.getLabTestServices()
+        .then((res) => setLabServiceOptions(res.data ?? []))
+        .catch(() => message.error('Không thể tải danh sách dịch vụ xét nghiệm'))
+        .finally(() => setLoadingLabServices(false))
     }
   }
 
-/**
+  /**
    * Logic tạo lab order thực sự — được gọi sau khi user xác nhận trong dialog
    */
   const executeCreateLabOrder = async () => {
@@ -223,12 +232,14 @@ export default function EMRPage() {
       await labService.createLabOrder({
         medicalRecordId:  emr?.id,
         labTechnicianId:  labTechnicianId,
+        serviceId:        labServiceId,       // ➜ thêm dòng này
         priority:         labPriority,
         notes:            labNotes,
       })
       message.success('Đã tạo phiếu chỉ định xét nghiệm thành công!')
       setLabModal(false)
       setLabTechnicianId(null)
+      setLabServiceId(null)                   // ➜ thêm dòng này
       setLabPriority('PRIMARY')
       setLabNotes('')
     } catch (e) {
@@ -247,8 +258,13 @@ export default function EMRPage() {
       message.warning('Vui lòng chọn kỹ thuật viên')
       return
     }
+    if (!labServiceId) {
+      message.warning('Vui lòng chọn dịch vụ xét nghiệm')
+      return
+    }
 
     const selectedTech = labTechnicians.find((lt) => lt.id === labTechnicianId)
+    const selectedService = labServiceOptions.find((s) => s.id === labServiceId)
     const PRIORITY_LABEL = { PRIMARY: '🟢 Thường', WARNING: '🟠 Nghiêm trọng', EMERGENCY: '🔴 Khẩn cấp' }
 
     confirmAction({
@@ -257,6 +273,7 @@ export default function EMRPage() {
       description: 'Phiếu sẽ được gửi đến kỹ thuật viên ngay sau khi xác nhận.',
       details: [
         { label: 'Bệnh nhân',      value: emr?.patientName ?? '—' },
+        { label: 'Dịch vụ xét nghiệm', value: selectedService?.serviceName ?? '—' },
         { label: 'Kỹ thuật viên',  value: selectedTech?.fullName ?? '—' },
         { label: 'Mức độ ưu tiên', value: PRIORITY_LABEL[labPriority] ?? labPriority },
         ...(labNotes ? [{ label: 'Ghi chú', value: labNotes }] : []),
@@ -489,6 +506,8 @@ export default function EMRPage() {
   // Render khi Bác sĩ CHƯA CHỌN bệnh nhân nào
   if (!appointmentId) {
     return (
+      <>
+      <Header/>
       <div style={{ padding: 24 }}>
         {/* REQUIRED: contextHolder phải được mount để dialog hoạt động */}
         {contextHolder}
@@ -645,11 +664,14 @@ export default function EMRPage() {
         </Spin>
       </div>
       </div>
+      </>
     )
   }
 
   // Render giao diện CHÍNH của trang Hồ sơ bệnh án điện tử
   return (
+    <>
+    <Header/>
     <div style={{ padding: 24 }}>
       {/* REQUIRED: contextHolder phải được mount để dialog hoạt động */}
       {contextHolder}
@@ -965,7 +987,25 @@ export default function EMRPage() {
               ]}
             />
           </div>
-
+          {/* Chọn dịch vụ xét nghiệm */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>
+              Dịch vụ xét nghiệm <span style={{ color: '#ef4444' }}>*</span>
+            </div>
+            <Select
+              value={labServiceId}
+              onChange={setLabServiceId}
+              style={{ width: '100%' }}
+              placeholder="Chọn dịch vụ xét nghiệm..."
+              loading={loadingLabServices}
+              showSearch
+              optionFilterProp="label"
+              options={(labServiceOptions ?? []).map((s) => ({
+                value: s.id,
+                label: s.serviceName,
+              }))}
+            />
+          </div>
           {/* Ghi chú */}
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>
@@ -982,7 +1022,7 @@ export default function EMRPage() {
           </div>
 
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-            <Button onClick={() => setLabModal(false)} style={{ fontSize: 13 }}>Hủy bỏ</Button>
+            <Button onClick={() => { setLabModal(false); setLabServiceId(null) }} style={{ fontSize: 13 }}>Hủy bỏ</Button>
             <Button
               type="primary"
               loading={creatingOrder}
@@ -995,5 +1035,6 @@ export default function EMRPage() {
         </div>
       </Modal>
       </div>
+      </>
   )
 }

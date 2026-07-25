@@ -37,6 +37,13 @@ export const serviceService = {
   registerAtCounter: (payload) =>
     axiosClient.post('/v1/services/registrations/counter', payload),
 
+  // Tạo ngày 21/07/2026
+  // Bệnh nhân tự đăng ký + đặt buổi đầu tiên cho gói CARE ngay trên website
+  // (kênh Website — không qua bước chờ tư vấn)
+  // payload: { serviceId, scheduledDateTime, notes }
+  registerAndBookOnline: (payload) =>
+    axiosClient.post('/v1/services/register-and-book', payload),
+
   // Danh sách tất cả gói kể cả đã ẩn (MANAGER) — để khôi phục gói đã ẩn
   getAllPackages: () =>
     axiosClient.get('/v1/services/packages'),

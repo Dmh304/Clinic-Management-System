@@ -45,7 +45,7 @@ public class Patient {
     @Column(name = "email")
     private String email;
 
-    @Column(name = "address")
+    @Column(name = "address", columnDefinition = "NVARCHAR(MAX)")
     private String address;
 
     @Column(name = "cccd", length = 12)

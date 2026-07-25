@@ -8,7 +8,9 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import { logout } from '../../store/slices/authSlice'
 import { clinicServiceService } from '../../services/clinicServiceService'
+import { discountService } from '../../services/discountService'
 import NotificationBell from './NotificationBell'
+import HotlineZaloWidget from '../HotlineZaloWidget'
 import logoImg from '../../assets/ECMS_Logo.png'
 
 // Danh mục dịch vụ trong mega-dropdown được nhóm theo service_type (CLINICAL/CARE)
@@ -50,9 +52,65 @@ const MANAGER_LINKS = [
 
 const PUBLIC_LINKS = [
   { label: 'Trang chủ', to: '/' },
+  { label: 'Khuyến mãi', to: '/promotions' },
   { label: 'Blog', to: '/blogs' },
   { label: 'Hỗ trợ', to: '/support' },
 ]
+
+const PROMO_DISMISS_KEY = 'ecms_dismissed_promo_id'
+
+// Banner mỏng phía trên header hiện chương trình khuyến mãi hàng đầu đang hoạt động
+// (phần tử đầu tiên trả về từ /active, API đã sắp theo createdAt DESC). Bấm ✕ lưu id
+// chương trình đã đóng vào localStorage — không hiện lại chương trình ĐÓ nữa (kể cả sau khi
+// tải lại trang), nhưng vẫn hiện khi có chương trình MỚI khác lên hoạt động.
+function PromoBanner() {
+  const [campaign, setCampaign] = useState(null)
+  const [dismissed, setDismissed] = useState(false)
+
+  useEffect(() => {
+    discountService.getActive()
+      .then(res => {
+        const top = (res.data || [])[0] || null
+        setCampaign(top)
+        setDismissed(top ? localStorage.getItem(PROMO_DISMISS_KEY) === String(top.id) : false)
+      })
+      .catch(() => {})
+  }, [])
+
+  const handleDismiss = () => {
+    if (campaign) localStorage.setItem(PROMO_DISMISS_KEY, String(campaign.id))
+    setDismissed(true)
+  }
+
+  if (!campaign || dismissed) return null
+
+  const discountText = campaign.type === 'PERCENTAGE'
+    ? `${Number(campaign.value)}%`
+    : `${Number(campaign.value).toLocaleString('vi-VN')}₫`
+
+  return (
+    <div style={{
+      backgroundColor: '#1d4ed8', color: '#fff', fontSize: 13, fontWeight: 600,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+      padding: '8px 16px', textAlign: 'center', position: 'relative',
+    }}>
+      <Link to={`/promotions/${campaign.id}`} style={{ color: '#fff', textDecoration: 'none' }}>
+        🎉 {campaign.name} — Giảm {discountText} — Xem ngay →
+      </Link>
+      <button
+        onClick={handleDismiss}
+        aria-label="Đóng"
+        style={{
+          position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+          background: 'none', border: 'none', color: '#dbeafe', fontSize: 14, cursor: 'pointer',
+          padding: 4, lineHeight: 1,
+        }}
+      >
+        ✕
+      </button>
+    </div>
+  )
+}
 
 export default function Header() {
   const { pathname } = useLocation()
@@ -118,7 +176,13 @@ export default function Header() {
 
   const isServicesActive = pathname.startsWith('/services') || pathname.startsWith('/patient/services')
 
+  // Widget hotline/Zalo chỉ dành cho khách hàng (chưa đăng nhập hoặc bệnh nhân),
+  // không hiện trên các màn hình nội bộ của nhân viên/quản lý.
+  const showContactWidget = !isAuthenticated || user?.role === 'PATIENT'
+
   return (
+    <>
+    <PromoBanner />
     <header style={{
       position: 'sticky', top: 0, zIndex: 50,
       backgroundColor: 'rgba(255,255,255,0.97)',
@@ -239,7 +303,7 @@ export default function Header() {
                           servicesByType[group.type].map((svc) => (
                             <li key={svc.id}>
                               <Link
-                                to={group.to}
+                                to={`/services/${svc.id}`}
                                 onClick={() => setServicesOpen(false)}
                                 style={{
                                   fontSize: 13,
@@ -599,5 +663,7 @@ export default function Header() {
         </div>
       </div>
     </header>
+    {showContactWidget && <HotlineZaloWidget />}
+    </>
   )
 }

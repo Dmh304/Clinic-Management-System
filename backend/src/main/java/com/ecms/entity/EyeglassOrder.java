@@ -13,7 +13,11 @@ import java.util.Set;
 
 @Entity
 @Table(name = "eyeglass_orders")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class EyeglassOrder {
 
     @Id
@@ -41,20 +45,16 @@ public class EyeglassOrder {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dispensed_by")
-    private Staff dispensedBy;
+    private User dispensedBy;
 
     @Column(name = "dispensed_at")
     private LocalDateTime dispensedAt;
-    
+
     @Column(name = "cancel_reason", columnDefinition = "TEXT")
     private String cancelReason;
 
     @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-            name = "eyeglass_order_coatings",
-            joinColumns = @JoinColumn(name = "order_id"),
-            inverseJoinColumns = @JoinColumn(name = "coating_id")
-    )
+    @JoinTable(name = "eyeglass_order_coatings", joinColumns = @JoinColumn(name = "order_id"), inverseJoinColumns = @JoinColumn(name = "coating_id"))
     private Set<EyeglassCoating> coatings;
 
     @Column(name = "created_at", updatable = false)

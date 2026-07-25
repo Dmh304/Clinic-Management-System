@@ -10,11 +10,12 @@ import com.ecms.entity.*;
 import com.ecms.exception.ResourceNotFoundException;
 import com.ecms.repository.*;
 import com.ecms.service.EyeglassOrderService;
+import com.ecms.service.NotificationService;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -31,9 +32,9 @@ public class EyeglassOrderServiceImpl implements EyeglassOrderService {
     private final EyeglassPrescriptionRepository prescriptionRepository;
     private final EyeglassFrameRepository frameRepository;
     private final EyeglassCoatingRepository coatingRepository;
-    private final StaffRepository staffRepository;
     private final UserRepository userRepository;
     private final InvoiceRepository invoiceRepository;
+    private final NotificationService notificationService;
 
     // Chức năng: Tạo mới đơn đặt kính (UC-42)
     @Override
@@ -92,8 +93,28 @@ public class EyeglassOrderServiceImpl implements EyeglassOrderService {
 
         order = eyeglassOrderRepository.save(order);
 
+        Long appointmentId = prescription.getMedicalRecord().getAppointment() != null
+                ? prescription.getMedicalRecord().getAppointment().getId()
+                : null;
+
+        if (initialStatus == EyeglassOrderStatus.PENDING_CONFIRMATION) {
+            // Trường hợp 1: Bệnh nhân tự đặt online -> Báo cho toàn bộ Lễ tân
+            String message = String.format("Bệnh nhân %s vừa gửi yêu cầu đặt cắt một đơn kính mới",
+                    patient.getFullName());
+            notificationService.createForReceptionists(message, appointmentId);
+
+        } else if (initialStatus == EyeglassOrderStatus.PENDING_LAB) {
+            // Trường hợp 2: Lễ tân tạo đơn trực tiếp tại quầy -> Đơn chuyển thẳng xuống
+            // xưởng
+            // -> Báo luôn cho KTV
+            String message = String.format("Lễ tân vừa tạo yêu cầu cắt đơn kính mới cho bệnh nhân %s",
+                    patient.getFullName());
+            notificationService.createForLabTechnicians(message, appointmentId);
+        }
+
         // Sinh InvoiceItem cho đơn kính
-        Invoice invoice = invoiceRepository.findByAppointmentId(prescription.getMedicalRecord().getAppointment().getId()).orElse(null);
+        Invoice invoice = invoiceRepository
+                .findByAppointmentId(prescription.getMedicalRecord().getAppointment().getId()).orElse(null);
         if (invoice != null) {
             InvoiceItem item = InvoiceItem.builder()
                     .invoice(invoice)
@@ -105,13 +126,13 @@ public class EyeglassOrderServiceImpl implements EyeglassOrderService {
                     .subTotal(totalAmount)
                     .status("ACTIVE")
                     .build();
-            
+
             invoice.getItems().add(item);
-            
+
             // Cập nhật lại tổng tiền hoá đơn
             invoice.setSubTotal(invoice.getSubTotal().add(totalAmount));
             invoice.setTotalAmount(invoice.getTotalAmount().add(totalAmount));
-            
+
             invoiceRepository.save(invoice);
         }
 
@@ -150,7 +171,8 @@ public class EyeglassOrderServiceImpl implements EyeglassOrderService {
     @Transactional(readOnly = true)
     public List<EyeglassOrderResponse> getPendingOrders() {
         return eyeglassOrderRepository.findAll().stream()
-                .filter(o -> o.getStatus() == EyeglassOrderStatus.PENDING_CONFIRMATION || o.getStatus() == EyeglassOrderStatus.PENDING_LAB)
+                .filter(o -> o.getStatus() == EyeglassOrderStatus.PENDING_CONFIRMATION
+                        || o.getStatus() == EyeglassOrderStatus.PENDING_LAB)
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
@@ -161,14 +183,19 @@ public class EyeglassOrderServiceImpl implements EyeglassOrderService {
     public EyeglassOrderResponse confirmOrderOnline(Long id) {
         EyeglassOrder order = eyeglassOrderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn đặt kính"));
+<<<<<<< HEAD
         
         // Điều kiện: Đơn phải đang ở trạng thái chờ xác nhận
+=======
+
+>>>>>>> origin/test-branch
         if (order.getStatus() != EyeglassOrderStatus.PENDING_CONFIRMATION) {
             throw new IllegalStateException("Đơn này không ở trạng thái chờ xác nhận");
         }
 
         // Cập nhật trạng thái sang chờ xưởng gia công
         order.setStatus(EyeglassOrderStatus.PENDING_LAB);
+<<<<<<< HEAD
         
         // Đẩy đơn kính vào hàng đợi gia công
         com.ecms.entity.EyeglassPrescription p = order.getPrescription();
@@ -179,19 +206,38 @@ public class EyeglassOrderServiceImpl implements EyeglassOrderService {
     }
     
     // Chức năng: Cập nhật thông tin gọng kính, lớp phủ của đơn kính
+=======
+
+        String patientName = order.getPatient().getFullName();
+        String message = String.format("Lễ tân đã xác nhận yêu cầu cắt đơn kính cho bệnh nhân %s", patientName);
+
+        Long appointmentId = order.getPrescription().getMedicalRecord().getAppointment() != null
+                ? order.getPrescription().getMedicalRecord().getAppointment().getId()
+                : null;
+
+        notificationService.createForLabTechnicians(message, appointmentId);
+
+        return toResponse(eyeglassOrderRepository.save(order));
+    }
+
+>>>>>>> origin/test-branch
     @Override
     @Transactional
     public EyeglassOrderResponse updateOrder(Long id, EyeglassOrderRequest request) {
         EyeglassOrder order = eyeglassOrderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn đặt kính"));
+<<<<<<< HEAD
                 
         // Điều kiện: Chỉ được phép sửa đơn khi đơn chưa được gửi xưởng gia công (BR-29)
+=======
+
+>>>>>>> origin/test-branch
         if (order.getStatus() != EyeglassOrderStatus.PENDING_CONFIRMATION) {
             throw new IllegalStateException("Chỉ có thể sửa đơn kính ở trạng thái Chờ xác nhận cọc");
         }
 
         BigDecimal totalAmount = BigDecimal.ZERO;
-        
+
         // Giá tròng kính
         if (order.getPrescription().getLensType() != null) {
             totalAmount = totalAmount.add(order.getPrescription().getLensType().getBasePrice());
@@ -217,16 +263,17 @@ public class EyeglassOrderServiceImpl implements EyeglassOrderService {
         order.setCoatings(coatings);
         order.setTotalAmount(totalAmount);
         order = eyeglassOrderRepository.save(order);
-        
+
         // Cập nhật lại số tiền trên hóa đơn (InvoiceItem)
-        Invoice invoice = invoiceRepository.findByAppointmentId(order.getPrescription().getMedicalRecord().getAppointment().getId()).orElse(null);
+        Invoice invoice = invoiceRepository
+                .findByAppointmentId(order.getPrescription().getMedicalRecord().getAppointment().getId()).orElse(null);
         if (invoice != null) {
             for (InvoiceItem item : invoice.getItems()) {
                 if ("GLASSES".equals(item.getItemType()) && order.getId().equals(item.getRefId())) {
                     // Trừ tiền cũ, cộng tiền mới
                     invoice.setSubTotal(invoice.getSubTotal().subtract(item.getSubTotal()).add(totalAmount));
                     invoice.setTotalAmount(invoice.getTotalAmount().subtract(item.getSubTotal()).add(totalAmount));
-                    
+
                     item.setUnitPrice(totalAmount);
                     item.setSubTotal(totalAmount);
                     break;
@@ -234,28 +281,37 @@ public class EyeglassOrderServiceImpl implements EyeglassOrderService {
             }
             invoiceRepository.save(invoice);
         }
-        
+
         return toResponse(order);
     }
+<<<<<<< HEAD
     
     // Chức năng: Hủy đơn đặt kính
+=======
+
+>>>>>>> origin/test-branch
     @Override
     @Transactional
     public void cancelOrder(Long id, String cancelReason) {
         EyeglassOrder order = eyeglassOrderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn đặt kính"));
+<<<<<<< HEAD
                 
         // Điều kiện: Chỉ có thể hủy đơn kính ở trạng thái chờ xác nhận cọc
+=======
+
+>>>>>>> origin/test-branch
         if (order.getStatus() != EyeglassOrderStatus.PENDING_CONFIRMATION) {
             throw new IllegalStateException("Chỉ có thể hủy đơn kính ở trạng thái Chờ xác nhận cọc");
         }
-        
+
         order.setStatus(EyeglassOrderStatus.CANCELLED);
         order.setCancelReason(cancelReason);
         eyeglassOrderRepository.save(order);
-        
+
         // Hủy InvoiceItem tương ứng để gỡ tiền
-        Invoice invoice = invoiceRepository.findByAppointmentId(order.getPrescription().getMedicalRecord().getAppointment().getId()).orElse(null);
+        Invoice invoice = invoiceRepository
+                .findByAppointmentId(order.getPrescription().getMedicalRecord().getAppointment().getId()).orElse(null);
         if (invoice != null) {
             InvoiceItem itemToRemove = null;
             for (InvoiceItem item : invoice.getItems()) {
@@ -273,8 +329,11 @@ public class EyeglassOrderServiceImpl implements EyeglassOrderService {
         }
     }
 
+<<<<<<< HEAD
 
     // Chức năng: Lễ tân/Dược sĩ giao kính cho bệnh nhân và xác nhận hoàn tất (UC-42)
+=======
+>>>>>>> origin/test-branch
     @Override
     @Transactional
     public EyeglassOrderResponse dispenseOrder(Long id, String staffEmail) {
@@ -284,44 +343,109 @@ public class EyeglassOrderServiceImpl implements EyeglassOrderService {
 
         User user = userRepository.findByEmail(staffEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user"));
-                
-        Staff staff = staffRepository.findByUserId(user.getId())
-                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản không phải là nhân viên"));
 
         // Điều kiện: Chặn thao tác nếu đơn kính đã được giao
         if (order.getStatus() == EyeglassOrderStatus.DISPENSED) {
             throw new IllegalStateException("Đơn này đã được giao rồi");
         }
 
+        if (order.getStatus() != EyeglassOrderStatus.READY) {
+            throw new IllegalStateException("Chỉ có thể giao đơn kính đang ở trạng thái Sẵn sàng giao");
+        }
+
         order.setStatus(EyeglassOrderStatus.DISPENSED);
-        order.setDispensedBy(staff);
+        order.setDispensedBy(user);
         order.setDispensedAt(LocalDateTime.now());
 
         return toResponse(eyeglassOrderRepository.save(order));
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<EyeglassOrderResponse> getFabricationQueue() {
+        return eyeglassOrderRepository
+                .findByStatusInOrderByCreatedAtAsc(List.of(
+                        EyeglassOrderStatus.PENDING_LAB,
+                        EyeglassOrderStatus.IN_PRODUCTION,
+                        EyeglassOrderStatus.READY,
+                        EyeglassOrderStatus.DISPENSED,
+                        EyeglassOrderStatus.CANCELLED))
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public EyeglassOrderResponse startFabrication(Long id) {
+        EyeglassOrder order = eyeglassOrderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn đặt kính"));
+
+        if (order.getStatus() != EyeglassOrderStatus.PENDING_LAB) {
+            throw new IllegalStateException(
+                    "Chỉ có thể bắt đầu gia công đơn kính đang ở trạng thái Chờ xưởng cắt kính");
+        }
+
+        order.setStatus(EyeglassOrderStatus.IN_PRODUCTION);
+        return toResponse(eyeglassOrderRepository.save(order));
+    }
+
+    @Override
+    @Transactional
+    public EyeglassOrderResponse completeFabrication(Long id) {
+        EyeglassOrder order = eyeglassOrderRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn đặt kính"));
+
+        if (order.getStatus() != EyeglassOrderStatus.IN_PRODUCTION) {
+            throw new IllegalStateException("Chỉ có thể hoàn tất gia công đơn kính đang ở trạng thái Đang gia công");
+        }
+
+        order.setStatus(EyeglassOrderStatus.READY);
+        return toResponse(eyeglassOrderRepository.save(order));
+    }
+
     private EyeglassOrderResponse toResponse(EyeglassOrder order) {
-        List<String> coatingNames = order.getCoatings() != null ?
-                order.getCoatings().stream().map(EyeglassCoating::getName).collect(Collectors.toList()) : null;
+        List<String> coatingNames = order.getCoatings() != null
+                ? order.getCoatings().stream().map(EyeglassCoating::getName).collect(Collectors.toList())
+                : null;
+
+        EyeglassPrescription prescription = order.getPrescription();
 
         return EyeglassOrderResponse.builder()
                 .id(order.getId())
                 .patientId(order.getPatient().getId())
                 .patientName(order.getPatient().getFullName())
+<<<<<<< HEAD
                 .patientPhone(order.getPatient().getPhone())
                 .patientGender(order.getPatient().getGender())
                 .patientDob(order.getPatient().getDateOfBirth())
                 .patientAddress(order.getPatient().getAddress())
                 .prescriptionId(order.getPrescription().getId())
+=======
+                .prescriptionId(prescription.getId())
+                .doctorName(prescription.getDoctor() != null ? prescription.getDoctor().getFullName() : null)
+>>>>>>> origin/test-branch
                 .frameId(order.getFrame() != null ? order.getFrame().getId() : null)
                 .frameName(order.getFrame() != null ? order.getFrame().getName() : null)
                 .status(order.getStatus().name())
                 .totalAmount(order.getTotalAmount())
+                .cancelReason(order.getCancelReason())
                 .dispensedBy(order.getDispensedBy() != null ? order.getDispensedBy().getId() : null)
                 .dispensedByName(order.getDispensedBy() != null ? order.getDispensedBy().getFullName() : null)
                 .dispensedAt(order.getDispensedAt())
                 .coatings(coatingNames)
                 .createdAt(order.getCreatedAt())
+                .odSph(prescription.getOdSph())
+                .odCyl(prescription.getOdCyl())
+                .odAxis(prescription.getOdAxis())
+                .odAdd(prescription.getOdAdd())
+                .osSph(prescription.getOsSph())
+                .osCyl(prescription.getOsCyl())
+                .osAxis(prescription.getOsAxis())
+                .osAdd(prescription.getOsAdd())
+                .pd(prescription.getPd())
+                .lensTypeName(prescription.getLensType() != null ? prescription.getLensType().getName() : null)
+                .prescriptionNotes(prescription.getNotes())
                 .build();
     }
 }

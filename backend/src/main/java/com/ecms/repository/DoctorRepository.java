@@ -9,6 +9,7 @@ package com.ecms.repository;
 
 import com.ecms.entity.Doctor;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -27,4 +28,7 @@ public interface DoctorRepository extends JpaRepository<Doctor, Long> {
      * ID)
      */
     Optional<Doctor> findById(Long id);
+
+    /* Danh sách bác sĩ hiển thị công khai — chỉ lấy bác sĩ đang hoạt động */
+    List<Doctor> findByStatus(String status);
 }

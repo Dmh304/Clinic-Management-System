@@ -11,7 +11,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-//import Header from '../../components/layout/Header'
+import Header from '../../components/layout/Header'
 import { Form, Input, InputNumber, Button, message, Tag, Spin, Row, Col, Divider, Card } from 'antd'
 import { labService } from '../../services/labService'
 import { uploadImageToCloudinary } from '../../utils/uploadImage'
@@ -371,7 +371,7 @@ export default function LabResultEntryPage() {
   if (loading) {
     return (
       <>
-        {/* <Header /> */}
+        <Header />
         <div style={{ padding: 48, textAlign: 'center' }}>
           <Spin size="large" tip="Đang tải dữ liệu..." />
         </div>
@@ -383,7 +383,7 @@ export default function LabResultEntryPage() {
     <>
       {/* REQUIRED: contextHolder phải được mount để dialog hoạt động */}
       {contextHolder}
-      {/* <Header /> */}
+      <Header />
       <div style={{ padding: 24, backgroundColor: '#f8fafc', minHeight: '100%' }}>
         <div style={{ maxWidth: 1000, margin: '0 auto' }}>
           
@@ -434,12 +434,12 @@ export default function LabResultEntryPage() {
                     {orderInfo.doctorFullName ?? '—'}
                   </div>
                 </Col>
-                {/* <Col xs={24} sm={16}>
+                <Col xs={24} sm={16}>
                   <div style={{ fontSize: 12, color: '#94a3b8' }}>Chỉ định xét nghiệm</div>
                   <div style={{ fontWeight: 500, color: '#0d9488' }}>
                     {orderInfo.serviceName ?? 'Chưa xác định dịch vụ'}
                   </div>
-                </Col> */}
+                </Col>
                 {/* Hiển thị lưu ý lâm sàng từ bác sĩ nếu có */}
                 {orderInfo.notes && (
                   <Col span={24}>

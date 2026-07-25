@@ -106,25 +106,4 @@ public class EyeglassPrescriptionController {
         return ResponseEntity.ok(ApiResponse.success(
                 "Lấy chi tiết đơn kính thành công", eyeglassPrescriptionService.getById(id)));
     }
-
-    // Hàng đợi gia công cho Lab Technician (UC-36)
-    @GetMapping("/fabrication-queue")
-    public ResponseEntity<ApiResponse<List<EyeglassPrescriptionResponse>>> getFabricationQueue() {
-        return ResponseEntity.ok(ApiResponse.success(
-                "Lấy hàng đợi gia công kính thành công", eyeglassPrescriptionService.getFabricationQueue()));
-    }
-
-    // PENDING -> IN_PRODUCTION
-    @PatchMapping("/{id}/start-fabrication")
-    public ResponseEntity<ApiResponse<EyeglassPrescriptionResponse>> startFabrication(@PathVariable Long id) {
-        return ResponseEntity.ok(ApiResponse.success(
-                "Đã bắt đầu gia công đơn kính", eyeglassPrescriptionService.startFabrication(id)));
-    }
-
-    // IN_PRODUCTION -> READY
-    @PatchMapping("/{id}/complete-fabrication")
-    public ResponseEntity<ApiResponse<EyeglassPrescriptionResponse>> completeFabrication(@PathVariable Long id) {
-        return ResponseEntity.ok(ApiResponse.success(
-                "Đã hoàn tất gia công đơn kính", eyeglassPrescriptionService.completeFabrication(id)));
-    }
 }

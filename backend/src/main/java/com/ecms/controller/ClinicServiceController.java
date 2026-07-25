@@ -1,6 +1,7 @@
 package com.ecms.controller;
 
 import com.ecms.dto.request.CounterServiceRegistrationRequest;
+import com.ecms.dto.request.RegisterAndBookRequest;
 import com.ecms.dto.request.ScheduleClinicVisitRequest;
 import com.ecms.dto.request.ServicePackageRequest;
 import com.ecms.dto.request.ServiceRegistrationRequest;
@@ -22,11 +23,24 @@ public class ClinicServiceController {
 
     private final ClinicServiceService clinicServiceService;
 
-    /** Danh sách tất cả dịch vụ đang hoạt động — public; lọc theo type (CLINICAL/CARE) nếu có */
+    /**
+     * Danh sách tất cả dịch vụ đang hoạt động — public; lọc theo type
+     * (CLINICAL/CARE) nếu có
+     */
     @GetMapping
     public ResponseEntity<ApiResponse<List<ClinicServiceResponse>>> getAllServices(
             @RequestParam(required = false) String type) {
-        return ResponseEntity.ok(ApiResponse.success(clinicServiceService.getAllServices(type)));
+        var result = clinicServiceService.getAllServices(type);
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    /**
+     * UC-30: dịch vụ xét nghiệm để bác sĩ chọn khi tạo Lab Order — is_active=1,
+     * service_type=CLINICAL, is_lab_service=1
+     */
+    @GetMapping("/lab-tests")
+    public ResponseEntity<ApiResponse<List<ClinicServiceResponse>>> getLabTestServices() {
+        return ResponseEntity.ok(ApiResponse.success(clinicServiceService.getLabTestServices()));
     }
 
     /** Danh mục dịch vụ kèm các gói con — public */
@@ -65,7 +79,10 @@ public class ClinicServiceController {
                 clinicServiceService.getMyRegistrations(authentication.getName())));
     }
 
-    /** Cập nhật trạng thái đăng ký (vd: lễ tân đánh dấu đã liên hệ tư vấn) — RECEPTIONIST / ADMIN */
+    /**
+     * Cập nhật trạng thái đăng ký (vd: lễ tân đánh dấu đã liên hệ tư vấn) —
+     * RECEPTIONIST / ADMIN
+     */
     @PatchMapping("/registrations/{id}/status")
     public ResponseEntity<ApiResponse<ServiceRegistrationResponse>> updateRegistrationStatus(
             @PathVariable Long id,
@@ -74,7 +91,9 @@ public class ClinicServiceController {
                 clinicServiceService.updateRegistrationStatus(id, status)));
     }
 
-    /** Đặt buổi đến phòng khám từ một đăng ký đã được tư vấn — RECEPTIONIST / ADMIN */
+    /**
+     * Đặt buổi đến phòng khám từ một đăng ký đã được tư vấn — RECEPTIONIST / ADMIN
+     */
     @PostMapping("/registrations/{id}/schedule")
     public ResponseEntity<ApiResponse<CareSessionResponse>> scheduleClinicVisit(
             @PathVariable Long id,
@@ -84,8 +103,10 @@ public class ClinicServiceController {
                 clinicServiceService.scheduleClinicVisit(id, request, authentication.getName())));
     }
 
-    /** Đăng ký dịch vụ cho khách đến trực tiếp quầy — RECEPTIONIST / ADMIN.
-     *  Tạo đăng ký + gói + buổi đầu tiên trong một lần. */
+    /**
+     * Đăng ký dịch vụ cho khách đến trực tiếp quầy — RECEPTIONIST / ADMIN.
+     * Tạo đăng ký + gói + buổi đầu tiên trong một lần.
+     */
     @PostMapping("/registrations/counter")
     public ResponseEntity<ApiResponse<CareSessionResponse>> registerServiceAtCounter(
             @Valid @RequestBody CounterServiceRegistrationRequest request,
@@ -93,6 +114,22 @@ public class ClinicServiceController {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Đã đăng ký dịch vụ và đặt buổi đầu tiên",
                         clinicServiceService.registerServiceAtCounter(request, authentication.getName())));
+    }
+
+    /**
+     * Tạo ngày 21/07/2026
+     * Bệnh nhân tự đăng ký + đặt buổi đầu tiên cho gói CARE trên website — PATIENT.
+     * Tạo đăng ký + gói + buổi đầu tiên trong một lần, không cần lễ tân xử lý.
+     */
+    @PostMapping("/register-and-book")
+    public ResponseEntity<ApiResponse<RegisterAndBookResponse>> registerAndBookOnline(
+            @Valid @RequestBody RegisterAndBookRequest request,
+            Authentication authentication) {
+        RegisterAndBookResponse result = clinicServiceService.registerAndBookOnline(request, authentication.getName());
+        String message = result.isRequiresConsultation()
+                ? "Đã ghi nhận đăng ký, phòng khám sẽ liên hệ tư vấn sớm nhất"
+                : "Đăng ký dịch vụ và đặt buổi đầu tiên thành công";
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(message, result));
     }
 
     // ── Manager CRUD ──────────────────────────────────────────────

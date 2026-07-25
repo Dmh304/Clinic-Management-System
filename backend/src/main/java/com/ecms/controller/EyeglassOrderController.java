@@ -5,8 +5,8 @@
 package com.ecms.controller;
 
 import com.ecms.dto.request.EyeglassOrderRequest;
-import com.ecms.dto.response.EyeglassOrderResponse;
 import com.ecms.dto.response.ApiResponse;
+import com.ecms.dto.response.EyeglassOrderResponse;
 import com.ecms.service.EyeglassOrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,10 +16,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/**
- * Controller xử lý luồng đặt kính (Eyeglass Order).
- * Phục vụ UC-42 (Patient order) và UC-25 (Receptionist quản lý).
- */
 @RestController
 @RequestMapping("/api/v1/eyeglass-orders")
 @RequiredArgsConstructor
@@ -85,5 +81,23 @@ public class EyeglassOrderController {
     public ResponseEntity<ApiResponse<EyeglassOrderResponse>> dispenseOrder(@PathVariable Long id, Authentication authentication) {
         String staffEmail = authentication.getName();
         return ResponseEntity.ok(ApiResponse.success("Giao kính thành công", eyeglassOrderService.dispenseOrder(id, staffEmail)));
+    }
+
+    @GetMapping("/fabrication-queue")
+    public ResponseEntity<ApiResponse<List<EyeglassOrderResponse>>> getFabricationQueue() {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Lấy hàng đợi gia công kính thành công", eyeglassOrderService.getFabricationQueue()));
+    }
+
+    @PatchMapping("/{id}/start-fabrication")
+    public ResponseEntity<ApiResponse<EyeglassOrderResponse>> startFabrication(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Đã bắt đầu gia công đơn kính", eyeglassOrderService.startFabrication(id)));
+    }
+
+    @PatchMapping("/{id}/complete-fabrication")
+    public ResponseEntity<ApiResponse<EyeglassOrderResponse>> completeFabrication(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Đã hoàn tất gia công đơn kính", eyeglassOrderService.completeFabrication(id)));
     }
 }
