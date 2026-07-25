@@ -12,7 +12,12 @@ param(
 )
 
 Add-Type -AssemblyName System.Data
-$connStr = "Server=localhost,1433;Database=ecms_backup;User Id=sa;Password=0864213579;Encrypt=false;TrustServerCertificate=true;"
+# Ten DB + mat khau lay theo backend/src/main/resources/application.properties.
+# May nao dat ten DB khac thi doi $DbName ben duoi (hoac truyen -DbName khi chay).
+$DbName   = $env:ECMS_DB_NAME;     if (-not $DbName)   { $DbName   = "ecms_db" }
+$DbUser   = $env:ECMS_DB_USER;     if (-not $DbUser)   { $DbUser   = "sa" }
+$DbPass   = $env:ECMS_DB_PASSWORD; if (-not $DbPass)   { $DbPass   = "mh3k42k6" }
+$connStr = "Server=localhost,1433;Database=$DbName;User Id=$DbUser;Password=$DbPass;Encrypt=false;TrustServerCertificate=true;"
 $conn = New-Object System.Data.SqlClient.SqlConnection $connStr
 $conn.Open()
 
@@ -66,12 +71,28 @@ foreach ($f in $orphans) {
 }
 
 if ($Delete) {
+    # CHOT AN TOAN: neu MOI file deu bi coi la "mo coi" thi gan nhu chac chan la
+    # dang soi nham DB (sai ten DB) hoac DB vua dung lai tu seed nen chua co dong
+    # nao tro toi /api/uploads/ -- KHONG phai anh that su thua. Chan lai.
+    if ($allFiles.Count -gt 0 -and $orphans.Count -eq $allFiles.Count) {
+        Write-Output ""
+        Write-Output "DA CHAN XOA: 100% file bi bao la mo coi ($($orphans.Count)/$($allFiles.Count))."
+        Write-Output "Gan nhu chac chan la sai DB (dang doc '$DbName') hoac DB moi dung lai tu"
+        Write-Output "ecms_data_seed.sql nen anh chua duoc gan vao doctors/services/campaigns."
+        Write-Output "Hay kiem tra lai truoc; neu that su muon xoa thi xoa tay."
+        exit 1
+    }
+
     Write-Output ""
-    Write-Output "Dang xoa $($orphans.Count) file mo coi..."
+    $answer = Read-Host "Xoa $($orphans.Count) file mo coi? Go 'yes' de xac nhan"
+    if ($answer -ne 'yes') {
+        Write-Output "Da huy, khong xoa gi ca."
+        exit 0
+    }
     foreach ($f in $orphans) {
         Remove-Item -Path $f.FullName -Force
     }
-    Write-Output "Da xoa xong."
+    Write-Output "Da xoa xong $($orphans.Count) file."
 } else {
     Write-Output ""
     Write-Output "Day moi la liet ke -- CHUA xoa gi ca. Chay lai voi -Delete de xoa that."

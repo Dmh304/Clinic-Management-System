@@ -54,11 +54,11 @@
 -- END
 -- GO
 
-IF DB_ID('ecms_db_sum_final') IS NULL
-    CREATE DATABASE ecms_db_sum_final;
+IF DB_ID('ecms_db') IS NULL
+    CREATE DATABASE ecms_db;
 GO
 
-USE ecms_db_sum_final;
+USE ecms_db;
 GO
 SET QUOTED_IDENTIFIER ON;
 SET ANSI_NULLS ON;
@@ -449,11 +449,11 @@ CREATE TABLE medical_records (
     bcva_r           DECIMAL(4,2)    NULL,
     sph_l            DECIMAL(5,2)    NULL,
     cyl_l            DECIMAL(5,2)    NULL,
-    axis_l           SMALLINT        NULL,
+    axis_l           INT             NULL,   -- INT (không SMALLINT): MedicalRecord.axisL là Integer
     iop_l            DECIMAL(4,1)    NULL,
     sph_r            DECIMAL(5,2)    NULL,
     cyl_r            DECIMAL(5,2)    NULL,
-    axis_r           SMALLINT        NULL,
+    axis_r           INT             NULL,   -- INT (không SMALLINT): MedicalRecord.axisR là Integer
     iop_r            DECIMAL(4,1)    NULL,
     lab_image_url    NVARCHAR(MAX)   NULL,
     total_amount     DECIMAL(10,2)   NULL,
@@ -957,7 +957,7 @@ CREATE TABLE feedbacks (
     care_session_id BIGINT          NULL,
     doctor_id       BIGINT          NULL,
     nurse_id        BIGINT          NULL,
-    rating          TINYINT         NOT NULL,
+    rating          INT             NOT NULL,   -- INT (không TINYINT): Feedback.rating là Integer
     content         NVARCHAR(MAX)   NULL,
     is_anonymous    BIT             NOT NULL DEFAULT 0,
     status          NVARCHAR(20)    NOT NULL DEFAULT 'PENDING',

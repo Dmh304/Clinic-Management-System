@@ -23,6 +23,17 @@
 --     branch `ngan` (commit fca1834), chưa merge vào đây → gộp vào sẽ làm ảnh 404.
 --     Sau khi merge `ngan`, chạy lại regenerate_uploaded_images_sync.ps1 để sinh mới.
 --
+-- Đợt gộp 2 (sau khi merge test-branch) — đã xoá tiếp 8 file rời:
+--   • insert_lens_types.sql / insert_eyeglass_frames.sql / insert_eyeglass_coatings.sql
+--     → danh mục xưởng kính ở mục 12 + 29 nay LẤY THEO BỘ NÀY (đầy đủ, có brand
+--       thật), chỉ giữ thêm vài dòng phân khúc giá rẻ từ "Thêm loại kính.sql".
+--   • Update_lab_service.sql              — CK_medical_records_status đã có 'DRAFT' sẵn.
+--   • add_rooms_and_staff_assignments.sql — rooms/staff_room_assignments đã có ở schema.
+--   • db_schema.sql                       — bản schema cũ 33 bảng, là tập con của 44 bảng.
+--   • data_seed_sum_final.sql             — bản dump seed cũ (admin@ecms.vn, id cũ).
+--   • change_patient_role_id.sql          — script nháp cá nhân (reset TOÀN BỘ mật khẩu,
+--                                           sửa role theo dải id cứng) — KHÔNG dùng lại.
+--
 -- MẬT KHẨU TẤT CẢ TÀI KHOẢN: Password@123
 --
 -- ┌── 36 TÀI KHOẢN, CHIA 2 LOẠI THEO CỜ users.is_virtual ────────────────────┐
@@ -750,18 +761,21 @@ GO
 -- ============================================================================
 SET IDENTITY_INSERT lens_types ON;
 
+-- id 1-9: danh mục chuẩn (gộp từ insert_lens_types.sql của nhóm)
+-- id 10-11: phân khúc học sinh/giá rẻ (gộp từ "Thêm loại kính.sql") — bộ chuẩn
+--           không có mức dưới 300k nên giữ lại 2 dòng này cho đủ dải giá.
 INSERT INTO lens_types (id, name, description, base_price, status) VALUES
-(1, N'Đơn tròng Polycarbonate 1.60', N'Tròng đơn tròng mỏng, nhẹ, chống va đập — phù hợp cận/loạn thông thường.', 850000,  'ACTIVE'),
-(2, N'Đơn tròng CR-39 1.50',         N'Tròng nhựa phổ thông, giá tốt, phù hợp độ nhẹ.',                          450000,  'ACTIVE'),
-(3, N'Đa tròng (Progressive) 1.60',  N'Tròng đa tròng cho người vừa cận vừa lão thị.',                          2500000, 'ACTIVE'),
-(4, N'Đổi màu (Photochromic) 1.60',  N'Tự đổi màu khi ra nắng, bảo vệ mắt khỏi tia UV.',                        1500000, 'ACTIVE'),
-(5, N'Chống ánh sáng xanh 1.61',     N'Lọc ánh sáng xanh từ màn hình, giảm mỏi mắt cho dân văn phòng.',        1200000, 'ACTIVE'),
--- Phân khúc giá rẻ / tầm trung (gộp từ file "Thêm loại kính.sql")
-(6,  N'Đơn tròng (Cơ bản)',              N'Tròng kính váng dầu tiêu chuẩn, giá học sinh',                            120000, 'ACTIVE'),
-(7,  N'Đơn tròng (Chống xước nhẹ)',      N'Phủ lớp chống phản quang và trầy xước cơ bản',                            180000, 'ACTIVE'),
-(8,  N'Đơn tròng (Chống tia sáng xanh)', N'Bảo vệ mắt khỏi màn hình máy tính, điện thoại (Chiết suất 1.61)',         350000, 'ACTIVE'),
-(9,  N'Đơn tròng (Mỏng nhẹ)',            N'Tròng kính mỏng, độ nét cao cho người cận nặng (Chiết suất 1.67)',        650000, 'ACTIVE'),
-(10, N'Đa tròng (Cơ bản)',               N'Phù hợp người lớn tuổi cần nhìn xa và gần, bản tiêu chuẩn',               500000, 'ACTIVE');
+(1, N'Đơn tròng (Single Vision)',            N'Tròng kính có một tiêu cự duy nhất, dùng để nhìn xa, nhìn gần hoặc nhìn trung gian.', 300000,  'ACTIVE'),
+(2, N'Hai tròng (Bifocal)',                  N'Tròng kính có hai tiêu cự (nhìn xa và nhìn gần) với đường ranh giới phân biệt rõ ràng.', 500000,  'ACTIVE'),
+(3, N'Đa tròng (Progressive)',               N'Tròng kính cung cấp tầm nhìn liền mạch từ xa đến gần mà không có đường phân giới, mang lại tính thẩm mỹ cao.', 1200000, 'ACTIVE'),
+(4, N'Chống ánh sáng xanh (Blue Control)',   N'Tròng kính phủ lớp cắt hoặc lọc ánh sáng xanh có hại từ màn hình điện tử, giúp giảm nhức mỏi mắt.', 650000,  'ACTIVE'),
+(5, N'Đổi màu (Photochromic/Transitions)',   N'Tròng kính tự động chuyển màu tối khi ra nắng và trong suốt trở lại khi vào nhà, tiện lợi cho người hay di chuyển ngoài trời.', 850000,  'ACTIVE'),
+(6, N'Phân cực chống chói (Polarized)',      N'Tròng kính có khả năng loại bỏ ánh sáng phản chiếu, chống lóa hiệu quả, phù hợp cho người hay lái xe hoặc hoạt động thể thao ngoài trời.', 900000,  'ACTIVE'),
+(7, N'Tròng mỏng - Chiết suất cao (High Index)', N'Tròng kính được làm từ vật liệu chiết suất cao, giúp tròng mỏng, nhẹ hơn và thẩm mỹ hơn dành cho người có độ cận/viễn cao.', 1500000, 'ACTIVE'),
+(8, N'Chống mỏi mắt (Anti-Fatigue)',         N'Tròng kính có độ hỗ trợ điều tiết ở vùng nhìn gần, giúp mắt thoải mái hơn khi sử dụng các thiết bị kỹ thuật số trong thời gian dài.', 750000,  'ACTIVE'),
+(9, N'Tròng kiểm soát cận thị (Myopia Control)', N'Tròng kính thiết kế đặc biệt giúp làm chậm quá trình tăng độ cận ở trẻ em.', 2500000, 'ACTIVE'),
+(10, N'Đơn tròng phổ thông (Economy)',       N'Tròng kính váng dầu tiêu chuẩn, giá học sinh.',                          120000,  'ACTIVE'),
+(11, N'Đơn tròng chống xước cơ bản',         N'Phủ lớp chống phản quang và trầy xước cơ bản.',                          180000,  'ACTIVE');
 
 SET IDENTITY_INSERT lens_types OFF;
 GO
@@ -783,10 +797,10 @@ VALUES
     63.5, 1,
     N'Kính cận đơn tròng, phủ chống UV + chống phản chiếu.', 'DISPENSED', 1, DATEADD(DAY,-3,GETDATE())),
 
--- Đơn kính MR3 — đang cắt tại xưởng (eyeglass_orders id 2)
+-- Đơn kính MR3 — đang cắt tại xưởng (eyeglass_orders id 2). lens_type 4 = Blue Control.
 (2, 3, 2, 3,
     -3.25, -0.50, 165, NULL, -2.75, -0.50, 170, NULL,
-    62.0, 5,
+    62.0, 4,
     N'Cận + loạn nhẹ. Tư vấn thêm kính áp tròng toric.', 'IN_PRODUCTION', 1, DATEADD(DAY,-3,GETDATE()));
 
 SET IDENTITY_INSERT eyeglass_prescriptions OFF;
@@ -1338,31 +1352,38 @@ GO
 -- ============================================================================
 SET IDENTITY_INSERT eyeglass_frames ON;
 
+-- id 1-10: danh mục chuẩn (gộp từ insert_eyeglass_frames.sql của nhóm)
+-- id 11-13: phân khúc học sinh/giá rẻ (gộp từ "Thêm loại kính.sql")
 INSERT INTO eyeglass_frames (id, name, brand, material, color, price, stock_quantity, status) VALUES
-(1, N'Gọng kim loại Titanium TR-01', N'Rodenstock', N'Titanium', N'Xám',  1200000, 12, 'ACTIVE'),
-(2, N'Gọng nhựa dẻo TR90 Sport',     N'Owndays',    N'TR90',     N'Đen',   750000, 25, 'ACTIVE'),
-(3, N'Gọng nửa viền Classic',        N'Essilor',    N'Kim loại', N'Bạc',   950000,  8, 'ACTIVE'),
-(4, N'Gọng tròn Vintage',            N'Molsion',    N'Acetate',  N'Nâu',  1450000,  6, 'ACTIVE'),
-(5, N'Gọng trẻ em Flexible Kids',    N'Owndays',    N'TR90',     N'Xanh',  620000, 15, 'ACTIVE'),
--- Phân khúc phổ thông / thời trang (gộp từ file "Thêm loại kính.sql")
-(6,  N'Gọng nhựa dẻo học sinh',    N'No Brand',    N'Nhựa',           N'Đen',        120000, 100, 'ACTIVE'),
-(7,  N'Gọng tròn Hàn Quốc',        N'No Brand',    N'Kim loại',       N'Trắng Bạc',  150000,  80, 'ACTIVE'),
-(8,  N'Gọng vuông cơ bản',         N'Local Brand', N'Nhựa TR90',      N'Xanh Đen',   180000, 150, 'ACTIVE'),
-(9,  N'Gọng lục giác thời trang',  N'Kính Mắt Anna', N'Hợp kim',      N'Vàng Hồng',  350000,  50, 'ACTIVE'),
-(10, N'Gọng titan siêu nhẹ',       N'Lily Eyewear', N'Titanium',      N'Xám Khói',   450000,  40, 'ACTIVE'),
-(11, N'Gọng nửa viền thanh lịch',  N'Exfash',      N'Thép không gỉ',  N'Bạc',        650000,  30, 'ACTIVE'),
-(12, N'Gọng nhựa lõi thép',        N'Molsion',     N'Acetate',        N'Đồi mồi',    750000,  25, 'ACTIVE');
+(1,  N'Gọng kính cận tròn Lily 2026',             N'Lily Eyewear',    N'Nhựa TR90',        N'Đen trong (Black Clear)',      250000,  50, 'ACTIVE'),
+(2,  N'Gọng kính chữ nhật nam tính RB-RX5228',    N'Ray-Ban',         N'Nhựa Acetate',     N'Đồi mồi (Tortoiseshell)',     3500000,  15, 'ACTIVE'),
+(3,  N'Gọng kính khoan không viền Titan',         N'Charmant',        N'Titanium',         N'Bạc (Silver)',                4200000,  10, 'ACTIVE'),
+(4,  N'Gọng kính mắt mèo thời trang South Side',  N'Gentle Monster',  N'Nhựa Acetate',     N'Đen (Black)',                 4500000,   8, 'ACTIVE'),
+(5,  N'Gọng kính nửa viền kim loại GM-20',        N'Parim',           N'Thép không gỉ',    N'Vàng hồng (Rose Gold)',        850000,  25, 'ACTIVE'),
+(6,  N'Gọng kính đa giác Unisex TR-90',           N'Seeson',          N'Nhựa TR90',        N'Trong suốt (Transparent)',     480000,  30, 'ACTIVE'),
+(7,  N'Gọng kính vuông cổ điển TF-5523',          N'Tom Ford',        N'Nhựa Acetate',     N'Nâu Havana (Havana)',         6500000,   5, 'ACTIVE'),
+(8,  N'Gọng kính trẻ em siêu dẻo Kid-Safe',       N'Bolon',           N'Nhựa dẻo Silicone',N'Xanh dương (Blue)',            450000,  40, 'ACTIVE'),
+(9,  N'Gọng kính thể thao ôm mặt Crosslink',      N'Oakley',          N'O Matter',         N'Đen nhám (Matte Black)',      2800000,  12, 'ACTIVE'),
+(10, N'Gọng titanium siêu mảnh tròn',             N'Exfash',          N'Titanium',         N'Vàng (Gold)',                 1200000,  20, 'ACTIVE'),
+(11, N'Gọng nhựa dẻo học sinh',                   N'No Brand',        N'Nhựa',             N'Đen',                          120000, 100, 'ACTIVE'),
+(12, N'Gọng tròn Hàn Quốc',                       N'No Brand',        N'Kim loại',         N'Trắng Bạc',                    150000,  80, 'ACTIVE'),
+(13, N'Gọng vuông cơ bản',                        N'Local Brand',     N'Nhựa TR90',        N'Xanh Đen',                     180000, 150, 'ACTIVE');
 
 SET IDENTITY_INSERT eyeglass_frames OFF;
 GO
 
+-- Gộp từ insert_eyeglass_coatings.sql của nhóm (8 lớp phủ, thay bộ 4 lớp cũ).
 SET IDENTITY_INSERT eyeglass_coatings ON;
 
 INSERT INTO eyeglass_coatings (id, name, description, price) VALUES
-(1, N'Chống phản chiếu (AR)',   N'Giảm chói và phản xạ ánh sáng, tăng độ trong của tròng.', 200000),
-(2, N'Chống tia UV',            N'Ngăn tia cực tím gây hại cho giác mạc và võng mạc.',      150000),
-(3, N'Chống trầy xước',         N'Tăng độ bền bề mặt tròng kính.',                          120000),
-(4, N'Chống bám nước/vân tay',  N'Bề mặt kỵ nước, dễ lau chùi.',                            180000);
+(1, N'Lớp phủ chống trầy xước (Anti-Scratch)',            N'Tăng độ cứng cho bề mặt tròng kính, hạn chế tối đa các vết xước dăm trong quá trình sinh hoạt và lau chùi.', 100000),
+(2, N'Lớp phủ chống phản quang (Anti-Reflective/AR)',     N'Loại bỏ ánh sáng phản chiếu và bóng lóa trên mặt kính, cho hình ảnh truyền qua sắc nét, sáng rõ hơn và tăng tính thẩm mỹ.', 150000),
+(3, N'Lớp phủ chống tia cực tím (100% UV Protection)',    N'Ngăn chặn tuyệt đối tia UV400 có hại từ ánh nắng mặt trời, bảo vệ giác mạc và võng mạc khỏi các bệnh lý nguy hiểm.', 120000),
+(4, N'Lớp phủ chống bám nước (Hydrophobic)',              N'Tạo hiệu ứng lá sen trên mặt kính giúp nước mưa trôi đi nhanh chóng, không đọng thành giọt gây cản trở tầm nhìn khi đi mưa.', 180000),
+(5, N'Lớp phủ chống bám vân tay, dầu mỡ (Oleophobic)',    N'Giúp bề mặt tròng kính trơn láng, hạn chế tối đa việc bám dính mồ hôi, vân tay và rất dễ dàng lau chùi.', 150000),
+(6, N'Lớp phủ chống tĩnh điện (Anti-Static)',             N'Khử tĩnh điện trên bề mặt kính (thường sinh ra do ma sát khi lau), giúp tròng kính không bị hút các hạt bụi nhỏ trong không khí.', 100000),
+(7, N'Lớp phủ chống đọng sương (Anti-Fog)',               N'Ngăn chặn hiện tượng tròng kính bị mờ đục do hơi thở khi đeo khẩu trang, ăn đồ nóng hoặc khi thay đổi nhiệt độ đột ngột.', 200000),
+(8, N'Lớp phủ lọc ánh sáng xanh (Blue Control Coating)',  N'Bề mặt kính phản xạ lại phần lớn ánh sáng xanh tím có hại từ màn hình thiết bị điện tử, giúp mắt giảm căng thẳng và mỏi mệt.', 250000);
 
 SET IDENTITY_INSERT eyeglass_coatings OFF;
 GO
@@ -1372,18 +1393,21 @@ SET IDENTITY_INSERT eyeglass_orders ON;
 INSERT INTO eyeglass_orders
     (id, patient_id, prescription_id, frame_id, status, total_amount, dispensed_by, dispensed_at, created_at)
 VALUES
--- Đơn 1 (đơn kính MR1, BN1): gọng 1.200.000 + tròng 850.000 + AR 200.000 + UV 150.000 = 2.400.000
-(1, 1, 1, 1, 'DISPENSED',    2400000, 11, DATEADD(DAY,-2,GETDATE()), DATEADD(DAY,-3,GETDATE())),
+-- Đơn 1 (đơn kính MR1, BN1): tròng Đơn tròng 300.000 + gọng Lily 250.000
+--                            + AR 150.000 + UV 120.000 = 820.000
+(1, 1, 1, 1, 'DISPENSED',     820000, 11, DATEADD(DAY,-2,GETDATE()), DATEADD(DAY,-3,GETDATE())),
 
--- Đơn 2 (đơn kính MR3, BN3): gọng 950.000 + tròng chống ánh sáng xanh 1.200.000 + AR 200.000 = 2.350.000
-(2, 3, 2, 3, 'IN_PRODUCTION', 2350000, NULL, NULL, DATEADD(DAY,-3,GETDATE()));
+-- Đơn 2 (đơn kính MR3, BN3): tròng Blue Control 650.000 + gọng Parim GM-20 850.000
+--                            + AR 150.000 = 1.650.000
+(2, 3, 2, 5, 'IN_PRODUCTION', 1650000, NULL, NULL, DATEADD(DAY,-3,GETDATE()));
 
 SET IDENTITY_INSERT eyeglass_orders OFF;
 GO
 
+-- coating 2 = Chống phản quang (AR) | 3 = Chống tia cực tím (UV)
 INSERT INTO eyeglass_order_coatings (order_id, coating_id) VALUES
-(1, 1), (1, 2),
-(2, 1);
+(1, 2), (1, 3),
+(2, 2);
 GO
 
 -- ============================================================================
@@ -1773,7 +1797,7 @@ PRINT N'  notifications                 : 8   | blog_posts : 7 (blog_categories:
 PRINT N'  doctor_schedules              : 9   | feedbacks : 4 (3 khám + 1 chăm sóc, +8 participant_ratings)';
 PRINT N'  rooms                         : 8   | staff_room_assignments : 7 | verification_tokens : 2';
 PRINT N'  chat_sessions                 : 3 (+7 messages)';
-PRINT N'  eyeglass_frames               : 12 | coatings : 4 | orders : 2 | lens_types : 10';
+PRINT N'  eyeglass_frames               : 13 | coatings : 8 | orders : 2 | lens_types : 11';
 PRINT N'  payroll_periods               : 2 (1 APPROVED + 1 DRAFT) — payroll_items sinh theo nhân sự';
 PRINT N'  [Mục 32 - tùy chọn]           : +25 bệnh nhân PATX + 720 lịch hẹn test';
 PRINT N'';
