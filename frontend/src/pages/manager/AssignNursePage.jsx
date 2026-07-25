@@ -12,6 +12,7 @@ import {
 import { careSessionService } from '../../services/careSessionService'
 
 const CAPACITY_EXCEEDED_PREFIX = 'CAPACITY_EXCEEDED: '
+const OVERLAP_PREFIX = 'OVERLAP_CONFLICT: '
 const MAX_SESSIONS_PER_NURSE = 12
 
 const AVATAR_COLORS = ['#2563eb', '#0d9488', '#c026d3', '#ea580c', '#65a30d', '#dc2626', '#7c3aed']
@@ -94,6 +95,21 @@ export default function AssignNursePage() {
         return new Promise((resolve) => {
           Modal.confirm({
             title: 'Điều dưỡng đã đủ số buổi tối đa',
+            content: reason,
+            okText: 'Vẫn phân công',
+            cancelText: 'Hủy',
+            onOk: async () => resolve(await doAssign(sessionId, nurseId, true)),
+            onCancel: () => resolve(false),
+          })
+        })
+      }
+      // Trùng khung giờ với buổi khác của cùng điều dưỡng → cũng hỏi lại thay vì chặn cứng,
+      // để Manager biết rõ mình đang xếp trùng giờ trước khi quyết định.
+      if (msg.startsWith(OVERLAP_PREFIX)) {
+        const reason = msg.slice(OVERLAP_PREFIX.length)
+        return new Promise((resolve) => {
+          Modal.confirm({
+            title: 'Điều dưỡng đang trùng khung giờ',
             content: reason,
             okText: 'Vẫn phân công',
             cancelText: 'Hủy',

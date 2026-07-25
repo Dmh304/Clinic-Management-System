@@ -50,10 +50,11 @@ public class ServiceSubscriptionController {
         return ResponseEntity.ok(ApiResponse.success(subscriptionService.getSubscriptionsByPatient(patientId)));
     }
 
-    /** Chi tiết một gói */
+    /** Chi tiết một gói — patient chỉ xem được gói của chính mình */
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<ServiceSubscriptionResponse>> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(ApiResponse.success(subscriptionService.getById(id)));
+    public ResponseEntity<ApiResponse<ServiceSubscriptionResponse>> getById(
+            @PathVariable Long id, Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.success(subscriptionService.getById(id, authentication.getName())));
     }
 
     /** Huỷ gói */

@@ -239,8 +239,18 @@ export default function MySubscriptionsPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                      <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#1e293b' }}>{sub.serviceName}</h3>
+                      <Link to={`/patient/subscriptions/${sub.id}/sessions`}
+                        style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#1e293b', textDecoration: 'none' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none' }}>
+                        {sub.serviceName}
+                      </Link>
                       <StatusBadge status={sub.status} />
+                    </div>
+                    <div style={{ fontSize: 12, marginBottom: 8 }}>
+                      <Link to={`/patient/subscriptions/${sub.id}/sessions`} style={{ color: '#2563eb', textDecoration: 'none' }}>
+                        Xem lịch sử & lịch hẹn buổi khám →
+                      </Link>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8 }}>
                       <div style={{ background: '#f1f5f9', borderRadius: 8, padding: '8px 12px' }}>

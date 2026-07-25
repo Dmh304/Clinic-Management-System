@@ -13,8 +13,9 @@ const TEAL = '#0f6e66'
 const WEEKDAYS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
 
 // Danh sách khung giờ cố định trong giờ làm việc phòng khám, cách nhau 30 phút.
-// Không mô phỏng trạng thái "hết chỗ" vì backend không có khái niệm giới hạn
-// công suất theo khung giờ cho buổi dịch vụ (điều dưỡng được phân công sau khi đặt).
+// Không hiển thị trước slot nào "hết chỗ" (chưa có endpoint kiểm tra công suất theo
+// khung giờ) — nếu khung giờ đã hết điều dưỡng rảnh, backend sẽ từ chối lúc xác nhận
+// đặt lịch (báo lỗi cụ thể) thay vì cho đặt xong rồi để buổi treo "Chưa phân công".
 function buildDaySlots() {
   const slots = []
   let h = CLINIC_HOURS.openHour
@@ -134,7 +135,7 @@ export default function BookCareSessionPage() {
         notes,
       })
       alert('Đặt buổi khám thành công!')
-      navigate('/patient/care-sessions')
+      navigate(`/patient/subscriptions/${selectedSub}/sessions`)
     } catch (err) {
       setError(err.response?.data?.message || 'Đặt lịch thất bại')
     } finally {

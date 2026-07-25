@@ -12,7 +12,9 @@ public interface ServiceSubscriptionService {
 
     List<ServiceSubscriptionResponse> getMySubscriptions(String currentUserEmail);
 
-    ServiceSubscriptionResponse getById(Long id);
+    /** Chi tiết 1 gói — patient chỉ xem được gói của chính mình, staff xem được mọi gói
+     *  (tránh IDOR: đổi số ID trên URL để xem gói của bệnh nhân khác). */
+    ServiceSubscriptionResponse getById(Long id, String currentUserEmail);
 
     List<ServiceSubscriptionResponse> getAllSubscriptions();
 

@@ -80,19 +80,17 @@ public class CareSessionServiceImpl implements CareSessionService {
         }
     }
 
-    /** Mở rộng UC-20: tự động chọn điều dưỡng đang rảnh đúng khung giờ để gán ngay lúc đặt
-     *  lịch, thay vì luôn để trống chờ Manager phân công tay. Chỉ xét điều dưỡng đã được
-     *  phân công phòng cho đúng ngày đó (StaffRoomAssignmentService — tín hiệu gần nhất hệ thống đang
-     *  có cho "đang trực hôm đó"), chưa đủ trần BR-16 (12 buổi/ngày) và không trùng khung giờ
-     *  với buổi đã có (so theo [giờ đặt, giờ đặt + thời lượng dịch vụ)). Không tìm được ai phù
-     *  hợp thì trả về null — buổi vẫn được tạo bình thường, Manager xử lý tay như trước (không
-     *  chặn bệnh nhân đặt lịch vì lý do nhân sự). */
+    /** Mở rộng UC-20: chọn điều dưỡng đang rảnh đúng khung giờ để gán ngay lúc đặt lịch. Chỉ
+     *  xét điều dưỡng đã được phân công phòng cho đúng ngày đó (StaffRoomAssignmentService —
+     *  tín hiệu gần nhất hệ thống đang có cho "đang trực hôm đó"), chưa đủ trần BR-16 (12
+     *  buổi/ngày) và không trùng khung giờ với buổi đã có (so theo [giờ đặt, giờ đặt + thời
+     *  lượng dịch vụ)). Không tìm được ai phù hợp thì trả về null — book() coi đây là "hết
+     *  chỗ" và TỪ CHỐI đặt lịch (không còn tạo buổi "Chưa phân công" treo vô thời hạn nữa). */
     private User pickAvailableNurse(LocalDateTime scheduledDateTime, Integer serviceDurationMinutes) {
         LocalDate date = scheduledDateTime.toLocalDate();
         LocalDateTime dayStart = date.atStartOfDay();
         LocalDateTime dayEnd = date.plusDays(1).atStartOfDay();
-        int duration = serviceDurationMinutes != null ? serviceDurationMinutes : DEFAULT_SESSION_DURATION_MINUTES;
-        LocalDateTime newEnd = scheduledDateTime.plusMinutes(duration);
+        LocalDateTime newEnd = scheduledDateTime.plusMinutes(durationOrDefault(serviceDurationMinutes));
 
         User best = null;
         long bestLoad = Long.MAX_VALUE;
@@ -107,15 +105,7 @@ public class CareSessionServiceImpl implements CareSessionService {
                     .collect(Collectors.toList());
 
             if (daySessions.size() >= MAX_CARE_SESSIONS_PER_NURSE_PER_DAY) continue;
-
-            boolean overlap = daySessions.stream().anyMatch(s -> {
-                Integer existDuration = s.getSubscription() != null && s.getSubscription().getService() != null
-                        ? s.getSubscription().getService().getDurationMinutes() : null;
-                LocalDateTime existEnd = s.getScheduledDateTime()
-                        .plusMinutes(existDuration != null ? existDuration : DEFAULT_SESSION_DURATION_MINUTES);
-                return scheduledDateTime.isBefore(existEnd) && s.getScheduledDateTime().isBefore(newEnd);
-            });
-            if (overlap) continue;
+            if (hasOverlap(daySessions, scheduledDateTime, newEnd)) continue;
 
             if (daySessions.size() < bestLoad) {
                 bestLoad = daySessions.size();
@@ -123,6 +113,28 @@ public class CareSessionServiceImpl implements CareSessionService {
             }
         }
         return best;
+    }
+
+    private int durationOrDefault(Integer minutes) {
+        return minutes != null ? minutes : DEFAULT_SESSION_DURATION_MINUTES;
+    }
+
+    /** Thời lượng thật của MỘT buổi đã có, suy từ dịch vụ của gói nó thuộc về (null-safe). */
+    private int sessionDurationMinutes(CareSession session) {
+        Integer minutes = session.getSubscription() != null && session.getSubscription().getService() != null
+                ? session.getSubscription().getService().getDurationMinutes() : null;
+        return durationOrDefault(minutes);
+    }
+
+    /** Buổi mới [newStart, newEnd) có trùng khung giờ với bất kỳ buổi nào trong danh sách
+     *  không — dùng chung cho pickAvailableNurse() (lúc đặt lịch), assignNurse() (Manager
+     *  phân công tay) và autoAssignRemaining() (tự động/định kỳ) để 3 đường gán nhất quán,
+     *  không còn đường nào bỏ sót check trùng giờ. */
+    private boolean hasOverlap(List<CareSession> daySessions, LocalDateTime newStart, LocalDateTime newEnd) {
+        return daySessions.stream().anyMatch(s -> {
+            LocalDateTime existEnd = s.getScheduledDateTime().plusMinutes(sessionDurationMinutes(s));
+            return newStart.isBefore(existEnd) && s.getScheduledDateTime().isBefore(newEnd);
+        });
     }
 
     @Override
@@ -174,6 +186,16 @@ public class CareSessionServiceImpl implements CareSessionService {
             throw new IllegalArgumentException("Phòng khám nghỉ Chủ nhật, vui lòng chọn ngày khác");
         }
 
+        // Chặn đặt lịch ngay từ gốc nếu không còn điều dưỡng nào rảnh đúng khung giờ này (theo
+        // phòng trực + sức chứa 12 buổi/ngày + không trùng giờ buổi khác) — giống cách đặt lịch
+        // bác sĩ chỉ cho chọn slot còn trống. Tránh để buổi "Chưa phân công" treo vô thời hạn vì
+        // đặt vượt quá năng lực thực tế của phòng khám hôm đó (không còn là best-effort nữa).
+        User autoNurse = pickAvailableNurse(request.getScheduledDateTime(), subscription.getService().getDurationMinutes());
+        if (autoNurse == null) {
+            throw new IllegalStateException(
+                    "Hết chỗ — không còn điều dưỡng nào rảnh vào khung giờ này, vui lòng chọn giờ khác");
+        }
+
         long activeCount = careSessionRepository.countActiveSessionsBySubscription(subscription.getId());
         int sessionNumber = (int) activeCount + 1;
 
@@ -183,26 +205,14 @@ public class CareSessionServiceImpl implements CareSessionService {
                 .scheduledDateTime(request.getScheduledDateTime())
                 .sessionNumber(sessionNumber)
                 .notes(request.getNotes())
+                .nurse(autoNurse)
+                .room(resolveRoomForNurse(autoNurse, request.getScheduledDateTime().toLocalDate()))
+                .assignedAt(LocalDateTime.now())
                 .build();
-
-        // Mở rộng UC-20: thử tự động gán điều dưỡng đang rảnh đúng khung giờ ngay lúc đặt —
-        // best-effort, lỗi bất kỳ (hoặc không tìm được ai phù hợp) thì để trống như hành vi cũ.
-        try {
-            User autoNurse = pickAvailableNurse(request.getScheduledDateTime(), subscription.getService().getDurationMinutes());
-            if (autoNurse != null) {
-                session.setNurse(autoNurse);
-                session.setRoom(resolveRoomForNurse(autoNurse, request.getScheduledDateTime().toLocalDate()));
-                session.setAssignedAt(LocalDateTime.now());
-            }
-        } catch (Exception e) {
-            log.error("Tự động phân công điều dưỡng lúc đặt lịch thất bại: {}", e.getMessage());
-        }
 
         CareSession saved = careSessionRepository.save(session);
         CareSessionResponse response = toResponse(saved);
-        if (saved.getNurse() != null) {
-            notifyNurseAssigned(saved, saved.getNurse());
-        }
+        notifyNurseAssigned(saved, saved.getNurse());
 
         // BR-15: trừ buổi ngay khi đặt lịch, chặn overbooking
         subscription.setUsedSessions(subscription.getUsedSessions() + 1);
@@ -286,7 +296,16 @@ public class CareSessionServiceImpl implements CareSessionService {
     }
 
     @Override
-    public List<CareSessionResponse> getSessionsBySubscription(Long subscriptionId) {
+    public List<CareSessionResponse> getSessionsBySubscription(Long subscriptionId, String currentUserEmail) {
+        PatientServiceSubscription subscription = subscriptionRepository.findById(subscriptionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đăng ký"));
+        User currentUser = userRepository.findByEmail(currentUserEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
+        if ("PATIENT".equals(currentUser.getRole().getName())
+                && (subscription.getPatient().getUser() == null
+                        || !subscription.getPatient().getUser().getId().equals(currentUser.getId()))) {
+            throw new IllegalArgumentException("Không có quyền xem các buổi khám của gói này");
+        }
         return careSessionRepository.findBySubscription_IdOrderBySessionNumberAsc(subscriptionId)
                 .stream().map(this::toResponse).collect(Collectors.toList());
     }
@@ -294,6 +313,11 @@ public class CareSessionServiceImpl implements CareSessionService {
     /** UC-19 E-2: tiền tố đánh dấu lỗi "đã đủ sức chứa" để frontend nhận diện và hỏi lại
      *  Manager có muốn ghi đè (override) hay không, thay vì chỉ báo lỗi và dừng lại. */
     private static final String CAPACITY_EXCEEDED_PREFIX = "CAPACITY_EXCEEDED: ";
+
+    /** Tương tự CAPACITY_EXCEEDED_PREFIX nhưng cho trường hợp trùng khung giờ với buổi khác
+     *  của cùng điều dưỡng — trước đây assignNurse() không hề kiểm tra trùng giờ (chỉ kiểm
+     *  sức chứa), có thể xếp 2 bệnh nhân cùng giờ cho 1 điều dưỡng mà không cảnh báo gì. */
+    private static final String OVERLAP_PREFIX = "OVERLAP_CONFLICT: ";
 
     @Override
     @Transactional
@@ -319,6 +343,23 @@ public class CareSessionServiceImpl implements CareSessionService {
         if (sameDayCount >= MAX_CARE_SESSIONS_PER_NURSE_PER_DAY && !override) {
             throw new IllegalStateException(CAPACITY_EXCEEDED_PREFIX + "Điều dưỡng đã đủ "
                     + MAX_CARE_SESSIONS_PER_NURSE_PER_DAY + " buổi chăm sóc trong ngày, vẫn muốn phân công?");
+        }
+
+        // Check trùng khung giờ với các buổi KHÁC (trừ chính buổi này) của điều dưỡng trong
+        // ngày — dùng chung logic với pickAvailableNurse()/autoAssignRemaining(). Manager có
+        // thể override nếu thật sự cần xếp dù trùng giờ (vd điều dưỡng phụ hỗ trợ thêm).
+        if (!override) {
+            List<CareSession> daySessions = careSessionRepository
+                    .findByNurse_IdAndScheduledDateTimeBetweenOrderByScheduledDateTimeAsc(
+                            nurse.getId(), sessionDate.atStartOfDay(), sessionDate.plusDays(1).atStartOfDay())
+                    .stream()
+                    .filter(s -> !"CANCELLED".equals(s.getStatus()) && !s.getId().equals(session.getId()))
+                    .collect(Collectors.toList());
+            LocalDateTime newEnd = session.getScheduledDateTime().plusMinutes(sessionDurationMinutes(session));
+            if (hasOverlap(daySessions, session.getScheduledDateTime(), newEnd)) {
+                throw new IllegalStateException(OVERLAP_PREFIX
+                        + "Điều dưỡng đang bận buổi khác trùng khung giờ này, vẫn muốn phân công?");
+            }
         }
 
         User previousNurse = session.getNurse();
@@ -350,19 +391,26 @@ public class CareSessionServiceImpl implements CareSessionService {
         List<CareSession> unassigned = careSessionRepository.findUnassignedBookedOnDate(start, end);
         List<User> nurses = userRepository.findByRole_Name("NURSE");
 
-        // Tải hiện tại của từng điều dưỡng trong ngày — chọn người ít việc nhất trước (chia đều).
-        Map<Long, Long> loadByNurse = new HashMap<>();
+        // Buổi hiện có (kể cả vừa gán trong chính lượt chạy này) của từng điều dưỡng trong
+        // ngày — dùng vừa để đếm sức chứa, vừa để check trùng giờ (hasOverlap), nên phải cập
+        // nhật dần trong vòng lặp: nếu không, 2 buổi "Chưa phân công" trùng giờ nhau có thể
+        // bị gán cho CÙNG một điều dưỡng ngay trong 1 lượt auto-assign.
+        Map<Long, List<CareSession>> sessionsByNurse = new HashMap<>();
         for (User nurse : nurses) {
-            loadByNurse.put(nurse.getId(), careSessionRepository.countByNurseOnDate(nurse.getId(), start, end));
+            sessionsByNurse.put(nurse.getId(), new ArrayList<>(careSessionRepository
+                    .findByNurse_IdAndScheduledDateTimeBetweenOrderByScheduledDateTimeAsc(nurse.getId(), start, end)
+                    .stream().filter(s -> !"CANCELLED".equals(s.getStatus())).collect(Collectors.toList())));
         }
 
         List<CareSessionResponse> assigned = new ArrayList<>();
         int stillUnassigned = 0;
 
         for (CareSession session : unassigned) {
+            LocalDateTime newEnd = session.getScheduledDateTime().plusMinutes(sessionDurationMinutes(session));
             User pick = nurses.stream()
-                    .filter(n -> loadByNurse.get(n.getId()) < MAX_CARE_SESSIONS_PER_NURSE_PER_DAY)
-                    .min(Comparator.comparingLong(n -> loadByNurse.get(n.getId())))
+                    .filter(n -> sessionsByNurse.get(n.getId()).size() < MAX_CARE_SESSIONS_PER_NURSE_PER_DAY)
+                    .filter(n -> !hasOverlap(sessionsByNurse.get(n.getId()), session.getScheduledDateTime(), newEnd))
+                    .min(Comparator.comparingInt(n -> sessionsByNurse.get(n.getId()).size()))
                     .orElse(null);
             if (pick == null) {
                 stillUnassigned++;
@@ -372,7 +420,7 @@ public class CareSessionServiceImpl implements CareSessionService {
             session.setRoom(resolveRoomForNurse(pick, date));
             session.setAssignedAt(LocalDateTime.now());
             CareSession saved = careSessionRepository.save(session);
-            loadByNurse.put(pick.getId(), loadByNurse.get(pick.getId()) + 1);
+            sessionsByNurse.get(pick.getId()).add(saved);
             notifyNurseAssigned(saved, pick);
             assigned.add(toResponse(saved));
         }

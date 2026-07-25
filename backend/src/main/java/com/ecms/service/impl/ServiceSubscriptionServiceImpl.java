@@ -116,9 +116,17 @@ public class ServiceSubscriptionServiceImpl implements ServiceSubscriptionServic
     }
 
     @Override
-    public ServiceSubscriptionResponse getById(Long id) {
-        return toResponse(subscriptionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đăng ký")));
+    public ServiceSubscriptionResponse getById(Long id, String currentUserEmail) {
+        PatientServiceSubscription sub = subscriptionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đăng ký"));
+        User currentUser = userRepository.findByEmail(currentUserEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
+        if ("PATIENT".equals(currentUser.getRole().getName())
+                && (sub.getPatient().getUser() == null
+                        || !sub.getPatient().getUser().getId().equals(currentUser.getId()))) {
+            throw new IllegalArgumentException("Không có quyền xem đăng ký này");
+        }
+        return toResponse(sub);
     }
 
     @Override
