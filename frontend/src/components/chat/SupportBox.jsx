@@ -4,7 +4,7 @@ import SockJS from 'sockjs-client';
 import { useSelector } from 'react-redux';
 import { Button, Input, List, Avatar, Card } from 'antd';
 import { MessageOutlined, CloseOutlined, SendOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import axiosClient from '../../api/axiosClient';
 
 export default function SupportBox() {
     const { user, token } = useSelector(s => s.auth);
@@ -34,23 +34,20 @@ export default function SupportBox() {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
 
+    // Chức năng: Khởi tạo kết nối Web Socket với STOMP
     const connect = async () => {
         try {
-            // First get or create session
-            const res = await axios.get('http://localhost:8080/api/chat/sessions/my', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            // Tương tác API: First get or create session
+            const res = await axiosClient.get('/v1/chat/sessions/my');
             const session = res.data;
             setSessionId(session.id);
 
-            // Fetch old messages
-            const msgRes = await axios.get(`http://localhost:8080/api/chat/sessions/${session.id}/messages`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            // Tương tác API: Fetch old messages
+            const msgRes = await axiosClient.get(`/v1/chat/sessions/${session.id}/messages`);
             setMessages(msgRes.data);
 
-            // Connect WebSocket
-            const socket = new SockJS('http://localhost:8080/ws');
+            // Tương tác API: Connect WebSocket
+            const socket = new SockJS('/ws');
             const client = new Client({
                 webSocketFactory: () => socket,
                 connectHeaders: {
@@ -77,6 +74,7 @@ export default function SupportBox() {
         }
     };
 
+    // Chức năng: Gửi tin nhắn mới lên server thông qua STOMP
     const sendMessage = () => {
         if (inputStr.trim() && stompClient && stompClient.connected) {
             stompClient.publish({

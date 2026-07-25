@@ -68,8 +68,13 @@ public class ChatServiceImpl implements ChatService {
         
         message = chatMessageRepository.save(message);
         
-        // Update session updatedAt
+        // Update session updatedAt and hasUnread
         session.setUpdatedAt(message.getCreatedAt());
+        if ("PATIENT".equals(senderRole)) {
+            session.setHasUnread(true);
+        } else {
+            session.setHasUnread(false);
+        }
         chatSessionRepository.save(session);
 
         return toMessageResponse(message);
@@ -85,8 +90,17 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public List<ChatMessageResponse> getMessagesBySession(Long sessionId) {
+    @Transactional
+    public List<ChatMessageResponse> getMessagesBySession(Long sessionId, String email) {
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user != null && "RECEPTIONIST".equals(user.getRole().getName())) {
+            ChatSession session = chatSessionRepository.findById(sessionId).orElse(null);
+            if (session != null && Boolean.TRUE.equals(session.getHasUnread())) {
+                session.setHasUnread(false);
+                chatSessionRepository.save(session);
+            }
+        }
+
         return chatMessageRepository.findBySessionIdOrderByCreatedAtAsc(sessionId).stream()
                 .map(this::toMessageResponse)
                 .collect(Collectors.toList());
@@ -130,6 +144,7 @@ public class ChatServiceImpl implements ChatService {
                 .status(session.getStatus())
                 .createdAt(session.getCreatedAt())
                 .updatedAt(session.getUpdatedAt())
+                .hasUnread(session.getHasUnread())
                 .build();
     }
 

@@ -12,6 +12,9 @@ public interface NotificationService {
     /** Tạo 1 thông báo cho toàn bộ Lễ tân (targetRole = "RECEPTIONIST"). */
     void createForReceptionists(String message, Long relatedAppointmentId);
 
+    /** Tạo 1 thông báo cho toàn bộ Dược sĩ (targetRole = "PHARMACIST"). */
+    void createForPharmacists(String message, Long relatedAppointmentId);
+
     /** Tạo 1 thông báo cho toàn bộ Quản lý phòng khám (targetRole = "MANAGER"). UC-48. */
     void createForManagers(String message, Long relatedAppointmentId);
 

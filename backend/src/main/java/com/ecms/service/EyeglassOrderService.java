@@ -11,6 +11,7 @@ public interface EyeglassOrderService {
     EyeglassOrderResponse createOrder(EyeglassOrderRequest request, Authentication authentication);
     EyeglassOrderResponse getOrderById(Long id);
     List<EyeglassOrderResponse> getOrdersByPatient(Long patientId);
+    List<EyeglassOrderResponse> getAllOrders();
     List<EyeglassOrderResponse> getPendingOrders();
     EyeglassOrderResponse confirmOrderOnline(Long id);
     EyeglassOrderResponse dispenseOrder(Long id, String staffEmail);

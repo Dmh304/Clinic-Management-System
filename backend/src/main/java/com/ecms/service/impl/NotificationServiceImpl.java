@@ -22,6 +22,7 @@ public class NotificationServiceImpl implements NotificationService {
 
     private static final String ROLE_RECEPTIONIST = "RECEPTIONIST";
     private static final String ROLE_MANAGER = "MANAGER";
+    private static final String ROLE_PHARMACIST = "PHARMACIST";
 
     private final NotificationRepository notificationRepository;
 
@@ -31,6 +32,17 @@ public class NotificationServiceImpl implements NotificationService {
         notificationRepository.save(Notification.builder()
                 .message(message)
                 .targetRole(ROLE_RECEPTIONIST)
+                .relatedAppointmentId(relatedAppointmentId)
+                .isRead(false)
+                .build());
+    }
+
+    @Override
+    @Transactional
+    public void createForPharmacists(String message, Long relatedAppointmentId) {
+        notificationRepository.save(Notification.builder()
+                .message(message)
+                .targetRole(ROLE_PHARMACIST)
                 .relatedAppointmentId(relatedAppointmentId)
                 .isRead(false)
                 .build());

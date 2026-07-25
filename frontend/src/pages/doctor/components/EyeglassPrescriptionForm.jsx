@@ -4,7 +4,7 @@
  * Last Update: 2026-07-22
  */
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, InputNumber, Select, message, Spin, Tag, Descriptions } from 'antd';
+import { Form, Input, Button, InputNumber, Select, message, Spin, Tag, Descriptions, Popconfirm } from 'antd';
 import { eyeglassPrescriptionService } from '../../../services/eyeglassPrescriptionService';
 import axiosClient from '../../../api/axiosClient';
 
@@ -33,13 +33,16 @@ export default function EyeglassPrescriptionForm({ emr, isReadOnly, onPrescripti
     const [saving, setSaving] = useState(false);
     const [existingPrescriptions, setExistingPrescriptions] = useState([]);
     const [lensTypes, setLensTypes] = useState([]);
+    const [editPrescriptionId, setEditPrescriptionId] = useState(null);
     const activeEmrIdRef = React.useRef(emr?.id);
 
+    // Chức năng: Lấy danh sách các loại tròng kính từ hệ thống để bác sĩ chọn
     useEffect(() => {
         const fetchLensTypes = async () => {
             try {
-                const res = await axiosClient.get('/eyeglass-catalog/lens-types');
-                setLensTypes(res || []);
+                // Tương tác API: Lấy danh mục tròng kính
+                const res = await axiosClient.get('/v1/eyeglass-catalog/lens-types');
+                setLensTypes(res.data || []);
             } catch (error) {
                 console.error('Lỗi khi tải danh sách loại tròng kính', error);
             }
@@ -54,10 +57,12 @@ export default function EyeglassPrescriptionForm({ emr, isReadOnly, onPrescripti
         }
     }, [emr?.patientId, emr?.id]);
 
+    // Chức năng: Tải danh sách đơn kính đã được lưu cho bệnh án này (để hiển thị)
     const fetchExistingPrescriptions = async () => {
         try {
             const targetEmrId = activeEmrIdRef.current || emr?.id;
             if (!targetEmrId) return;
+            // Tương tác API: Lấy đơn kính theo bệnh nhân
             const res = await eyeglassPrescriptionService.getByPatient(emr.patientId);
             const currentPrescriptions = (res.data || []).filter(p => p.medicalRecordId === targetEmrId);
             setExistingPrescriptions(currentPrescriptions);
@@ -66,8 +71,10 @@ export default function EyeglassPrescriptionForm({ emr, isReadOnly, onPrescripti
         }
     };
 
+    // Chức năng: Xử lý lưu thông tin đo mắt và tròng kính thành một đơn kính mới
     const handleSave = async (values) => {
         let currentEmrId = activeEmrIdRef.current;
+        // Điều kiện: Bệnh án phải được lưu trước khi có thể kê đơn kính
         if (!currentEmrId) {
             if (onAutoSaveEMR) {
                 const savedEmr = await onAutoSaveEMR();
@@ -100,8 +107,14 @@ export default function EyeglassPrescriptionForm({ emr, isReadOnly, onPrescripti
 
         setSaving(true);
         try {
-            await eyeglassPrescriptionService.create(payload);
-            message.success('Kê đơn kính thành công');
+            if (editPrescriptionId) {
+                await eyeglassPrescriptionService.update(editPrescriptionId, payload);
+                message.success('Cập nhật đơn kính thành công');
+                setEditPrescriptionId(null);
+            } else {
+                await eyeglassPrescriptionService.create(payload);
+                message.success('Kê đơn kính thành công');
+            }
             fetchExistingPrescriptions();
             form.resetFields();
             if (onPrescriptionSaved) onPrescriptionSaved();
@@ -113,11 +126,25 @@ export default function EyeglassPrescriptionForm({ emr, isReadOnly, onPrescripti
         }
     };
 
+    const hasPendingPrescription = existingPrescriptions.some(p => p.status === 'ISSUED');
+    const isFormDisabled = isReadOnly || (hasPendingPrescription && !editPrescriptionId);
+
+    const handleDeletePrescription = async (id) => {
+        try {
+            await eyeglassPrescriptionService.delete(id);
+            message.success('Đã xóa đơn kính thành công');
+            fetchExistingPrescriptions();
+        } catch (error) {
+            const errMsg = error.response?.data?.message || 'Xóa thất bại';
+            message.error(errMsg);
+        }
+    };
+
     return (
         <div style={{ paddingTop: 12 }}>
-            <Form component={false} form={form} layout="vertical" onFinish={handleSave} disabled={isReadOnly}>
-                <EyeFields prefix="od" label="Mắt phải (OD)" isReadOnly={isReadOnly} />
-                <EyeFields prefix="os" label="Mắt trái (OS)" isReadOnly={isReadOnly} />
+            <Form component={false} form={form} layout="vertical" onFinish={handleSave} disabled={isFormDisabled}>
+                <EyeFields prefix="od" label="Mắt phải (OD)" isReadOnly={isFormDisabled} />
+                <EyeFields prefix="os" label="Mắt trái (OS)" isReadOnly={isFormDisabled} />
                 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
                     <Form.Item label="Khoảng cách đồng tử (PD)" name="pd" rules={[{ required: true, message: 'Nhập PD' }]}>
@@ -136,10 +163,18 @@ export default function EyeglassPrescriptionForm({ emr, isReadOnly, onPrescripti
                     <Input.TextArea rows={2} placeholder="Ghi chú thêm..." />
                 </Form.Item>
 
-                {!isReadOnly && (
+                {!isFormDisabled && (
                     <div style={{ textAlign: 'right' }}>
+                        {editPrescriptionId && (
+                            <Button style={{ marginRight: 8 }} onClick={() => {
+                                setEditPrescriptionId(null);
+                                form.resetFields();
+                            }}>
+                                Hủy sửa
+                            </Button>
+                        )}
                         <Button type="primary" onClick={() => form.submit()} loading={saving} style={{ backgroundColor: '#0d9488', borderColor: '#0d9488' }}>
-                            Phát đơn kính
+                            {editPrescriptionId ? 'Cập nhật đơn kính' : 'Phát đơn kính'}
                         </Button>
                     </div>
                 )}
@@ -151,8 +186,27 @@ export default function EyeglassPrescriptionForm({ emr, isReadOnly, onPrescripti
                     {existingPrescriptions.map((p, idx) => (
                         <div key={p.id} style={{ marginBottom: 16, padding: 16, backgroundColor: '#f8fafc', borderRadius: 8 }}>
                             <div style={{ fontWeight: 500, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
-                                <span>Đơn kính #{idx + 1} - Ngày kê: {new Date(p.createdAt).toLocaleString('vi-VN')}</span>
+                                <span>Đơn kính #{idx + 1} - Ngày kê: {new Date(p.createdAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
                                 <Tag color="blue">Kính thuốc</Tag>
+                                {p.status === 'ISSUED' && !isReadOnly && (
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <Button type="primary" size="small" onClick={() => {
+                                            setEditPrescriptionId(p.id);
+                                            form.setFieldsValue({
+                                                odSph: p.odSph, odCyl: p.odCyl, odAxis: p.odAxis, odAdd: p.odAdd,
+                                                osSph: p.osSph, osCyl: p.osCyl, osAxis: p.osAxis, osAdd: p.osAdd,
+                                                pd: p.pd, lensTypeId: p.lensTypeId, notes: p.notes
+                                            });
+                                            message.info('Đã tải dữ liệu đơn kính để chỉnh sửa');
+                                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                                        }}>
+                                            Sửa
+                                        </Button>
+                                        <Popconfirm title="Bạn có chắc chắn muốn xóa đơn kính này không?" onConfirm={() => handleDeletePrescription(p.id)} okText="Có" cancelText="Không">
+                                            <Button type="primary" danger size="small">Xóa đơn kính</Button>
+                                        </Popconfirm>
+                                    </div>
+                                )}
                             </div>
                             
                             <Descriptions bordered size="small" column={2}>

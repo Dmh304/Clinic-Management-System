@@ -14,12 +14,7 @@ import { Button, message, Tag, Spin, Row, Col, Divider, Card } from 'antd'
 import { eyeglassPrescriptionService } from '../../services/eyeglassPrescriptionService'
 import useConfirmAction from '../../hooks/useConfirmAction'
 
-// TẠM THỜI hard-code nhãn hiển thị lensType — xem ghi chú tương tự trong Queue.jsx
-const LENS_TYPE_LABEL = {
-  SINGLE_VISION: 'Tròng đơn tròng',
-  PROGRESSIVE: 'Tròng đa tròng',
-  SPECIALTY: 'Tròng chuyên dụng',
-}
+
 
 const STATUS_MAP = {
   PENDING:       { color: 'default',    label: 'Chờ gia công' },
@@ -97,7 +92,7 @@ export default function EyeglassPrescriptionDetail() {
       description: 'Đơn kính sẽ chuyển sang trạng thái "Sẵn sàng giao" để Dược sĩ/Lễ tân bàn giao cho bệnh nhân.',
       details: [
         { label: 'Bệnh nhân', value: prescription?.patientName ?? '—' },
-        { label: 'Loại tròng', value: LENS_TYPE_LABEL[prescription?.lensType] ?? prescription?.lensType ?? '—' },
+        { label: 'Loại tròng', value: prescription?.lensTypeName ?? '—' },
       ],
       confirmText: 'Hoàn tất gia công',
       onConfirm: executeComplete,
@@ -182,7 +177,7 @@ export default function EyeglassPrescriptionDetail() {
 
             <Row gutter={16}>
               <Col xs={24} sm={8}><ReadonlyField label="Khoảng cách đồng tử (PD)" value={prescription.pd} suffix="mm" /></Col>
-              <Col xs={24} sm={8}><ReadonlyField label="Loại tròng kính" value={LENS_TYPE_LABEL[prescription.lensType] ?? prescription.lensType} /></Col>
+              <Col xs={24} sm={8}><ReadonlyField label="Loại tròng kính" value={prescription.lensTypeName ?? '—'} /></Col>
             </Row>
 
             {prescription.notes && (

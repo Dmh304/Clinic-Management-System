@@ -4,12 +4,12 @@
  * Last Update: 2026-07-22
  */
 import React, { useState, useEffect, useRef } from 'react';
-import { Layout, Menu, Input, Button, List, Typography, Badge, Avatar, Tag } from 'antd';
+import { Layout, Menu, Input, Button, List, Typography, Badge, Avatar, Tag, Tabs } from 'antd';
 import { SendOutlined, UserOutlined } from '@ant-design/icons';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { useSelector } from 'react-redux';
-import axios from 'axios';
+import axiosClient from '../../api/axiosClient';
 
 const { Sider, Content } = Layout;
 const { Text } = Typography;
@@ -22,6 +22,7 @@ export default function SupportDashboardPage() {
     const [inputStr, setInputStr] = useState('');
     const [stompClient, setStompClient] = useState(null);
     const [isConnected, setIsConnected] = useState(false);
+    const [activeTab, setActiveTab] = useState('all');
     const messagesEndRef = useRef(null);
 
     useEffect(() => {
@@ -42,11 +43,11 @@ export default function SupportDashboardPage() {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages, activeSession]);
 
+    // Chức năng: Lấy danh sách toàn bộ các phiên chat của bệnh nhân
     const fetchSessions = async () => {
         try {
-            const res = await axios.get('http://localhost:8080/api/chat/sessions', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            // Tương tác API: Lấy các session chat hiện có
+            const res = await axiosClient.get('/v1/chat/sessions');
             setSessions(res.data);
             // Cập nhật lại activeSession nếu dữ liệu mới có thay đổi về assignedTo
             setActiveSession(prev => {
@@ -58,20 +59,23 @@ export default function SupportDashboardPage() {
         }
     };
 
+    // Chức năng: Lấy chi tiết lịch sử tin nhắn của một phiên chat cụ thể
     const fetchMessages = async (sessionId) => {
-        if (messages[sessionId]) return;
+        // Điều kiện: Nếu đã tải tin nhắn cho session này rồi thì bỏ qua
+        // Nhưng nếu session đó có unread, ta vẫn nên gọi lại để server mark as read và lấy tin nhắn mới
         try {
-            const res = await axios.get(`http://localhost:8080/api/chat/sessions/${sessionId}/messages`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await axiosClient.get(`/v1/chat/sessions/${sessionId}/messages`);
             setMessages(prev => ({ ...prev, [sessionId]: res.data }));
+            // Đánh dấu ở FE là đã đọc luôn để update UI
+            setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, hasUnread: false } : s));
         } catch (error) {
             console.error('Failed to fetch messages', error);
         }
     };
 
+    // Chức năng: Kết nối Web Socket qua SockJS & STOMP để nhận tin nhắn real-time
     const connectWebSocket = () => {
-        const socket = new SockJS('http://localhost:8080/ws');
+        const socket = new SockJS('/ws');
         const client = new Client({
             webSocketFactory: () => socket,
             connectHeaders: { Authorization: `Bearer ${token}` },
@@ -128,9 +132,7 @@ export default function SupportDashboardPage() {
 
     const assignSession = async (sessionId) => {
         try {
-            await axios.patch(`http://localhost:8080/api/chat/sessions/${sessionId}/assign`, {}, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            await axiosClient.patch(`/v1/chat/sessions/${sessionId}/assign`);
             fetchSessions();
         } catch (error) {
             console.error('Lỗi khi phân công', error);
@@ -140,12 +142,23 @@ export default function SupportDashboardPage() {
     return (
         <Layout style={{ height: 'calc(100vh - 64px)', background: '#fff' }}>
             <Sider width={350} style={{ background: '#fafafa', borderRight: '1px solid #f0f0f0' }}>
-                <div style={{ padding: '16px', borderBottom: '1px solid #f0f0f0', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    <div style={{ fontWeight: 'bold', fontSize: '16px' }}>Phiên hỗ trợ trực tuyến ({sessions.length})</div>
+                <div style={{ padding: '16px', borderBottom: '1px solid #f0f0f0', fontWeight: 'bold', fontSize: 16 }}>
+                    Phiên hỗ trợ trực tuyến ({sessions.length})
                 </div>
+                
+                <Tabs 
+                    activeKey={activeTab} 
+                    onChange={setActiveTab} 
+                    style={{ padding: '0 16px' }}
+                    items={[
+                        { key: 'all', label: 'Tất cả' },
+                        { key: 'unread', label: `Chưa đọc (${sessions.filter(s => s.hasUnread).length})` }
+                    ]}
+                />
+
                 <List
-                    itemLayout="horizontal"
-                    dataSource={sessions}
+                    style={{ flex: 1, overflowY: 'auto' }}
+                    dataSource={sessions.filter(s => activeTab === 'all' || (activeTab === 'unread' && s.hasUnread))}
                     renderItem={session => (
                         <List.Item
                             onClick={() => setActiveSession(session)}
@@ -168,8 +181,11 @@ export default function SupportDashboardPage() {
                                         ) : (
                                             <Tag color="warning">Chưa phân công</Tag>
                                         )}
+                                        {session.hasUnread && (
+                                            <Badge status="processing" text="Có tin nhắn mới" style={{ marginLeft: 4 }} />
+                                        )}
                                         <div style={{ marginTop: 4 }}>
-                                            Cập nhật: {new Date(session.updatedAt).toLocaleTimeString()}
+                                            Cập nhật: {new Date(session.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </div>
                                     </div>
                                 }

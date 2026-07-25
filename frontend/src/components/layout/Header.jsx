@@ -438,7 +438,7 @@ export default function Header() {
                 </button>
               )}
               {/* UC-13: chuông thông báo (badge số chưa đọc) */}
-              <NotificationBell viewAllPath={user?.role === 'RECEPTIONIST' ? '/receptionist/notifications' : undefined} />
+              <NotificationBell viewAllPath={user?.role === 'RECEPTIONIST' ? '/receptionist/notifications' : (user?.role === 'PHARMACIST' ? '/pharmacy/notifications' : undefined)} />
               {user?.role === 'ADMIN' && (
                 <button
                   onClick={() => navigate('/admin/dashboard')}

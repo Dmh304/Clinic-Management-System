@@ -107,6 +107,8 @@ export default function NotificationBell({ viewAllPath, iconColor = '#64748b', a
         // nhân viên mở modal chi tiết lịch hẹn.
         if (isPatient) {
           navigate(`/patient/appointments?highlight=${n.relatedAppointmentId}`)
+        } else if (user?.role === 'PHARMACIST') {
+          navigate('/pharmacy/dispensing')
         } else {
           const res = await appointmentService.getById(n.relatedAppointmentId)
           setDetail(res.data)

@@ -26,6 +26,7 @@ export default function PrescriptionViewPage() {
         }
     }, [patientId]);
 
+    // Chức năng: Gọi API lấy cả danh sách đơn thuốc và đơn kính của bệnh nhân cùng lúc
     const fetchData = async () => {
         setLoading(true);
         try {
@@ -42,7 +43,9 @@ export default function PrescriptionViewPage() {
         }
     };
 
+    // Chức năng: Tải và hiển thị bản in PDF của đơn thuốc hoặc đơn kính
     const handlePrint = async (id, type) => {
+        // Điều kiện: Nếu là đơn thuốc (drug), gọi API tải PDF do backend sinh ra
         if (type === 'drug') {
             try {
                 const response = await prescriptionService.downloadPdf(id, true);
@@ -57,6 +60,7 @@ export default function PrescriptionViewPage() {
                 message.error('Không thể tải file đơn thuốc');
             }
         } else {
+            // Điều kiện: Nếu là đơn kính, dùng tính năng in HTML của trình duyệt (browser print)
             const printContent = document.getElementById(`print-area-${type}-${id}`);
             const originalContents = document.body.innerHTML;
 
@@ -205,7 +209,7 @@ export default function PrescriptionViewPage() {
                                                     </table>
 
                                                     <p><strong>Khoảng cách đồng tử (PD):</strong> {p.pd} mm</p>
-                                                    <p><strong>Loại tròng:</strong> {p.lensType}</p>
+                                                    <p><strong>Loại tròng:</strong> {p.lensTypeName}</p>
                                                     {p.notes && <p><strong>Ghi chú:</strong> {p.notes}</p>}
 
                                                     <div className="print-footer" style={{ display: 'none', marginTop: 40, textAlign: 'right' }}>

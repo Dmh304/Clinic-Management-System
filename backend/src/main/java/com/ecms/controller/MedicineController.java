@@ -1,8 +1,7 @@
 //Author: DucTKH - HE204463
 //Created: 2026-06-22
-//Last Update: 2026-07-23
-
-// Controller quản lý danh mục Thuốc, cung cấp endpoint tìm kiếm thuốc phục vụ cho Bác sĩ kê đơn (UC-29) và Dược sĩ.
+//Last Update: 2026-07-26
+//Controller quản lý danh mục Thuốc, cung cấp endpoint tìm kiếm thuốc phục vụ cho Bác sĩ kê đơn (UC-29) và Dược sĩ.
 package com.ecms.controller;
 
 import com.ecms.dto.response.ApiResponse;

@@ -31,24 +31,28 @@ export default function OrderGlassesPage() {
         fetchData();
     }, [prescriptionId]);
 
+    // Chức năng: Lấy thông tin chi tiết đơn kính và danh mục (gọng, lớp phủ) từ API
     const fetchData = async () => {
         setLoading(true);
         try {
-            // Fetch prescription details
+            // Tương tác API: Fetch prescription details
             const pRes = await axiosClient.get(`/v1/eyeglass-prescriptions/${prescriptionId}`);
             const isReceptionist = user && user.role === 'RECEPTIONIST';
             const fallbackRoute = isReceptionist ? '/receptionist/eyeglass-orders' : '/patient/history';
 
+            // Điều kiện: Chặn thao tác nếu đơn kính đã hết hạn
             if (pRes.data.isExpired) {
                 message.error('Toa kính này đã hết hạn, vui lòng khám để đo lại mắt!');
                 navigate(fallbackRoute);
                 return;
             }
+            // Điều kiện: Chặn nếu có toa kính mới hơn
             if (pRes.data.hasNewer) {
                 message.error('Bạn đã có toa kính mới hơn, không thể dùng toa cũ!');
                 navigate(fallbackRoute);
                 return;
             }
+            // Điều kiện: Chặn nếu đơn kính đã được đặt (chỉ lễ tân mới được vào xem lại)
             if (pRes.data.isOrdered && !isReceptionist) {
                 message.error('Toa kính này đã được sử dụng để đặt kính!');
                 navigate(fallbackRoute);
@@ -56,12 +60,12 @@ export default function OrderGlassesPage() {
             }
             setPrescription(pRes.data);
 
-            // Fetch frames and coatings
-            const fRes = await axiosClient.get('/eyeglass-catalog/frames');
-            setFrames(fRes.filter(f => f.status === 'ACTIVE'));
+            // Tương tác API: Fetch frames and coatings
+            const fRes = await axiosClient.get('/v1/eyeglass-catalog/frames');
+            setFrames(fRes.data.filter(f => f.status === 'ACTIVE'));
 
-            const cRes = await axiosClient.get('/eyeglass-catalog/coatings');
-            setCoatings(cRes);
+            const cRes = await axiosClient.get('/v1/eyeglass-catalog/coatings');
+            setCoatings(cRes.data);
             
         } catch (error) {
             message.error('Lỗi khi tải thông tin đơn kính hoặc danh mục');
@@ -70,12 +74,14 @@ export default function OrderGlassesPage() {
         }
     };
 
+    // Chức năng: Tính toán lại tổng tiền dựa trên tròng kính, gọng và các lớp phủ
     const calculateTotal = (frameId, coatingIds, lensPrice) => {
         let total = lensPrice || 0;
         
         const frame = frames.find(f => f.id === frameId);
         if (frame) total += frame.price;
 
+        // Vòng lặp: Duyệt qua danh sách lớp phủ để cộng dồn tiền
         coatingIds?.forEach(id => {
             const coating = coatings.find(c => c.id === id);
             if (coating) total += coating.price;
@@ -93,10 +99,12 @@ export default function OrderGlassesPage() {
         setSelectedCoatings(selectedC);
     };
 
+    // Chức năng: Gửi yêu cầu đặt kính mới lên server (UC-42)
     const handleSubmit = async (values) => {
         setLoading(true);
         try {
-            await axiosClient.post('/eyeglass-orders', {
+            // Tương tác API: Gửi thông tin đơn đặt kính
+            await axiosClient.post('/v1/eyeglass-orders', {
                 prescriptionId: parseInt(prescriptionId),
                 frameId: values.frameId,
                 coatingIds: values.coatingIds || []
@@ -236,7 +244,10 @@ export default function OrderGlassesPage() {
                     </div>
 
                     <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
-                        <Button onClick={() => navigate('/patient/prescriptions')} style={{ marginRight: 12 }}>
+                        <Button onClick={() => {
+                            const isRec = user && user.role === 'RECEPTIONIST';
+                            navigate(isRec ? '/receptionist/eyeglass-orders' : '/patient/history');
+                        }} style={{ marginRight: 12 }}>
                             Hủy bỏ
                         </Button>
                         <Button type="primary" htmlType="submit" size="large" icon={<CheckCircleOutlined />} loading={loading}>

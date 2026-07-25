@@ -12,13 +12,7 @@ import { useSelector } from 'react-redux'
 import { Button, message, Tag, Spin, Input, Result, Pagination } from 'antd'
 import { eyeglassPrescriptionService } from '../../services/eyeglassPrescriptionService'
 
-// TẠM THỜI hard-code nhãn hiển thị lensType (enum thật trong DB: SINGLE_VISION / PROGRESSIVE / SPECIALTY)
-// Sửa lại chỗ này nếu sau này đổi giá trị enum trong entity/database
-const LENS_TYPE_LABEL = {
-  SINGLE_VISION: 'Tròng đơn tròng',
-  PROGRESSIVE: 'Tròng đa tròng',
-  SPECIALTY: 'Tròng chuyên dụng',
-}
+
 
 const PRESCRIPTION_STATUS_MAP = {
   PENDING:       { color: 'default',    label: 'Chờ gia công' },
@@ -224,7 +218,7 @@ export default function EyeglassPrescriptionQueue() {
                         <div title={p.doctorName ?? '—'} style={textEllipsisStyle}>{p.doctorName ?? '—'}</div>
                       </td>
                       <td style={{ padding: '12px 16px', fontSize: 13, color: '#475569' }}>
-                        {LENS_TYPE_LABEL[p.lensType] ?? p.lensType ?? '—'}
+                        {p.lensTypeName ?? '—'}
                       </td>
                       <td style={{ padding: '12px 16px' }}>
                         <Tag color={PRESCRIPTION_STATUS_MAP[p.status]?.color ?? 'default'}>

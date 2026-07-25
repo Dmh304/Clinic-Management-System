@@ -4,8 +4,18 @@
 // Màn hình quản lý Cấp phát thuốc dành cho Dược sĩ.
 // Cho phép xem danh sách đơn thuốc chờ phát, xem chi tiết và xác nhận phát thuốc.
 import React, { useState, useEffect } from 'react';
-import { Table, Button, message, Modal, Tag, Spin, Space, Popconfirm, InputNumber, Tabs } from 'antd';
+import { Table, Button, message, Modal, Tag, Spin, Space, Popconfirm, InputNumber, Tabs, Typography, Row, Col, Card, Statistic, Input, Select } from 'antd';
+import { SearchOutlined } from '@ant-design/icons';
 import { prescriptionService } from '../../services/prescriptionService';
+import { useSelector } from 'react-redux';
+
+const { Title, Text } = Typography;
+
+const PRESCRIPTION_STATUS_MAP = {
+    PENDING: { color: 'orange', label: 'Chờ phát' },
+    DISPENSED: { color: 'success', label: 'Đã phát' },
+    SKIPPED: { color: 'error', label: 'Đã hủy / Bỏ qua' }
+};
 
 export default function DispensingPage() {
     const [prescriptions, setPrescriptions] = useState([]);
@@ -14,6 +24,9 @@ export default function DispensingPage() {
     const [editableItems, setEditableItems] = useState([]);
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
+
+    const [searchText, setSearchText] = useState('');
+    const [statusFilter, setStatusFilter] = useState('ALL');
 
     useEffect(() => {
         fetchPendingPrescriptions();
@@ -25,10 +38,11 @@ export default function DispensingPage() {
         }
     }, [selectedPrescription]);
 
+    // Chức năng: Lấy danh sách toàn bộ các đơn thuốc đang chờ phát (PENDING)
     async function fetchPendingPrescriptions() {
         setLoading(true);
         try {
-            const res = await prescriptionService.getPending();
+            const res = await prescriptionService.getAll();
             setPrescriptions(res.data || []);
         } catch (error) {
             message.error('Lỗi khi tải danh sách đơn thuốc');
@@ -60,6 +74,7 @@ export default function DispensingPage() {
         }
     };
 
+    // Chức năng: Đánh dấu hủy / bỏ qua đơn thuốc không phát (SKIPPED)
     const handleSkip = async (id) => {
         setActionLoading(true);
         try {
@@ -74,6 +89,7 @@ export default function DispensingPage() {
         }
     };
 
+    // Chức năng: Tải và in file PDF của đơn thuốc
     const handlePrintPrescription = async (prescriptionId) => {
         if (!prescriptionId) {
             message.warning('Không tìm thấy ID đơn thuốc!');
@@ -96,6 +112,7 @@ export default function DispensingPage() {
         }
     };
 
+    // Chức năng: Cập nhật số lượng thuốc thực tế khi phát và tính lại thành tiền
     const handleQuantityChange = (index, newVal) => {
         const newItems = [...editableItems];
         newItems[index].quantity = newVal || 0;
@@ -115,7 +132,12 @@ export default function DispensingPage() {
             title: 'Bệnh nhân',
             dataIndex: 'patientName',
             key: 'patientName',
-            render: (text) => <span style={{ fontWeight: 600 }}>{text}</span>
+            render: (text, record) => (
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontWeight: 600 }}>{text}</span>
+                    {record.patientPhone && <span style={{ fontSize: '12px', color: '#64748b' }}>{record.patientPhone}</span>}
+                </div>
+            )
         },
         {
             title: 'Bác sĩ kê đơn',
@@ -126,17 +148,16 @@ export default function DispensingPage() {
             title: 'Ngày kê',
             dataIndex: 'createdAt',
             key: 'createdAt',
-            render: (val) => new Date(val).toLocaleString('vi-VN')
+            render: (val) => new Date(val).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })
         },
         {
             title: 'Trạng thái',
             dataIndex: 'status',
             key: 'status',
-            render: (status) => (
-                <Tag color={status === 'PENDING' ? 'processing' : 'default'}>
-                    {status === 'PENDING' ? 'Chờ phát' : status}
-                </Tag>
-            )
+            render: (status) => {
+                const info = PRESCRIPTION_STATUS_MAP[status] || { color: 'default', label: status };
+                return <Tag color={info.color}>{info.label}</Tag>;
+            }
         },
         {
             title: 'Hành động',
@@ -165,6 +186,7 @@ export default function DispensingPage() {
                     min={0}
                     value={val}
                     onChange={(newVal) => handleQuantityChange(index, newVal)}
+                    disabled={selectedPrescription?.status !== 'PENDING'}
                 />
             )
         },
@@ -173,22 +195,70 @@ export default function DispensingPage() {
         { title: 'Cách dùng', render: (_, record) => [record.dosage, record.frequency, record.instructions].filter(v => v && v !== '-').join('. ') },
     ];
 
+    // Chức năng: Lọc danh sách đơn thuốc theo từ khóa tìm kiếm (Mã, Tên BN, SĐT) và trạng thái
+    const filteredPrescriptions = prescriptions.filter(p => {
+        const matchSearch = p.patientName?.toLowerCase().includes(searchText.toLowerCase()) ||
+            p.id?.toString().includes(searchText) ||
+            p.patientPhone?.includes(searchText);
+        const matchStatus = statusFilter === 'ALL' || p.status === statusFilter;
+        return matchSearch && matchStatus;
+    });
+
     return (
-        <div style={{ padding: 24, maxWidth: 1200, margin: '0 auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <h2 style={{ margin: 0, fontSize: 24, fontWeight: 700, color: '#0f172a' }}>Danh sách đơn thuốc chờ phát</h2>
+        <div style={{ padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                <Title level={2} style={{ margin: 0 }}>Danh sách đơn thuốc chờ phát</Title>
                 <Button onClick={fetchPendingPrescriptions} loading={loading}>Tải lại</Button>
             </div>
 
-            <div style={{ backgroundColor: '#fff', padding: 24, borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                <Table
-                    columns={columns}
-                    dataSource={prescriptions}
-                    rowKey="id"
-                    loading={loading}
-                    pagination={{ pageSize: 10 }}
-                />
-            </div>
+            {/* Summary Cards */}
+            <Row gutter={12} style={{ marginBottom: 24 }}>
+                {[
+                    { label: 'Tổng', value: prescriptions.length, color: '#6366f1' },
+                    { label: 'Chờ phát', value: prescriptions.filter(o => o.status === 'PENDING').length, color: '#f59e0b' },
+                    { label: 'Đã phát', value: prescriptions.filter(o => o.status === 'DISPENSED').length, color: '#10b981' },
+                    { label: 'Đã hủy', value: prescriptions.filter(o => o.status === 'SKIPPED').length, color: '#ef4444' },
+                ].map(({ label, value, color }) => (
+                    <Col key={label} flex="1">
+                        <Card size="small" style={{ textAlign: 'center', borderTop: `3px solid ${color}` }}>
+                            <Statistic
+                                title={<span style={{ fontSize: 11 }}>{label}</span>}
+                                value={value}
+                                valueStyle={{ fontSize: 20, color }}
+                            />
+                        </Card>
+                    </Col>
+                ))}
+            </Row>
+
+            {/* Filters */}
+            <Card style={{ marginBottom: 24 }}>
+                <div style={{ display: 'flex', gap: 16 }}>
+                    <Input
+                        placeholder="Tìm theo Mã ĐT, Tên hoặc SĐT..."
+                        prefix={<SearchOutlined />}
+                        value={searchText}
+                        onChange={e => setSearchText(e.target.value)}
+                        style={{ width: 300 }}
+                        allowClear
+                    />
+                    <Select value={statusFilter} onChange={setStatusFilter} style={{ width: 200 }}>
+                        <Select.Option value="ALL">Tất cả trạng thái</Select.Option>
+                        {Object.entries(PRESCRIPTION_STATUS_MAP).map(([key, { label }]) => (
+                            <Select.Option key={key} value={key}>{label}</Select.Option>
+                        ))}
+                    </Select>
+                </div>
+            </Card>
+
+            <Table
+                columns={columns}
+                dataSource={filteredPrescriptions}
+                rowKey="id"
+                loading={loading}
+                pagination={{ pageSize: 10 }}
+                style={{ backgroundColor: '#fff', borderRadius: '8px' }}
+            />
 
             <Modal
                 title={`Chi tiết đơn thuốc DT-${selectedPrescription?.id}`}
@@ -204,20 +274,24 @@ export default function DispensingPage() {
                     >
                         Xuất file đơn thuốc
                     </Button>,
-                    <Popconfirm
-                        key="skip"
-                        title="Xác nhận khách không mua thuốc?"
-                        onConfirm={() => handleSkip(selectedPrescription?.id)}
-                    >
-                        <Button danger loading={actionLoading}>Khách không mua</Button>
-                    </Popconfirm>,
-                    <Popconfirm
-                        key="dispense"
-                        title="Xác nhận đã phát đủ thuốc theo đơn?"
-                        onConfirm={() => handleDispense(selectedPrescription?.id)}
-                    >
-                        <Button type="primary" style={{ backgroundColor: '#059669' }} loading={actionLoading}>Đã phát xong</Button>
-                    </Popconfirm>
+                    selectedPrescription?.status === 'PENDING' && (
+                        <Popconfirm
+                            key="skip"
+                            title="Xác nhận khách không mua thuốc?"
+                            onConfirm={() => handleSkip(selectedPrescription?.id)}
+                        >
+                            <Button danger loading={actionLoading}>Khách không mua</Button>
+                        </Popconfirm>
+                    ),
+                    selectedPrescription?.status === 'PENDING' && (
+                        <Popconfirm
+                            key="dispense"
+                            title="Xác nhận đã phát đủ thuốc theo đơn?"
+                            onConfirm={() => handleDispense(selectedPrescription?.id)}
+                        >
+                            <Button type="primary" style={{ backgroundColor: '#059669' }} loading={actionLoading}>Đã phát xong</Button>
+                        </Popconfirm>
+                    )
                 ]}
             >
                 {selectedPrescription?.notes && (
@@ -235,7 +309,7 @@ export default function DispensingPage() {
                 />
 
                 <div style={{ marginTop: 16, textAlign: 'right', fontSize: 18, fontWeight: 'bold', color: '#1677ff' }}>
-                    Tổng tiền dự kiến: {editableItems.reduce((sum, item) => sum + ((item.quantity || 0) * (item.unitPrice || 0)), 0).toLocaleString('vi-VN')} VNĐ
+                    Tổng tiền: {editableItems.reduce((sum, item) => sum + ((item.quantity || 0) * (item.unitPrice || 0)), 0).toLocaleString('vi-VN')} VNĐ
                 </div>
             </Modal>
         </div>
