@@ -1,11 +1,9 @@
-//Author: DucTKH - HE204463
-//Created: 2026-06-01
-//Last Update: 2026-07-21
+// DucTKH
 // Repository cho Entity Prescription, truy vấn dữ liệu đơn thuốc.
 package com.ecms.repository;
 
 import com.ecms.entity.Prescription;
-//import com.ecms.entity.PrescriptionStatus;
+import com.ecms.entity.PrescriptionStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

@@ -40,11 +40,14 @@ import java.util.Map;
 /**
  * UC-49/50/51/52/53: Tổng hợp báo cáo & phân tích cho Quản lý.
  *
- * Cách tiếp cận: nạp dữ liệu theo khoảng thời gian rồi tổng hợp trong Java (quy mô
+ * Cách tiếp cận: nạp dữ liệu theo khoảng thời gian rồi tổng hợp trong Java (quy
+ * mô
  * phòng khám nhỏ nên chấp nhận được), tránh native query phụ thuộc dialect.
  *
- * Lưu ý trung thực: thời gian khám trung bình và tỉ lệ đúng giờ (UC-52) hiện KHÔNG
- * tính được vì hệ thống chưa lưu mốc bắt đầu/kết thúc buổi khám — các trường này để
+ * Lưu ý trung thực: thời gian khám trung bình và tỉ lệ đúng giờ (UC-52) hiện
+ * KHÔNG
+ * tính được vì hệ thống chưa lưu mốc bắt đầu/kết thúc buổi khám — các trường
+ * này để
  * null thay vì bịa số.
  */
 @Service
@@ -70,17 +73,22 @@ public class ReportServiceImpl implements ReportService {
         long total = appointmentRepository.countByDate(start, end);
         long completed = appointmentRepository.countByDateAndStatus(start, end, AppointmentStatus.COMPLETED);
 
-        // Hàng đợi hôm nay theo từng bác sĩ: số đang chờ (WAITING) + đang khám (IN_PROGRESS)
-        Map<Long, long[]> agg = new LinkedHashMap<>();      // doctorId -> [waiting, inProgress]
+        // Hàng đợi hôm nay theo từng bác sĩ: số đang chờ (WAITING) + đang khám
+        // (IN_PROGRESS)
+        Map<Long, long[]> agg = new LinkedHashMap<>(); // doctorId -> [waiting, inProgress]
         Map<Long, Doctor> doctorMap = new LinkedHashMap<>();
         long waitingTotal = 0;
         for (Appointment a : appointmentRepository.findByAppointmentTimeBetween(start, end)) {
             Doctor doc = a.getDoctor();
-            if (doc == null) continue;
+            if (doc == null)
+                continue;
             doctorMap.putIfAbsent(doc.getId(), doc);
             long[] c = agg.computeIfAbsent(doc.getId(), k -> new long[2]);
-            if (a.getStatus() == AppointmentStatus.WAITING) { c[0]++; waitingTotal++; }
-            else if (a.getStatus() == AppointmentStatus.IN_PROGRESS) c[1]++;
+            if (a.getStatus() == AppointmentStatus.WAITING) {
+                c[0]++;
+                waitingTotal++;
+            } else if (a.getStatus() == AppointmentStatus.IN_PROGRESS)
+                c[1]++;
         }
         List<Map<String, Object>> doctorQueue = new ArrayList<>();
         for (Map.Entry<Long, Doctor> e : doctorMap.entrySet()) {
@@ -149,7 +157,8 @@ public class ReportServiceImpl implements ReportService {
             byMethod.merge(method, amount, BigDecimal::add);
 
             String doctorName = (i.getAppointment() != null && i.getAppointment().getDoctor() != null)
-                    ? i.getAppointment().getDoctor().getFullName() : "—";
+                    ? i.getAppointment().getDoctor().getFullName()
+                    : "—";
             byDoctor.merge(doctorName, amount, BigDecimal::add);
         }
 
@@ -170,7 +179,8 @@ public class ReportServiceImpl implements ReportService {
                     Map<String, Object> row = new LinkedHashMap<>();
                     row.put("code", i.getInvoiceCode());
                     row.put("doctorName", (i.getAppointment() != null && i.getAppointment().getDoctor() != null)
-                            ? i.getAppointment().getDoctor().getFullName() : "—");
+                            ? i.getAppointment().getDoctor().getFullName()
+                            : "—");
                     row.put("paymentMethod", i.getPaymentMethod());
                     row.put("amount", nz(i.getTotalAmount()));
                     return row;
@@ -182,7 +192,8 @@ public class ReportServiceImpl implements ReportService {
         long[] monthly = new long[13]; // 1..12
         for (Invoice i : invoiceRepository.findByPaymentStatusAndPaidAtBetween(
                 "PAID", LocalDate.of(year, 1, 1).atStartOfDay(), LocalDate.of(year, 12, 31).atTime(LocalTime.MAX))) {
-            if (i.getPaidAt() != null) monthly[i.getPaidAt().getMonthValue()] += nz(i.getTotalAmount()).longValue();
+            if (i.getPaidAt() != null)
+                monthly[i.getPaidAt().getMonthValue()] += nz(i.getTotalAmount()).longValue();
         }
         List<Map<String, Object>> monthlyTrend = new ArrayList<>();
         for (int mth = 1; mth <= upToMonth; mth++) {
@@ -214,7 +225,10 @@ public class ReportServiceImpl implements ReportService {
         String bestName = null;
         BigDecimal best = BigDecimal.valueOf(-1);
         for (Map.Entry<String, BigDecimal> e : m.entrySet()) {
-            if (nz(e.getValue()).compareTo(best) > 0) { best = nz(e.getValue()); bestName = e.getKey(); }
+            if (nz(e.getValue()).compareTo(best) > 0) {
+                best = nz(e.getValue());
+                bestName = e.getKey();
+            }
         }
         Map<String, Object> r = new LinkedHashMap<>();
         r.put("name", bestName);
@@ -250,8 +264,10 @@ public class ReportServiceImpl implements ReportService {
         long returningPatients = 0;
         for (Patient p : distinctPatients.values()) {
             boolean isNew = p.getCreatedAt() != null && !p.getCreatedAt().isBefore(start);
-            if (isNew) newPatients++;
-            else returningPatients++;
+            if (isNew)
+                newPatients++;
+            else
+                returningPatients++;
         }
 
         // Top 5 chẩn đoán theo hồ sơ bệnh án tạo trong kỳ
@@ -302,13 +318,15 @@ public class ReportServiceImpl implements ReportService {
         Map<Long, Long> seenByDoctor = new LinkedHashMap<>();
         Map<Long, long[]> onTimeByDoctor = new LinkedHashMap<>(); // [đúng giờ, tổng có check-in]
         for (Appointment a : appts) {
-            if (a.getStatus() != AppointmentStatus.COMPLETED || a.getDoctor() == null) continue;
+            if (a.getStatus() != AppointmentStatus.COMPLETED || a.getDoctor() == null)
+                continue;
             Long did = a.getDoctor().getId();
             seenByDoctor.merge(did, 1L, Long::sum);
             if (a.getCheckInTime() != null && a.getAppointmentTime() != null) {
                 long[] agg = onTimeByDoctor.computeIfAbsent(did, k -> new long[2]);
                 agg[1] += 1;
-                if (!a.getCheckInTime().isAfter(a.getAppointmentTime())) agg[0] += 1;
+                if (!a.getCheckInTime().isAfter(a.getAppointmentTime()))
+                    agg[0] += 1;
             }
         }
 
@@ -320,15 +338,20 @@ public class ReportServiceImpl implements ReportService {
             }
         }
 
-        // Thời gian khám trung bình theo bác sĩ = trung bình (lockedAt − createdAt) của các
-        // bệnh án đã hoàn tất trong kỳ (lockedAt là mốc bác sĩ khóa hồ sơ khi kết thúc khám).
+        // Thời gian khám trung bình theo bác sĩ = trung bình (lockedAt − createdAt) của
+        // các
+        // bệnh án đã hoàn tất trong kỳ (lockedAt là mốc bác sĩ khóa hồ sơ khi kết thúc
+        // khám).
         Map<Long, long[]> durByDoctor = new LinkedHashMap<>(); // [tổng phút, số ca]
         for (MedicalRecord mr : records) {
-            if (mr.getStatus() != MedicalRecordStatus.COMPLETED || mr.getDoctor() == null) continue;
+            if (mr.getStatus() != MedicalRecordStatus.COMPLETED || mr.getDoctor() == null)
+                continue;
             LocalDateTime endTs = mr.getLockedAt() != null ? mr.getLockedAt() : mr.getUpdatedAt();
-            if (mr.getCreatedAt() == null || endTs == null) continue;
+            if (mr.getCreatedAt() == null || endTs == null)
+                continue;
             long minutes = Duration.between(mr.getCreatedAt(), endTs).toMinutes();
-            if (minutes < 0) continue;
+            if (minutes < 0)
+                continue;
             long[] agg = durByDoctor.computeIfAbsent(mr.getDoctor().getId(), k -> new long[2]);
             agg[0] += minutes;
             agg[1] += 1;
@@ -344,11 +367,13 @@ public class ReportServiceImpl implements ReportService {
 
             long[] dur = durByDoctor.get(d.getId());
             row.put("avgConsultationMinutes", dur != null && dur[1] > 0
-                    ? Math.round((double) dur[0] / dur[1]) : null);
+                    ? Math.round((double) dur[0] / dur[1])
+                    : null);
 
             long[] ot = onTimeByDoctor.get(d.getId());
             row.put("onTimeRate", ot != null && ot[1] > 0
-                    ? (double) ot[0] / ot[1] : null);
+                    ? (double) ot[0] / ot[1]
+                    : null);
 
             result.add(row);
         }
@@ -407,7 +432,8 @@ public class ReportServiceImpl implements ReportService {
         return v != null ? v : BigDecimal.ZERO;
     }
 
-    // ─────────────────────────── Xuất Excel (CSV UTF-8) ───────────────────────────
+    // ─────────────────────────── Xuất Excel (CSV UTF-8)
+    // ───────────────────────────
 
     @Override
     @Transactional(readOnly = true)
@@ -436,7 +462,8 @@ public class ReportServiceImpl implements ReportService {
     @Override
     @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
-    public void exportPatientStatisticsCsv(LocalDate from, LocalDate to, HttpServletResponse response) throws IOException {
+    public void exportPatientStatisticsCsv(LocalDate from, LocalDate to, HttpServletResponse response)
+            throws IOException {
         Map<String, Object> r = patientStatistics(from, to);
         List<String[]> rows = new ArrayList<>();
         rows.add(new String[] { "Thong ke benh nhan", from + " -> " + to });
@@ -488,7 +515,8 @@ public class ReportServiceImpl implements ReportService {
         for (String[] row : rows) {
             StringBuilder sb = new StringBuilder();
             for (int i = 0; i < row.length; i++) {
-                if (i > 0) sb.append(',');
+                if (i > 0)
+                    sb.append(',');
                 sb.append(csvCell(row[i]));
             }
             sb.append("\r\n");
@@ -498,7 +526,8 @@ public class ReportServiceImpl implements ReportService {
     }
 
     private String csvCell(String v) {
-        if (v == null) return "";
+        if (v == null)
+            return "";
         String s = v.replace("\"", "\"\"");
         if (s.contains(",") || s.contains("\"") || s.contains("\n") || s.contains("\r")) {
             s = "\"" + s + "\"";

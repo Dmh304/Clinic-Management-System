@@ -36,6 +36,7 @@ import com.ecms.entity.LabOrder;
 import com.ecms.entity.LabOrderStatus;
 import com.ecms.entity.LabResult;
 import com.ecms.entity.MedicalRecord;
+import com.ecms.repository.ClinicServiceRepository;
 import com.ecms.repository.DoctorRepository;
 import com.ecms.repository.LabOrderRepository;
 import com.ecms.repository.LabResultRepository;
@@ -55,6 +56,7 @@ public class LabOrderServiceImpl implements LabOrderService {
     private final MedicalRecordRepository medicalRecordRepository;
     private final DoctorRepository doctorRepository;
     private final LabTechnicianRepository labTechnicianRepository;
+    private final ClinicServiceRepository clinicServiceRepository;
     private final ObjectMapper objectMapper;
     private final NotificationService notificationService;
 
@@ -100,6 +102,9 @@ public class LabOrderServiceImpl implements LabOrderService {
                 .doctor(doctorRepository.getReferenceById(doctorId))
                 .labTechnician(request.getLabTechnicianId() != null
                         ? labTechnicianRepository.getReferenceById(request.getLabTechnicianId())
+                        : null)
+                .service(request.getServiceId() != null
+                        ? clinicServiceRepository.getReferenceById(request.getServiceId())
                         : null)
                 .priority(request.getPriority())
                 .notes(request.getNotes())
@@ -355,6 +360,7 @@ public class LabOrderServiceImpl implements LabOrderService {
                 .medicalRecord(previousOrder.getMedicalRecord())
                 .doctor(previousOrder.getDoctor())
                 .labTechnician(previousOrder.getLabTechnician())
+                .service(previousOrder.getService())
                 .priority(previousOrder.getPriority())
                 .notes(previousOrder.getNotes())
                 .build();
@@ -472,10 +478,9 @@ public class LabOrderServiceImpl implements LabOrderService {
                 .patientPhone(labOrder.getMedicalRecord().getPatient() != null
                         ? labOrder.getMedicalRecord().getPatient().getPhone()
                         : null)
-                .serviceName(labOrder.getMedicalRecord().getAppointment() != null
-                        && labOrder.getMedicalRecord().getAppointment().getClinicService() != null
-                                ? labOrder.getMedicalRecord().getAppointment().getClinicService().getServiceName()
-                                : null)
+                .serviceName(labOrder.getService() != null
+                        ? labOrder.getService().getServiceName()
+                        : null)
                 .notes(labOrder.getNotes())
                 .priority(labOrder.getPriority())
                 .status(labOrder.getStatus())

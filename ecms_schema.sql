@@ -54,11 +54,11 @@
 -- END
 -- GO
 
-IF DB_ID('ecms_db') IS NULL
-    CREATE DATABASE ecms_db;
+IF DB_ID('ecms_db_sum_final') IS NULL
+    CREATE DATABASE ecms_db_sum_final;
 GO
 
-USE ecms_db;
+USE ecms_db_sum_final;
 GO
 SET QUOTED_IDENTIFIER ON;
 SET ANSI_NULLS ON;

@@ -34,6 +34,15 @@ public class ClinicServiceController {
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
+    /**
+     * UC-30: dịch vụ xét nghiệm để bác sĩ chọn khi tạo Lab Order — is_active=1,
+     * service_type=CLINICAL, is_lab_service=1
+     */
+    @GetMapping("/lab-tests")
+    public ResponseEntity<ApiResponse<List<ClinicServiceResponse>>> getLabTestServices() {
+        return ResponseEntity.ok(ApiResponse.success(clinicServiceService.getLabTestServices()));
+    }
+
     /** Danh mục dịch vụ kèm các gói con — public */
     @GetMapping("/categories")
     public ResponseEntity<ApiResponse<List<ServiceCategoryResponse>>> getCategoriesWithServices() {
@@ -108,9 +117,10 @@ public class ClinicServiceController {
     }
 
     /**
-     * Tạo ngày 21/07/2026 
+     * Tạo ngày 21/07/2026
      * Bệnh nhân tự đăng ký + đặt buổi đầu tiên cho gói CARE trên website — PATIENT.
-     *  Tạo đăng ký + gói + buổi đầu tiên trong một lần, không cần lễ tân xử lý. */
+     * Tạo đăng ký + gói + buổi đầu tiên trong một lần, không cần lễ tân xử lý.
+     */
     @PostMapping("/register-and-book")
     public ResponseEntity<ApiResponse<CareSessionResponse>> registerAndBookOnline(
             @Valid @RequestBody RegisterAndBookRequest request,

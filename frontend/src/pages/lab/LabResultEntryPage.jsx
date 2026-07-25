@@ -434,12 +434,12 @@ export default function LabResultEntryPage() {
                     {orderInfo.doctorFullName ?? '—'}
                   </div>
                 </Col>
-                {/* <Col xs={24} sm={16}>
+                <Col xs={24} sm={16}>
                   <div style={{ fontSize: 12, color: '#94a3b8' }}>Chỉ định xét nghiệm</div>
                   <div style={{ fontWeight: 500, color: '#0d9488' }}>
                     {orderInfo.serviceName ?? 'Chưa xác định dịch vụ'}
                   </div>
-                </Col> */}
+                </Col>
                 {/* Hiển thị lưu ý lâm sàng từ bác sĩ nếu có */}
                 {orderInfo.notes && (
                   <Col span={24}>

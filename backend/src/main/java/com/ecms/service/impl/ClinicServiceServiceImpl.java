@@ -50,14 +50,15 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
                 List<ClinicService> services;
 
                 if (type == null || type.isBlank()) {
-                        services = clinicServiceRepository.findByIsActiveTrueOrderByIsPopularDescDisplayOrderAsc();
+                        services = clinicServiceRepository
+                                        .findByIsActiveTrueAndIsLabServiceFalseOrderByIsPopularDescDisplayOrderAsc();
                 } else {
                         ServiceType serviceType;
                         try {
                                 serviceType = ServiceType.valueOf(type.trim().toUpperCase());
                         } catch (IllegalArgumentException e) {
                                 throw new IllegalArgumentException("Invalid service type: " + type
-                                                + ". Allowed values: EXAM, DIAGNOSTIC, CARE");
+                                                + ". Allowed values: CLINICAL, CARE");
                         }
                         services = clinicServiceRepository
                                         .findByServiceTypeAndIsActiveTrueOrderByIsPopularDescDisplayOrderAsc(
@@ -65,6 +66,17 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
                 }
 
                 return services.stream()
+                                .map(this::toServiceResponse)
+                                .collect(Collectors.toList());
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public List<ClinicServiceResponse> getLabTestServices() {
+                return clinicServiceRepository
+                                .findByServiceTypeAndIsActiveTrueAndIsLabServiceTrueOrderByIsPopularDescDisplayOrderAsc(
+                                                ServiceType.CLINICAL)
+                                .stream()
                                 .map(this::toServiceResponse)
                                 .collect(Collectors.toList());
         }
@@ -353,7 +365,7 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
                                 .validityDays(request.getValidityDays())
                                 .category(category)
                                 .serviceType(request.getServiceType() != null ? request.getServiceType()
-                                                : ServiceType.EXAM)
+                                                : ServiceType.CLINICAL)
                                 .slug(request.getSlug())
                                 .thumbnailUrl(request.getThumbnailUrl())
                                 .content(request.getContent())

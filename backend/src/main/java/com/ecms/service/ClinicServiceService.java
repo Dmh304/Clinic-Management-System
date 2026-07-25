@@ -63,4 +63,6 @@ public interface ClinicServiceService {
         void deletePackage(Long id);
 
         ClinicServiceResponse toggleActive(Long id);
+
+        List<ClinicServiceResponse> getLabTestServices();
 }

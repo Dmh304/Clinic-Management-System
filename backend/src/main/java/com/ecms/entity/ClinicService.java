@@ -54,7 +54,10 @@ public class ClinicService {
     @Column(name = "badge", length = 50)
     private String badge;
 
-    /** Lợi ích của gói — mỗi dòng một lợi ích, hiển thị dạng danh sách khi khách xem chi tiết dịch vụ */
+    /**
+     * Lợi ích của gói — mỗi dòng một lợi ích, hiển thị dạng danh sách khi khách xem
+     * chi tiết dịch vụ
+     */
     @Column(columnDefinition = "NVARCHAR(MAX)")
     private String benefits;
 
@@ -73,6 +76,13 @@ public class ClinicService {
 
     @Column(name = "is_active")
     private Boolean isActive;
+
+    /**
+     * true = dịch vụ xét nghiệm (dùng cho Lab Order, chọn ở UC-30);
+     * false/null = dịch vụ khám thông thường, hợp lệ để chọn khi tạo lịch hẹn.
+     */
+    @Column(name = "is_lab_service")
+    private Boolean isLabService;
 
     @Column(name = "display_order")
     private Integer displayOrder;
@@ -96,8 +106,10 @@ public class ClinicService {
             this.displayOrder = 0;
         if (this.isPopular == null)
             this.isPopular = false;
+        if (this.isLabService == null)
+            this.isLabService = false;
         if (this.serviceType == null) {
-            this.serviceType = ServiceType.EXAM;
+            this.serviceType = ServiceType.CLINICAL;
         }
     }
 

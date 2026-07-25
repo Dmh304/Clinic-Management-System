@@ -2,6 +2,8 @@
  * Trang hàng đợi gia công đơn kính dành cho Lab Technician (UC-36).
  * Thao tác trên EyeglassOrder, KHÔNG phải EyeglassPrescription.
  * Trạng thái hiển thị: PENDING_LAB -> IN_PRODUCTION -> READY.
+ * Đơn READY có thể được Lab Technician giao trực tiếp cho bệnh nhân (DISPENSED)
+ * — gộp bước bàn giao vào cùng màn hình Lab thay vì tách riêng cho Lễ tân.
  */
 
 import { useEffect, useState, useCallback } from 'react'
@@ -10,11 +12,14 @@ import { useSelector } from 'react-redux'
 import Header from '../../components/layout/Header'
 import { Button, message, Tag, Spin, Input, Result, Pagination } from 'antd'
 import { eyeglassOrderService } from '../../services/eyeglassOrderService'
+import useConfirmAction from '../../hooks/useConfirmAction'
 
 const ORDER_STATUS_MAP = {
   PENDING_LAB:   { color: 'default',    label: 'Chờ xưởng cắt kính' },
   IN_PRODUCTION: { color: 'processing', label: 'Đang gia công' },
   READY:         { color: 'success',    label: 'Sẵn sàng giao' },
+  DISPENSED:     { color: 'default',    label: 'Đã giao' },
+  CANCELLED:     { color: 'error',      label: 'Đã hủy' },
 }
 
 const textEllipsisStyle = {
@@ -29,8 +34,10 @@ const textEllipsisStyle = {
 export default function EyeglassOrderQueue() {
   const navigate = useNavigate()
   const { user } = useSelector((s) => s.auth)
+  const { confirmAction, contextHolder } = useConfirmAction()
 
   const [startingId, setStartingId] = useState(null)
+  const [dispensingId, setDispensingId] = useState(null)
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('PENDING_LAB')
@@ -67,6 +74,33 @@ export default function EyeglassOrderQueue() {
     } finally {
       setStartingId(null)
     }
+  }
+
+  const executeDispense = async (order) => {
+    setDispensingId(order.id)
+    try {
+      await eyeglassOrderService.dispense(order.id)
+      message.success('Đã giao kính cho bệnh nhân')
+      fetchOrders()
+    } catch (e) {
+      message.error(e?.response?.data?.message || 'Không thể giao kính')
+    } finally {
+      setDispensingId(null)
+    }
+  }
+
+  const handleDispense = (order) => {
+    confirmAction({
+      type: 'success',
+      title: 'Xác nhận giao kính cho bệnh nhân?',
+      description: 'Đơn kính sẽ chuyển sang trạng thái "Đã giao" và không thể hoàn tác.',
+      details: [
+        { label: 'Bệnh nhân', value: order?.patientName ?? '—' },
+        { label: 'Gọng kính', value: order?.frameName ?? '—' },
+      ],
+      confirmText: 'Giao kính',
+      onConfirm: () => executeDispense(order),
+    })
   }
 
   const filteredOrders = orders.filter((o) => {
@@ -118,11 +152,14 @@ export default function EyeglassOrderQueue() {
     { key: 'PENDING_LAB', label: 'Chờ xưởng cắt kính' },
     { key: 'IN_PRODUCTION', label: 'Đang gia công' },
     { key: 'READY', label: 'Sẵn sàng giao' },
+    { key: 'DISPENSED', label: 'Đã giao' },
+    { key: 'CANCELLED', label: 'Đã hủy' },
     { key: 'ALL', label: 'Tất cả' },
   ]
 
   return (
     <>
+      {contextHolder}
       <Header />
       <div style={{ padding: 24 }}>
         <div style={{ marginBottom: 20, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
@@ -227,35 +264,66 @@ export default function EyeglassOrderQueue() {
                         </Tag>
                       </td>
                       <td style={{ padding: '12px 16px' }}>
-                        {o.status === 'PENDING_LAB' && (
-                          <Button
-                            type="primary"
-                            size="small"
-                            loading={startingId === o.id}
-                            onClick={() => handleStart(o)}
-                            style={{ fontSize: 12, backgroundColor: '#0d9488', borderColor: '#0d9488', whiteSpace: 'nowrap' }}
-                          >
-                            Bắt đầu gia công
-                          </Button>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'nowrap' }}>
+                          {o.status === 'PENDING_LAB' && (
+                            <Button
+                              type="primary"
+                              size="small"
+                              loading={startingId === o.id}
+                              onClick={() => handleStart(o)}
+                              style={{ fontSize: 12, backgroundColor: '#0d9488', borderColor: '#0d9488', whiteSpace: 'nowrap' }}
+                            >
+                              Bắt đầu gia công
+                            </Button>
+                          )}
+                          {o.status === 'IN_PRODUCTION' && (
+                            <Button
+                              size="small"
+                              onClick={() => navigate(`/lab/eyeglass-detail?id=${o.id}`)}
+                              style={{ fontSize: 12, borderColor: '#0d9488', color: '#0d9488', whiteSpace: 'nowrap' }}
+                            >
+                              Tiếp tục gia công
+                            </Button>
+                          )}
+                          {o.status === 'READY' && (
+                            <>
+                              <Button
+                                size="small"
+                                onClick={() => navigate(`/lab/eyeglass-detail?id=${o.id}&readonly=true`)}
+                                style={{ fontSize: 12, borderColor: '#0d9488', color: '#0d9488', whiteSpace: 'nowrap' }}
+                              >
+                                Xem chi tiết
+                              </Button>
+                              <Button
+                                type="primary"
+                                size="small"
+                                loading={dispensingId === o.id}
+                                onClick={() => handleDispense(o)}
+                                style={{ fontSize: 12, backgroundColor: '#16a34a', borderColor: '#16a34a', whiteSpace: 'nowrap' }}
+                              >
+                                Giao kính
+                              </Button>
+                            </>
+                          )}
+                          {o.status === 'DISPENSED' && (
+                            <Button
+                              size="small"
+                              onClick={() => navigate(`/lab/eyeglass-detail?id=${o.id}&readonly=true`)}
+                              style={{ fontSize: 12, borderColor: '#94a3b8', color: '#64748b' }}
+                            >
+                              Xem chi tiết
+                            </Button>
+                          )}
+                          {o.status === 'CANCELLED' && (
+                            <Button
+                              size="small"
+                              onClick={() => navigate(`/lab/eyeglass-detail?id=${o.id}&readonly=true`)}
+                              style={{ fontSize: 12, borderColor: '#94a3b8', color: '#64748b' }}
+                            >
+                              Xem chi tiết
+                            </Button>
                         )}
-                        {o.status === 'IN_PRODUCTION' && (
-                          <Button
-                            size="small"
-                            onClick={() => navigate(`/lab/eyeglass-detail?id=${o.id}`)}
-                            style={{ fontSize: 12, borderColor: '#0d9488', color: '#0d9488', whiteSpace: 'nowrap' }}
-                          >
-                            Tiếp tục gia công
-                          </Button>
-                        )}
-                        {o.status === 'READY' && (
-                          <Button
-                            size="small"
-                            onClick={() => navigate(`/lab/eyeglass-detail?id=${o.id}&readonly=true`)}
-                            style={{ fontSize: 12, borderColor: '#0d9488', color: '#0d9488' }}
-                          >
-                            Xem chi tiết
-                          </Button>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   ))}

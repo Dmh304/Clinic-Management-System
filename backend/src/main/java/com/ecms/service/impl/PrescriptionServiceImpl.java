@@ -126,7 +126,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
     @Override
     @Transactional
     public PrescriptionResponse dispensePrescription(Long id, DispenseRequest request, String dispenserEmail) {
-        //Lấy đơn thuốc theo id
+        // Lấy đơn thuốc theo id
         Prescription p = prescriptionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn thuốc"));
 
@@ -153,7 +153,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         }
 
         p.setStatus(PrescriptionStatus.DISPENSED);
-        //Cập nhật trạng thái đơn thuốc thành Đã phát
+        // Cập nhật trạng thái đơn thuốc thành Đã phát
         prescriptionRepository.save(p);
 
         // Sinh hóa đơn (Invoice) cho tiền thuốc
@@ -171,7 +171,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
                 .totalAmount(BigDecimal.ZERO)
                 .build();
 
-        //Lưu trước bản ghi Invoice để có ID phục vụ cho
+        // Lưu trước bản ghi Invoice để có ID phục vụ cho
         // InvoiceItem
         invoice = invoiceRepository.save(invoice);
 
@@ -220,7 +220,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
     @Override
     @Transactional
     public PrescriptionResponse skipPrescription(Long id) {
-        //Lấy đơn thuốc theo id
+        // Lấy đơn thuốc theo id
         Prescription p = prescriptionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn thuốc"));
 
@@ -230,7 +230,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         }
 
         p.setStatus(PrescriptionStatus.SKIPPED);
-        //Lưu trạng thái Hủy đơn
+        // Lưu trạng thái Hủy đơn
         return toResponse(prescriptionRepository.save(p));
     }
 
@@ -258,7 +258,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
 
         // DucTKH: Điều kiện - Nếu đơn thuốc đã xuất, lấy số lượng thực tế từ Hóa đơn
         if (i.getPrescription().getStatus() == PrescriptionStatus.DISPENSED) {
-            //Tìm chi tiết hóa đơn dựa vào reference ID (id của chi
+            // Tìm chi tiết hóa đơn dựa vào reference ID (id của chi
             // tiết đơn thuốc)
             Optional<InvoiceItem> invoiceItemOpt = invoiceItemRepository.findFirstByRefIdAndItemType(i.getId(),
                     "MEDICINE");
@@ -295,7 +295,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
     @Override
     @Transactional
     public void deletePrescription(Long id) {
-        //Lấy đơn thuốc theo id
+        // Lấy đơn thuốc theo id
         Prescription p = prescriptionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn thuốc"));
 
@@ -304,7 +304,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
             throw new IllegalStateException("Đơn thuốc đã được xuất hoặc phát, không thể xóa!");
         }
 
-        //Thực hiện xóa đơn thuốc khỏi cơ sở dữ liệu
+        // Thực hiện xóa đơn thuốc khỏi cơ sở dữ liệu
         prescriptionRepository.delete(p);
     }
 }

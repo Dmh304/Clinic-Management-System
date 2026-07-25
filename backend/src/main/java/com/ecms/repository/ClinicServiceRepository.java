@@ -12,7 +12,7 @@ import java.util.Optional;
 
 @Repository
 public interface ClinicServiceRepository extends JpaRepository<ClinicService, Long> {
-    List<ClinicService> findByIsActiveTrueOrderByIsPopularDescDisplayOrderAsc();
+    List<ClinicService> findByIsActiveTrueAndIsLabServiceFalseOrderByIsPopularDescDisplayOrderAsc();
 
     List<ClinicService> findByCategory_IdAndIsActiveTrueOrderByIsPopularDescDisplayOrderAsc(Long categoryId);
 
@@ -24,4 +24,8 @@ public interface ClinicServiceRepository extends JpaRepository<ClinicService, Lo
 
     @Query("SELECT MAX(s.displayOrder) FROM ClinicService s")
     Optional<Integer> findMaxDisplayOrder();
+
+    /** UC-30: dịch vụ xét nghiệm hợp lệ để bác sĩ chọn khi tạo Lab Order. */
+    List<ClinicService> findByServiceTypeAndIsActiveTrueAndIsLabServiceTrueOrderByIsPopularDescDisplayOrderAsc(
+            ServiceType serviceType);
 }

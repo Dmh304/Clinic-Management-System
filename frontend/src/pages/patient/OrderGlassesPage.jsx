@@ -37,7 +37,7 @@ export default function OrderGlassesPage() {
             // Fetch prescription details
             const pRes = await axiosClient.get(`/v1/eyeglass-prescriptions/${prescriptionId}`);
             const isReceptionist = user && user.role === 'RECEPTIONIST';
-            const fallbackRoute = isReceptionist ? '/receptionist/eyeglass-orders' : '/patient/history';
+            const fallbackRoute = isReceptionist ? '/v1/receptionist/eyeglass-orders' : '/v1/patient/history';
 
             if (pRes.data.isExpired) {
                 message.error('Toa kính này đã hết hạn, vui lòng khám để đo lại mắt!');
@@ -57,10 +57,10 @@ export default function OrderGlassesPage() {
             setPrescription(pRes.data);
 
             // Fetch frames and coatings
-            const fRes = await axiosClient.get('/eyeglass-catalog/frames');
+            const fRes = await axiosClient.get('/v1/eyeglass-catalog/frames');
             setFrames(fRes.filter(f => f.status === 'ACTIVE'));
 
-            const cRes = await axiosClient.get('/eyeglass-catalog/coatings');
+            const cRes = await axiosClient.get('/v1/eyeglass-catalog/coatings');
             setCoatings(cRes);
             
         } catch (error) {
@@ -96,16 +96,16 @@ export default function OrderGlassesPage() {
     const handleSubmit = async (values) => {
         setLoading(true);
         try {
-            await axiosClient.post('/eyeglass-orders', {
+            await axiosClient.post('/v1/eyeglass-orders', {
                 prescriptionId: parseInt(prescriptionId),
                 frameId: values.frameId,
                 coatingIds: values.coatingIds || []
             });
             message.success(user?.role === 'RECEPTIONIST' ? 'Tạo đơn kính thành công!' : 'Đặt kính thành công! Lễ tân sẽ sớm liên hệ với bạn.');
             if (user?.role === 'RECEPTIONIST') {
-                navigate('/receptionist/eyeglass-orders');
+                navigate('/v1/receptionist/eyeglass-orders');
             } else {
-                navigate('/patient/history');
+                navigate('/v1/patient/history');
             }
         } catch (error) {
             message.error(error.response?.data?.message || 'Có lỗi xảy ra khi đặt kính');
@@ -236,7 +236,7 @@ export default function OrderGlassesPage() {
                     </div>
 
                     <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>
-                        <Button onClick={() => navigate('/patient/prescriptions')} style={{ marginRight: 12 }}>
+                        <Button onClick={() => navigate('/v1/patient/prescriptions')} style={{ marginRight: 12 }}>
                             Hủy bỏ
                         </Button>
                         <Button type="primary" htmlType="submit" size="large" icon={<CheckCircleOutlined />} loading={loading}>

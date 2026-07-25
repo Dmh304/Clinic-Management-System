@@ -2,7 +2,7 @@
  * Trang chi tiết đơn kính cần gia công dành cho Lab Technician (UC-36).
  * Thao tác trên EyeglassOrder. Thông số lâm sàng (SPH/CYL/AXIS/PD) lấy readonly
  * từ toa kính gốc (EyeglassPrescription) — Lab Technician KHÔNG được sửa các giá trị này.
- * Action duy nhất: "Hoàn tất gia công" (IN_PRODUCTION -> READY).
+ * Action: "Hoàn tất gia công" (IN_PRODUCTION -> READY), "Giao kính" (READY -> DISPENSED).
  */
 
 import { useEffect, useState, useCallback } from 'react'
@@ -45,6 +45,7 @@ export default function EyeglassOrderDetail() {
 
   const [loading, setLoading] = useState(true)
   const [completing, setCompleting] = useState(false)
+  const [dispensing, setDispensing] = useState(false)
   const [order, setOrder] = useState(null)
 
   const loadData = useCallback(async () => {
@@ -92,6 +93,33 @@ export default function EyeglassOrderDetail() {
       ],
       confirmText: 'Hoàn tất gia công',
       onConfirm: executeComplete,
+    })
+  }
+
+  const executeDispense = async () => {
+    setDispensing(true)
+    try {
+      await eyeglassOrderService.dispense(id)
+      message.success('Đã giao kính cho bệnh nhân')
+      navigate('/lab/eyeglass-queue')
+    } catch (e) {
+      message.error(e?.response?.data?.message || 'Không thể giao kính')
+    } finally {
+      setDispensing(false)
+    }
+  }
+
+  const handleDispense = () => {
+    confirmAction({
+      type: 'success',
+      title: 'Xác nhận giao kính cho bệnh nhân?',
+      description: 'Đơn kính sẽ chuyển sang trạng thái "Đã giao" và không thể hoàn tác.',
+      details: [
+        { label: 'Bệnh nhân', value: order?.patientName ?? '—' },
+        { label: 'Gọng kính', value: order?.frameName ?? '—' },
+      ],
+      confirmText: 'Giao kính',
+      onConfirm: executeDispense,
     })
   }
 
@@ -212,9 +240,22 @@ export default function EyeglassOrderDetail() {
           )}
 
           {status === 'READY' && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                type="primary"
+                loading={dispensing}
+                onClick={handleDispense}
+                style={{ backgroundColor: '#16a34a', borderColor: '#16a34a', fontSize: 13 }}
+              >
+                Giao kính
+              </Button>
+            </div>
+          )}
+
+          {readonly && status === 'READY' && (
             <div style={{ textAlign: 'right' }}>
               <Tag color="success" style={{ fontSize: 13, padding: '6px 14px' }}>
-                Đơn kính đã sẵn sàng — chờ Lễ tân bàn giao cho bệnh nhân
+                Đơn kính đã sẵn sàng — chờ bàn giao cho bệnh nhân
               </Tag>
             </div>
           )}

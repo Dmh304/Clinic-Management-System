@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/eyeglass-catalog")
+@RequestMapping("/api/v1/eyeglass-catalog")
 @RequiredArgsConstructor
 public class EyeglassCatalogController {
 

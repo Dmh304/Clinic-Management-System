@@ -284,7 +284,7 @@ export default function LabQueuePage() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid #f1f5f9', backgroundColor: '#f8fafc' }}>
-                    {['STT', 'Ngày tạo', 'Bệnh nhân', 'SĐT', 'Bác sĩ chỉ định', 'Ưu tiên', 'Trạng thái', 'Thao tác'].map((h) => (
+                    {['STT', 'Ngày tạo', 'Bệnh nhân', 'SĐT', 'Bác sĩ chỉ định', 'Dịch vụ', 'Ưu tiên', 'Trạng thái', 'Thao tác'].map((h) => (
                       <th
                         key={h}
                         style={{ padding: '10px 16px', textAlign: 'left', fontSize: 13, fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}
@@ -332,9 +332,9 @@ export default function LabQueuePage() {
                       </td>
 
                       {/* Tên dịch vụ xét nghiệm (ví dụ: Đo khúc xạ, Đo nhãn áp...) */}
-                      {/* <td style={{ padding: '12px 16px', fontSize: 13, color: '#475569', maxWidth: 200 }}>
+                      <td style={{ padding: '12px 16px', fontSize: 13, color: '#475569', maxWidth: 200 }}>
                         <div title={order.serviceName ?? '—'} style={textEllipsisStyle}>{order.serviceName ?? '—'}</div>
-                      </td> */}
+                      </td>
 
                       {/* Khối nhãn biểu thị Mức độ ưu tiên (Tag) */}
                       <td style={{ padding: '12px 16px' }}>
