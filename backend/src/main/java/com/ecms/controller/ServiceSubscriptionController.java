@@ -63,6 +63,14 @@ public class ServiceSubscriptionController {
         return ResponseEntity.ok(ApiResponse.success("Huỷ gói dịch vụ thành công", null));
     }
 
+    /** Gia hạn gói đã hết hạn (còn buổi chưa dùng) — bệnh nhân tự thao tác, không cần tư vấn lại */
+    @PatchMapping("/{id}/renew")
+    public ResponseEntity<ApiResponse<ServiceSubscriptionResponse>> renew(
+            @PathVariable Long id, Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.success("Gia hạn gói dịch vụ thành công",
+                subscriptionService.renewSubscription(id, authentication.getName())));
+    }
+
     /** Kiểm tra mã giảm giá */
     @GetMapping("/validate-discount")
     public ResponseEntity<ApiResponse<DiscountCampaignResponse>> validateDiscount(

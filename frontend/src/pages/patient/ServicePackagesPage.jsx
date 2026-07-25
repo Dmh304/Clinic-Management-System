@@ -310,12 +310,18 @@ function ServiceCatalog({ catalogRef, services, loading, role, isAuthenticated }
     const { service } = careBookModal;
     setLoadingId(service.id);
     try {
-      await serviceService.registerAndBookOnline({
+      const res = await serviceService.registerAndBookOnline({
         serviceId: service.id,
         scheduledDateTime: scheduledDateTime.format("YYYY-MM-DDTHH:mm:ss"),
         notes: notes || null,
       });
-      message.success(`Đặt lịch "${service.serviceName}" thành công! Xem chi tiết tại "Dịch vụ của tôi".`);
+      // Lần đầu mua dịch vụ này: chỉ ghi nhận đăng ký, chờ lễ tân liên hệ tư vấn
+      // rồi mới đặt buổi — khác với lần mua lặp lại (tự đặt được ngay).
+      if (res.data?.requiresConsultation) {
+        message.success(`Đã ghi nhận đăng ký "${service.serviceName}"! Phòng khám sẽ liên hệ tư vấn sớm nhất.`);
+      } else {
+        message.success(`Đặt lịch "${service.serviceName}" thành công! Xem chi tiết tại "Dịch vụ của tôi".`);
+      }
       setCareBookModal({ open: false, service: null });
       navigate("/patient/subscriptions");
     } catch (err) {

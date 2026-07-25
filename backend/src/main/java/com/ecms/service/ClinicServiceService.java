@@ -7,6 +7,7 @@ import com.ecms.dto.request.ServicePackageRequest;
 import com.ecms.dto.request.ServiceRegistrationRequest;
 import com.ecms.dto.response.CareSessionResponse;
 import com.ecms.dto.response.ClinicServiceResponse;
+import com.ecms.dto.response.RegisterAndBookResponse;
 import com.ecms.dto.response.ServiceCategoryResponse;
 import com.ecms.dto.response.ServiceRegistrationResponse;
 
@@ -37,13 +38,14 @@ public interface ClinicServiceService {
             String currentUserEmail);
 
     /**
-     * Tạo ngày 21/07/2026
+     * Tạo ngày 21/07/2026, sửa 2026-07-25 (bắt buộc tư vấn lần đầu):
      * Bệnh nhân tự đăng ký + đặt buổi đầu tiên cho gói dịch vụ CARE ngay trên
-     * website (kênh Website — không qua bước "chờ tư vấn"): tạo đăng ký (đã
-     * hoàn tất) + gói (subscription) + buổi care-session đầu tiên trong một
-     * giao dịch, luôn áp cho tài khoản bệnh nhân đang đăng nhập.
+     * website. Nếu đây là lần ĐẦU bệnh nhân mua dịch vụ này, chỉ tạo
+     * ServiceRegistration PENDING (chờ lễ tân liên hệ tư vấn rồi xử lý tiếp qua
+     * scheduleClinicVisit()) — KHÔNG tạo subscription/care-session ngay. Nếu bệnh
+     * nhân đã từng mua dịch vụ này rồi thì cho tự đặt lịch ngay như cũ.
      */
-    CareSessionResponse registerAndBookOnline(RegisterAndBookRequest request, String currentUserEmail);
+    RegisterAndBookResponse registerAndBookOnline(RegisterAndBookRequest request, String currentUserEmail);
 
     // Manager CRUD
     List<ClinicServiceResponse> getAllPackages(); // tất cả gói kể cả đã ẩn

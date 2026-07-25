@@ -4,6 +4,7 @@ import com.ecms.dto.request.FeedbackRequest;
 import com.ecms.dto.response.FeedbackResponse;
 import com.ecms.entity.Appointment;
 import com.ecms.entity.AppointmentStatus;
+import com.ecms.entity.CareSession;
 import com.ecms.entity.Doctor;
 import com.ecms.entity.Feedback;
 import com.ecms.entity.FeedbackParticipantRating;
@@ -11,6 +12,7 @@ import com.ecms.entity.LabOrder;
 import com.ecms.entity.MedicalRecord;
 import com.ecms.exception.ResourceNotFoundException;
 import com.ecms.repository.AppointmentRepository;
+import com.ecms.repository.CareSessionRepository;
 import com.ecms.repository.FeedbackRepository;
 import com.ecms.repository.LabOrderRepository;
 import com.ecms.repository.MedicalRecordRepository;
@@ -44,6 +46,7 @@ public class FeedbackServiceImpl implements FeedbackService {
 
     private final FeedbackRepository feedbackRepository;
     private final AppointmentRepository appointmentRepository;
+    private final CareSessionRepository careSessionRepository;
     private final NotificationService notificationService;
     private final UserRepository userRepository;
     private final MedicalRecordRepository medicalRecordRepository;
@@ -52,6 +55,20 @@ public class FeedbackServiceImpl implements FeedbackService {
     @Override
     @Transactional
     public FeedbackResponse submitFeedback(Long patientId, FeedbackRequest request) {
+        boolean hasAppointment = request.getAppointmentId() != null;
+        boolean hasCareSession = request.getCareSessionId() != null;
+        if (hasAppointment == hasCareSession) {
+            throw new IllegalArgumentException("Vui lòng chọn đúng một buổi khám hoặc buổi dịch vụ để đánh giá");
+        }
+
+        Feedback saved = hasAppointment
+                ? submitAppointmentFeedback(patientId, request)
+                : submitCareSessionFeedback(patientId, request);
+
+        return toResponse(saved);
+    }
+
+    private Feedback submitAppointmentFeedback(Long patientId, FeedbackRequest request) {
         Appointment appointment = appointmentRepository.findById(request.getAppointmentId())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Lịch hẹn không tồn tại: " + request.getAppointmentId()));
@@ -84,19 +101,7 @@ public class FeedbackServiceImpl implements FeedbackService {
                 .status("PENDING")
                 .build();
 
-        // Điểm đánh giá riêng cho từng người tham gia (nếu có) — lưu kèm theo (cascade)
-        if (request.getParticipantRatings() != null) {
-            for (FeedbackRequest.ParticipantRating pr : request.getParticipantRatings()) {
-                if (pr.getRating() == null) continue;
-                feedback.getParticipantRatings().add(FeedbackParticipantRating.builder()
-                        .feedback(feedback)
-                        .participantRole(pr.getRole())
-                        .participantName(pr.getName())
-                        .rating(pr.getRating())
-                        .build());
-            }
-        }
-
+        attachParticipantRatings(feedback, request);
         Feedback saved = feedbackRepository.save(feedback);
 
         // POST-2: thông báo cho Quản lý phòng khám để duyệt. Lỗi thông báo không chặn luồng chính.
@@ -108,7 +113,64 @@ public class FeedbackServiceImpl implements FeedbackService {
         } catch (Exception ignored) {
         }
 
-        return toResponse(saved);
+        return saved;
+    }
+
+    private Feedback submitCareSessionFeedback(Long patientId, FeedbackRequest request) {
+        CareSession careSession = careSessionRepository.findById(request.getCareSessionId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Buổi dịch vụ không tồn tại: " + request.getCareSessionId()));
+
+        if (careSession.getPatient() == null || !careSession.getPatient().getId().equals(patientId)) {
+            throw new IllegalStateException("Bạn chỉ có thể đánh giá buổi dịch vụ của chính mình");
+        }
+
+        if (!"COMPLETED".equals(careSession.getStatus())) {
+            throw new IllegalStateException("Chỉ có thể đánh giá sau khi buổi dịch vụ hoàn thành");
+        }
+
+        if (feedbackRepository.existsByCareSession_Id(careSession.getId())) {
+            throw new IllegalStateException("Buổi dịch vụ này đã được đánh giá");
+        }
+
+        var nurse = careSession.getNurse();
+
+        Feedback feedback = Feedback.builder()
+                .patient(careSession.getPatient())
+                .careSession(careSession)
+                .nurse(nurse)
+                .rating(request.getRating())
+                .content(request.getContent())
+                .isAnonymous(request.getIsAnonymous() != null ? request.getIsAnonymous() : false)
+                .status("PENDING")
+                .build();
+
+        attachParticipantRatings(feedback, request);
+        Feedback saved = feedbackRepository.save(feedback);
+
+        try {
+            String nursePart = nurse != null ? " (ĐD. " + nurse.getFullName() + ")" : "";
+            notificationService.createForManagers(
+                    "Có đánh giá mới " + saved.getRating() + "★" + nursePart
+                            + " cần duyệt.", careSession.getId());
+        } catch (Exception ignored) {
+        }
+
+        return saved;
+    }
+
+    // Điểm đánh giá riêng cho từng người tham gia (nếu có) — lưu kèm theo (cascade)
+    private void attachParticipantRatings(Feedback feedback, FeedbackRequest request) {
+        if (request.getParticipantRatings() == null) return;
+        for (FeedbackRequest.ParticipantRating pr : request.getParticipantRatings()) {
+            if (pr.getRating() == null) continue;
+            feedback.getParticipantRatings().add(FeedbackParticipantRating.builder()
+                    .feedback(feedback)
+                    .participantRole(pr.getRole())
+                    .participantName(pr.getName())
+                    .rating(pr.getRating())
+                    .build());
+        }
     }
 
     @Override
@@ -181,10 +243,13 @@ public class FeedbackServiceImpl implements FeedbackService {
         return FeedbackResponse.builder()
                 .id(f.getId())
                 .appointmentId(f.getAppointment() != null ? f.getAppointment().getId() : null)
+                .careSessionId(f.getCareSession() != null ? f.getCareSession().getId() : null)
                 .patientId(f.getPatient() != null ? f.getPatient().getId() : null)
                 .patientName(anon || f.getPatient() == null ? null : f.getPatient().getFullName())
                 .doctorId(f.getDoctor() != null ? f.getDoctor().getId() : null)
                 .doctorName(f.getDoctor() != null ? f.getDoctor().getFullName() : null)
+                .nurseId(f.getNurse() != null ? f.getNurse().getId() : null)
+                .nurseName(f.getNurse() != null ? f.getNurse().getFullName() : null)
                 .rating(f.getRating())
                 .content(f.getContent())
                 .isAnonymous(f.getIsAnonymous())

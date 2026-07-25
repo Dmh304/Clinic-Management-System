@@ -170,6 +170,9 @@ public class CareSessionServiceImpl implements CareSessionService {
             throw new IllegalArgumentException(
                     "Thời gian làm dịch vụ phải trong giờ làm việc của phòng khám (07:30–17:00)");
         }
+        if (request.getScheduledDateTime().getDayOfWeek() == java.time.DayOfWeek.SUNDAY) {
+            throw new IllegalArgumentException("Phòng khám nghỉ Chủ nhật, vui lòng chọn ngày khác");
+        }
 
         long activeCount = careSessionRepository.countActiveSessionsBySubscription(subscription.getId());
         int sessionNumber = (int) activeCount + 1;

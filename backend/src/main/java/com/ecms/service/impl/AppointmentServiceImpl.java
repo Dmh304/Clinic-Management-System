@@ -620,6 +620,9 @@ public class AppointmentServiceImpl implements AppointmentService {
                                 throw new IllegalArgumentException(
                                                 "Giờ khám mới phải trong giờ làm việc của phòng khám (07:30–17:00)");
                         }
+                        if (request.getNewAppointmentTime().getDayOfWeek() == java.time.DayOfWeek.SUNDAY) {
+                                throw new IllegalArgumentException("Phòng khám nghỉ Chủ nhật, vui lòng chọn ngày khác");
+                        }
                 }
 
                 // Le Thi Bich Ngan - HE204710 | Tạo: 18/07/2026
@@ -975,6 +978,9 @@ public class AppointmentServiceImpl implements AppointmentService {
                 if (newLocalTime.isBefore(CLINIC_OPEN_TIME) || newLocalTime.isAfter(CLINIC_CLOSE_TIME)) {
                         throw new IllegalArgumentException(
                                         "Giờ khám mới phải trong giờ làm việc của phòng khám (07:30–17:00)");
+                }
+                if (newTime.getDayOfWeek() == java.time.DayOfWeek.SUNDAY) {
+                        throw new IllegalArgumentException("Phòng khám nghỉ Chủ nhật, vui lòng chọn ngày khác");
                 }
 
                 // Chặn đổi sang khung giờ đã có lịch hẹn khác của cùng bác sĩ (trừ chính lịch này)

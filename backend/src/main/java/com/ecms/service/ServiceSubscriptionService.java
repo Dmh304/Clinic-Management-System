@@ -20,5 +20,11 @@ public interface ServiceSubscriptionService {
 
     void cancelSubscription(Long id, String currentUserEmail);
 
+    /**
+     * Gia hạn một gói dịch vụ đã hết hạn nhưng còn buổi chưa dùng — không cần tư vấn
+     * lại vì bệnh nhân đã từng đăng ký/sử dụng gói này rồi (khác với mua gói MỚI).
+     */
+    ServiceSubscriptionResponse renewSubscription(Long id, String currentUserEmail);
+
     DiscountCampaignResponse validateDiscountCode(String code, java.math.BigDecimal amount);
 }

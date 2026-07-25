@@ -73,7 +73,8 @@ export function ActionButton({
     return <ReadOnlyButton />;
   }
 
-  // ── Gói chăm sóc → tự đặt lịch ngay (chọn giờ, không qua bước chờ tư vấn) ──
+  // ── Gói chăm sóc → đặt lịch (lần mua ĐẦU cần lễ tân tư vấn trước; mua lặp lại
+  //    thì tự đặt ngay — kiểm ở backend registerAndBookOnline) ──
   if (role === "PATIENT") {
     return (
       <button
@@ -308,8 +309,9 @@ export function CareBookingModal({ open, service, onClose, onConfirm, loading })
         />
 
         <p style={{ color: C.textSub, fontSize: 12, marginTop: 14, lineHeight: 1.6 }}>
-          Gói dịch vụ sẽ được kích hoạt và giữ buổi hẹn ngay khi bạn xác nhận. Thanh toán được thực hiện
-          trực tiếp tại phòng khám sau khi trải nghiệm dịch vụ.
+          Nếu đây là lần đầu bạn đăng ký gói này, phòng khám sẽ liên hệ tư vấn trước khi kích hoạt.
+          Nếu bạn đã từng mua gói này rồi, buổi hẹn sẽ được giữ ngay khi xác nhận. Thanh toán được
+          thực hiện trực tiếp tại phòng khám sau khi trải nghiệm dịch vụ.
         </p>
       </div>
     </Modal>
