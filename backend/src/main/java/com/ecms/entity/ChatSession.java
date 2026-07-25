@@ -37,12 +37,16 @@ public class ChatSession {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+    
+    @Column(name = "has_unread")
+    private Boolean hasUnread;
 
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
         if (status == null) status = "ACTIVE";
+        if (hasUnread == null) hasUnread = true; // Tin nhắn đầu tiên từ bệnh nhân tạo session
     }
 
     @PreUpdate

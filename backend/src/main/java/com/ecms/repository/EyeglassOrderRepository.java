@@ -23,4 +23,10 @@ public interface EyeglassOrderRepository extends JpaRepository<EyeglassOrder, Lo
 
     // Kiểm tra xem toa kính đã có đơn đặt kính nào chưa (không tính các đơn đã hủy)
     boolean existsByPrescriptionIdAndStatusNot(Long prescriptionId, EyeglassOrderStatus status);
+    
+    // Lấy danh sách đơn đặt kính theo id toa kính
+    List<EyeglassOrder> findByPrescriptionId(Long prescriptionId);
+    
+    // Lấy tất cả đơn đặt kính sắp xếp mới nhất lên đầu
+    List<EyeglassOrder> findAllByOrderByCreatedAtDesc();
 }

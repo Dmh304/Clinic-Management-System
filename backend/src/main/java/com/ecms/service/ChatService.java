@@ -10,7 +10,7 @@ import java.util.List;
 public interface ChatService {
     ChatMessageResponse sendMessage(ChatMessageRequest request, String email);
     List<ChatSessionResponse> getActiveSessions();
-    List<ChatMessageResponse> getMessagesBySession(Long sessionId);
+    List<ChatMessageResponse> getMessagesBySession(Long sessionId, String email);
     ChatSessionResponse getOrCreateSessionForPatient(String email);
     void assignSession(Long sessionId, String email);
 }

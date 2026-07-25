@@ -140,7 +140,11 @@ export default function ReceptionistLayout() {
               <div style={{ fontWeight: 700, fontSize: 13, color: '#1d4ed8', lineHeight: 1.3 }}>Desk</div>
             </div>
           </div>
-          <div style={{ fontSize: 11, color: '#94a3b8' }}>Main Clinic Branch</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+             <div style={{ fontSize: 11, color: '#94a3b8' }}>Main Clinic Branch</div>
+             {/* UC-13: chuông thông báo đưa lên trên cao */}
+             <NotificationBell viewAllPath="/receptionist/notifications" align="left" />
+          </div>
         </div>
 
         {/* Nav */}
@@ -197,8 +201,7 @@ export default function ReceptionistLayout() {
             <span style={{ flex: 1, fontSize: 12, color: '#374151', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {user?.fullName ?? user?.email}
             </span>
-            {/* UC-13: chuông thông báo cạnh tên người dùng */}
-            <NotificationBell viewAllPath="/receptionist/notifications" placement="right" />
+
           </div>
 
           <button

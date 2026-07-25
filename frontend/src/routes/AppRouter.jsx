@@ -76,6 +76,7 @@ import EyeglassOrderQueue from '../pages/lab/EyeglassOrderQueue'
 
 import DispensingPage from '../pages/pharmacy/DispensingPage'
 import PharmacyInvoicePage from '../pages/pharmacy/PharmacyInvoicePage'
+import PharmacyNotificationsPage from '../pages/pharmacy/PharmacyNotificationsPage'
 
 import ManagerDashboard from '../pages/manager/ManagerDashboard'
 import RevenueReportPage from '../pages/manager/RevenueReportPage'
@@ -216,6 +217,7 @@ export default function AppRouter() {
       <Route element={<ProtectedRoute allowedRoles={['PHARMACIST']} />}>
         <Route path="/pharmacy/dispensing" element={<WithHeader><DispensingPage /></WithHeader>} />
         <Route path="/pharmacy/invoice" element={<WithHeader><PharmacyInvoicePage /></WithHeader>} />
+        <Route path="/pharmacy/notifications" element={<WithHeader><PharmacyNotificationsPage /></WithHeader>} />
       </Route>
 
       {/* ── Manager ── */}

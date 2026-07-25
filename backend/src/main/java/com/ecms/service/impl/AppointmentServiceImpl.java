@@ -225,18 +225,22 @@ public class AppointmentServiceImpl implements AppointmentService {
                 return toResponse(appointmentRepository.save(appointment));
         }
 
+        // Chức năng: Lễ tân xác nhận lịch hẹn (chuyển trạng thái từ PENDING sang CONFIRMED)
         @Override
         @Transactional
         public AppointmentResponse confirmAppointment(Long id, Long doctorId) {
                 return confirmAppointment(id, doctorId, null);
         }
 
+        // Chức năng: Lễ tân xác nhận lịch hẹn có kèm lý do nếu đổi bác sĩ
         @Override
         @Transactional
         public AppointmentResponse confirmAppointment(Long id, Long doctorId, String reason) {
+                // Validate: Lấy thông tin lịch hẹn
                 Appointment appointment = appointmentRepository.findById(id)
                                 .orElseThrow(() -> new ResourceNotFoundException("Lịch hẹn không tồn tại: " + id));
 
+                // Điều kiện: Chặn xác nhận nếu lịch hẹn không ở trạng thái chờ duyệt (PENDING)
                 if (appointment.getStatus() != AppointmentStatus.PENDING) {
                         throw new IllegalStateException("Chỉ lịch hẹn PENDING mới được xác nhận");
                 }
@@ -295,14 +299,17 @@ public class AppointmentServiceImpl implements AppointmentService {
                 return toResponse(saved);
         }
 
+        // Chức năng: Check-in bệnh nhân (UC-15) - Lễ tân đánh dấu bệnh nhân đã đến phòng khám và lấy số thứ tự
         @Override
         @Transactional
         public AppointmentResponse checkInAppointment(Long id, Long checkInByUserId) {
+                // Validate: Lấy thông tin lịch hẹn
                 Appointment appointment = appointmentRepository.findById(id)
                                 .orElseThrow(() -> new ResourceNotFoundException("Lịch hẹn không tồn tại: " + id));
 
+                // Điều kiện: Chỉ cho phép check-in nếu lịch hẹn đã được xác nhận (CONFIRMED)
                 if (appointment.getStatus() != AppointmentStatus.CONFIRMED) {
-                        // E2: bệnh nhân đã được check-in trước đó → báo rõ kèm số thứ tự đã cấp.
+                        // Điều kiện: Nếu bệnh nhân đã check-in rồi, báo lỗi kèm số thứ tự (E2)
                         if (appointment.getStatus() == AppointmentStatus.WAITING
                                         || appointment.getStatus() == AppointmentStatus.IN_PROGRESS
                                         || appointment.getStatus() == AppointmentStatus.COMPLETED) {

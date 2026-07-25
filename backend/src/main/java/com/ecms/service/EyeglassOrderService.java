@@ -13,7 +13,7 @@ public interface EyeglassOrderService {
     EyeglassOrderResponse getOrderById(Long id);
 
     List<EyeglassOrderResponse> getOrdersByPatient(Long patientId);
-
+    List<EyeglassOrderResponse> getAllOrders();
     List<EyeglassOrderResponse> getPendingOrders();
 
     EyeglassOrderResponse confirmOrderOnline(Long id);

@@ -52,7 +52,7 @@ public class FileUploadController {
         Path target = UPLOAD_DIR.resolve(filename).toAbsolutePath();
         file.transferTo(target);
 
-        String url = "/api/uploads/" + filename;
+        String url = "/api/v1/uploads/" + filename;
         return ResponseEntity.ok(ApiResponse.success("Tải ảnh thành công", Map.of("url", url)));
     }
 }
