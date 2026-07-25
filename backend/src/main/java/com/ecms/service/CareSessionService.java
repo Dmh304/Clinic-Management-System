@@ -23,7 +23,9 @@ public interface CareSessionService {
 
     List<CareSessionResponse> getNurseQueue(String nurseEmail, LocalDate date);
 
-    List<CareSessionResponse> getSessionsBySubscription(Long subscriptionId);
+    /** Danh sách buổi theo gói đăng ký — patient chỉ xem được gói của chính mình, staff xem
+     *  được mọi gói (tránh IDOR: đổi số ID trên URL để xem gói của bệnh nhân khác). */
+    List<CareSessionResponse> getSessionsBySubscription(Long subscriptionId, String currentUserEmail);
 
     CareSessionResponse assignNurse(Long id, AssignNurseRequest request, String actorEmail, String ipAddress);
 

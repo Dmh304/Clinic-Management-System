@@ -94,7 +94,7 @@ public class Appointment {
     /**
      * Ghi chú của lịch hẹn.
      */
-    @Column(name = "notes")
+    @Column(name = "notes", columnDefinition = "NVARCHAR(MAX)")
     private String notes;
 
     /**
@@ -132,7 +132,7 @@ public class Appointment {
      /**
      * Lý do hủy lịch hẹn.
      */
-    @Column(name = "cancel_reason")
+    @Column(name = "cancel_reason", columnDefinition = "NVARCHAR(MAX)")
     private String cancelReason;
 
     /**

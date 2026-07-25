@@ -21,6 +21,10 @@ public interface DiscountCampaignService {
 
     List<DiscountCampaignResponse> getActive();
 
+    /** Trang khuyến mãi công khai: mọi campaign kể cả đã hết hạn/sắp diễn ra — khác getActive()
+     *  (chỉ campaign đang áp dụng được) và getAll() (yêu cầu quyền nhân viên). */
+    List<DiscountCampaignResponse> getAllPublic();
+
     /** Xem trước mức giảm của 1 mã cho 1 số tiền — KHÔNG tăng lượt dùng (dùng để hiển thị trước khi xác nhận). */
     DiscountApplicationResponse quote(String voucherCode, BigDecimal amount);
 

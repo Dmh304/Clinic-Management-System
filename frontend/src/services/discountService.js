@@ -7,6 +7,10 @@ export const discountService = {
   getActive: () =>
     axiosClient.get('/v1/discount-campaigns/active'),
 
+  // Trang khuyến mãi công khai: mọi campaign kể cả đã hết hạn/sắp diễn ra
+  getAllPublic: () =>
+    axiosClient.get('/v1/discount-campaigns/public'),
+
   getById: (id) =>
     axiosClient.get(`/v1/discount-campaigns/${id}`),
 

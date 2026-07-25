@@ -161,6 +161,7 @@ export default function AppRouter() {
         <Route path="/patient/lab-results" element={<PatientLabResults />} />
         <Route path="/patient/prescription" element={<WithHeader><PrescriptionViewPage /></WithHeader>} />
         <Route path="/patient/subscriptions" element={<WithHeader><MySubscriptionsPage /></WithHeader>} />
+        <Route path="/patient/subscriptions/:subscriptionId/sessions" element={<WithHeader><MyCareSessionsPage /></WithHeader>} />
         <Route path="/patient/book-session" element={<WithHeader><BookCareSessionPage /></WithHeader>} />
         <Route path="/patient/care-sessions" element={<WithHeader><MyCareSessionsPage /></WithHeader>} />
         <Route path="/patient/appointments" element={<WithHeader><MyAppointmentsPage /></WithHeader>} />

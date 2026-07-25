@@ -61,12 +61,18 @@ export default function ServiceDetailPage() {
     if (!canSubmitInline) return;
     setActionLoading(true);
     try {
-      await serviceService.registerAndBookOnline({
+      const res = await serviceService.registerAndBookOnline({
         serviceId: service.id,
         scheduledDateTime: inlineDateTime.format("YYYY-MM-DDTHH:mm:ss"),
         notes: inlineNotes || null,
       });
-      message.success(`Đặt lịch "${service.serviceName}" thành công! Xem chi tiết tại "Dịch vụ của tôi".`);
+      // Lần đầu mua dịch vụ này: chỉ ghi nhận đăng ký, chờ lễ tân liên hệ tư vấn
+      // rồi mới đặt buổi — khác với lần mua lặp lại (tự đặt được ngay).
+      if (res.data?.requiresConsultation) {
+        message.success(`Đã ghi nhận đăng ký "${service.serviceName}"! Phòng khám sẽ liên hệ tư vấn sớm nhất.`);
+      } else {
+        message.success(`Đặt lịch "${service.serviceName}" thành công! Xem chi tiết tại "Dịch vụ của tôi".`);
+      }
       navigate("/patient/subscriptions");
     } catch (err) {
       message.error(err?.response?.data?.message ?? "Đặt lịch thất bại, vui lòng thử lại");
@@ -261,8 +267,9 @@ export default function ServiceDetailPage() {
             ) : role === "PATIENT" ? (
               <form onSubmit={handleInlineCareBook}>
                 <p style={{ fontSize: 14, color: C.textSub, margin: "0 0 18px" }}>
-                  Chọn ngày giờ buổi đầu tiên, gói dịch vụ sẽ được kích hoạt ngay khi bạn xác nhận. Thanh toán
-                  thực hiện trực tiếp tại phòng khám sau khi trải nghiệm dịch vụ.
+                  Chọn ngày giờ buổi đầu tiên. Nếu đây là lần đầu bạn đăng ký gói này, phòng khám sẽ liên hệ
+                  tư vấn trước khi kích hoạt; nếu bạn đã từng mua gói này rồi, buổi hẹn sẽ được giữ ngay khi
+                  xác nhận. Thanh toán thực hiện trực tiếp tại phòng khám sau khi trải nghiệm dịch vụ.
                 </p>
                 <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 16 }}>
                   <div style={{ flex: "1 1 260px" }}>

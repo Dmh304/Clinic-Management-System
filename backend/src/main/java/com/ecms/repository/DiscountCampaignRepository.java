@@ -19,4 +19,8 @@ public interface DiscountCampaignRepository extends JpaRepository<DiscountCampai
     List<DiscountCampaign> findActiveCampaigns(@Param("today") LocalDate today);
 
     List<DiscountCampaign> findAllByOrderByCreatedAtDesc();
+
+    // Trang khuyến mãi công khai: liệt kê MỌI campaign kể cả đã hết hạn (không lọc theo
+    // isActive/ngày như findActiveCampaigns), sắp theo ngày bắt đầu gần nhất trước.
+    List<DiscountCampaign> findAllByOrderByValidFromDesc();
 }

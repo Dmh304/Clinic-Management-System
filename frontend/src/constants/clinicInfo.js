@@ -30,6 +30,7 @@ export const CLINIC_HOURS = {
 export function validateClinicTime(d, dayjs) {
   if (!d) return 'Vui lòng chọn ngày giờ'
   if (d.isBefore(dayjs())) return 'Thời gian phải trong tương lai, không được đặt trong quá khứ'
+  if (d.day() === 0) return 'Phòng khám nghỉ Chủ nhật, vui lòng chọn ngày khác'
   const open = d.hour(CLINIC_HOURS.openHour).minute(CLINIC_HOURS.openMinute).second(0)
   const close = d.hour(CLINIC_HOURS.closeHour).minute(CLINIC_HOURS.closeMinute).second(0)
   if (d.isBefore(open) || d.isAfter(close)) {
@@ -39,11 +40,11 @@ export function validateClinicTime(d, dayjs) {
 }
 
 /**
- * Chặn chọn ngày quá khứ trên DatePicker — dùng chung cho mọi form đặt lịch/buổi khám
- * để đồng bộ hành vi trong toàn hệ thống.
+ * Chặn chọn ngày quá khứ và Chủ nhật (phòng khám nghỉ) trên DatePicker — dùng chung
+ * cho mọi form đặt lịch/buổi khám để đồng bộ hành vi trong toàn hệ thống.
  */
 export function disabledClinicDate(current, dayjs) {
-  return current && current < dayjs().startOf('day')
+  return current && (current < dayjs().startOf('day') || current.day() === 0)
 }
 
 /**

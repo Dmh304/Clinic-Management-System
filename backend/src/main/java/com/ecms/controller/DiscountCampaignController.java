@@ -69,6 +69,13 @@ public class DiscountCampaignController {
         return ResponseEntity.ok(ApiResponse.success(discountCampaignService.getActive()));
     }
 
+    /** Mọi campaign kể cả đã hết hạn/sắp diễn ra — public, dùng cho trang khuyến mãi công khai
+     *  (khác /active: khách vẫn xem lại được chương trình cũ dù không áp dụng được nữa). */
+    @GetMapping("/public")
+    public ResponseEntity<ApiResponse<List<DiscountCampaignResponse>>> getAllPublic() {
+        return ResponseEntity.ok(ApiResponse.success(discountCampaignService.getAllPublic()));
+    }
+
     /** Manager bấm gửi thủ công — broadcast email + thông báo trong app cho toàn bộ bệnh nhân
      *  có email trong hệ thống. */
     @PostMapping("/{id}/broadcast")

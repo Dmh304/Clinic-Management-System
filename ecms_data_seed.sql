@@ -55,7 +55,7 @@ VALUES
 (18, N'thanggamer2k24@gmail.com', @pw, N'Ngô Thắng',      N'0971254653', '2006-12-02', 'MALE',
      N'Đông Anh, Hà Nội',                N'Ban giám đốc',  2, 'ACTIVE', 'LOCAL', GETDATE()),
 -- ===== Nhân viên (email ảo @ecms.vn) =====
-(2,  N'manager@ecms.vn',        @pw, N'Trần Thị Quản Lý',   N'0901000002', '1988-07-20', 'FEMALE',
+(2,  N'nganle1389@gmail.com',        @pw, N'Trần Thị Quản Lý',   N'0901000002', '1988-07-20', 'FEMALE',
      N'2 Nguyễn Huệ, Q1, TP.HCM',        N'Ban giám đốc',  2, 'ACTIVE', 'LOCAL', GETDATE()),
 
 (3,  N'doctor.nguyen@ecms.vn',  @pw, N'BS. Nguyễn Văn An',  N'0901000003', '1980-01-10', 'MALE',
@@ -77,7 +77,7 @@ VALUES
      N'9 Nguyễn Thị Minh Khai, Q3',      N'Xét nghiệm',    6, 'ACTIVE', 'LOCAL', GETDATE()),
 
 -- ===== Bệnh nhân (toàn bộ tài khoản ảo) =====
-(10, N'patient1@gmail.com',     @pw, N'Bùi Văn Bình',       N'0912000001', '1990-03-10', 'MALE',
+(10, N'dantayf8@gmail.com',     @pw, N'Bùi Văn Bình',       N'0912000001', '1990-03-10', 'MALE',
      N'10 Lý Thường Kiệt, Q10, TP.HCM',  NULL, 8, 'ACTIVE', 'LOCAL', GETDATE()),
 
 (11, N'patient2@gmail.com',     @pw, N'Đinh Thị Hoa',       N'0912000002', '1995-08-15', 'FEMALE',
@@ -102,19 +102,22 @@ SET IDENTITY_INSERT doctors ON;
 
 INSERT INTO doctors
     (id, user_id, doctor_code, full_name, license_number, specialty, department,
-     phone_number, email, experience_years, bio, status, created_at)
+     phone_number, email, experience_years, bio, avatar_url, status, created_at)
 VALUES
 (1, 3, N'DR001', N'BS. Nguyễn Văn An',  N'BV-HCM-001234', N'Khoa mắt tổng quát',
     N'Phòng khám tổng quát', N'0901000003', N'doctor.nguyen@ecms.vn', 12,
-    N'Chuyên gia khám và điều trị các bệnh mắt thông thường.', 'ACTIVE', GETDATE()),
+    N'Chuyên gia khám và điều trị các bệnh mắt thông thường.',
+    '/api/uploads/5e38345c286b43e68548dbb621be5326.jpg', 'ACTIVE', GETDATE()),
 
 (2, 4, N'DR002', N'BS. Trần Thị Bình',  N'BV-HCM-005678', N'Khúc xạ & Kính áp tròng',
     N'Phòng khúc xạ', N'0901000004', N'doctor.tran@ecms.vn', 9,
-    N'Chuyên điều trị tật khúc xạ, tư vấn kính áp tròng.', 'ACTIVE', GETDATE()),
+    N'Chuyên điều trị tật khúc xạ, tư vấn kính áp tròng.',
+    '/api/uploads/abfc04cce6c24818ace32beca3a1296e.png', 'ACTIVE', GETDATE()),
 
 (3, 5, N'DR003', N'BS. Lê Minh Châu',   N'BV-HCM-009012', N'Phẫu thuật mắt',
     N'Phòng phẫu thuật', N'0901000005', N'doctor.le@ecms.vn', 15,
-    N'Bác sĩ phẫu thuật đục thủy tinh thể và Lasik.', 'ACTIVE', GETDATE());
+    N'Bác sĩ phẫu thuật đục thủy tinh thể và Lasik.',
+    '/api/uploads/cfdcf86b1868482cab40bd3d9b691e7d.jpg', 'ACTIVE', GETDATE());
 
 SET IDENTITY_INSERT doctors OFF;
 GO
@@ -1092,10 +1095,10 @@ PRINT N'  ─── TÀI KHOẢN ĐĂNG NHẬP (mật khẩu chung: Password@123
 PRINT N'  ADMIN         : mh3k42k6@gmail.com';
 PRINT N'  RECEPTIONIST  : bichngan1826@gmail.com  (+ reception2@ecms.vn, ngobachthang2k6@gmail.com)';
 PRINT N'  NURSE         : andreale389@gmail.com';
-PRINT N'  MANAGER       : manager@ecms.vn';
+PRINT N'  MANAGER       : nganle1389@ecms.vn';
 PRINT N'  DOCTOR        : doctor.nguyen@ecms.vn / doctor.tran@ecms.vn / doctor.le@ecms.vn';
 PRINT N'  PHARMACIST    : pharmacist@ecms.vn';
 PRINT N'  LAB_TECH      : labtech@ecms.vn';
-PRINT N'  PATIENT (ảo)  : patient1@gmail.com … patient5@gmail.com';
+PRINT N'  PATIENT (ảo)  : dantayf8@gmail.com … patient5@gmail.com';
 PRINT N'  PATIENT DEMO  : trangthangtuong@gmail.com  (4 lịch hẹn COMPLETED chưa có HĐ — demo tạo hóa đơn)';
 GO

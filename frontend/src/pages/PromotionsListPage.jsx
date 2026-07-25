@@ -10,7 +10,12 @@ const s = {
   page: { fontFamily: 'system-ui, -apple-system, sans-serif', color: '#1e293b', backgroundColor: '#f8fafc', minHeight: '100vh' },
   container: { maxWidth: 1100, margin: '0 auto', padding: '48px 24px 80px' },
   heading: { fontSize: 36, fontWeight: 800, color: '#111827', margin: '0 0 8px' },
-  subtitle: { color: '#64748b', fontSize: 15, lineHeight: 1.65, marginBottom: 32, maxWidth: 560 },
+  subtitle: { color: '#64748b', fontSize: 15, lineHeight: 1.65, marginBottom: 24, maxWidth: 560 },
+  searchInput: {
+    width: '100%', maxWidth: 420, boxSizing: 'border-box', padding: '10px 14px',
+    borderRadius: 10, border: '1px solid #e2e8f0', fontSize: 14, marginBottom: 24,
+    outline: 'none', color: '#1e293b',
+  },
   count: { fontSize: 13, color: '#94a3b8', marginBottom: 20 },
 
   grid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 },
@@ -45,46 +50,85 @@ function daysRemaining(validTo) {
   return dayjs(validTo).diff(dayjs().startOf('day'), 'day')
 }
 
+// Trạng thái theo ngày — độc lập với is_active (cờ bật/tắt tay), chỉ tính theo
+// valid_from/valid_to so với hôm nay, để hiện đúng cho cả campaign đã hết hạn.
+function campaignStatus(c) {
+  const today = dayjs().startOf('day')
+  if (dayjs(c.validFrom).isAfter(today)) return { label: 'Sắp diễn ra', bg: '#fef3c7', color: '#b45309' }
+  if (dayjs(c.validTo).isBefore(today)) return { label: 'Đã kết thúc', bg: '#f1f5f9', color: '#64748b' }
+  return { label: 'Đang diễn ra', bg: '#dcfce7', color: '#16a34a' }
+}
+
+// Tìm không phân biệt hoa/thường và dấu tiếng Việt (vd "he" khớp "Hè")
+function normalize(str) {
+  return (str || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+}
+
 export default function PromotionsListPage() {
   const [campaigns, setCampaigns] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [query, setQuery] = useState('')
 
   useEffect(() => {
-    discountService.getActive()
+    discountService.getAllPublic()
       .then(res => setCampaigns(res.data || []))
       .catch(() => setError('Không thể tải danh sách khuyến mãi. Vui lòng thử lại sau.'))
       .finally(() => setLoading(false))
   }, [])
+
+  const q = normalize(query.trim())
+  const filtered = q
+    ? campaigns.filter(c => normalize(c.name).includes(q) || normalize(c.description).includes(q) || normalize(c.content).includes(q))
+    : campaigns
 
   return (
     <div style={s.page}>
       <div style={s.container}>
         <h1 style={s.heading}>Khuyến mãi &amp; Ưu đãi</h1>
         <p style={s.subtitle}>
-          Các chương trình giảm giá, voucher và ưu đãi đang áp dụng tại Nhãn Khoa Ánh Sao —
-          cập nhật thường xuyên, đừng bỏ lỡ.
+          Các chương trình giảm giá, voucher và ưu đãi tại Nhãn Khoa Ánh Sao — kể cả chương
+          trình đã kết thúc, để bạn xem lại lịch sử ưu đãi.
         </p>
+
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Tìm chương trình khuyến mãi theo tên..."
+          style={s.searchInput}
+        />
 
         {loading && <div style={s.loading}>Đang tải khuyến mãi...</div>}
         {error && <div style={s.error}>{error}</div>}
 
         {!loading && !error && (
           <>
-            <div style={s.count}>Hiển thị <strong>{campaigns.length}</strong> chương trình đang diễn ra</div>
+            <div style={s.count}>Hiển thị <strong>{filtered.length}</strong>/{campaigns.length} chương trình</div>
 
-            {campaigns.length === 0 ? (
+            {filtered.length === 0 ? (
               <div style={s.empty}>
                 <div style={{ fontSize: 48, marginBottom: 12 }}>🎁</div>
-                <div style={{ fontSize: 16, fontWeight: 600, color: '#64748b', marginBottom: 6 }}>Hiện chưa có chương trình khuyến mãi nào</div>
-                <div style={{ fontSize: 13 }}>Hãy quay lại sau — chúng tôi sẽ sớm có ưu đãi mới!</div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: '#64748b', marginBottom: 6 }}>
+                  {campaigns.length === 0 ? 'Hiện chưa có chương trình khuyến mãi nào' : 'Không tìm thấy chương trình phù hợp'}
+                </div>
+                <div style={{ fontSize: 13 }}>
+                  {campaigns.length === 0 ? 'Hãy quay lại sau — chúng tôi sẽ sớm có ưu đãi mới!' : 'Thử từ khoá khác xem sao.'}
+                </div>
               </div>
             ) : (
               <div style={s.grid}>
-                {campaigns.map(c => {
+                {filtered.map(c => {
                   const remain = daysRemaining(c.validTo)
+                  const untilStart = dayjs(c.validFrom).diff(dayjs().startOf('day'), 'day')
+                  const status = campaignStatus(c)
+                  const footerText = status.label === 'Sắp diễn ra'
+                    ? `Bắt đầu sau ${untilStart} ngày`
+                    : status.label === 'Đã kết thúc'
+                      ? 'Đã kết thúc'
+                      : `Còn ${remain} ngày`
                   return (
-                    <Link key={c.id} to={`/promotions/${c.id}`} style={s.card}>
+                    <Link key={c.id} to={`/promotions/${c.id}`} style={{ ...s.card, opacity: status.label === 'Đã kết thúc' ? 0.7 : 1 }}>
                       <div style={s.cardImgWrap}>
                         {c.thumbnailUrl
                           ? <img src={c.thumbnailUrl} alt={c.name} style={s.cardImg} />
@@ -95,11 +139,14 @@ export default function PromotionsListPage() {
                       <div style={s.cardBody}>
                         <div style={s.cardMeta}>
                           <span style={s.cardType}>{TYPE_LABEL[c.type]}</span>
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: status.bg, color: status.color }}>
+                            {status.label}
+                          </span>
                         </div>
                         <h3 style={s.cardTitle}>{c.name}</h3>
                         <p style={s.cardDesc}>{c.description || 'Xem chi tiết điều kiện áp dụng.'}</p>
                         <div style={s.cardFooter}>
-                          <span>{remain >= 0 ? `Còn ${remain} ngày` : 'Sắp kết thúc'}</span>
+                          <span>{footerText}</span>
                           <span style={s.readMore}>Xem chi tiết →</span>
                         </div>
                       </div>

@@ -28,13 +28,24 @@ public class Feedback {
     @JoinColumn(name = "patient_id", nullable = false)
     private Patient patient;
 
+    // Đánh giá gắn với MỘT trong hai loại buổi: lịch khám bác sĩ (appointment) hoặc
+    // buổi dịch vụ do điều dưỡng đảm nhiệm (careSession) — đúng 1 trong 2 khác null.
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "appointment_id", nullable = false)
+    @JoinColumn(name = "appointment_id")
     private Appointment appointment;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "care_session_id")
+    private CareSession careSession;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "doctor_id")
     private Doctor doctor;
+
+    // Điều dưỡng đảm nhiệm buổi dịch vụ (chỉ set khi careSession != null)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "nurse_id")
+    private User nurse;
 
     // 1..5 sao (ràng buộc CHECK ở DB)
     @Column(name = "rating", nullable = false)

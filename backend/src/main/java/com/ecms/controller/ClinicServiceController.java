@@ -101,12 +101,14 @@ public class ClinicServiceController {
      * Bệnh nhân tự đăng ký + đặt buổi đầu tiên cho gói CARE trên website — PATIENT.
      *  Tạo đăng ký + gói + buổi đầu tiên trong một lần, không cần lễ tân xử lý. */
     @PostMapping("/register-and-book")
-    public ResponseEntity<ApiResponse<CareSessionResponse>> registerAndBookOnline(
+    public ResponseEntity<ApiResponse<RegisterAndBookResponse>> registerAndBookOnline(
             @Valid @RequestBody RegisterAndBookRequest request,
             Authentication authentication) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Đăng ký dịch vụ và đặt buổi đầu tiên thành công",
-                        clinicServiceService.registerAndBookOnline(request, authentication.getName())));
+        RegisterAndBookResponse result = clinicServiceService.registerAndBookOnline(request, authentication.getName());
+        String message = result.isRequiresConsultation()
+                ? "Đã ghi nhận đăng ký, phòng khám sẽ liên hệ tư vấn sớm nhất"
+                : "Đăng ký dịch vụ và đặt buổi đầu tiên thành công";
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(message, result));
     }
 
     // ── Manager CRUD ──────────────────────────────────────────────

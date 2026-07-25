@@ -9,6 +9,7 @@ import com.ecms.dto.request.ServicePackageRequest;
 import com.ecms.dto.request.ServiceRegistrationRequest;
 import com.ecms.dto.response.CareSessionResponse;
 import com.ecms.dto.response.ClinicServiceResponse;
+import com.ecms.dto.response.RegisterAndBookResponse;
 import com.ecms.dto.response.ServiceCategoryResponse;
 import com.ecms.dto.response.ServiceRegistrationResponse;
 import com.ecms.dto.response.ServiceSubscriptionResponse;
@@ -255,7 +256,7 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
 
         @Override
         @Transactional
-        public CareSessionResponse registerAndBookOnline(RegisterAndBookRequest request, String currentUserEmail) {
+        public RegisterAndBookResponse registerAndBookOnline(RegisterAndBookRequest request, String currentUserEmail) {
                 Patient patient = patientRepository.findByUser_Email(currentUserEmail)
                                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ bệnh nhân"));
                 ClinicService service = clinicServiceRepository.findById(request.getServiceId())
@@ -265,7 +266,41 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
                                         "Chỉ áp dụng đặt lịch trực tuyến cho gói dịch vụ chăm sóc (CARE)");
                 }
 
-                // 1) Ghi nhận đăng ký (đã hoàn tất ngay — bệnh nhân tự đặt trên website)
+                // Lần ĐẦU bệnh nhân mua dịch vụ này (chưa từng có subscription nào, bất kỳ
+                // trạng thái) -> bắt buộc qua tư vấn của lễ tân, giống luồng tại quầy: chỉ
+                // ghi nhận đăng ký PENDING, CHƯA tạo subscription/care-session. Nếu đã từng
+                // mua dịch vụ này rồi (có subscription cũ, còn hạn hay hết hạn/huỷ đều tính)
+                // thì cho tự đặt lịch ngay như trước, không bắt tư vấn lại.
+                boolean firstTimeForThisService = !subscriptionRepository
+                                .existsByPatient_IdAndService_Id(patient.getId(), service.getId());
+
+                if (firstTimeForThisService) {
+                        if (serviceRegistrationRepository.existsByPatient_IdAndService_IdAndStatus(
+                                        patient.getId(), service.getId(), "PENDING")) {
+                                throw new ConflictException(
+                                                "Bạn đã đăng ký dịch vụ này và đang chờ tư vấn. Vui lòng chờ phòng khám liên hệ.");
+                        }
+
+                        String note = "Giờ mong muốn: " + request.getScheduledDateTime()
+                                        + (request.getNotes() != null && !request.getNotes().isBlank()
+                                                        ? " | " + request.getNotes()
+                                                        : "");
+                        ServiceRegistration registration = ServiceRegistration.builder()
+                                        .service(service)
+                                        .patient(patient)
+                                        .registeredBy(patient.getUser())
+                                        .registrationDate(LocalDate.now())
+                                        .notes(note)
+                                        .build(); // status mặc định PENDING (@PrePersist)
+                        ServiceRegistration saved = serviceRegistrationRepository.save(registration);
+
+                        return RegisterAndBookResponse.builder()
+                                        .requiresConsultation(true)
+                                        .registration(toRegistrationResponse(saved))
+                                        .build();
+                }
+
+                // 1) Ghi nhận đăng ký (đã hoàn tất ngay — bệnh nhân tự đặt lại dịch vụ đã từng mua)
                 ServiceRegistration registration = ServiceRegistration.builder()
                                 .service(service)
                                 .patient(patient)
@@ -295,7 +330,10 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
 
                 sendRegistrationConfirmationSafe(patient, service.getServiceName(), request.getScheduledDateTime());
 
-                return session;
+                return RegisterAndBookResponse.builder()
+                                .requiresConsultation(false)
+                                .careSession(session)
+                                .build();
         }
 
         // sendServiceRegistrationConfirmation() đã tự bọc lỗi SMTP bên trong

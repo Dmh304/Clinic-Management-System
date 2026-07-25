@@ -29,13 +29,13 @@ public class Doctor {
     @Column(name = "license_number", nullable = false, unique = true, length = 100)
     private String licenseNumber;
 
-    @Column(name = "specialty", nullable = false, length = 100)
+    @Column(name = "specialty", nullable = false, columnDefinition = "NVARCHAR(100)")
     private String specialization;
 
     @Column(name = "academic_title", length = 150)
     private String academicTitle;
-
-    @Column(name = "department")
+    
+    @Column(name = "department", columnDefinition = "NVARCHAR(255)")
     private String department;
 
     // Cột thật chứa SĐT là "phone_number"
@@ -48,7 +48,7 @@ public class Doctor {
     @Column(name = "experience_years")
     private Integer experienceYears;
 
-    @Column(name = "bio")
+    @Column(name = "bio", columnDefinition = "NVARCHAR(MAX)")
     private String bio;
 
     // Mỗi dòng là 1 thành tựu chuyên môn, hiển thị dạng checklist ở trang chi tiết

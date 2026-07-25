@@ -2,7 +2,8 @@
 import axiosClient from '../api/axiosClient'
 
 export const feedbackService = {
-  // Gửi đánh giá: { appointmentId, rating, content, isAnonymous }
+  // Gửi đánh giá: { appointmentId, rating, content, isAnonymous } HOẶC
+  // { careSessionId, rating, content, isAnonymous } cho buổi dịch vụ điều dưỡng
   submit: (data) => axiosClient.post('/v1/feedbacks', data),
   // Danh sách đánh giá đã gửi của bệnh nhân
   getMy: () => axiosClient.get('/v1/feedbacks/my'),

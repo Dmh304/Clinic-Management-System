@@ -36,7 +36,7 @@ public class User {
     private String phone;
 
     // Phòng/bộ phận công tác — chỉ áp dụng cho tài khoản nhân viên (UC-55), null với PATIENT
-    @Column(name = "department")
+    @Column(name = "department", columnDefinition = "NVARCHAR(100)")
     private String department;
 
     @ManyToOne(fetch = FetchType.EAGER)

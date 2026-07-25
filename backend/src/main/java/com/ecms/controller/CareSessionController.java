@@ -66,10 +66,12 @@ public class CareSessionController {
         return ResponseEntity.ok(ApiResponse.success(careSessionService.getById(id, authentication.getName())));
     }
 
-    /** Danh sách buổi theo gói đăng ký */
+    /** Danh sách buổi theo gói đăng ký — patient chỉ xem được gói của chính mình */
     @GetMapping("/subscription/{subscriptionId}")
-    public ResponseEntity<ApiResponse<List<CareSessionResponse>>> getBySubscription(@PathVariable Long subscriptionId) {
-        return ResponseEntity.ok(ApiResponse.success(careSessionService.getSessionsBySubscription(subscriptionId)));
+    public ResponseEntity<ApiResponse<List<CareSessionResponse>>> getBySubscription(
+            @PathVariable Long subscriptionId, Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.success(
+                careSessionService.getSessionsBySubscription(subscriptionId, authentication.getName())));
     }
 
     /** Phân công điều dưỡng — MANAGER. request.override=true để vẫn phân công dù đã đủ sức chứa (UC-19 E-2). */
