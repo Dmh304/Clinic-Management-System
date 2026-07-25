@@ -3,6 +3,7 @@
 // click 1 thông báo để xem chi tiết lịch hẹn liên quan (nếu có).
 
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { List, Button, Segmented, Typography, message, Empty, Card } from 'antd'
 import { CheckOutlined, BellOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
@@ -11,6 +12,7 @@ import { appointmentService } from '../../services/appointmentService'
 import AppointmentDetailModal from '../../components/receptionist/AppointmentDetailModal'
 
 export default function NotificationsPage() {
+  const navigate = useNavigate()
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState('ALL')
@@ -46,7 +48,15 @@ export default function NotificationsPage() {
         await notificationService.markAsRead(n.id)
         setItems((prev) => prev.map((x) => (x.id === n.id ? { ...x, isRead: true } : x)))
       }
-      if (n.relatedAppointmentId) {
+
+      // Buổi dịch vụ hoàn thành, sẵn sàng check-out — sang thẳng hàng đợi check-out.
+      if (n.relatedEntityType === 'CARE_SESSION_CHECKOUT') {
+        navigate('/receptionist/checkout-care-sessions')
+        return
+      }
+
+      // Mặc định (type null hoặc "APPOINTMENT"): mở modal chi tiết lịch hẹn như cũ.
+      if (n.relatedAppointmentId && (!n.relatedEntityType || n.relatedEntityType === 'APPOINTMENT')) {
         const res = await appointmentService.getById(n.relatedAppointmentId)
         setDetail(res.data)
       }
@@ -108,7 +118,10 @@ export default function NotificationsPage() {
                 title={<span style={{ fontWeight: n.isRead ? 400 : 600 }}>{n.message}</span>}
                 description={dayjs(n.createdAt).format('HH:mm DD/MM/YYYY')}
               />
-              {n.relatedAppointmentId && (
+              {n.relatedEntityType === 'CARE_SESSION_CHECKOUT' && (
+                <span style={{ fontSize: 12, color: '#2563eb' }}>Check-out ngay →</span>
+              )}
+              {n.relatedAppointmentId && (!n.relatedEntityType || n.relatedEntityType === 'APPOINTMENT') && (
                 <span style={{ fontSize: 12, color: '#2563eb' }}>Xem lịch hẹn →</span>
               )}
             </List.Item>

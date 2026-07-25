@@ -109,7 +109,7 @@ public class FeedbackServiceImpl implements FeedbackService {
             String doctorPart = doctor != null ? " (BS. " + doctor.getFullName() + ")" : "";
             notificationService.createForManagers(
                     "Có đánh giá mới " + saved.getRating() + "★" + doctorPart
-                            + " cần duyệt.", appointment.getId());
+                            + " cần duyệt.", appointment.getId(), "FEEDBACK");
         } catch (Exception ignored) {
         }
 
@@ -152,7 +152,7 @@ public class FeedbackServiceImpl implements FeedbackService {
             String nursePart = nurse != null ? " (ĐD. " + nurse.getFullName() + ")" : "";
             notificationService.createForManagers(
                     "Có đánh giá mới " + saved.getRating() + "★" + nursePart
-                            + " cần duyệt.", careSession.getId());
+                            + " cần duyệt.", careSession.getId(), "FEEDBACK");
         } catch (Exception ignored) {
         }
 

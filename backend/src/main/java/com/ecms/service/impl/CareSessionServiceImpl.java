@@ -232,7 +232,7 @@ public class CareSessionServiceImpl implements CareSessionService {
                             + " (buổi " + sessionNumber + "/" + subscription.getTotalSessions() + ")"
                             + ". Thời gian: " + request.getScheduledDateTime().toLocalDate()
                             + " lúc " + request.getScheduledDateTime().toLocalTime(),
-                    null);
+                    subscription.getId(), "SUBSCRIPTION");
         } catch (Exception e) {
             log.error("UC-40: Gửi thông báo book care session thất bại: {}", e.getMessage());
         }
@@ -444,7 +444,7 @@ public class CareSessionServiceImpl implements CareSessionService {
                     "Bạn được phân công buổi chăm sóc cho " + session.getPatient().getFullName()
                             + " lúc " + session.getScheduledDateTime().toLocalTime()
                             + " ngày " + session.getScheduledDateTime().toLocalDate(),
-                    null);
+                    session.getId(), "CARE_SESSION");
         } catch (Exception e) {
             log.error("UC-19: Gửi thông báo phân công điều dưỡng thất bại: {}", e.getMessage());
         }
@@ -457,7 +457,7 @@ public class CareSessionServiceImpl implements CareSessionService {
                             + " lúc " + session.getScheduledDateTime().toLocalTime()
                             + " ngày " + session.getScheduledDateTime().toLocalDate()
                             + " đã được chuyển cho điều dưỡng khác",
-                    null);
+                    session.getId(), "CARE_SESSION");
         } catch (Exception e) {
             log.error("UC-19 ALT-2: Gửi thông báo gỡ phân công điều dưỡng thất bại: {}", e.getMessage());
         }
@@ -540,7 +540,7 @@ public class CareSessionServiceImpl implements CareSessionService {
             notificationService.createForReceptionists(
                     "Buổi chăm sóc của " + saved.getPatient().getFullName()
                             + " (" + saved.getSubscription().getService().getServiceName() + ") đã hoàn thành, sẵn sàng check-out",
-                    null);
+                    saved.getId(), "CARE_SESSION_CHECKOUT");
         } catch (Exception e) {
             log.error("UC-32: Gửi thông báo hoàn thành buổi khám cho lễ tân thất bại: {}", e.getMessage());
         }
@@ -551,7 +551,7 @@ public class CareSessionServiceImpl implements CareSessionService {
                 notificationService.createForRole("MANAGER",
                         "⚠️ Sự cố trong buổi chăm sóc của " + saved.getPatient().getFullName()
                                 + ": " + saved.getNurseNotes(),
-                        null);
+                        saved.getId(), "CARE_SESSION");
             } catch (Exception e) {
                 log.error("UC-32 ALT-1: Gửi thông báo sự cố cho Manager thất bại: {}", e.getMessage());
             }

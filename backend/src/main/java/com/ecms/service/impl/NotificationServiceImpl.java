@@ -25,13 +25,24 @@ public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationRepository notificationRepository;
 
+    /** Giá trị mặc định cho các overload cũ (3 tham số) — lịch sử mọi thông báo có kèm ID
+     *  đều là lịch hẹn, nên giữ nguyên hành vi cũ khi caller không khai báo entityType. */
+    private static final String DEFAULT_ENTITY_TYPE = "APPOINTMENT";
+
     @Override
     @Transactional
     public void createForReceptionists(String message, Long relatedAppointmentId) {
+        createForReceptionists(message, relatedAppointmentId, DEFAULT_ENTITY_TYPE);
+    }
+
+    @Override
+    @Transactional
+    public void createForReceptionists(String message, Long relatedEntityId, String relatedEntityType) {
         notificationRepository.save(Notification.builder()
                 .message(message)
                 .targetRole(ROLE_RECEPTIONIST)
-                .relatedAppointmentId(relatedAppointmentId)
+                .relatedAppointmentId(relatedEntityId)
+                .relatedEntityType(relatedEntityType)
                 .isRead(false)
                 .build());
     }
@@ -39,10 +50,17 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional
     public void createForRole(String role, String message, Long relatedAppointmentId) {
+        createForRole(role, message, relatedAppointmentId, DEFAULT_ENTITY_TYPE);
+    }
+
+    @Override
+    @Transactional
+    public void createForRole(String role, String message, Long relatedEntityId, String relatedEntityType) {
         notificationRepository.save(Notification.builder()
                 .message(message)
                 .targetRole(role)
-                .relatedAppointmentId(relatedAppointmentId)
+                .relatedAppointmentId(relatedEntityId)
+                .relatedEntityType(relatedEntityType)
                 .isRead(false)
                 .build());
     }
@@ -51,19 +69,32 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional
     public void createForManagers(String message, Long relatedAppointmentId) {
-        createForRole(ROLE_MANAGER, message, relatedAppointmentId);
+        createForRole(ROLE_MANAGER, message, relatedAppointmentId, DEFAULT_ENTITY_TYPE);
+    }
+
+    @Override
+    @Transactional
+    public void createForManagers(String message, Long relatedEntityId, String relatedEntityType) {
+        createForRole(ROLE_MANAGER, message, relatedEntityId, relatedEntityType);
     }
 
     @Override
     @Transactional
     public void createForUser(Long userId, String message, Long relatedAppointmentId) {
+        createForUser(userId, message, relatedAppointmentId, DEFAULT_ENTITY_TYPE);
+    }
+
+    @Override
+    @Transactional
+    public void createForUser(Long userId, String message, Long relatedEntityId, String relatedEntityType) {
         if (userId == null) {
             return; // bệnh nhân vãng lai không có tài khoản -> bỏ qua, không tạo thông báo
         }
         notificationRepository.save(Notification.builder()
                 .message(message)
                 .targetUserId(userId)
-                .relatedAppointmentId(relatedAppointmentId)
+                .relatedAppointmentId(relatedEntityId)
+                .relatedEntityType(relatedEntityType)
                 .isRead(false)
                 .build());
     }

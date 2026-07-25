@@ -195,7 +195,8 @@ public class DiscountCampaignServiceImpl implements DiscountCampaignService {
 
         // Bắn kèm thông báo chuông trong app cho bệnh nhân đã đăng nhập — tận dụng hạ tầng
         // broadcast theo vai trò có sẵn (UC-13), không cần nút bấm riêng.
-        notificationService.createForRole("PATIENT", "🎉 " + campaign.getName() + " — xem ngay!", null);
+        notificationService.createForRole("PATIENT", "🎉 " + campaign.getName() + " — xem ngay!",
+                campaign.getId(), "PROMOTION");
 
         auditLogService.log(resolveActorId(actorEmail), "BROADCAST_PROMOTION_EMAIL", "DiscountCampaign",
                 String.valueOf(campaign.getId()), null,
