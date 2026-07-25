@@ -113,6 +113,7 @@ CREATE TABLE users (
     created_at            DATETIME2       NOT NULL DEFAULT GETDATE(),
     deleted_at            DATETIME2       NULL,
     marketing_opt_out     BIT             NOT NULL DEFAULT 0,
+    is_virtual            BIT             NOT NULL DEFAULT 0,
     CONSTRAINT PK_users PRIMARY KEY (id),
     CONSTRAINT UQ_users_email UNIQUE (email),
     CONSTRAINT FK_users_role FOREIGN KEY (role_id) REFERENCES roles(id),
@@ -759,6 +760,14 @@ GO
 -- ----------------------------------------------------------------------------
 -- 23. notifications — thông báo ở chuông (UC-13), tách biệt audit_logs
 -- target_user_id: nhắm riêng 1 user; target_role: broadcast theo vai trò
+--
+-- Gộp từ ecms_notification_entity_type_patch.sql: related_entity_type cho phép 1
+-- thông báo trỏ tới BẤT KỲ thực thể nào (APPOINTMENT, CARE_SESSION, SUBSCRIPTION,
+-- PROMOTION, FEEDBACK, EYEGLASS_ORDER...) để chuông điều hướng đúng trang khi click.
+-- related_appointment_id GIỮ NGUYÊN TÊN CỘT CŨ nhưng từ nay mang id của thực thể
+-- bất kỳ — phải đọc kèm related_entity_type mới biết đang trỏ tới cái gì.
+-- ⚠️ Notification.java chưa map related_entity_type (cột nullable nên Hibernate bỏ
+--    qua, không lỗi). Cần bổ sung field khi làm tính năng điều hướng theo loại.
 -- ----------------------------------------------------------------------------
 CREATE TABLE notifications (
     id                     BIGINT          NOT NULL IDENTITY(1,1),
@@ -766,6 +775,7 @@ CREATE TABLE notifications (
     target_role            NVARCHAR(50)    NULL,
     target_user_id         BIGINT          NULL,
     related_appointment_id BIGINT          NULL,
+    related_entity_type    NVARCHAR(30)    NULL,
     is_read                BIT             NOT NULL DEFAULT 0,
     created_at             DATETIME2       NOT NULL DEFAULT GETDATE(),
     CONSTRAINT PK_notifications PRIMARY KEY (id)
@@ -928,24 +938,42 @@ CREATE TABLE doctor_schedules (
 GO
 
 -- ----------------------------------------------------------------------------
--- 30. feedbacks — đánh giá của bệnh nhân sau buổi khám
+-- 30. feedbacks — đánh giá của bệnh nhân sau buổi khám HOẶC buổi chăm sóc
+-- Gộp từ ecms_feedback_care_session_patch.sql: một feedback gắn với ĐÚNG 1 trong 2
+--   • appointment_id  → đánh giá lịch khám bác sĩ (doctor_id đi kèm)
+--   • care_session_id → đánh giá buổi dịch vụ do điều dưỡng làm (nurse_id đi kèm)
+-- CK_feedbacks_subject ép đúng 1 trong 2 cột khác NULL.
+--
+-- ⚠️ Feedback.java hiện vẫn khai báo @JoinColumn(name="appointment_id", nullable=false)
+--    và chưa có field careSession/nurse → BACKEND CHƯA TẠO ĐƯỢC feedback cho buổi
+--    chăm sóc. Cột đã sẵn sàng ở DB, chỉ chờ sửa entity + service. Phần ĐỌC đã an
+--    toàn (FeedbackServiceImpl.toResponse null-check appointment/doctor) nên dòng
+--    demo care_session trong data seed không làm vỡ màn hình đánh giá hiện tại.
 -- ----------------------------------------------------------------------------
 CREATE TABLE feedbacks (
-    id             BIGINT          NOT NULL IDENTITY(1,1),
-    patient_id     BIGINT          NOT NULL,
-    appointment_id BIGINT          NOT NULL,
-    doctor_id      BIGINT          NULL,
-    rating         TINYINT         NOT NULL,
-    content        NVARCHAR(MAX)   NULL,
-    is_anonymous   BIT             NOT NULL DEFAULT 0,
-    status         NVARCHAR(20)    NOT NULL DEFAULT 'PENDING',
-    created_at     DATETIME2       NOT NULL DEFAULT GETDATE(),
+    id              BIGINT          NOT NULL IDENTITY(1,1),
+    patient_id      BIGINT          NOT NULL,
+    appointment_id  BIGINT          NULL,
+    care_session_id BIGINT          NULL,
+    doctor_id       BIGINT          NULL,
+    nurse_id        BIGINT          NULL,
+    rating          TINYINT         NOT NULL,
+    content         NVARCHAR(MAX)   NULL,
+    is_anonymous    BIT             NOT NULL DEFAULT 0,
+    status          NVARCHAR(20)    NOT NULL DEFAULT 'PENDING',
+    created_at      DATETIME2       NOT NULL DEFAULT GETDATE(),
     CONSTRAINT PK_feedbacks PRIMARY KEY (id),
     CONSTRAINT FK_feedbacks_patient FOREIGN KEY (patient_id) REFERENCES patients(id),
     CONSTRAINT FK_feedbacks_appointment FOREIGN KEY (appointment_id) REFERENCES appointments(id),
+    CONSTRAINT FK_feedbacks_care_session FOREIGN KEY (care_session_id) REFERENCES care_sessions(id),
     CONSTRAINT FK_feedbacks_doctor FOREIGN KEY (doctor_id) REFERENCES doctors(id),
+    CONSTRAINT FK_feedbacks_nurse FOREIGN KEY (nurse_id) REFERENCES users(id),
     CONSTRAINT CK_feedbacks_rating CHECK (rating BETWEEN 1 AND 5),
-    CONSTRAINT CK_feedbacks_status CHECK (status IN ('PENDING', 'APPROVED', 'HIDDEN'))
+    CONSTRAINT CK_feedbacks_status CHECK (status IN ('PENDING', 'APPROVED', 'HIDDEN')),
+    CONSTRAINT CK_feedbacks_subject CHECK (
+        (CASE WHEN appointment_id  IS NULL THEN 0 ELSE 1 END)
+      + (CASE WHEN care_session_id IS NULL THEN 0 ELSE 1 END) = 1
+    )
 );
 GO
 
@@ -1096,7 +1124,11 @@ GO
 
 -- ----------------------------------------------------------------------------
 -- 38. eyeglass_orders — đơn đặt cắt kính (entity EyeglassOrder)
--- status = EyeglassOrderStatus. dispensed_by → staffs(id).
+-- status = EyeglassOrderStatus.
+-- dispensed_by → users(id), KHÔNG phải staffs(id): người giao kính có thể là Lễ
+-- tân/Dược sĩ (bảng staffs) HOẶC Kỹ thuật viên (bảng lab_technicians), nên phải
+-- trỏ về bảng tài khoản chung — cùng pattern với care_sessions.check_in_by,
+-- appointments.booked_by, invoices.issued_by.
 -- ----------------------------------------------------------------------------
 CREATE TABLE eyeglass_orders (
     id              BIGINT          NOT NULL IDENTITY(1,1),
@@ -1114,7 +1146,7 @@ CREATE TABLE eyeglass_orders (
     CONSTRAINT FK_eyeglass_orders_patient FOREIGN KEY (patient_id) REFERENCES patients(id),
     CONSTRAINT FK_eyeglass_orders_prescription FOREIGN KEY (prescription_id) REFERENCES eyeglass_prescriptions(id),
     CONSTRAINT FK_eyeglass_orders_frame FOREIGN KEY (frame_id) REFERENCES eyeglass_frames(id),
-    CONSTRAINT FK_eyeglass_orders_dispensed_by FOREIGN KEY (dispensed_by) REFERENCES staffs(id),
+    CONSTRAINT FK_eyeglass_orders_dispensed_by FOREIGN KEY (dispensed_by) REFERENCES users(id),
     CONSTRAINT CK_eyeglass_orders_status CHECK (status IN ('PENDING_CONFIRMATION', 'PENDING_LAB', 'IN_PRODUCTION', 'READY', 'DISPENSED', 'CANCELLED'))
 );
 GO
@@ -1212,6 +1244,19 @@ INSERT INTO notification_templates (template_key, channel, subject, body, variab
      NULL,
      N'Bạn có lịch khám sắp tới lúc {{appointment_time}}. Nhấn để xem chi tiết.',
      N'{{appointment_time}}', 1);
+GO
+
+-- Sửa phần bác sĩ
+IF NOT EXISTS (
+    SELECT 1 FROM sys.columns
+    WHERE object_id = OBJECT_ID('dbo.doctors') AND name = 'featured'
+)
+BEGIN
+    ALTER TABLE doctors ADD featured BIT NOT NULL CONSTRAINT DF_doctors_featured DEFAULT 0;
+END
+GO
+
+UPDATE doctors SET status = 'ACTIVE' WHERE status IS NULL;
 GO
 
 PRINT N'';

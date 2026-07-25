@@ -20,4 +20,5 @@ public class StaffUserResponse {
     private String department;
     private String status;
     private LocalDateTime createdAt;
+    private Boolean isVirtual;
 }

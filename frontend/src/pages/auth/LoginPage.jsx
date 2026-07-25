@@ -223,6 +223,11 @@ export default function LoginPage() {
   const [staffForm] = Form.useForm()
   const [otpForm] = Form.useForm()
 
+  // Demo: đăng nhập 1 bước bằng gmail ảo, không qua OTP (chỉ tài khoản isVirtual=true)
+  const [demoLoading, setDemoLoading] = useState(false)
+  const [demoErrorMsg, setDemoErrorMsg] = useState('')
+  const [demoForm] = Form.useForm()
+
 
   // Xử lý submit form đăng nhập: gọi API login, lưu thông tin vào Redux và điều hướng theo vai trò
   const onFinish = async (values) => {
@@ -315,6 +320,27 @@ export default function LoginPage() {
     }
   }
 
+  // Đăng nhập demo: 1 bước duy nhất bằng gmail ảo, không qua OTP
+  const handleDemoLogin = async (values) => {
+    setDemoLoading(true)
+    setDemoErrorMsg('')
+    try {
+      const res = await authService.demoLogin(values.email, values.password)
+      const { token, userId, email, fullName, role, doctorId, patientId } = res.data
+      dispatch(loginSuccess({ token, userId, email, fullName, role, doctorId, patientId }))
+      message.success('Đăng nhập demo thành công!')
+      navigate(ROLE_REDIRECT[role] ?? '/', { replace: true })
+    } catch (err) {
+      if (!err.response) {
+        setDemoErrorMsg('Không thể kết nối đến máy chủ. Hãy kiểm tra backend đang chạy tại cổng 8080.')
+      } else {
+        setDemoErrorMsg(err.response.data?.message ?? 'Đăng nhập demo thất bại. Vui lòng thử lại.')
+      }
+    } finally {
+      setDemoLoading(false)
+    }
+  }
+
   return (
     <div style={S.page}>
       <Header />
@@ -344,9 +370,15 @@ export default function LoginPage() {
             <p style={S.cardTitle}>Chào Mừng Trở Lại</p>
             <p style={S.cardSub}>Vui lòng nhập thông tin đăng nhập để tiếp tục.</p>
 
+            {/* antd Tabs không hỗ trợ chia đều chiều rộng qua prop — ép bằng CSS scoped theo className riêng */}
+            <style>{`
+              .ecms-login-tabs .ant-tabs-nav-list { width: 100%; }
+              .ecms-login-tabs .ant-tabs-tab { flex: 1; justify-content: center; margin: 0 !important; }
+            `}</style>
             <Tabs
+              className="ecms-login-tabs"
               activeKey={activeTab}
-              onChange={(key) => { setActiveTab(key); setStaffStep('credentials'); setStaffErrorMsg('') }}
+              onChange={(key) => { setActiveTab(key); setStaffStep('credentials'); setStaffErrorMsg(''); setDemoErrorMsg('') }}
               items={[
                 {
                   key: 'patient',
@@ -523,6 +555,64 @@ export default function LoginPage() {
                       <Button type="link" onClick={() => { setStaffStep('credentials'); setStaffErrorMsg('') }} style={{ padding: 0, marginTop: 8 }}>
                         Quay lại
                       </Button>
+                    </Form>
+                  ),
+                },
+                {
+                  key: 'demo',
+                  label: 'Demo',
+                  children: (
+                    <Form form={demoForm} onFinish={handleDemoLogin} onSubmit={(e) => e.preventDefault()} layout="vertical" requiredMark={false} size="large">
+                      <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 16 }}>
+                        Dành cho tài khoản demo (gmail ảo) — đăng nhập thẳng, không cần mã OTP.
+                      </p>
+                      <Form.Item
+                        name="email"
+                        label={<span style={S.label}>Địa Chỉ Email</span>}
+                        rules={[
+                          { required: true, message: 'Vui lòng nhập email' },
+                          { type: 'email', message: 'Email không hợp lệ' },
+                        ]}
+                        style={{ marginBottom: 16 }}
+                      >
+                        <Input
+                          prefix={<MailOutlined style={{ color: '#9ca3af' }} />}
+                          placeholder="name@example.com"
+                          style={{ borderRadius: 10, height: 44 }}
+                        />
+                      </Form.Item>
+
+                      <Form.Item
+                        name="password"
+                        label={<span style={S.label}>Mật Khẩu</span>}
+                        rules={[{ required: true, message: 'Vui lòng nhập mật khẩu' }]}
+                        style={{ marginBottom: 12 }}
+                      >
+                        <Input.Password
+                          prefix={<LockOutlined style={{ color: '#9ca3af' }} />}
+                          placeholder="••••••••"
+                          iconRender={(visible) =>
+                            visible ? <EyeTwoTone /> : <EyeInvisibleOutlined style={{ color: '#9ca3af' }} />
+                          }
+                          style={{ borderRadius: 10, height: 44 }}
+                        />
+                      </Form.Item>
+
+                      {demoErrorMsg && (
+                        <div style={{
+                          background: '#fef2f2', border: '1px solid #fecaca',
+                          borderRadius: 8, padding: '10px 14px', marginTop: 12,
+                          fontSize: 13, color: '#dc2626', lineHeight: 1.5,
+                        }}>
+                          {demoErrorMsg}
+                        </div>
+                      )}
+
+                      <Form.Item style={{ marginTop: 16, marginBottom: 0 }}>
+                        <Button type="primary" htmlType="submit" loading={demoLoading} style={S.submitBtn}>
+                          Đăng Nhập Demo
+                        </Button>
+                      </Form.Item>
                     </Form>
                   ),
                 },

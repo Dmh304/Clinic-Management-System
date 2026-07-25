@@ -91,6 +91,7 @@ public class SecurityConfig {
                                                                 "/api/v1/auth/resend-verification",
                                                                 "/api/v1/auth/staff/login",
                                                                 "/api/v1/auth/staff/verify-otp",
+                                                                "/api/v1/auth/demo/login",
                                                                 "/api/v1/auth/forgot-password",
                                                                 "/api/v1/auth/reset-password")
                                                 .permitAll()
@@ -448,6 +449,20 @@ public class SecurityConfig {
                                                 .hasAnyRole("MANAGER", "ADMIN")
                                                 .requestMatchers("/api/v1/admin/**")
                                                 .hasRole("ADMIN")
+
+                                                // ── Xưởng kính: các thao tác nghiệp vụ chỉ dành cho nhân viên ──
+                                                // Trước đây EyeglassOrderServiceImpl.dispenseOrder() tra bảng staffs
+                                                // và ném lỗi nếu không thấy — vô tình đóng vai trò chốt chặn quyền.
+                                                // Từ khi dispensed_by trỏ users(id) thì phép tra đó bị bỏ, nên phải
+                                                // khai báo quyền TƯỜNG MINH ở đây (project chưa bật @EnableMethodSecurity
+                                                // nên @PreAuthorize trên controller sẽ KHÔNG có tác dụng).
+                                                // Lưu ý: đường dẫn là /api/eyeglass-orders (không có /v1).
+                                                .requestMatchers(
+                                                                "/api/eyeglass-orders/*/pickup",
+                                                                "/api/eyeglass-orders/*/confirm",
+                                                                "/api/eyeglass-orders/*/cancel",
+                                                                "/api/eyeglass-orders/pending")
+                                                .hasAnyRole("RECEPTIONIST", "PHARMACIST", "LAB_TECHNICIAN", "MANAGER", "ADMIN")
 
                                                 // ── Everything else requires authentication ────────────────────
                                                 .anyRequest().authenticated());
