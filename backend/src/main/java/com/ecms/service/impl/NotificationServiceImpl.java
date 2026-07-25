@@ -145,13 +145,4 @@ public class NotificationServiceImpl implements NotificationService {
         notificationRepository.markAllAsReadForRecipient(userId, role);
     }
 
-    @Override
-    public void createForLabTechnicians(String message, Long relatedAppointmentId) {
-        notificationRepository.save(Notification.builder()
-                .message(message)
-                .targetRole(ROLE_LAB_TECHNICIAN)
-                .relatedAppointmentId(relatedAppointmentId)
-                .isRead(false)
-                .build());
-    }
 }

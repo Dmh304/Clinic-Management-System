@@ -44,7 +44,7 @@ public interface NotificationService {
      * Tạo 1 thông báo cho toàn bộ Quản lý phòng khám (targetRole = "MANAGER").
      * UC-48.
      */
-    void createForManager(String message, Long relatedAppointmentId);
+    void createForManagers(String message, Long relatedAppointmentId);
 
     void createForManagers(String message, Long relatedEntityId, String relatedEntityType);
 

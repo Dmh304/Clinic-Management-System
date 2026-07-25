@@ -50,7 +50,7 @@ public class EyeglassOrder {
     @Column(name = "dispensed_at")
     private LocalDateTime dispensedAt;
 
-    @Column(name = "cancel_reason", columnDefinition = "TEXT")
+    @Column(name = "cancel_reason", columnDefinition = "NVARCHAR(MAX)")
     private String cancelReason;
 
     @ManyToMany(fetch = FetchType.LAZY)
