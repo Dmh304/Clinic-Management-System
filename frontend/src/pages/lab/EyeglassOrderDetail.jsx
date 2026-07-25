@@ -12,11 +12,7 @@ import { Button, message, Tag, Spin, Row, Col, Divider, Card } from 'antd'
 import { eyeglassOrderService } from '../../services/eyeglassOrderService'
 import useConfirmAction from '../../hooks/useConfirmAction'
 
-<<<<<<< HEAD:frontend/src/pages/lab/EyeglassPrescriptionDetail.jsx
 
-
-=======
->>>>>>> origin/test-branch:frontend/src/pages/lab/EyeglassOrderDetail.jsx
 const STATUS_MAP = {
   PENDING_CONFIRMATION: { color: 'default',    label: 'Chờ xác nhận' },
   PENDING_LAB:           { color: 'default',    label: 'Chờ xưởng cắt kính' },
@@ -93,13 +89,8 @@ export default function EyeglassOrderDetail() {
       title: 'Hoàn tất gia công đơn kính?',
       description: 'Đơn kính sẽ chuyển sang trạng thái "Sẵn sàng giao" để Lễ tân bàn giao cho bệnh nhân.',
       details: [
-<<<<<<< HEAD:frontend/src/pages/lab/EyeglassPrescriptionDetail.jsx
-        { label: 'Bệnh nhân', value: prescription?.patientName ?? '—' },
-        { label: 'Loại tròng', value: prescription?.lensTypeName ?? '—' },
-=======
         { label: 'Bệnh nhân', value: order?.patientName ?? '—' },
         { label: 'Gọng kính', value: order?.frameName ?? '—' },
->>>>>>> origin/test-branch:frontend/src/pages/lab/EyeglassOrderDetail.jsx
       ],
       confirmText: 'Hoàn tất gia công',
       onConfirm: executeComplete,
@@ -188,6 +179,11 @@ export default function EyeglassOrderDetail() {
             {coatings?.length > 0 && (
               <div style={{ marginTop: 12, fontSize: 13, color: '#475569' }}>
                 <strong>Phủ tròng:</strong> {coatings.join(', ')}
+              </div>
+            )}
+            {status === 'CANCELLED' && order.cancelReason && (
+              <div style={{ marginTop: 12, fontSize: 13, color: '#ef4444' }}>
+                <strong>Lý do hủy:</strong> {order.cancelReason}
               </div>
             )}
           </Card>

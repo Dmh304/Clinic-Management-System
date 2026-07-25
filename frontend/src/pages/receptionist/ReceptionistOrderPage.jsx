@@ -13,12 +13,12 @@ import { useSelector } from 'react-redux';
 const { Title, Text } = Typography;
 
 const STATUS_MAP = {
-  PENDING_CONFIRMATION: { color: 'orange',      label: 'Chờ xác nhận' },
-  PENDING_LAB:           { color: 'cyan',        label: 'Chờ xưởng cắt kính' },
-  IN_PRODUCTION:          { color: 'processing',  label: 'Đang gia công' },
-  READY:                  { color: 'success',     label: 'Sẵn sàng giao' },
-  DISPENSED:              { color: 'purple',      label: 'Đã giao' },
-  CANCELLED:              { color: 'error',       label: 'Đã hủy' },
+    PENDING_CONFIRMATION: { color: 'orange', label: 'Chờ xác nhận' },
+    PENDING_LAB: { color: 'cyan', label: 'Chờ xưởng cắt kính' },
+    IN_PRODUCTION: { color: 'processing', label: 'Đang gia công' },
+    READY: { color: 'success', label: 'Sẵn sàng giao' },
+    DISPENSED: { color: 'purple', label: 'Đã giao' },
+    CANCELLED: { color: 'error', label: 'Đã hủy' },
 };
 
 export default function ReceptionistOrderPage() {
@@ -160,7 +160,7 @@ export default function ReceptionistOrderPage() {
 
     const openUpdateModal = () => {
         const frame = frames.find(f => f.name === selectedOrder?.frameName);
-        
+
         const selectedCoatingIds = [];
         if (selectedOrder?.coatings) {
             selectedOrder.coatings.forEach(cName => {
@@ -218,8 +218,8 @@ export default function ReceptionistOrderPage() {
     ];
 
     const filteredOrders = orders.filter(order => {
-        const matchSearch = order.patientName?.toLowerCase().includes(searchText.toLowerCase()) || 
-                            order.id?.toString().includes(searchText);
+        const matchSearch = order.patientName?.toLowerCase().includes(searchText.toLowerCase()) ||
+            order.id?.toString().includes(searchText);
         const matchStatus = statusFilter === 'ALL' || order.status === statusFilter;
         return matchSearch && matchStatus;
     });
@@ -259,9 +259,9 @@ export default function ReceptionistOrderPage() {
             {/* Filters */}
             <Card style={{ marginBottom: 24 }}>
                 <div style={{ display: 'flex', gap: 16 }}>
-                    <Input 
-                        placeholder="Tìm theo Mã đơn hoặc Tên bệnh nhân..." 
-                        prefix={<SearchOutlined />} 
+                    <Input
+                        placeholder="Tìm theo Mã đơn hoặc Tên bệnh nhân..."
+                        prefix={<SearchOutlined />}
                         value={searchText}
                         onChange={e => setSearchText(e.target.value)}
                         style={{ width: 300 }}
@@ -322,18 +322,21 @@ export default function ReceptionistOrderPage() {
                             <p><b>SĐT:</b> {selectedOrder?.patientPhone || 'Chưa cập nhật'} - <b>Giới tính:</b> {selectedOrder?.patientGender === 'MALE' ? 'Nam' : selectedOrder?.patientGender === 'FEMALE' ? 'Nữ' : 'Chưa cập nhật'} - <b>Năm sinh:</b> {selectedOrder?.patientDob ? new Date(selectedOrder.patientDob).getFullYear() : 'Chưa cập nhật'}</p>
                             <p><b>Địa chỉ:</b> {selectedOrder?.patientAddress || 'Chưa cập nhật'}</p>
                             <p>
-                                <b>Gọng kính:</b> {selectedOrder?.frameName || 'Không có'} 
+                                <b>Gọng kính:</b> {selectedOrder?.frameName || 'Không có'}
                                 {selectedOrder?.frameName && frames.find(f => f.name === selectedOrder.frameName) ? ` - ${frames.find(f => f.name === selectedOrder.frameName).price.toLocaleString('vi-VN')} đ` : ''}
                             </p>
                             <p>
-                                <b>Lớp phủ:</b> {selectedOrder?.coatings?.length > 0 
+                                <b>Lớp phủ:</b> {selectedOrder?.coatings?.length > 0
                                     ? selectedOrder.coatings.map(cName => {
                                         const cObj = coatings.find(c => c.name === cName);
                                         return cObj ? `${cName} (${cObj.price.toLocaleString('vi-VN')} đ)` : cName;
-                                      }).join(', ') 
+                                    }).join(', ')
                                     : 'Không có'}
                             </p>
                             <p><b>Tổng tiền:</b> <span style={{ color: '#1677ff', fontWeight: 'bold' }}>{(selectedOrder?.totalAmount || 0).toLocaleString('vi-VN')} đ</span></p>
+                            {selectedOrder?.status === 'CANCELLED' && (
+                                <p><b>Lý do hủy:</b> <span style={{ color: '#ff4d4f', fontWeight: '500' }}>{selectedOrder?.cancelReason || 'Không có lý do'}</span></p>
+                            )}
                         </Card>
 
                         {prescriptionDetails && (

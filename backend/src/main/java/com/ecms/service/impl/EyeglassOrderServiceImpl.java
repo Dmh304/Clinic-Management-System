@@ -183,31 +183,18 @@ public class EyeglassOrderServiceImpl implements EyeglassOrderService {
     public EyeglassOrderResponse confirmOrderOnline(Long id) {
         EyeglassOrder order = eyeglassOrderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn đặt kính"));
-<<<<<<< HEAD
-        
         // Điều kiện: Đơn phải đang ở trạng thái chờ xác nhận
-=======
-
->>>>>>> origin/test-branch
         if (order.getStatus() != EyeglassOrderStatus.PENDING_CONFIRMATION) {
             throw new IllegalStateException("Đơn này không ở trạng thái chờ xác nhận");
         }
 
         // Cập nhật trạng thái sang chờ xưởng gia công
         order.setStatus(EyeglassOrderStatus.PENDING_LAB);
-<<<<<<< HEAD
-        
         // Đẩy đơn kính vào hàng đợi gia công
         com.ecms.entity.EyeglassPrescription p = order.getPrescription();
         p.setStatus(com.ecms.entity.EyeglassPrescriptionStatus.PENDING);
         prescriptionRepository.save(p);
         
-        return toResponse(eyeglassOrderRepository.save(order));
-    }
-    
-    // Chức năng: Cập nhật thông tin gọng kính, lớp phủ của đơn kính
-=======
-
         String patientName = order.getPatient().getFullName();
         String message = String.format("Lễ tân đã xác nhận yêu cầu cắt đơn kính cho bệnh nhân %s", patientName);
 
@@ -219,19 +206,14 @@ public class EyeglassOrderServiceImpl implements EyeglassOrderService {
 
         return toResponse(eyeglassOrderRepository.save(order));
     }
-
->>>>>>> origin/test-branch
+    
+    // Chức năng: Cập nhật thông tin gọng kính, lớp phủ của đơn kính
     @Override
     @Transactional
     public EyeglassOrderResponse updateOrder(Long id, EyeglassOrderRequest request) {
         EyeglassOrder order = eyeglassOrderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn đặt kính"));
-<<<<<<< HEAD
-                
         // Điều kiện: Chỉ được phép sửa đơn khi đơn chưa được gửi xưởng gia công (BR-29)
-=======
-
->>>>>>> origin/test-branch
         if (order.getStatus() != EyeglassOrderStatus.PENDING_CONFIRMATION) {
             throw new IllegalStateException("Chỉ có thể sửa đơn kính ở trạng thái Chờ xác nhận cọc");
         }
@@ -284,23 +266,13 @@ public class EyeglassOrderServiceImpl implements EyeglassOrderService {
 
         return toResponse(order);
     }
-<<<<<<< HEAD
-    
     // Chức năng: Hủy đơn đặt kính
-=======
-
->>>>>>> origin/test-branch
     @Override
     @Transactional
     public void cancelOrder(Long id, String cancelReason) {
         EyeglassOrder order = eyeglassOrderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn đặt kính"));
-<<<<<<< HEAD
-                
         // Điều kiện: Chỉ có thể hủy đơn kính ở trạng thái chờ xác nhận cọc
-=======
-
->>>>>>> origin/test-branch
         if (order.getStatus() != EyeglassOrderStatus.PENDING_CONFIRMATION) {
             throw new IllegalStateException("Chỉ có thể hủy đơn kính ở trạng thái Chờ xác nhận cọc");
         }
@@ -329,11 +301,7 @@ public class EyeglassOrderServiceImpl implements EyeglassOrderService {
         }
     }
 
-<<<<<<< HEAD
-
-    // Chức năng: Lễ tân/Dược sĩ giao kính cho bệnh nhân và xác nhận hoàn tất (UC-42)
-=======
->>>>>>> origin/test-branch
+    // Chức năng: Lễ tân giao kính cho bệnh nhân và xác nhận hoàn tất (UC-42)
     @Override
     @Transactional
     public EyeglassOrderResponse dispenseOrder(Long id, String staffEmail) {
@@ -415,16 +383,12 @@ public class EyeglassOrderServiceImpl implements EyeglassOrderService {
                 .id(order.getId())
                 .patientId(order.getPatient().getId())
                 .patientName(order.getPatient().getFullName())
-<<<<<<< HEAD
                 .patientPhone(order.getPatient().getPhone())
                 .patientGender(order.getPatient().getGender())
                 .patientDob(order.getPatient().getDateOfBirth())
                 .patientAddress(order.getPatient().getAddress())
-                .prescriptionId(order.getPrescription().getId())
-=======
                 .prescriptionId(prescription.getId())
                 .doctorName(prescription.getDoctor() != null ? prescription.getDoctor().getFullName() : null)
->>>>>>> origin/test-branch
                 .frameId(order.getFrame() != null ? order.getFrame().getId() : null)
                 .frameName(order.getFrame() != null ? order.getFrame().getName() : null)
                 .status(order.getStatus().name())
