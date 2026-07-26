@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 
 /**
  * @author  ThangNB - HE201024
- * @created 2026-07-17
+ * @created 2026-07-11
  * @updated 2026-07-17
  *
  * Maps the {@code payment_transactions} table — every bank transfer the

@@ -14,8 +14,8 @@ import java.util.List;
 /**
  * @author      ThangNB - HE201024
  * @contributor Lê Thị Bích Ngân - HE204710
- * @created     2026-06-25
- * @updated     2026-07-06
+ * @created     2026-07-11
+ * @updated     2026-07-11
  *
  * In-app notification API for authenticated users
  * (UC-10 Receive System Notification).

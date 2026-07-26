@@ -26,13 +26,21 @@ import java.util.List;
 /**
  * @author      ThangNB - HE201024
  * @contributor Đồng Mạnh Hùng - HE200743
- * @created     2026-05-31
+ * @created     2026-07-11
  * @updated     2026-07-19
  *
  * REST entry point of the billing module.
  * Base URL: /api/v1/invoices
- * Access: ADMIN, RECEPTIONIST, MANAGER for the staff endpoints and PATIENT for
- * {@code GET /my} (enforced in SecurityConfig).
+ *
+ * KNOWN GAP — authorization: SecurityConfig declares no matcher for
+ * {@code /api/v1/invoices/**}, so these endpoints fall through to
+ * {@code anyRequest().authenticated()} and are reachable by ANY authenticated
+ * role, including PATIENT, DOCTOR and NURSE. That means a patient can list
+ * every patient's invoices via {@code GET /} and can call
+ * {@code PATCH /{id}/issue}. This violates BR-08 (billing/EMR confidentiality)
+ * and the UC-23 actor definition (Receptionist). Only {@code GET /my} is
+ * genuinely safe, because it derives the patient id from the JWT.
+ * Fix required: add a role matcher for this path, or @PreAuthorize per method.
  *
  * Implements UC-23 (Process Payment) and UC-24 (Deliver Invoice):
  *   GET    /                                        list invoices

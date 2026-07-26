@@ -16,7 +16,7 @@ import java.util.Locale;
 /**
  * @author      ThangNB - HE201024
  * @contributor Đồng Mạnh Hùng - HE200743
- * @created     2026-06-23
+ * @created     2026-07-11
  * @updated     2026-07-17
  *
  * Renders a printable invoice PDF with OpenPDF (UC-24 Deliver Invoice —

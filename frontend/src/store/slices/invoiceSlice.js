@@ -1,8 +1,8 @@
 /**
  * @author      ThangNB - HE201024
  * @contributor Đồng Mạnh Hùng - HE200743
- * @created     2026-06-22
- * @updated     2026-07-02
+ * @created     2026-07-11
+ * @updated     2026-07-11
  *
  * Redux slice for the Receptionist billing screen — UC-23 (Process Payment)
  * and UC-24 (Deliver Invoice).

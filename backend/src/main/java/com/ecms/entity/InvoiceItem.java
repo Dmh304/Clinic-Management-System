@@ -10,8 +10,8 @@ import java.time.LocalDateTime;
 /**
  * @author      ThangNB - HE201024
  * @contributor Thái Khắc Hữu Đức - HE204463, Đồng Mạnh Hùng - HE200743
- * @created     2026-05-31
- * @updated     2026-07-02
+ * @created     2026-07-11
+ * @updated     2026-07-11
  *
  * Maps the {@code invoice_details} table — one row per charge line of an
  * invoice: consultation service, lab test, medicine or eyeglasses (UC-23).

@@ -40,7 +40,7 @@ import java.util.Map;
 /**
  * @author      ThangNB - HE201024
  * @contributor Đồng Mạnh Hùng - HE200743
- * @created     2026-05-31
+ * @created     2026-07-19
  * @updated     2026-07-20
  *
  * Aggregates every Clinic Manager report: UC-49 (operational dashboard),

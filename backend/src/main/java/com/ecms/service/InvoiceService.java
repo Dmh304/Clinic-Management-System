@@ -8,7 +8,7 @@ import java.util.List;
 /**
  * @author      ThangNB - HE201024
  * @contributor Đồng Mạnh Hùng - HE200743
- * @created     2026-05-31
+ * @created     2026-07-11
  * @updated     2026-07-18
  *
  * Billing business contract: invoice creation, issuance, cancellation,
@@ -102,10 +102,15 @@ public interface InvoiceService {
     InvoiceResponse cancelInvoice(Long id);
 
     /**
-     * Fast synchronous half of the e-invoice email flow: verifies the patient
-     * has an email address and flags the invoice as SENDING. The SMTP send
-     * itself runs in the background via {@code InvoiceMailDispatcher} so the
-     * HTTP request is not blocked (UC-24).
+     * Fast synchronous half of the billing email flow: verifies the patient has
+     * an email address and flags the invoice as SENDING. The SMTP send itself
+     * runs in the background via {@code InvoiceMailDispatcher} so the HTTP
+     * request is not blocked (UC-24).
+     *
+     * Intentionally does not require the invoice to be PAID. An unsettled
+     * invoice is a legitimate recipient of the <em>payment reminder</em> email
+     * (UC-23 step 3); the dispatcher picks reminder vs receipt from the payment
+     * state, and only the receipt carries the PDF.
      *
      * @param id invoice primary key
      * @throws IllegalStateException if the patient has no email address on file

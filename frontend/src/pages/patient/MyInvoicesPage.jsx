@@ -1,6 +1,6 @@
 /**
  * @author  ThangNB - HE201024
- * @created 2026-07-03
+ * @created 2026-07-11
  * @updated 2026-07-18
  *
  * Patient portal "My Invoices" screen — UC-24 Deliver Invoice (ALT-2 patient

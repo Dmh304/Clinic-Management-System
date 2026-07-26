@@ -9,7 +9,7 @@ import java.util.List;
 /**
  * @author      ThangNB - HE201024
  * @contributor Đồng Mạnh Hùng - HE200743
- * @created     2026-05-31
+ * @created     2026-07-11
  * @updated     2026-07-11
  *
  * Invoice projection returned to every client of the billing module:

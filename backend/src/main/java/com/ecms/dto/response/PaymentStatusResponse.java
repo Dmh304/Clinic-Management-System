@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 
 /**
  * @author  ThangNB - HE201024
- * @created 2026-07-17
+ * @created 2026-07-11
  * @updated 2026-07-17
  *
  * Settlement state of one invoice, polled by the frontend roughly every three

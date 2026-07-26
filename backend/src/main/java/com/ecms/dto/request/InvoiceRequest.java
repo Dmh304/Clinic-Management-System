@@ -9,8 +9,8 @@ import java.util.List;
 /**
  * @author      ThangNB - HE201024
  * @contributor Đồng Mạnh Hùng - HE200743
- * @created     2026-05-31
- * @updated     2026-07-05
+ * @created     2026-07-11
+ * @updated     2026-07-11
  *
  * Request payload submitted by the Receptionist to create an invoice for a
  * completed visit (UC-23 Process Payment, normal flow steps 4-6).

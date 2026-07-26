@@ -5,7 +5,7 @@ import lombok.*;
 
 /**
  * @author  ThangNB - HE201024
- * @created 2026-07-20
+ * @created 2026-07-19
  * @updated 2026-07-20
  *
  * Rating for a single participant in a visit — doctor, receptionist or lab

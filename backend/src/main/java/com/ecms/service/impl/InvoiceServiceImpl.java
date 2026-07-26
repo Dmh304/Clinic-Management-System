@@ -27,7 +27,7 @@ import java.util.stream.Collectors;
 /**
  * @author      ThangNB - HE201024
  * @contributor Đồng Mạnh Hùng - HE200743
- * @created     2026-05-31
+ * @created     2026-07-11
  * @updated     2026-07-19
  *
  * Billing business logic for UC-23 (Process Payment) and UC-24 (Deliver Invoice):

@@ -13,7 +13,7 @@ import java.util.Optional;
 /**
  * @author      ThangNB - HE201024
  * @contributor Thái Khắc Hữu Đức - HE204463, Đồng Mạnh Hùng - HE200743, Tuấn - HE204215
- * @created     2026-05-31
+ * @created     2026-07-11
  * @updated     2026-07-20
  *
  * Data access for {@link Invoice}. Serves three consumers:

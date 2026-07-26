@@ -1,7 +1,7 @@
 /**
  * @author      ThangNB - HE201024
  * @contributor Đồng Mạnh Hùng - HE200743
- * @created     2026-05-31
+ * @created     2026-07-19
  * @updated     2026-07-20
  *
  * Real-time operational dashboard for the Clinic Manager
