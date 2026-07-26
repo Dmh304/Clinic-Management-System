@@ -43,11 +43,12 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
     List<PaymentTransaction> findByInvoiceIdOrderByReceivedAtDesc(Long invoiceId);
 
     /**
-     * Transfers that never matched an invoice, newest first — the worklist for
-     * manual reconciliation by accounting.
+     * Transfers that never matched an invoice, newest first.
      *
-     * Money that arrives without a recognisable invoice code is still
-     * journalled rather than dropped, which is what makes this list possible.
+     * Superseded by {@link #findNeedingAttention()} for the reconciliation
+     * screen, because this predicate misses OVERPAID rows: an overpayment does
+     * settle its invoice, so filtering on {@code status <> 'MATCHED'} alone
+     * would hide the very transactions that owe money back.
      */
     @Query("""
             SELECT t FROM PaymentTransaction t
@@ -55,4 +56,30 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
             ORDER BY t.receivedAt DESC
             """)
     List<PaymentTransaction> findUnreconciled();
+
+    /**
+     * Everything a human still has to resolve, newest first — the worklist
+     * behind the reconciliation screen.
+     *
+     * Two independent reasons a row appears:
+     *   - it did not settle cleanly ({@code status <> 'MATCHED'}), or
+     *   - money is owed back and has not been returned yet
+     *     ({@code refundStatus = 'REQUIRED'}), which includes OVERPAID rows
+     *     whose invoice was settled perfectly well.
+     *
+     * IGNORED rows are excluded: an outgoing clinic transfer is not a patient
+     * payment and never needs reconciling.
+     *
+     * Money that arrives without a recognisable invoice code is still journalled
+     * rather than dropped, which is what makes this list possible at all.
+     */
+    @Query("""
+            SELECT t FROM PaymentTransaction t
+            LEFT JOIN FETCH t.invoice i
+            LEFT JOIN FETCH i.patient
+            WHERE t.status <> 'IGNORED'
+              AND (t.status <> 'MATCHED' OR t.refundStatus = 'REQUIRED')
+            ORDER BY t.receivedAt DESC
+            """)
+    List<PaymentTransaction> findNeedingAttention();
 }

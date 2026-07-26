@@ -81,13 +81,54 @@ public class PaymentTransaction {
     private String transferType;
 
     /** Reconciliation outcome:
-     *  MATCHED         — invoice found and settled
-     *  UNMATCHED       — no invoice code could be parsed from the memo
-     *  AMOUNT_MISMATCH — invoice found but the amount did not cover the total (BR-10)
-     *  DUPLICATE       — the invoice was already PAID
+     *  MATCHED         — invoice found, amount exactly covered the total, settled
+     *  OVERPAID        — invoice found and settled, but the patient sent MORE than
+     *                    the total; the excess is owed back (see overpaidAmount)
+     *  UNMATCHED       — no invoice code in the memo, no such invoice, or the
+     *                    invoice was already cancelled
+     *  AMOUNT_MISMATCH — invoice found but the amount was short (BR-10)
+     *  DUPLICATE       — the invoice was already PAID, so this transfer is a
+     *                    second payment and is owed back in full
      *  IGNORED         — outgoing transfer, not a patient payment */
     @Column(name = "status", nullable = false, length = 20)
     private String status;
+
+    /** How much the patient sent above the invoice total. Only set for OVERPAID.
+     *  Kept as its own column rather than recomputed later, because the invoice
+     *  total may legitimately change if the invoice is cancelled and re-raised. */
+    @Column(name = "overpaid_amount", precision = 12, scale = 2)
+    private BigDecimal overpaidAmount;
+
+    // ── Refund tracking ───────────────────────────────────────────────────────
+    // ECMS never moves money itself (same principle as payroll in UC-54): staff
+    // transfer or hand back the cash outside the system. These columns exist so
+    // the obligation is recorded and its settlement is auditable, rather than
+    // living in someone's notebook.
+
+    /** NONE | REQUIRED | DONE.
+     *  REQUIRED is set automatically for the cases where money is provably owed
+     *  back (OVERPAID, DUPLICATE, payment against a cancelled invoice). It is
+     *  informational — it drives the "needs refund" badge and count; the actual
+     *  refund is recorded by staff. */
+    @Column(name = "refund_status", nullable = false, length = 20)
+    private String refundStatus;
+
+    /** Amount actually returned to the patient, filled when staff confirm. */
+    @Column(name = "refund_amount", precision = 12, scale = 2)
+    private BigDecimal refundAmount;
+
+    /** When staff confirmed the refund had been made. */
+    @Column(name = "refunded_at")
+    private LocalDateTime refundedAt;
+
+    /** User id of the staff member who confirmed the refund (audit trail). */
+    @Column(name = "refunded_by")
+    private Long refundedBy;
+
+    /** How the money went back — bank transfer reference, "trả tiền mặt tại quầy",
+     *  or why no refund was needed after investigation. */
+    @Column(name = "refund_note", length = 500)
+    private String refundNote;
 
     /** Reason text for any status other than MATCHED, shown to accounting
      *  during manual reconciliation. */
@@ -111,11 +152,13 @@ public class PaymentTransaction {
      *
      * Validate: status defaults to UNMATCHED, never MATCHED — a transaction is
      * only promoted to MATCHED after the reconciliation logic has actually
-     * found the invoice and verified the amount (BR-10).
+     * found the invoice and verified the amount (BR-10). refundStatus defaults
+     * to NONE so a transaction is never born claiming a refund was already made.
      */
     @PrePersist
     protected void onCreate() {
         if (receivedAt == null) receivedAt = LocalDateTime.now();
         if (status == null) status = "UNMATCHED";
+        if (refundStatus == null) refundStatus = "NONE";
     }
 }

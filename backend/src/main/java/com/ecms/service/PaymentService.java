@@ -1,7 +1,9 @@
 package com.ecms.service;
 
 import com.ecms.dto.request.PaymentWebhookRequest;
+import com.ecms.dto.request.RefundConfirmRequest;
 import com.ecms.dto.response.PaymentStatusResponse;
+import com.ecms.dto.response.PaymentTransactionResponse;
 
 /**
  * @author  ThangNB - HE201024
@@ -35,8 +37,9 @@ public interface PaymentService {
      *         | DUPLICATE | IGNORED
      *
      * Validate: BR-10 — only a MATCHED transfer whose amount covers the
-     * invoice total may settle it; AMOUNT_MISMATCH deliberately leaves the
-     * invoice PENDING_PAYMENT.
+     * invoice total may settle it. AMOUNT_MISMATCH deliberately leaves the
+     * invoice unpaid, flagging it PAYMENT_FAILED so an underpayment is
+     * distinguishable from a transfer that never arrived.
      */
     String handleWebhook(PaymentWebhookRequest request, String rawPayload);
 
@@ -49,6 +52,38 @@ public interface PaymentService {
      * @return current payment state of that invoice
      */
     PaymentStatusResponse getPaymentStatus(Long invoiceId);
+
+    /**
+     * Lists the bank transfers a human still has to resolve — ones that did not
+     * settle cleanly, plus ones that owe money back to a patient.
+     *
+     * This is the entry point for handling a wrong transfer: an overpayment, a
+     * duplicate payment, or a payment against a cancelled invoice. Without it
+     * those rows sit in {@code payment_transactions} unseen.
+     *
+     * @return the worklist, newest transfer first
+     */
+    java.util.List<PaymentTransactionResponse> getReconciliationList();
+
+    /**
+     * Records that staff have returned money to a patient.
+     *
+     * ECMS does not move money — the transfer or cash hand-back happens outside
+     * the system, exactly as UC-54 states for payroll. This only writes the
+     * audit trail: amount, who confirmed it, when, and how.
+     *
+     * @param transactionId the journalled transfer being refunded
+     * @param request       amount actually returned plus a mandatory note
+     * @param actorUserId   staff member confirming, recorded for accountability
+     * @return the updated transaction
+     *
+     * Validate: the refund amount may not exceed what the bank reported for that
+     * transfer — the clinic cannot return money it never received. Confirming a
+     * refund twice is rejected, so one transfer cannot be paid back twice.
+     */
+    PaymentTransactionResponse confirmRefund(Long transactionId,
+                                            RefundConfirmRequest request,
+                                            Long actorUserId);
 
     /**
      * Authenticates a webhook call by comparing the Authorization header

@@ -1,16 +1,25 @@
 package com.ecms.controller;
 
 import com.ecms.dto.request.PaymentWebhookRequest;
+import com.ecms.dto.request.RefundConfirmRequest;
 import com.ecms.dto.response.ApiResponse;
 import com.ecms.dto.response.PaymentStatusResponse;
+import com.ecms.dto.response.PaymentTransactionResponse;
+import com.ecms.entity.User;
+import com.ecms.exception.ResourceNotFoundException;
+import com.ecms.repository.UserRepository;
 import com.ecms.service.PaymentService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -45,6 +54,7 @@ public class PaymentController {
 
     private final PaymentService paymentService;
     private final ObjectMapper objectMapper;
+    private final UserRepository userRepository;
 
     /**
      * Receives an incoming-payment notification from the gateway
@@ -109,6 +119,48 @@ public class PaymentController {
     public ResponseEntity<ApiResponse<PaymentStatusResponse>> getPaymentStatus(
             @PathVariable Long invoiceId) {
         return ResponseEntity.ok(ApiResponse.success(paymentService.getPaymentStatus(invoiceId)));
+    }
+
+    /**
+     * Worklist of bank transfers a human still has to resolve: ones that did not
+     * settle cleanly, plus ones that owe money back to a patient.
+     *
+     * This is how a wrong transfer becomes visible at all — an overpayment, a
+     * duplicate payment, or a payment against a cancelled invoice.
+     *
+     * @return the transactions needing attention, newest first
+     */
+    @GetMapping("/reconciliation")
+    public ResponseEntity<ApiResponse<List<PaymentTransactionResponse>>> getReconciliationList() {
+        return ResponseEntity.ok(ApiResponse.success(paymentService.getReconciliationList()));
+    }
+
+    /**
+     * Records that staff have returned money to a patient for a wrong transfer.
+     *
+     * ECMS does not move money; the refund itself is a bank transfer or cash
+     * hand-back done outside the system. This writes the audit trail.
+     *
+     * @param userDetails   authenticated principal, resolved to the confirming staff
+     * @param transactionId the journalled transfer being refunded
+     * @param request       amount returned plus a mandatory note
+     * @return the updated transaction
+     * @throws ResourceNotFoundException if the principal has no user record
+     *
+     * Validate: the confirming staff id comes from the JWT, never the request, so
+     * a refund cannot be attributed to someone else. The service enforces that
+     * the amount does not exceed what the bank reported, and that one transfer
+     * is not refunded twice.
+     */
+    @PatchMapping("/transactions/{transactionId}/refund")
+    public ResponseEntity<ApiResponse<PaymentTransactionResponse>> confirmRefund(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long transactionId,
+            @Valid @RequestBody RefundConfirmRequest request) {
+        User actor = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new ResourceNotFoundException("Người dùng không tồn tại"));
+        return ResponseEntity.ok(ApiResponse.success(
+                paymentService.confirmRefund(transactionId, request, actor.getId())));
     }
 
 }

@@ -129,6 +129,13 @@ public class SecurityConfig {
                                                 // Tra cứu trạng thái thanh toán vẫn yêu cầu đăng nhập như mọi API khác
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/payments/invoice/*/status")
                                                 .hasAnyRole("ADMIN", "RECEPTIONIST", "MANAGER", "PATIENT")
+                                                // Đối soát giao dịch + xác nhận hoàn tiền: chỉ nhân viên thu ngân
+                                                // và quản lý. KHÔNG để rơi xuống anyRequest().authenticated(),
+                                                // vì khi đó bệnh nhân cũng xem được toàn bộ giao dịch của người khác
+                                                // và tự xác nhận đã hoàn tiền.
+                                                .requestMatchers("/api/v1/payments/reconciliation",
+                                                                "/api/v1/payments/transactions/**")
+                                                .hasAnyRole("ADMIN", "RECEPTIONIST", "MANAGER")
 
                                                 // ══════════════════════════════════════════════════════════════════
                                                 // ── Doctors: GET list public ───────────────────────────────────────

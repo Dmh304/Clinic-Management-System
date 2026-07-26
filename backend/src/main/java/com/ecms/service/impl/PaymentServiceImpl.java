@@ -1,7 +1,9 @@
 package com.ecms.service.impl;
 
 import com.ecms.dto.request.PaymentWebhookRequest;
+import com.ecms.dto.request.RefundConfirmRequest;
 import com.ecms.dto.response.PaymentStatusResponse;
+import com.ecms.dto.response.PaymentTransactionResponse;
 import com.ecms.entity.Appointment;
 import com.ecms.entity.AppointmentStatus;
 import com.ecms.entity.Invoice;
@@ -45,8 +47,9 @@ import java.util.regex.Pattern;
  *  - Money is never lost track of: an unmatched transfer is still journalled
  *    as UNMATCHED for manual reconciliation rather than silently 200-ed away.
  *  - BR-10: the invoice is only marked PAID when the received amount covers
- *    the total; anything short becomes AMOUNT_MISMATCH and stays unpaid
- *    (UC-23 E2 partial payment).
+ *    the total; anything short is journalled AMOUNT_MISMATCH and the invoice is
+ *    flagged PAYMENT_FAILED so an underpayment is distinguishable from a
+ *    transfer that never arrived (UC-23 E2 partial payment).
  */
 @Slf4j
 @Service
@@ -120,7 +123,7 @@ public class PaymentServiceImpl implements PaymentService {
      *      or the invoice was cancelled (needs a manual refund)
      *   5. DUPLICATE — the invoice was already PAID
      *   6. BR-10 — received amount must cover the invoice total, else
-     *      AMOUNT_MISMATCH and the invoice stays PENDING_PAYMENT
+     *      AMOUNT_MISMATCH and the invoice is flagged PAYMENT_FAILED (never PAID)
      */
     @Override
     @Transactional
@@ -186,20 +189,27 @@ public class PaymentServiceImpl implements PaymentService {
         txn.setInvoice(invoice);
 
         // ── Step 4: never settle an invoice twice ──────────────────────────────
+        // The invoice is already paid, so this whole transfer is money the clinic
+        // is not owed — flag the full amount for refund.
         if ("PAID".equals(invoice.getPaymentStatus())) {
             txn.setStatus("DUPLICATE");
             txn.setNote("Hóa đơn " + invoiceCode + " đã ở trạng thái PAID từ trước");
+            markRefundRequired(txn);
             paymentTransactionRepository.save(txn);
+            log.warn("Nhận tiền cho hóa đơn đã thanh toán — cần hoàn {}. invoiceCode={}",
+                    txn.getAmount(), invoiceCode);
             return "DUPLICATE";
         }
 
         // Money arrived for a voided invoice — BR-09 keeps the cancelled row, so
-        // this is recoverable, but it needs a human to issue a refund.
+        // this is traceable, but the whole amount is owed back.
         if ("CANCELLED".equals(invoice.getStatus())) {
             txn.setStatus("UNMATCHED");
-            txn.setNote("Hóa đơn " + invoiceCode + " đã bị hủy — cần hoàn tiền thủ công");
+            txn.setNote("Hóa đơn " + invoiceCode + " đã bị hủy — cần hoàn tiền cho bệnh nhân");
+            markRefundRequired(txn);
             paymentTransactionRepository.save(txn);
-            log.warn("Nhận tiền cho hóa đơn đã hủy. invoiceCode={}", invoiceCode);
+            log.warn("Nhận tiền cho hóa đơn đã hủy — cần hoàn {}. invoiceCode={}",
+                    txn.getAmount(), invoiceCode);
             return "UNMATCHED";
         }
 
@@ -209,13 +219,35 @@ public class PaymentServiceImpl implements PaymentService {
         BigDecimal expected = invoice.getTotalAmount() == null
                 ? BigDecimal.ZERO : invoice.getTotalAmount();
 
-        // BR-10 / UC-23 E2: a short transfer does NOT settle the invoice — it is
-        // journalled as AMOUNT_MISMATCH and the invoice stays PENDING_PAYMENT.
+        // BR-10 / UC-23 E2: a short transfer does NOT settle the invoice.
+        //
+        // It is journalled as AMOUNT_MISMATCH and the invoice is flagged
+        // PAYMENT_FAILED. That flag exists so a short payment is visibly
+        // different from "nothing has arrived yet" — both states used to read as
+        // PENDING_PAYMENT, which left the Receptionist unable to tell a patient
+        // who underpaid from one who never transferred at all.
+        //
+        // Note this is not partial-payment accounting: the amount is compared
+        // against the full total on every webhook, so a follow-up transfer of
+        // only the shortfall is ALSO short and stays AMOUNT_MISMATCH. Under
+        // BR-10 the patient must transfer the full total in one go.
         if (received.compareTo(expected) < 0) {
+            BigDecimal shortfall = expected.subtract(received);
+
             txn.setStatus("AMOUNT_MISMATCH");
             txn.setNote("Số tiền nhận " + received + " nhỏ hơn tổng hóa đơn " + expected);
             paymentTransactionRepository.save(txn);
-            log.warn("Chuyển thiếu tiền. invoiceCode={} nhan={} can={}", invoiceCode, received, expected);
+
+            // Only the settlement flag moves — never to PAID. The invoice stays
+            // outstanding in UC-49/UC-50 reporting, and the VietQR manual-issue
+            // guard in issueInvoice still treats it as awaiting the bank.
+            invoice.setPaymentStatus("PAYMENT_FAILED");
+            invoiceRepository.save(invoice);
+
+            notifyShortPayment(invoice, shortfall);
+
+            log.warn("Chuyển thiếu tiền. invoiceCode={} nhan={} can={} thieu={}",
+                    invoiceCode, received, expected, shortfall);
             return "AMOUNT_MISMATCH";
         }
 
@@ -257,8 +289,24 @@ public class PaymentServiceImpl implements PaymentService {
             }
         }
 
-        txn.setStatus("MATCHED");
-        txn.setNote("Đã tự động gạch nợ hóa đơn " + invoiceCode);
+        // An overpayment still settles the invoice — the clinic has been paid in
+        // full — but the excess belongs to the patient. Splitting it out of
+        // MATCHED is what makes it findable at all: the reconciliation query
+        // excludes MATCHED, so an overpayment lumped in there would be invisible
+        // to everyone, including accounting.
+        BigDecimal excess = received.subtract(expected);
+        if (excess.compareTo(BigDecimal.ZERO) > 0) {
+            txn.setStatus("OVERPAID");
+            txn.setOverpaidAmount(excess);
+            txn.setNote("Đã gạch nợ hóa đơn " + invoiceCode
+                    + " — bệnh nhân chuyển thừa, cần hoàn lại");
+            markRefundRequired(txn);
+            log.warn("Chuyển thừa tiền. invoiceCode={} nhan={} can={} thua={}",
+                    invoiceCode, received, expected, excess);
+        } else {
+            txn.setStatus("MATCHED");
+            txn.setNote("Đã tự động gạch nợ hóa đơn " + invoiceCode);
+        }
         paymentTransactionRepository.save(txn);
 
         // UC-10 / UC-23 step 5: tell the patient the payment landed. Wrapped in
@@ -319,6 +367,173 @@ public class PaymentServiceImpl implements PaymentService {
                 .paymentReference(invoice.getPaymentReference())
                 .paidAt(invoice.getPaidAt())
                 .build();
+    }
+
+    /**
+     * Lists the transfers a human still has to resolve (UC-23 ALT-2 follow-up).
+     *
+     * @return the worklist, newest transfer first
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.List<PaymentTransactionResponse> getReconciliationList() {
+        return paymentTransactionRepository.findNeedingAttention()
+                .stream().map(this::toTxnResponse).toList();
+    }
+
+    /**
+     * Records a refund that staff performed outside the system.
+     *
+     * @param transactionId the journalled transfer being refunded
+     * @param request       amount returned plus a mandatory note
+     * @param actorUserId   staff member confirming
+     * @return the updated transaction
+     * @throws ResourceNotFoundException if no such transaction
+     * @throws IllegalStateException     if already refunded, or the amount
+     *                                   exceeds what the bank reported
+     */
+    @Override
+    @Transactional
+    public PaymentTransactionResponse confirmRefund(Long transactionId,
+                                                    RefundConfirmRequest request,
+                                                    Long actorUserId) {
+        PaymentTransaction txn = paymentTransactionRepository.findById(transactionId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Giao dịch không tồn tại: " + transactionId));
+
+        // One transfer cannot be paid back twice — guard before writing anything.
+        if ("DONE".equals(txn.getRefundStatus())) {
+            throw new IllegalStateException("Giao dịch này đã được hoàn tiền trước đó");
+        }
+
+        // The clinic cannot return more than the bank actually delivered.
+        BigDecimal received = txn.getAmount() != null ? txn.getAmount() : BigDecimal.ZERO;
+        if (request.getRefundAmount().compareTo(received) > 0) {
+            throw new IllegalStateException(
+                    "Số tiền hoàn (" + request.getRefundAmount() + ") lớn hơn số tiền đã nhận ("
+                            + received + ")");
+        }
+
+        txn.setRefundStatus("DONE");
+        txn.setRefundAmount(request.getRefundAmount());
+        txn.setRefundedAt(LocalDateTime.now());
+        txn.setRefundedBy(actorUserId);
+        txn.setRefundNote(request.getNote());
+        paymentTransactionRepository.save(txn);
+
+        notifyRefunded(txn);
+
+        log.info("Đã hoàn tiền {} cho giao dịch {} (gatewayTxnId={}), người xác nhận userId={}",
+                request.getRefundAmount(), transactionId, txn.getGatewayTxnId(), actorUserId);
+        return toTxnResponse(txn);
+    }
+
+    /**
+     * Tells the patient the money has been sent back, so they are not left
+     * wondering (UC-10 in-app notification).
+     *
+     * Best-effort, and silently skipped when the transfer was never matched to
+     * an invoice — in that case there is no known patient to notify.
+     *
+     * @param txn the refunded transaction
+     */
+    private void notifyRefunded(PaymentTransaction txn) {
+        Invoice inv = txn.getInvoice();
+        if (inv == null || inv.getPatient() == null || inv.getPatient().getUser() == null) return;
+        Long patientUserId = inv.getPatient().getUser().getId();
+        try {
+            String amount = java.text.NumberFormat
+                    .getInstance(new java.util.Locale("vi", "VN")).format(txn.getRefundAmount());
+            notificationService.createForUser(patientUserId,
+                    "Phòng khám đã hoàn lại " + amount + "₫ cho giao dịch chuyển khoản"
+                    + (inv.getInvoiceCode() != null ? " của hóa đơn " + inv.getInvoiceCode() : "")
+                    + ". Nếu chưa nhận được, vui lòng liên hệ lễ tân.",
+                    inv.getAppointment() != null ? inv.getAppointment().getId() : null);
+        } catch (Exception e) {
+            log.warn("Không tạo được thông báo hoàn tiền cho giao dịch {}: {}",
+                    txn.getId(), e.getMessage());
+        }
+    }
+
+    /**
+     * Maps a journalled transfer to its reconciliation-screen representation.
+     *
+     * @param t the transaction, with {@code invoice.patient} already fetched
+     * @return the DTO
+     */
+    private PaymentTransactionResponse toTxnResponse(PaymentTransaction t) {
+        Invoice inv = t.getInvoice();
+        return PaymentTransactionResponse.builder()
+                .id(t.getId())
+                .gatewayTxnId(t.getGatewayTxnId())
+                .gateway(t.getGateway())
+                .amount(t.getAmount())
+                .content(t.getContent())
+                .referenceCode(t.getReferenceCode())
+                .status(t.getStatus())
+                .note(t.getNote())
+                .transactionDate(t.getTransactionDate())
+                .receivedAt(t.getReceivedAt())
+                .invoiceId(inv != null ? inv.getId() : null)
+                .matchedInvoiceCode(t.getMatchedInvoiceCode())
+                .invoiceTotal(inv != null ? inv.getTotalAmount() : null)
+                .patientName(inv != null && inv.getPatient() != null
+                        ? inv.getPatient().getFullName() : null)
+                .patientPhone(inv != null && inv.getPatient() != null
+                        ? inv.getPatient().getPhone() : null)
+                .overpaidAmount(t.getOverpaidAmount())
+                .refundStatus(t.getRefundStatus())
+                .refundAmount(t.getRefundAmount())
+                .refundedAt(t.getRefundedAt())
+                .refundNote(t.getRefundNote())
+                .build();
+    }
+
+    /**
+     * Flags a transaction as owing money back to the patient.
+     *
+     * Only informational — it drives the "needs refund" badge and count on the
+     * reconciliation screen. ECMS never moves money itself (same principle as
+     * payroll in UC-54), so the refund is performed by staff outside the system
+     * and recorded afterwards via {@code confirmRefund}.
+     *
+     * @param txn the journalled transaction, not yet saved
+     */
+    private void markRefundRequired(PaymentTransaction txn) {
+        txn.setRefundStatus("REQUIRED");
+    }
+
+    /**
+     * Tells the patient their transfer fell short, and by exactly how much
+     * (UC-10 in-app notification).
+     *
+     * Without this a short payment is silent from the patient's side: they
+     * believe the bill is settled while the invoice quietly stays outstanding.
+     * The shortfall is stated as a number so they can transfer the correct
+     * total rather than guessing.
+     *
+     * Best-effort: a notification failure must not abort the journalling and
+     * status update that already succeeded.
+     *
+     * @param invoice   the invoice still unsettled, now PAYMENT_FAILED
+     * @param shortfall how much of the total is still missing
+     */
+    private void notifyShortPayment(Invoice invoice, BigDecimal shortfall) {
+        Long patientUserId = (invoice.getPatient() != null && invoice.getPatient().getUser() != null)
+                ? invoice.getPatient().getUser().getId() : null;
+        if (patientUserId == null) return;
+        try {
+            String amount = java.text.NumberFormat
+                    .getInstance(new java.util.Locale("vi", "VN")).format(shortfall);
+            Long apptId = invoice.getAppointment() != null ? invoice.getAppointment().getId() : null;
+            notificationService.createForUser(patientUserId,
+                    "Hóa đơn " + invoice.getInvoiceCode() + " chưa thanh toán đủ — còn thiếu "
+                            + amount + "₫. Vui lòng chuyển khoản lại đủ tổng số tiền của hóa đơn, "
+                            + "hoặc liên hệ lễ tân để được hỗ trợ.", apptId);
+        } catch (Exception e) {
+            log.warn("Không tạo được thông báo chuyển thiếu tiền cho hóa đơn {}: {}",
+                    invoice.getInvoiceCode(), e.getMessage());
+        }
     }
 
     /**

@@ -404,13 +404,22 @@ public class InvoiceServiceImpl implements InvoiceService {
             throw new IllegalStateException("Chỉ hóa đơn ở trạng thái DRAFT mới được phát hành");
         }
 
-        // BR-10: a VietQR invoice sits at PENDING_PAYMENT and is only settled by
-        // the gateway webhook (PaymentServiceImpl). Allowing this endpoint to
-        // mark it PAID would let a Receptionist confirm money the bank never
-        // reported — the exact hole the webhook flow exists to close.
-        // Switching to CASH stays legal: the patient may abandon the QR and pay
-        // at the counter, and then a Receptionist is accountable for the cash.
-        boolean waitingForBank = "PENDING_PAYMENT".equals(invoice.getPaymentStatus());
+        // BR-10: a VietQR invoice is only settled by the gateway webhook
+        // (PaymentServiceImpl). Allowing this endpoint to mark it PAID would let
+        // a Receptionist confirm money the bank never reported — the exact hole
+        // the webhook flow exists to close.
+        //
+        // PAYMENT_FAILED counts as "still awaiting the bank" just as much as
+        // PENDING_PAYMENT does: it means a transfer arrived but was SHORT, so the
+        // outstanding balance is real and must not be waved through here.
+        // Omitting it would silently reopen the hole for every underpaid invoice.
+        //
+        // Switching to CASH stays legal in both states: the patient may abandon
+        // the transfer and pay at the counter, and then a Receptionist is
+        // accountable for the cash.
+        String settlement = invoice.getPaymentStatus();
+        boolean waitingForBank = "PENDING_PAYMENT".equals(settlement)
+                || "PAYMENT_FAILED".equals(settlement);
         String effectiveMethod = paymentMethod != null ? paymentMethod : invoice.getPaymentMethod();
         if (waitingForBank && "VIET_QR".equals(effectiveMethod)) {
             throw new IllegalStateException(

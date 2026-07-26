@@ -26,4 +26,28 @@ export const paymentService = {
 	 * BR-10 (full payment only) — this endpoint never marks anything as paid.
 	 */
 	getStatus: (invoiceId) => axiosClient.get(`/v1/payments/invoice/${invoiceId}/status`),
+
+	/**
+	 * Bank transfers still needing a human: ones that did not settle cleanly,
+	 * plus ones that owe money back to a patient.
+	 *
+	 * @returns {Promise} transactions needing attention, newest first
+	 */
+	getReconciliation: () => axiosClient.get('/v1/payments/reconciliation'),
+
+	/**
+	 * Records that staff have returned money for a wrong transfer.
+	 *
+	 * ECMS does not move money — the bank transfer or cash hand-back happens
+	 * outside the system. This only writes the audit trail.
+	 *
+	 * @param {number} transactionId the journalled transfer
+	 * @param {{refundAmount:number, note:string}} data amount returned + how
+	 * @returns {Promise} the updated transaction
+	 *
+	 * Validate: backend rejects an amount above what the bank reported, and
+	 * refuses to refund the same transfer twice.
+	 */
+	confirmRefund: (transactionId, data) =>
+		axiosClient.patch(`/v1/payments/transactions/${transactionId}/refund`, data),
 }

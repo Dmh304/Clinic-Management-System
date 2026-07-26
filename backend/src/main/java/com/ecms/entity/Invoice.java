@@ -91,10 +91,13 @@ public class Invoice {
     private String paymentReference;
 
     /** UNPAID | PENDING_PAYMENT | PAID | PAYMENT_FAILED.
-     *  PENDING_PAYMENT means the VietQR code has been shown and the system is
+     *  PENDING_PAYMENT — the VietQR code has been shown and the system is
      *  waiting for the gateway webhook (UC-23 ALT-2 step 3).
-     *  Validate: BR-10 — only a full payment may move this to PAID; a short
-     *  transfer leaves the invoice unchanged (UC-23 E2). */
+     *  PAYMENT_FAILED — a transfer arrived but was SHORT of the total; the
+     *  balance is still outstanding, it is simply no longer indistinguishable
+     *  from "nothing received".
+     *  Validate: BR-10 — only a payment covering the full total may move this to
+     *  PAID; a short transfer never does (UC-23 E2). */
     @Column(name = "payment_status", nullable = false, length = 20)
     private String paymentStatus;
 

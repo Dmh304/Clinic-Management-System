@@ -45,7 +45,8 @@ const PAYMENT_STATUS = {
   UNPAID:          { label: 'Chưa thanh toán', color: '#d97706', bg: '#fef3c7' },
   PENDING_PAYMENT: { label: 'Chờ chuyển khoản', color: '#2563eb', bg: '#dbeafe' },
   PAID:            { label: 'Đã thanh toán',   color: '#16a34a', bg: '#dcfce7' },
-  PAYMENT_FAILED:  { label: 'Thất bại',        color: '#dc2626', bg: '#fee2e2' },
+  // Đặt bởi webhook khi bệnh nhân chuyển thiếu so với tổng hóa đơn (BR-10).
+  PAYMENT_FAILED:  { label: 'Chuyển thiếu tiền', color: '#dc2626', bg: '#fee2e2' },
 }
 
 const PAYMENT_METHOD = {
@@ -206,10 +207,14 @@ export default function MyInvoicesPage() {
     }
   }
 
-  // Gửi hóa đơn điện tử vào chính email của bệnh nhân (backend gửi tới patient.email
-  // gắn với hóa đơn — cũng là email tài khoản đang đăng nhập).
+  // Gửi vào chính email của bệnh nhân (backend gửi tới patient.email gắn với
+  // hóa đơn — cũng là email tài khoản đang đăng nhập).
   /**
-   * Requests an emailed copy of the e-invoice (UC-24).
+   * Requests the billing email for an invoice (UC-24).
+   *
+   * The backend chooses the document from the payment state: a paid invoice
+   * arrives as a receipt with the PDF attached, an unpaid one as a payment
+   * reminder with the transfer details.
    *
    * @param {Object} inv the invoice to send
    *
@@ -221,7 +226,9 @@ export default function MyInvoicesPage() {
     setEmailSending(inv.id)
     try {
       await invoiceService.sendEmail(inv.id)
-      message.success('Đã gửi hóa đơn vào email của bạn')
+      message.success(inv.paymentStatus === 'PAID'
+        ? 'Đã gửi hóa đơn (kèm PDF) vào email của bạn'
+        : 'Đã gửi thông tin thanh toán vào email của bạn')
     } catch (err) {
       const isTimeout = err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')
       const serverMsg = err?.response?.data?.message
@@ -366,7 +373,7 @@ export default function MyInvoicesPage() {
                           loading={emailSending === inv.id}
                           color="#16a34a"
                         >
-                          Gửi vào email
+                          Gửi hóa đơn PDF vào email
                         </ActionBtn>
                       )}
                     </div>
@@ -391,7 +398,7 @@ export default function MyInvoicesPage() {
                 padding: '8px 20px', borderRadius: 8, border: '1px solid #16a34a', cursor: 'pointer',
                 background: '#fff', color: '#16a34a', fontWeight: 600, fontSize: 13,
               }}>
-              {emailSending === detail?.id ? 'Đang gửi...' : 'Gửi vào email'}
+              {emailSending === detail?.id ? 'Đang gửi...' : 'Gửi hóa đơn PDF vào email'}
             </button>
             <button
               onClick={() => handleDownloadPdf(detail)}

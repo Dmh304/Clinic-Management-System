@@ -116,7 +116,9 @@ const PAYMENT_STATUS_CFG = {
   // Đã sinh mã QR, đang chờ cổng thanh toán báo tiền về (ThangNBHE201024)
   PENDING_PAYMENT: { color: 'blue',   label: 'Chờ chuyển khoản' },
   PAID:            { color: 'green',  label: 'Đã thanh toán' },
-  PAYMENT_FAILED:  { color: 'red',    label: 'Thất bại' },
+  // Chỉ webhook AMOUNT_MISMATCH set trạng thái này, nên gọi đúng nguyên nhân
+  // thay vì "Thất bại" chung chung — lễ tân cần biết là thiếu tiền, không phải lỗi hệ thống.
+  PAYMENT_FAILED:  { color: 'red',    label: 'Chuyển thiếu tiền' },
 }
 
 // Tình trạng gửi email hóa đơn — khớp Invoice.emailStatus ở backend
@@ -300,9 +302,15 @@ export default function InvoicePage() {
 
   // Còn hóa đơn nào đang chờ tiền về không? Chỉ những hóa đơn này mới có thể tự đổi
   // trạng thái khi cổng thanh toán báo về, nên chỉ polling khi thực sự có việc để chờ.
+  //
+  // PAYMENT_FAILED (bệnh nhân chuyển thiếu) vẫn phải nằm trong nhóm này: số tiền còn
+  // thiếu là thật, bệnh nhân hoàn toàn có thể chuyển lại đủ và webhook sẽ gạch nợ.
+  // Bỏ nó ra là danh sách ngừng tự cập nhật đúng lúc cần theo dõi nhất.
   const hasPendingPayment = invoices.some(
     (inv) => inv.status !== 'CANCELLED'
-      && (inv.paymentStatus === 'UNPAID' || inv.paymentStatus === 'PENDING_PAYMENT')
+      && (inv.paymentStatus === 'UNPAID'
+        || inv.paymentStatus === 'PENDING_PAYMENT'
+        || inv.paymentStatus === 'PAYMENT_FAILED')
   )
 
   // Tự cập nhật tab "Hóa đơn chờ thanh toán": khi đang mở tab này và còn hóa đơn chưa
@@ -484,24 +492,35 @@ export default function InvoicePage() {
   })
 
   /**
-   * Emails the e-invoice once payment is taken (UC-24).
+   * Triggers the billing email for an invoice (UC-24).
    *
-   * Deliberately quiet: a mail failure (no email on file, SMTP timeout) only
-   * warns. The payment has already been collected, so it must not be
-   * invalidated by a delivery problem — UC-24 E1 leaves a manual resend.
+   * The backend picks which of the two emails to send from the invoice's
+   * payment state — a payment reminder while unsettled, or the receipt with the
+   * PDF attached once paid. This only decides the wording of the toast.
+   *
+   * Deliberately quiet: a mail failure (no address on file, SMTP timeout) only
+   * warns. Whatever billing step just happened must not be invalidated by a
+   * delivery problem — UC-24 E1 leaves a manual resend.
    *
    * @param {number} invoiceId invoice to send
+   * @param {boolean} paid true when the invoice is settled, so the patient
+   *   receives the invoice PDF rather than a payment request
    */
-  const sendInvoiceEmailQuietly = async (invoiceId) => {
+  const sendInvoiceEmailQuietly = async (invoiceId, paid) => {
     try {
       await invoiceService.sendEmail(invoiceId)
-      message.success('Đã gửi hóa đơn vào email bệnh nhân')
+      message.success(paid
+        ? 'Đã gửi hóa đơn (kèm PDF) vào email bệnh nhân'
+        : 'Đã gửi thông báo thanh toán vào email bệnh nhân')
     } catch (err) {
       const isTimeout = err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')
       const serverMsg = err?.response?.data?.message
+      const what = paid ? 'hóa đơn' : 'thông báo thanh toán'
       message.warning(
         serverMsg
-          || (isTimeout ? 'Hóa đơn đã phát hành nhưng gửi email bị quá thời gian chờ' : 'Hóa đơn đã phát hành nhưng chưa gửi được email cho bệnh nhân')
+          || (isTimeout
+                ? `Quá thời gian chờ khi gửi ${what} — có thể gửi lại ở tab Lịch sử`
+                : `Chưa gửi được ${what} cho bệnh nhân — có thể gửi lại ở tab Lịch sử`)
       )
     }
   }
@@ -525,18 +544,10 @@ export default function InvoicePage() {
       const created = await dispatch(createInvoice(buildInvoicePayload(values))).unwrap()
       message.success(`Đã tạo hóa đơn ${created.invoiceCode} (chờ nhận tiền).`)
 
-      // UC-24: email the e-invoice. Sending runs in the background and the
-      // outcome shows in the "email" column. A failure (no address on file)
-      // only warns — it must not undo the billing step.
-      try {
-        await invoiceService.sendEmail(created.id)
-        message.success('Đang gửi hóa đơn vào email bệnh nhân…')
-      } catch (err) {
-        const serverMsg = err?.response?.data?.message
-        message.warning(
-          serverMsg || 'Hóa đơn đã phát hành nhưng chưa gửi được email cho bệnh nhân'
-        )
-      }
+      // UC-23 step 3: the invoice is still awaiting cash, so what goes out is a
+      // payment reminder (no PDF) — the receipt is sent later from
+      // handleConfirmCash once the money is in hand.
+      await sendInvoiceEmailQuietly(created.id, false)
 
       handleCloseCreate()
       dispatch(fetchAllInvoices())
@@ -570,9 +581,10 @@ export default function InvoicePage() {
       setQrLoading(true)
       dispatch(fetchAllInvoices())
       message.success(`Đã tạo hóa đơn ${created.invoiceCode}. Mời bệnh nhân quét mã QR.`)
-      // Tự gửi email kèm mã QR + thông tin chuyển khoản cho bệnh nhân (nếu có email).
-      // Lỗi SMTP chỉ cảnh báo, không làm hỏng luồng tạo hóa đơn.
-      await sendInvoiceEmailQuietly(created.id)
+      // UC-23 step 3: send the payment reminder carrying the bank details and
+      // the transfer memo (= invoice code). No PDF yet — under BR-10 nothing is
+      // settled until the gateway webhook confirms.
+      await sendInvoiceEmailQuietly(created.id, false)
     } catch (err) {
       message.error(typeof err === 'string' ? err : 'Không thể tạo hóa đơn, vui lòng thử lại')
     } finally {
@@ -584,7 +596,8 @@ export default function InvoicePage() {
   // lẫn nút "Kiểm tra lại" thủ công.
   const onPaymentConfirmed = async (invoice) => {
     message.success(`Đã nhận thanh toán cho hóa đơn ${invoice.invoiceCode}`)
-    await sendInvoiceEmailQuietly(invoice.id)
+    // Now settled → the receipt email with the invoice PDF attached (UC-24 POST-1)
+    await sendInvoiceEmailQuietly(invoice.id, true)
     handleCloseCreate()
     dispatch(fetchAllInvoices())
     void refreshAppointments()
@@ -679,7 +692,8 @@ export default function InvoicePage() {
       message.success('Đã nhận tiền mặt — xác nhận thanh toán thành công')
       dispatch(fetchAllInvoices())
       void refreshAppointments()
-      await sendInvoiceEmailQuietly(id)   // gửi biên nhận cho bệnh nhân
+      // Cash is now in hand → receipt email with the invoice PDF (UC-24 POST-1)
+      await sendInvoiceEmailQuietly(id, true)
     } catch (err) {
       message.error(typeof err === 'string' ? err : 'Không thể xác nhận')
     }
@@ -751,7 +765,11 @@ export default function InvoicePage() {
       // Backend nhận yêu cầu và trả về ngay; email được gửi nền, tình trạng
       // gửi (Đang gửi → Đã gửi / Gửi lỗi) cập nhật trong bảng sau vài giây.
       await invoiceService.sendEmail(inv.id)
-      message.success(`Đang gửi hóa đơn đến ${inv.patientEmail}…`)
+      // Which of the two emails goes out is decided server-side from the
+      // payment state; mirror that here so the toast tells the truth.
+      message.success(inv.paymentStatus === 'PAID'
+        ? `Đang gửi hóa đơn (kèm PDF) đến ${inv.patientEmail}…`
+        : `Đang gửi thông báo thanh toán đến ${inv.patientEmail}…`)
       dispatch(fetchAllInvoices())
       // Làm mới lại sau ít giây để cập nhật kết quả gửi cuối cùng (SENT/FAILED)
       setTimeout(() => dispatch(fetchAllInvoices()), 4000)
@@ -869,7 +887,11 @@ export default function InvoicePage() {
             }}>
             Chi tiết
           </Button>
-          {record.status === 'DRAFT' && record.paymentMethod === 'CASH' && record.paymentStatus === 'UNPAID' && (
+          {/* PAYMENT_FAILED cũng cho xác nhận tiền mặt: bệnh nhân chuyển thiếu rồi
+              bỏ luôn, quay lại trả tiền mặt là tình huống thật. Backend chỉ chặn
+              phát hành bằng VIET_QR, còn CASH thì có lễ tân cầm tiền chịu trách nhiệm. */}
+          {record.status === 'DRAFT'
+            && (record.paymentStatus === 'UNPAID' || record.paymentStatus === 'PAYMENT_FAILED') && (
             <Popconfirm title="Xác nhận đã nhận đủ tiền mặt?"
               onConfirm={() => handleConfirmCash(record.id)} okText="Xác nhận" cancelText="Không">
               <Button size="small" type="primary"
@@ -879,7 +901,10 @@ export default function InvoicePage() {
             </Popconfirm>
           )}
           {record.status === 'ISSUED' && (
-            <Tooltip title={record.emailStatus === 'SENT' ? 'Gửi lại email hóa đơn' : 'Gửi email hóa đơn'}>
+            <Tooltip title={`${record.emailStatus === 'SENT' ? 'Gửi lại' : 'Gửi'} ${
+              record.paymentStatus === 'PAID'
+                ? 'email hóa đơn (kèm PDF)'
+                : 'email thông báo thanh toán'}`}>
               <Button size="small" icon={<MailOutlined />} loading={emailSending}
                 onClick={() => handleSendEmail(record)}>
                 {record.emailStatus === 'FAILED' ? 'Gửi lại' : 'Gửi'}
