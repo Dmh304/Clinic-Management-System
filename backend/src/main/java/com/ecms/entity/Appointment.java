@@ -1,3 +1,6 @@
+//Author: DucTKH - HE204463
+//Created: 2026-06-01
+//Last Update: 2026-07-01
 package com.ecms.entity;
 
 import jakarta.persistence.*;
@@ -55,6 +58,15 @@ public class Appointment {
     private ClinicService clinicService;
 
     /**
+     * Phòng khám của lịch hẹn — tự resolve từ phân công phòng của bác sĩ trong ngày (UC-58/UC-59).
+     * Có thể null nếu bác sĩ chưa được phân công phòng nào cho ngày khám.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @NotFound(action = NotFoundAction.IGNORE)
+    @JoinColumn(name = "room_id")
+    private Room room;
+
+    /**
      * Thời gian khám.
      */
     @Column(name = "appointment_time", nullable = false)
@@ -82,7 +94,7 @@ public class Appointment {
     /**
      * Ghi chú của lịch hẹn.
      */
-    @Column(name = "notes")
+    @Column(name = "notes", columnDefinition = "NVARCHAR(MAX)")
     private String notes;
 
     /**
@@ -120,7 +132,7 @@ public class Appointment {
      /**
      * Lý do hủy lịch hẹn.
      */
-    @Column(name = "cancel_reason")
+    @Column(name = "cancel_reason", columnDefinition = "NVARCHAR(MAX)")
     private String cancelReason;
 
     /**

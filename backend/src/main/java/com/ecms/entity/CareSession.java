@@ -27,6 +27,12 @@ public class CareSession {
     @JoinColumn(name = "nurse_id")
     private User nurse;
 
+    /** Phòng chăm sóc — tự resolve từ phân công phòng của điều dưỡng trong ngày (UC-58/UC-59).
+     *  Có thể null nếu điều dưỡng chưa được phân công phòng nào cho ngày này. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "room_id")
+    private Room room;
+
     @Column(name = "scheduled_date_time", nullable = false)
     private LocalDateTime scheduledDateTime;
 
@@ -46,8 +52,29 @@ public class CareSession {
     @Column(name = "nurse_notes", columnDefinition = "NVARCHAR(1000)")
     private String nurseNotes;
 
+    /** Lễ tân xác nhận khách đã đến quầy trước khi vào hàng đợi điều dưỡng — cùng luồng
+     *  check-in đã có ở lịch khám bác sĩ (Appointment.checkInBy/checkInAt). */
+    @Column(name = "checked_in", nullable = false)
+    private Boolean checkedIn;
+
+    @Column(name = "check_in_at")
+    private LocalDateTime checkInAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "check_in_by")
+    private User checkInBy;
+
+    /** UC-32: mốc bắt đầu thực hiện — cùng completedAt cho phép tính thời lượng buổi khám. */
+    @Column(name = "started_at")
+    private LocalDateTime startedAt;
+
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
+
+    /** UC-32 ALT-1: bệnh nhân có phản ứng/sự cố bất thường trong buổi khám — không tự thành
+     *  hồ sơ y tế, chỉ để cảnh báo Clinic Manager xem xét. */
+    @Column(name = "is_incident")
+    private Boolean isIncident;
 
     @Column(name = "assigned_at")
     private LocalDateTime assignedAt;
@@ -63,6 +90,8 @@ public class CareSession {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
         if (this.status == null) this.status = "BOOKED";
+        if (this.isIncident == null) this.isIncident = false;
+        if (this.checkedIn == null) this.checkedIn = false;
     }
 
     @PreUpdate

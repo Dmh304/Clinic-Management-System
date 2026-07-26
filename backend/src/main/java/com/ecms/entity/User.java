@@ -36,7 +36,7 @@ public class User {
     private String phone;
 
     // Phòng/bộ phận công tác — chỉ áp dụng cho tài khoản nhân viên (UC-55), null với PATIENT
-    @Column(name = "department")
+    @Column(name = "department", columnDefinition = "NVARCHAR(100)")
     private String department;
 
     @ManyToOne(fetch = FetchType.EAGER)
@@ -75,4 +75,16 @@ public class User {
     // prescription/audit log cũ (BR-09).
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
+
+    // Bệnh nhân bấm link "Hủy đăng ký" trong email khuyến mãi → true, loại khỏi mọi lần
+    // broadcast email quảng cáo sau này (không ảnh hưởng email giao dịch như xác nhận đặt lịch).
+    @Column(name = "marketing_opt_out", nullable = false)
+    @Builder.Default
+    private Boolean marketingOptOut = false;
+
+    // Tài khoản "ảo"/demo (dùng gmail giả) tạo qua UC-55 với cờ isVirtual: bỏ qua email kích hoạt,
+    // mật khẩu cố định, và chỉ đăng nhập được qua cổng Demo (AuthController#demoLogin), không qua OTP.
+    @Column(name = "is_virtual", nullable = false)
+    @Builder.Default
+    private Boolean isVirtual = false;
 }

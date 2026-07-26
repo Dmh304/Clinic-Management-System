@@ -7,6 +7,10 @@ export const discountService = {
   getActive: () =>
     axiosClient.get('/v1/discount-campaigns/active'),
 
+  // Trang khuyến mãi công khai: mọi campaign kể cả đã hết hạn/sắp diễn ra
+  getAllPublic: () =>
+    axiosClient.get('/v1/discount-campaigns/public'),
+
   getById: (id) =>
     axiosClient.get(`/v1/discount-campaigns/${id}`),
 
@@ -18,4 +22,21 @@ export const discountService = {
 
   delete: (id) =>
     axiosClient.delete(`/v1/discount-campaigns/${id}`),
+
+  // UC-43: xem trước mức giảm của 1 mã cho 1 số tiền — không tăng lượt dùng
+  quote: (code, amount) =>
+    axiosClient.get('/v1/discount-campaigns/quote', { params: { code, amount } }),
+
+  // Ảnh đại diện cho bài viết khuyến mãi công khai — cùng endpoint upload chung với gói dịch vụ
+  uploadImage: (file) => {
+    const fd = new FormData()
+    fd.append('file', file)
+    return axiosClient.post('/v1/files/upload', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+
+  // Manager bấm gửi thủ công — broadcast email + thông báo trong app cho toàn bộ bệnh nhân có email
+  broadcastEmail: (id) =>
+    axiosClient.post(`/v1/discount-campaigns/${id}/broadcast`),
 }

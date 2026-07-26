@@ -3,9 +3,11 @@ package com.ecms.controller;
 import com.ecms.dto.request.AssignNurseRequest;
 import com.ecms.dto.request.BookCareSessionRequest;
 import com.ecms.dto.response.ApiResponse;
+import com.ecms.dto.response.AutoAssignResult;
 import com.ecms.dto.response.CareSessionResponse;
 import com.ecms.dto.response.NurseResponse;
 import com.ecms.service.CareSessionService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -48,25 +50,61 @@ public class CareSessionController {
         return ResponseEntity.ok(ApiResponse.success(careSessionService.getAllSessions(date)));
     }
 
-    /** Hàng đợi của điều dưỡng đang đăng nhập */
+    /** Hàng đợi của điều dưỡng đang đăng nhập — truyền date để xem ngày trước/sau (mọi trạng thái);
+     *  không truyền date thì trả toàn bộ buổi đang chờ (BOOKED) bất kể ngày. */
     @GetMapping("/queue")
-    public ResponseEntity<ApiResponse<List<CareSessionResponse>>> getNurseQueue(Authentication authentication) {
-        return ResponseEntity.ok(ApiResponse.success(careSessionService.getNurseQueue(authentication.getName())));
+    public ResponseEntity<ApiResponse<List<CareSessionResponse>>> getNurseQueue(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.success(careSessionService.getNurseQueue(authentication.getName(), date)));
     }
 
-    /** Danh sách buổi theo gói đăng ký */
+    /** Chi tiết 1 buổi khám theo id — nurse chỉ xem được buổi của mình, patient chỉ xem được buổi của mình */
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<CareSessionResponse>> getById(
+            @PathVariable Long id, Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.success(careSessionService.getById(id, authentication.getName())));
+    }
+
+    /** Danh sách buổi theo gói đăng ký — patient chỉ xem được gói của chính mình */
     @GetMapping("/subscription/{subscriptionId}")
-    public ResponseEntity<ApiResponse<List<CareSessionResponse>>> getBySubscription(@PathVariable Long subscriptionId) {
-        return ResponseEntity.ok(ApiResponse.success(careSessionService.getSessionsBySubscription(subscriptionId)));
+    public ResponseEntity<ApiResponse<List<CareSessionResponse>>> getBySubscription(
+            @PathVariable Long subscriptionId, Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.success(
+                careSessionService.getSessionsBySubscription(subscriptionId, authentication.getName())));
     }
 
-    /** Phân công điều dưỡng — MANAGER */
+    /** Phân công điều dưỡng — MANAGER. request.override=true để vẫn phân công dù đã đủ sức chứa (UC-19 E-2). */
     @PatchMapping("/{id}/assign-nurse")
     public ResponseEntity<ApiResponse<CareSessionResponse>> assignNurse(
             @PathVariable Long id,
-            @Valid @RequestBody AssignNurseRequest request) {
+            @Valid @RequestBody AssignNurseRequest request,
+            Authentication authentication, HttpServletRequest httpRequest) {
         return ResponseEntity.ok(ApiResponse.success("Phân công điều dưỡng thành công",
-                careSessionService.assignNurse(id, request)));
+                careSessionService.assignNurse(id, request, authentication.getName(), httpRequest.getRemoteAddr())));
+    }
+
+    /** UC-19 ALT-1: tự động phân công mọi buổi BOOKED chưa có điều dưỡng trong ngày — MANAGER */
+    @PostMapping("/auto-assign")
+    public ResponseEntity<ApiResponse<AutoAssignResult>> autoAssignRemaining(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            Authentication authentication, HttpServletRequest httpRequest) {
+        AutoAssignResult result = careSessionService.autoAssignRemaining(date, authentication.getName(), httpRequest.getRemoteAddr());
+        return ResponseEntity.ok(ApiResponse.success(
+                "Đã tự động phân công " + result.getAssignedCount() + " buổi"
+                        + (result.getStillUnassignedCount() > 0
+                                ? ", còn " + result.getStillUnassignedCount() + " buổi chưa phân công được (không đủ điều dưỡng)"
+                                : ""),
+                result));
+    }
+
+    /** Check-in tại quầy lễ tân — RECEPTIONIST. Bắt buộc trước khi điều dưỡng bắt đầu buổi khám. */
+    @PatchMapping("/{id}/check-in")
+    public ResponseEntity<ApiResponse<CareSessionResponse>> checkIn(
+            @PathVariable Long id,
+            Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.success("Check-in thành công",
+                careSessionService.checkInSession(id, authentication.getName())));
     }
 
     /** Bắt đầu thực hiện — NURSE */
@@ -78,15 +116,16 @@ public class CareSessionController {
                 careSessionService.startSession(id, authentication.getName())));
     }
 
-    /** Hoàn thành — NURSE */
+    /** Hoàn thành — NURSE. body.isIncident=true để đánh dấu sự cố (UC-32 ALT-1), báo Manager xem xét. */
     @PatchMapping("/{id}/complete")
     public ResponseEntity<ApiResponse<CareSessionResponse>> complete(
             @PathVariable Long id,
-            @RequestBody(required = false) Map<String, String> body,
+            @RequestBody(required = false) Map<String, Object> body,
             Authentication authentication) {
-        String notes = body != null ? body.get("nurseNotes") : null;
+        String notes = body != null ? (String) body.get("nurseNotes") : null;
+        Boolean isIncident = body != null ? Boolean.valueOf(String.valueOf(body.get("isIncident"))) : false;
         return ResponseEntity.ok(ApiResponse.success("Hoàn thành buổi khám",
-                careSessionService.completeSession(id, notes, authentication.getName())));
+                careSessionService.completeSession(id, notes, isIncident, authentication.getName())));
     }
 
     /** Check-out (trừ buổi khỏi gói) — RECEPTIONIST */

@@ -7,13 +7,19 @@ import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+import com.ecms.entity.ServiceType;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class ClinicServiceResponse {
     private Long id;
     private String serviceName;
     private String description;
     private BigDecimal price;
-    private String priceLabel;
+    private String benefits;
     private Integer durationMinutes;
     private String badge;
     private String thumbnailUrl;
@@ -26,7 +32,7 @@ public class ClinicServiceResponse {
     private Boolean isPopular;
     private Long categoryId;
     private String categoryName;
-    private String serviceType;
+    private ServiceType serviceType;
     private LocalDateTime createdAt;
     private Long subscriberCount; // Số người đăng ký gói dịch vụ này
 }

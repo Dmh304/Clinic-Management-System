@@ -7,7 +7,7 @@
 // ẩn đi, không xóa cứng bản ghi, xem BR-09).
 import { useEffect, useState } from 'react'
 import {
-  Table, Card, Space, Input, Select, Button, Modal, Form, Tag, Typography, message, Popconfirm,
+  Table, Card, Space, Input, Select, Button, Modal, Form, Tag, Typography, message, Popconfirm, Checkbox,
 } from 'antd'
 import {
   ReloadOutlined, PlusOutlined, EditOutlined, CheckCircleOutlined, StopOutlined,
@@ -90,7 +90,9 @@ export default function UserManagementPage() {
     setCreateSubmitting(true)
     try {
       await adminUserService.create(values)
-      message.success('Tạo tài khoản thành công. Hãy bấm "Kích hoạt" để gửi mật khẩu tạm cho nhân viên.')
+      message.success(values.isVirtual
+        ? 'Tạo tài khoản demo thành công. Mật khẩu đăng nhập: Password@123'
+        : 'Tạo tài khoản thành công. Hãy bấm "Kích hoạt" để gửi mật khẩu tạm cho nhân viên.')
       setCreateOpen(false)
       createForm.resetFields()
       fetchData(1, pagination.pageSize)
@@ -190,7 +192,12 @@ export default function UserManagementPage() {
   }
 
   const columns = [
-    { title: 'Họ tên', dataIndex: 'fullName', key: 'fullName' },
+    {
+      title: 'Họ tên',
+      dataIndex: 'fullName',
+      key: 'fullName',
+      render: (v, record) => <>{v} {record.isVirtual && <Tag color="purple">DEMO</Tag>}</>,
+    },
     { title: 'Email', dataIndex: 'email', key: 'email' },
     { title: 'Vai trò', dataIndex: 'role', key: 'role' },
     { title: 'Phòng/Bộ phận', dataIndex: 'department', key: 'department', render: (v) => v || '—' },
@@ -366,6 +373,9 @@ export default function UserManagementPage() {
           </Form.Item>
           <Form.Item name="phone" label="Số điện thoại">
             <Input placeholder="0901234567" />
+          </Form.Item>
+          <Form.Item name="isVirtual" valuePropName="checked">
+            <Checkbox>Tài khoản ảo (Demo — bỏ qua email xác thực, mật khẩu mặc định: Password@123)</Checkbox>
           </Form.Item>
           {/* Các field chỉ hiển thị khi role = DOCTOR */}
           <Form.Item noStyle shouldUpdate={(prev, cur) => prev.role !== cur.role}>

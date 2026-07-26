@@ -76,4 +76,16 @@ public class StaffRoomAssignmentController {
         return ResponseEntity.ok(
                 ApiResponse.success(staffRoomAssignmentService.resolveRoomForStaff(staffType, staffId, date)));
     }
+
+    /**
+     * UC-55 ALT-1: ai đang được phân trực phòng này — Manager xem trước khi vô hiệu
+     * hoá phòng.
+     */
+    @GetMapping("/by-room/{roomId}")
+    @PreAuthorize("hasAnyRole('MANAGER', 'ADMIN')")
+    public ResponseEntity<ApiResponse<List<StaffRoomAssignmentResponse>>> getAssignmentsByRoom(
+            @PathVariable Long roomId) {
+
+        return ResponseEntity.ok(ApiResponse.success(staffRoomAssignmentService.getAssignmentsByRoom(roomId)));
+    }
 }

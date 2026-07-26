@@ -41,9 +41,11 @@ import {
   fetchAllInvoices, createInvoice, issueInvoice, cancelInvoice,
 } from '../../store/slices/invoiceSlice'
 import { appointmentService } from '../../services/appointmentService'
+import { careSessionService } from '../../services/careSessionService'
 import { invoiceService } from '../../services/invoiceService'
 import { paymentService } from '../../services/paymentService'
 import { clinicServiceService } from '../../services/clinicServiceService'
+import { discountService } from '../../services/discountService'
 import { medicineService } from '../../services/medicineService'
 
 const { Title, Text } = Typography
@@ -133,15 +135,24 @@ export default function InvoicePage() {
 
   const [allAppointments, setAllAppointments] = useState([])
   const [apptLoading, setApptLoading]         = useState(true)
+  // UC-21: buổi dịch vụ đơn lẻ ("vãng lai", totalSessions=1) đã CHECKED_OUT chờ thu tiền
+  const [allCareSessions, setAllCareSessions] = useState([])
   const [apptSearch, setApptSearch]           = useState('')
   const [invoiceSearch, setInvoiceSearch]     = useState('')
   const [activeTab, setActiveTab]             = useState('pending')
 
-  // Modal tạo hóa đơn
-  const [createModal, setCreateModal] = useState({ open: false, appointment: null })
+  // Modal tạo hóa đơn — createModal.appointment giữ dữ liệu hiển thị dùng chung cho cả 2
+  // nguồn (lịch hẹn khám bác sĩ / buổi dịch vụ đơn lẻ); createModal.sourceType phân biệt nguồn.
+  const [createModal, setCreateModal] = useState({ open: false, sourceType: 'appointment', appointment: null })
   const [form]                        = Form.useForm()
   const [items, setItems]             = useState([])
   const [discount, setDiscount]       = useState(0)
+  // UC-43: mã giảm giá áp dụng cho hoá đơn — appliedDiscountCode chỉ khớp discountCode
+  // khi đã bấm "Áp dụng" thành công, dùng để quyết định có gửi discountCode lên server không.
+  const [discountCode, setDiscountCode]             = useState('')
+  const [appliedDiscountCode, setAppliedDiscountCode] = useState('')
+  const [discountCodeError, setDiscountCodeError]   = useState('')
+  const [applyingCode, setApplyingCode]             = useState(false)
   const [submitting, setSubmitting]   = useState(false)
   const [qrLoading, setQrLoading]     = useState(false)
   const [qrKey, setQrKey]             = useState(0)
@@ -182,58 +193,104 @@ export default function InvoicePage() {
     }
   }, [])
 
+  const refreshCareSessions = useCallback(async () => {
+    try {
+      const res = await careSessionService.getAll()
+      setAllCareSessions(res.data ?? [])
+    } catch {
+      message.error('Không thể tải danh sách buổi dịch vụ')
+    }
+  }, [])
+
+  // record: Appointment (sourceType 'appointment') hoặc CareSessionResponse (sourceType 'subscription' —
+  // id dùng để tạo hóa đơn là subscriptionId, không phải id của care session cụ thể)
+  const handleOpenCreate = async (record, sourceType = 'appointment') => {
+    const display = sourceType === 'subscription'
+      ? {
+          id: record.subscriptionId,
+          patientName: record.patientName,
+          patientPhone: record.patientPhone,
+          doctorName: record.nurseName || null,
+          timeSlot: null,
+          serviceName: record.serviceName,
+          servicePrice: record.subscriptionFinalPrice ?? 0,
+        }
+      : record
+
+    const prefill = display.serviceName
+      ? [{ itemType: 'SERVICE', description: display.serviceName, quantity: 1, unitPrice: display.servicePrice ?? 0 }]
+      : [{ itemType: 'SERVICE', description: '', quantity: 1, unitPrice: 0 }]
+    setItems(prefill)
+    setDiscount(0)
+    setDiscountCode('')
+    setAppliedDiscountCode('')
+    setDiscountCodeError('')
+    form.setFieldsValue({ paymentMethod: 'CASH', paymentReference: BANK_ACCOUNT, notes: '' })
+    setCreateModal({ open: true, sourceType, appointment: display })
+
+    // Auto-đổ khoản phí gốc (dịch vụ khám + xét nghiệm + thuốc đã kê — UC-27).
+    // Gói dịch vụ không có API gợi ý nên giữ nguyên prefill cơ bản.
+    if (sourceType !== 'appointment' || !display.id) return
+    setSuggestLoading(true)
+    try {
+      const res = await invoiceService.getSuggestedItems(display.id)
+      const suggested = (res.data ?? []).map((it) => ({
+        itemType: it.itemType,
+        description: it.description,
+        quantity: it.quantity ?? 1,
+        unitPrice: Number(it.unitPrice) || 0,
+      }))
+      if (suggested.length) setItems(suggested)
+    } catch {
+      // Không lấy được gợi ý → giữ prefill cơ bản, lễ tân tự thêm bằng "+ Thêm khoản phí"
+    } finally {
+      setSuggestLoading(false)
+    }
+  }
+
   useEffect(() => {
     let isMounted = true
 
     const loadInitialData = async () => {
       dispatch(fetchAllInvoices())
 
-      const [appointmentsResult, servicesResult, medicinesResult] = await Promise.allSettled([
+      const [appointmentsResult, careSessionsResult, servicesResult, medicinesResult] = await Promise.allSettled([
         appointmentService.getAllAppointments(),
+        careSessionService.getAll(),
         clinicServiceService.getAllServices(),
         medicineService.getAll(),
       ])
 
       if (!isMounted) return
 
+      let appointments = []
       if (appointmentsResult.status === 'fulfilled') {
-        const appointments = appointmentsResult.value?.data ?? []
+        appointments = appointmentsResult.value?.data ?? []
         setAllAppointments(appointments)
-
-        // Nếu navigate từ AppointmentManagementPage với appointmentId, tự động mở modal
-        const appointmentId = location.state?.appointmentId
-        if (appointmentId) {
-          const targetAppt = appointments.find((a) => a.id === appointmentId)
-          if (targetAppt && targetAppt.status === 'COMPLETED') {
-            // Delay một chút để đảm bảo state đã được cập nhật, rồi mở modal kèm gợi ý
-            // khoản phí (dịch vụ khám + thuốc bác sĩ đã kê) như khi bấm nút thu phí.
-            setTimeout(() => {
-              if (!isMounted) return
-              const basePrefill = targetAppt.serviceName
-                ? [{ itemType: 'SERVICE', description: targetAppt.serviceName, quantity: 1, unitPrice: targetAppt.servicePrice ?? 0 }]
-                : [{ itemType: 'SERVICE', description: '', quantity: 1, unitPrice: 0 }]
-              setItems(basePrefill)
-              form.setFieldsValue({ paymentMethod: 'CASH', paymentReference: '', notes: '' })
-              setCreateModal({ open: true, appointment: targetAppt })
-
-              setSuggestLoading(true)
-              invoiceService.getSuggestedItems(targetAppt.id)
-                .then((res) => {
-                  const suggested = (res.data ?? []).map((it) => ({
-                    itemType: it.itemType,
-                    description: it.description,
-                    quantity: it.quantity ?? 1,
-                    unitPrice: Number(it.unitPrice) || 0,
-                  }))
-                  if (isMounted && suggested.length) setItems(suggested)
-                })
-                .catch(() => {})
-                .finally(() => { if (isMounted) setSuggestLoading(false) })
-            }, 300)
-          }
-        }
       } else {
         message.error('Không thể tải danh sách lịch hẹn')
+      }
+
+      let careSessions = []
+      if (careSessionsResult.status === 'fulfilled') {
+        careSessions = careSessionsResult.value?.data ?? []
+        setAllCareSessions(careSessions)
+      }
+
+      // Nếu navigate từ AppointmentManagementPage/CheckoutCareSessionPage với id tương ứng,
+      // tự động mở modal thu phí cho lịch hẹn hoặc gói dịch vụ đó.
+      const appointmentId = location.state?.appointmentId
+      const subscriptionId = location.state?.subscriptionId
+      if (appointmentId) {
+        const targetAppt = appointments.find((a) => a.id === appointmentId)
+        if (targetAppt && targetAppt.status === 'COMPLETED') {
+          setTimeout(() => { if (isMounted) handleOpenCreate(targetAppt, 'appointment') }, 300)
+        }
+      } else if (subscriptionId) {
+        const targetSession = careSessions.find((s) => s.subscriptionId === subscriptionId && s.status === 'CHECKED_OUT')
+        if (targetSession) {
+          setTimeout(() => { if (isMounted) handleOpenCreate(targetSession, 'subscription') }, 300)
+        }
       }
 
       if (servicesResult.status === 'fulfilled') {
@@ -252,17 +309,61 @@ export default function InvoicePage() {
     return () => {
       isMounted = false
     }
-  }, [dispatch, location.state?.appointmentId, form])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, location.state?.appointmentId, location.state?.subscriptionId, form])
 
   // ─── Derived ─────────────────────────────────────────────────────────────────
 
-  const billedIds = new Set(
-    invoices.filter((i) => i.status !== 'CANCELLED').map((i) => i.appointmentId)
+  const billedAppointmentIds = new Set(
+    invoices.filter((i) => i.status !== 'CANCELLED' && i.appointmentId).map((i) => i.appointmentId)
+  )
+  const billedSubscriptionIds = new Set(
+    invoices.filter((i) => i.status !== 'CANCELLED' && i.subscriptionId).map((i) => i.subscriptionId)
   )
 
-  const completedUnbilled = allAppointments.filter(
-    (a) => a.status === 'COMPLETED' && !billedIds.has(a.id)
+  const completedUnbilledAppts = allAppointments.filter(
+    (a) => a.status === 'COMPLETED' && !billedAppointmentIds.has(a.id)
   )
+
+  // UC-21: gói dịch vụ (nhiều buổi hoặc "vãng lai" 1 buổi) đã check-out lần đầu, chưa thu tiền —
+  // dedupe theo subscriptionId vì 1 gói chỉ cần 1 hóa đơn dù có nhiều buổi đã check-out.
+  const checkedOutUnbilledBySubscription = new Map()
+  for (const s of allCareSessions) {
+    if (s.status !== 'CHECKED_OUT' || s.subscriptionInvoiced || billedSubscriptionIds.has(s.subscriptionId)) continue
+    if (!checkedOutUnbilledBySubscription.has(s.subscriptionId)) {
+      checkedOutUnbilledBySubscription.set(s.subscriptionId, s)
+    }
+  }
+  const checkedOutUnbilledSessions = [...checkedOutUnbilledBySubscription.values()]
+
+  // Gộp 2 nguồn thành 1 danh sách "chờ thu phí" cho bảng — mỗi dòng giữ `raw` + `sourceType`
+  // để mở đúng modal thu phí (lịch hẹn khám bác sĩ / gói dịch vụ chăm sóc).
+  const completedUnbilled = [
+    ...completedUnbilledAppts.map((a) => ({
+      id: `appt-${a.id}`,
+      sourceType: 'appointment',
+      raw: a,
+      patientName: a.patientName,
+      patientPhone: a.patientPhone,
+      appointmentTime: a.appointmentTime,
+      timeSlot: a.timeSlot,
+      queueNumber: a.queueNumber,
+      doctorName: a.doctorName,
+      serviceName: a.serviceName,
+    })),
+    ...checkedOutUnbilledSessions.map((s) => ({
+      id: `sub-${s.subscriptionId}`,
+      sourceType: 'subscription',
+      raw: s,
+      patientName: s.patientName,
+      patientPhone: s.patientPhone,
+      appointmentTime: s.completedAt,
+      timeSlot: null,
+      queueNumber: null,
+      doctorName: s.nurseName,
+      serviceName: s.serviceName,
+    })),
+  ]
 
   const filteredAppts = apptSearch
     ? completedUnbilled.filter(
@@ -305,40 +406,14 @@ export default function InvoicePage() {
 
   // ─── Modal helpers ────────────────────────────────────────────────────────────
 
-  // Mở modal thu phí: hiện ngay dịch vụ khám đã đặt cho đỡ chờ, rồi gọi API gợi ý để đổ
-  // thêm thuốc bác sĩ đã kê (UC-27). Lỗi API thì giữ nguyên prefill cơ bản.
-  const handleOpenCreate = async (appt) => {
-    const basePrefill = appt.serviceName
-      ? [{ itemType: 'SERVICE', description: appt.serviceName, quantity: 1, unitPrice: appt.servicePrice ?? 0 }]
-      : [{ itemType: 'SERVICE', description: '', quantity: 1, unitPrice: 0 }]
-    setItems(basePrefill)
-    setDiscount(0)
-    form.setFieldsValue({ paymentMethod: 'CASH', paymentReference: '', notes: '' })
-    setCreateModal({ open: true, appointment: appt })
-
-    setSuggestLoading(true)
-    try {
-      const res = await invoiceService.getSuggestedItems(appt.id)
-      const suggested = (res.data ?? []).map((it) => ({
-        itemType: it.itemType,
-        description: it.description,
-        quantity: it.quantity ?? 1,
-        unitPrice: Number(it.unitPrice) || 0,
-      }))
-      // Gợi ý đã bao gồm dịch vụ khám, nên thay thế hẳn prefill cơ bản
-      if (suggested.length) setItems(suggested)
-    } catch {
-      // Không lấy được gợi ý → giữ prefill cơ bản, lễ tân tự thêm thuốc bằng "+ Thêm khoản phí"
-    } finally {
-      setSuggestLoading(false)
-    }
-  }
-
   const handleCloseCreate = () => {
-    setCreateModal({ open: false, appointment: null })
+    setCreateModal({ open: false, sourceType: 'appointment', appointment: null })
     form.resetFields()
     setItems([])
     setDiscount(0)
+    setDiscountCode('')
+    setAppliedDiscountCode('')
+    setDiscountCodeError('')
     // Dừng polling trạng thái thanh toán khi đóng modal (ThangNBHE201024).
     // Hóa đơn nháp chưa thanh toán vẫn nằm ở tab Lịch sử để lễ tân xử lý tiếp.
     setPendingInvoice(null)
@@ -399,6 +474,25 @@ export default function InvoicePage() {
   // BR-11: Tổng thanh toán = tạm tính − giảm giá (không âm)
   const grandTotal   = Math.max(0, totalAmount - (discount || 0))
 
+  // UC-43: xem trước mức giảm của mã trước khi xác nhận — không tăng lượt dùng ở bước này,
+  // chỉ redeem thật khi hoá đơn được tạo (handleSubmit).
+  const handleApplyDiscountCode = async () => {
+    if (!discountCode.trim()) return
+    setApplyingCode(true)
+    setDiscountCodeError('')
+    try {
+      const res = await discountService.quote(discountCode.trim(), totalAmount)
+      setDiscount(res.data.discountAmount)
+      setAppliedDiscountCode(discountCode.trim())
+      message.success(`Đã áp dụng mã "${discountCode.trim()}" — giảm ${Number(res.data.discountAmount).toLocaleString('vi-VN')}đ`)
+    } catch (err) {
+      setDiscountCodeError(err.response?.data?.message || 'Mã giảm giá không hợp lệ')
+      setAppliedDiscountCode('')
+    } finally {
+      setApplyingCode(false)
+    }
+  }
+
   // ─── Submit ───────────────────────────────────────────────────────────────────
 
   // Kiểm tra hợp lệ dùng chung cho cả hai luồng tiền mặt và QR.
@@ -429,10 +523,12 @@ export default function InvoicePage() {
   }
 
   const buildInvoicePayload = (values) => ({
-    appointmentId: createModal.appointment.id,
+    appointmentId: createModal.sourceType === 'appointment' ? createModal.appointment.id : null,
+    subscriptionId: createModal.sourceType === 'subscription' ? createModal.appointment.id : null,
     paymentMethod: values.paymentMethod,
     paymentReference: values.paymentReference || null,
     discountAmount: discount || 0,
+    discountCode: appliedDiscountCode === discountCode.trim() && appliedDiscountCode ? appliedDiscountCode : null,
     notes: values.notes || null,
     items: items.map((it) => ({
       itemType: it.itemType,
@@ -469,6 +565,7 @@ export default function InvoicePage() {
     setSubmitting(true)
     try {
       // Luồng tiền mặt: tạo hóa đơn DRAFT (chờ nhận tiền), chưa phát hành.
+      // Lễ tân bấm "Đã nhận tiền" ở bảng lịch sử để chốt khi thực nhận đủ tiền.
       const created = await dispatch(createInvoice(buildInvoicePayload(values))).unwrap()
       message.success(`Đã tạo hóa đơn ${created.invoiceCode} (chờ nhận tiền).`)
 
@@ -488,6 +585,7 @@ export default function InvoicePage() {
       handleCloseCreate()
       dispatch(fetchAllInvoices())
       void refreshAppointments()
+      void refreshCareSessions()
     } catch (err) {
       message.error(typeof err === 'string' ? err : 'Có lỗi xảy ra, vui lòng thử lại')
     } finally {
@@ -675,21 +773,27 @@ export default function InvoicePage() {
 
   const apptColumns = [
     { title: 'STT', key: 'stt', width: 50, render: (_, __, i) => i + 1 },
+    {
+      title: 'Loại', dataIndex: 'sourceType', key: 'sourceType', width: 110,
+      render: (t) => t === 'subscription'
+        ? <Tag color="orange">Dịch vụ</Tag>
+        : <Tag color="geekblue">Khám bác sĩ</Tag>,
+    },
     { title: 'Bệnh nhân', dataIndex: 'patientName', key: 'patientName' },
     { title: 'SĐT', dataIndex: 'patientPhone', key: 'patientPhone', width: 125 },
     {
-      title: 'Ngày khám', dataIndex: 'appointmentTime', key: 'appointmentTime', width: 120,
+      title: 'Ngày', dataIndex: 'appointmentTime', key: 'appointmentTime', width: 120,
       render: (t) => t ? new Date(t).toLocaleDateString('vi-VN') : '—',
       sorter: (a, b) => new Date(a.appointmentTime) - new Date(b.appointmentTime),
       defaultSortOrder: 'descend',
     },
-    { title: 'Giờ khám', dataIndex: 'timeSlot', key: 'timeSlot', width: 90 },
+    { title: 'Giờ khám', dataIndex: 'timeSlot', key: 'timeSlot', width: 90, render: (t) => t || '—' },
     {
       title: 'STT hàng đợi', dataIndex: 'queueNumber', key: 'queueNumber', width: 105,
       render: (q) => q ? <Tag color="blue">#{q}</Tag> : '—',
     },
     {
-      title: 'Bác sĩ', dataIndex: 'doctorName', key: 'doctorName',
+      title: 'Bác sĩ / Điều dưỡng', dataIndex: 'doctorName', key: 'doctorName',
       render: (n) => n || <Text type="secondary">Chưa gán</Text>,
     },
     { title: 'Dịch vụ', dataIndex: 'serviceName', key: 'serviceName', render: (n) => n || '—' },
@@ -698,7 +802,7 @@ export default function InvoicePage() {
       render: (_, record) => (
         <Button
           type="primary" size="small" icon={<DollarOutlined />}
-          onClick={() => handleOpenCreate(record)}
+          onClick={() => handleOpenCreate(record.raw, record.sourceType)}
           style={{ backgroundColor: '#10b981', borderColor: '#10b981' }}
         >
           Thu phí & HĐ
@@ -852,7 +956,7 @@ export default function InvoicePage() {
                     allowClear
                   />
                   <Button icon={<ReloadOutlined />}
-                    onClick={() => { void refreshAppointments(); dispatch(fetchAllInvoices()) }}
+                    onClick={() => { void refreshAppointments(); void refreshCareSessions(); dispatch(fetchAllInvoices()) }}
                     loading={apptLoading}>
                     Làm mới
                   </Button>
@@ -992,12 +1096,14 @@ export default function InvoicePage() {
               <Descriptions.Item label="SĐT">
                 {createModal.appointment.patientPhone || '—'}
               </Descriptions.Item>
-              <Descriptions.Item label="Bác sĩ">
+              <Descriptions.Item label={createModal.sourceType === 'subscription' ? 'Điều dưỡng' : 'Bác sĩ'}>
                 {createModal.appointment.doctorName || '—'}
               </Descriptions.Item>
-              <Descriptions.Item label="Giờ khám">
-                {createModal.appointment.timeSlot || '—'}
-              </Descriptions.Item>
+              {createModal.sourceType !== 'subscription' && (
+                <Descriptions.Item label="Giờ khám">
+                  {createModal.appointment.timeSlot || '—'}
+                </Descriptions.Item>
+              )}
               <Descriptions.Item label="Dịch vụ" span={2}>
                 {createModal.appointment.serviceName
                   ? (
@@ -1180,6 +1286,30 @@ export default function InvoicePage() {
               <div style={{ color: '#64748b', fontSize: 14 }}>
                 Tạm tính: <Text strong>{fmt(totalAmount)}</Text>
               </div>
+
+              {/* UC-43: áp dụng mã chương trình giảm giá — tự tính mức giảm, ghi đè nhập tay */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 14, color: '#64748b' }}>Mã giảm giá:</span>
+                <Input
+                  size="small"
+                  placeholder="VD: SUMMER2025"
+                  value={discountCode}
+                  onChange={(e) => { setDiscountCode(e.target.value); setDiscountCodeError('') }}
+                  onPressEnter={handleApplyDiscountCode}
+                  style={{ width: 160 }}
+                  status={discountCodeError ? 'error' : ''}
+                />
+                <Button size="small" loading={applyingCode} onClick={handleApplyDiscountCode} disabled={!discountCode.trim()}>
+                  Áp dụng
+                </Button>
+              </div>
+              {discountCodeError && (
+                <div style={{ color: '#dc2626', fontSize: 12 }}>{discountCodeError}</div>
+              )}
+              {appliedDiscountCode && appliedDiscountCode === discountCode.trim() && (
+                <div style={{ color: '#16a34a', fontSize: 12 }}>✓ Đã áp dụng mã "{appliedDiscountCode}"</div>
+              )}
+
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 14, color: '#64748b' }}>Giảm giá (đ):</span>
                 <InputNumber
@@ -1187,7 +1317,7 @@ export default function InvoicePage() {
                   min={0}
                   max={totalAmount}
                   value={discount}
-                  onChange={(v) => setDiscount(v ?? 0)}
+                  onChange={(v) => { setDiscount(v ?? 0); setAppliedDiscountCode('') }}
                   formatter={(v) => v?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                   parser={(v) => v?.replace(/,/g, '')}
                   style={{ width: 140 }}

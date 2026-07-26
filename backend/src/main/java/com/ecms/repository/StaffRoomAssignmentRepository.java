@@ -46,6 +46,10 @@ public interface StaffRoomAssignmentRepository extends JpaRepository<StaffRoomAs
 
     List<StaffRoomAssignment> findByWorkDateAndIsOneDayOverrideTrue(LocalDate date);
 
+    // UC-55 ALT-1: mọi phân công (standing + override) đang trỏ tới 1 phòng — dùng khi
+    // phòng bị vô hiệu hoá để Manager xem ai đang trực và xử lý.
+    List<StaffRoomAssignment> findByRoomIdOrderByCreatedAtDesc(Long roomId);
+
     // Kiểm tra phòng đã có ai trực trùng ngày (capacity=1) — dùng cho ALT-2 warning
     List<StaffRoomAssignment> findByRoomIdAndEffectiveFromLessThanEqualAndIsOneDayOverrideFalse(
             Long roomId, LocalDate date);

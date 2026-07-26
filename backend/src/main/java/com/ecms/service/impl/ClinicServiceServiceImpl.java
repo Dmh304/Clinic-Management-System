@@ -3,11 +3,13 @@ package com.ecms.service.impl;
 import com.ecms.dto.request.BookCareSessionRequest;
 import com.ecms.dto.request.CounterServiceRegistrationRequest;
 import com.ecms.dto.request.PurchaseServiceRequest;
+import com.ecms.dto.request.RegisterAndBookRequest;
 import com.ecms.dto.request.ScheduleClinicVisitRequest;
 import com.ecms.dto.request.ServicePackageRequest;
 import com.ecms.dto.request.ServiceRegistrationRequest;
 import com.ecms.dto.response.CareSessionResponse;
 import com.ecms.dto.response.ClinicServiceResponse;
+import com.ecms.dto.response.RegisterAndBookResponse;
 import com.ecms.dto.response.ServiceCategoryResponse;
 import com.ecms.dto.response.ServiceRegistrationResponse;
 import com.ecms.dto.response.ServiceSubscriptionResponse;
@@ -17,12 +19,14 @@ import com.ecms.exception.ResourceNotFoundException;
 import com.ecms.repository.*;
 import com.ecms.service.CareSessionService;
 import com.ecms.service.ClinicServiceService;
+import com.ecms.service.EmailService;
 import com.ecms.service.ServiceSubscriptionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -39,16 +43,41 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
         private final PatientServiceSubscriptionRepository subscriptionRepository;
         private final ServiceSubscriptionService subscriptionService;
         private final CareSessionService careSessionService;
+        private final EmailService emailService;
 
         @Override
         @Transactional(readOnly = true)
         public List<ClinicServiceResponse> getAllServices(String type) {
-                List<ClinicService> services = (type == null || type.isBlank())
-                                ? clinicServiceRepository.findByIsActiveTrueOrderByIsPopularDescDisplayOrderAsc()
-                                : clinicServiceRepository
-                                                .findByServiceTypeAndIsActiveTrueOrderByIsPopularDescDisplayOrderAsc(
-                                                                type);
+                List<ClinicService> services;
+
+                if (type == null || type.isBlank()) {
+                        services = clinicServiceRepository
+                                        .findByIsActiveTrueAndIsLabServiceFalseOrderByIsPopularDescDisplayOrderAsc();
+                } else {
+                        ServiceType serviceType;
+                        try {
+                                serviceType = ServiceType.valueOf(type.trim().toUpperCase());
+                        } catch (IllegalArgumentException e) {
+                                throw new IllegalArgumentException("Invalid service type: " + type
+                                                + ". Allowed values: CLINICAL, CARE");
+                        }
+                        services = clinicServiceRepository
+                                        .findByServiceTypeAndIsActiveTrueOrderByIsPopularDescDisplayOrderAsc(
+                                                        serviceType);
+                }
+
                 return services.stream()
+                                .map(this::toServiceResponse)
+                                .collect(Collectors.toList());
+        }
+
+        @Override
+        @Transactional(readOnly = true)
+        public List<ClinicServiceResponse> getLabTestServices() {
+                return clinicServiceRepository
+                                .findByServiceTypeAndIsActiveTrueAndIsLabServiceTrueOrderByIsPopularDescDisplayOrderAsc(
+                                                ServiceType.CLINICAL)
+                                .stream()
                                 .map(this::toServiceResponse)
                                 .collect(Collectors.toList());
         }
@@ -198,6 +227,9 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
                 registration.setStatus("COMPLETED");
                 serviceRegistrationRepository.save(registration);
 
+                sendRegistrationConfirmationSafe(registration.getPatient(), registration.getService().getServiceName(),
+                                request.getScheduledDateTime());
+
                 return session;
 
         }
@@ -239,7 +271,101 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
                                 .scheduledDateTime(request.getScheduledDateTime())
                                 .notes(request.getNotes())
                                 .build();
-                return careSessionService.book(bookRequest, currentUserEmail);
+                CareSessionResponse session = careSessionService.book(bookRequest, currentUserEmail);
+
+                sendRegistrationConfirmationSafe(patient, service.getServiceName(), request.getScheduledDateTime());
+
+                return session;
+        }
+
+        @Override
+        @Transactional
+        public RegisterAndBookResponse registerAndBookOnline(RegisterAndBookRequest request, String currentUserEmail) {
+                Patient patient = patientRepository.findByUser_Email(currentUserEmail)
+                                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ bệnh nhân"));
+                ClinicService service = clinicServiceRepository.findById(request.getServiceId())
+                                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy gói dịch vụ"));
+                if (!"CARE".equals(service.getServiceType())) {
+                        throw new IllegalArgumentException(
+                                        "Chỉ áp dụng đặt lịch trực tuyến cho gói dịch vụ chăm sóc (CARE)");
+                }
+
+                // Lần ĐẦU bệnh nhân mua dịch vụ này (chưa từng có subscription nào, bất kỳ
+                // trạng thái) -> bắt buộc qua tư vấn của lễ tân, giống luồng tại quầy: chỉ
+                // ghi nhận đăng ký PENDING, CHƯA tạo subscription/care-session. Nếu đã từng
+                // mua dịch vụ này rồi (có subscription cũ, còn hạn hay hết hạn/huỷ đều tính)
+                // thì cho tự đặt lịch ngay như trước, không bắt tư vấn lại.
+                boolean firstTimeForThisService = !subscriptionRepository
+                                .existsByPatient_IdAndService_Id(patient.getId(), service.getId());
+
+                if (firstTimeForThisService) {
+                        if (serviceRegistrationRepository.existsByPatient_IdAndService_IdAndStatus(
+                                        patient.getId(), service.getId(), "PENDING")) {
+                                throw new ConflictException(
+                                                "Bạn đã đăng ký dịch vụ này và đang chờ tư vấn. Vui lòng chờ phòng khám liên hệ.");
+                        }
+
+                        String note = "Giờ mong muốn: " + request.getScheduledDateTime()
+                                        + (request.getNotes() != null && !request.getNotes().isBlank()
+                                                        ? " | " + request.getNotes()
+                                                        : "");
+                        ServiceRegistration registration = ServiceRegistration.builder()
+                                        .service(service)
+                                        .patient(patient)
+                                        .registeredBy(patient.getUser())
+                                        .registrationDate(LocalDate.now())
+                                        .notes(note)
+                                        .build(); // status mặc định PENDING (@PrePersist)
+                        ServiceRegistration saved = serviceRegistrationRepository.save(registration);
+
+                        return RegisterAndBookResponse.builder()
+                                        .requiresConsultation(true)
+                                        .registration(toRegistrationResponse(saved))
+                                        .build();
+                }
+
+                // 1) Ghi nhận đăng ký (đã hoàn tất ngay — bệnh nhân tự đặt lại dịch vụ đã từng mua)
+                ServiceRegistration registration = ServiceRegistration.builder()
+                                .service(service)
+                                .patient(patient)
+                                .registeredBy(patient.getUser())
+                                .registrationDate(LocalDate.now())
+                                .status("COMPLETED")
+                                .notes(request.getNotes())
+                                .build();
+                serviceRegistrationRepository.save(registration);
+
+                // 2) Tạo gói (subscription) cho bệnh nhân
+                PurchaseServiceRequest purchaseRequest = PurchaseServiceRequest.builder()
+                                .serviceId(service.getId())
+                                .patientId(patient.getId())
+                                .notes(request.getNotes())
+                                .build();
+                ServiceSubscriptionResponse subscription = subscriptionService.purchase(purchaseRequest,
+                                currentUserEmail);
+
+                // 3) Đặt buổi care-session đầu tiên (book() kiểm tra giờ làm việc 07:30–17:00)
+                BookCareSessionRequest bookRequest = BookCareSessionRequest.builder()
+                                .subscriptionId(subscription.getId())
+                                .scheduledDateTime(request.getScheduledDateTime())
+                                .notes(request.getNotes())
+                                .build();
+                CareSessionResponse session = careSessionService.book(bookRequest, currentUserEmail);
+
+                sendRegistrationConfirmationSafe(patient, service.getServiceName(), request.getScheduledDateTime());
+
+                return RegisterAndBookResponse.builder()
+                                .requiresConsultation(false)
+                                .careSession(session)
+                                .build();
+        }
+
+        // sendServiceRegistrationConfirmation() đã tự bọc lỗi SMTP bên trong
+        // (sendHtmlSafe) nên gọi thẳng, không cần try/catch lại ở đây.
+        private void sendRegistrationConfirmationSafe(Patient patient, String serviceName,
+                        LocalDateTime scheduledDateTime) {
+                emailService.sendServiceRegistrationConfirmation(patient.getEmail(), patient.getFullName(),
+                                serviceName, scheduledDateTime);
         }
 
         // ── Manager CRUD ───────────────────────────────────────────────
@@ -271,12 +397,13 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
                                 .serviceName(request.getServiceName())
                                 .description(request.getDescription())
                                 .price(request.getPrice())
-                                .priceLabel(request.getPriceLabel())
+                                .benefits(request.getBenefits())
                                 .durationMinutes(request.getDurationMinutes())
                                 .sessionsIncluded(request.getSessionsIncluded())
                                 .validityDays(request.getValidityDays())
                                 .category(category)
-                                .serviceType(request.getServiceType() != null ? request.getServiceType() : "CARE")
+                                .serviceType(request.getServiceType() != null ? request.getServiceType()
+                                                : ServiceType.CLINICAL)
                                 .slug(request.getSlug())
                                 .thumbnailUrl(request.getThumbnailUrl())
                                 .content(request.getContent())
@@ -301,7 +428,7 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
                 service.setServiceName(request.getServiceName());
                 service.setDescription(request.getDescription());
                 service.setPrice(request.getPrice());
-                service.setPriceLabel(request.getPriceLabel());
+                service.setBenefits(request.getBenefits());
                 service.setDurationMinutes(request.getDurationMinutes());
                 service.setSessionsIncluded(request.getSessionsIncluded());
                 service.setValidityDays(request.getValidityDays());
@@ -347,7 +474,7 @@ public class ClinicServiceServiceImpl implements ClinicServiceService {
                                 .serviceName(s.getServiceName())
                                 .description(s.getDescription())
                                 .price(s.getPrice())
-                                .priceLabel(s.getPriceLabel())
+                                .benefits(s.getBenefits())
                                 .durationMinutes(s.getDurationMinutes())
                                 .badge(s.getBadge())
                                 .thumbnailUrl(s.getThumbnailUrl())

@@ -22,6 +22,9 @@ public class BlogResponse {
     private String thumbnailUrl;
     private LocalDateTime publishedAt;
     private String status;
+    private Long categoryId;
+    private String categoryName;
+    private String categorySlug;
 
     // Chuyển đổi entity BlogPost sang BlogResponse DTO để trả về cho client
     public static BlogResponse fromEntity(BlogPost post) {
@@ -34,6 +37,9 @@ public class BlogResponse {
                 .thumbnailUrl(post.getThumbnailUrl())
                 .publishedAt(post.getPublishedAt())
                 .status(post.getStatus())
+                .categoryId(post.getCategory() != null ? post.getCategory().getId() : null)
+                .categoryName(post.getCategory() != null ? post.getCategory().getName() : null)
+                .categorySlug(post.getCategory() != null ? post.getCategory().getSlug() : null)
                 .build();
     }
 }

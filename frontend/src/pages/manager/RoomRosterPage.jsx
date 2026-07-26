@@ -6,10 +6,10 @@ import Header from '../../components/layout/Header'
 
 // Map loại nhân sự -> category phòng tương ứng, đúng validateCategoryMatchesStaffType ở backend
 const STAFF_TYPE_CONFIG = {
-  DOCTOR: { label: 'Bác sĩ', category: 'CLINICAL_EXAM' },
-  NURSE: { label: 'Điều dưỡng', category: 'CARE_RECOVERY' },
-  LAB_TECHNICIAN: { label: 'Kỹ thuật viên xét nghiệm', category: 'DIAGNOSTIC_IMAGING' },
-}
+  DOCTOR: { label: 'Bác sĩ', categories: ['CLINICAL_EXAM'] },
+  NURSE: { label: 'Điều dưỡng', categories: ['CARE_RECOVERY'] },
+  LAB_TECHNICIAN: { label: 'Kỹ thuật viên xét nghiệm', categories: ['DIAGNOSTIC_IMAGING', 'OPTICAL_WORKSHOP'] },
+};
 
 const todayIso = () => {
   const d = new Date();
@@ -48,8 +48,8 @@ export default function RoomRosterPage() {
       setRoomsByCategory({
         CLINICAL_EXAM: clinicalRooms.data || [],
         CARE_RECOVERY: careRooms.data || [],
-        // Lab Technician có thể trực 1 trong 2 category — gộp lại để chọn chung
-        LAB: [...(imagingRooms.data || []), ...(workshopRooms.data || [])],
+        DIAGNOSTIC_IMAGING: imagingRooms.data || [],
+        OPTICAL_WORKSHOP: workshopRooms.data || [],
       })
 
       // ⚠️ Hai lời gọi dưới đây phụ thuộc staffDirectoryService — xem TODO
@@ -71,6 +71,11 @@ export default function RoomRosterPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const getRoomOccupant = (roomId) => {
+    const occupant = roster.find((r) => r.roomId === roomId);
+    return occupant ? occupant.staffFullName : null;
   }
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -123,7 +128,10 @@ export default function RoomRosterPage() {
 
   const renderStaffSection = (staffType, staffList) => {
     const config = STAFF_TYPE_CONFIG[staffType]
-    const rooms = staffType === 'LAB_TECHNICIAN' ? roomsByCategory.LAB : roomsByCategory[config.category]
+    
+    // Gom tất cả các phòng thuộc mảng categories của nhân sự này
+    // (Xoá logic hardcode roomsByCategory.LAB cũ đi)
+    const rooms = config.categories.flatMap(cat => roomsByCategory[cat] || [])
 
     return (
       <>
@@ -162,12 +170,19 @@ export default function RoomRosterPage() {
                       <select
                         value={pendingSelection[key] || ''}
                         onChange={(e) => setPendingSelection({ ...pendingSelection, [key]: e.target.value })}
-                        style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13 }}
+                        style={{ padding: '6px 8px', borderRadius: 6, border: '1px solid #d1d5db', fontSize: 13, width: '100%', maxWidth: '220px' }}
                       >
                         <option value="">-- Chọn phòng --</option>
-                        {(rooms || []).map((r) => (
-                          <option key={r.id} value={r.id}>{r.name}</option>
-                        ))}
+                        {(rooms || []).map((r) => {
+                          const occupant = getRoomOccupant(r.id);
+                          // Nếu chính người này đang trực phòng này thì không hiện chữ (Đang trực: ...) nữa
+                          const isSelf = current && current.roomId === r.id;
+                          const label = (occupant && !isSelf) ? `${r.name} (Kẹt: ${occupant})` : r.name;
+                          
+                          return (
+                            <option key={r.id} value={r.id}>{label}</option>
+                          )
+                        })}
                       </select>
                     </td>
                     <td style={{ padding: '12px 14px', textAlign: 'center' }}>
@@ -211,9 +226,9 @@ export default function RoomRosterPage() {
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <h1 style={{ fontSize: 24, fontWeight: 700, color: '#1e293b', margin: 0 }}>Phân trực phòng (UC-56)</h1>
+            <h1 style={{ fontSize: 24, fontWeight: 700, color: '#1e293b', margin: 0 }}>Phân trực phòng</h1>
             <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: 14 }}>
-              Gán phòng cho nhân sự — assignment mặc định áp dụng lâu dài cho tới khi bạn đổi lại
+              Gán phòng cho nhân sự
             </p>
           </div>
           <div>

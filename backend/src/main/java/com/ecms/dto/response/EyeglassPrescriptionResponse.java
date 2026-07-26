@@ -1,4 +1,6 @@
-// DucTKH
+//Author: DucTKH - HE204463
+//Created: 2026-06-22
+//Last Update: 2026-07-22
 // DTO trả về thông tin chi tiết của một Đơn kính cho Frontend.
 package com.ecms.dto.response;
 
@@ -36,4 +38,8 @@ public class EyeglassPrescriptionResponse {
     private String notes;
     private EyeglassPrescriptionStatus status;
     private LocalDateTime createdAt;
+    
+    private Boolean isOrdered;
+    private Boolean isExpired;
+    private Boolean hasNewer;
 }

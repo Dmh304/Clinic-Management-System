@@ -1,0 +1,109 @@
+@startuml UC55_ManageRoomCatalogue_ClassDiagram
+
+skinparam classAttributeIconSize 0
+skinparam monochrome false
+skinparam backgroundColor white
+skinparam roundcorner 5
+skinparam class {
+    BackgroundColor #f9f9f9
+    ArrowColor #336699
+    BorderColor #336699
+}
+
+class RoomController {
+    + createRoom(request: RoomRequest): ResponseEntity<ApiResponse<RoomResponse>>
+    + updateRoom(id: Long, request: RoomRequest): ResponseEntity<ApiResponse<RoomResponse>>
+    + deactivateRoom(id: Long): ResponseEntity<ApiResponse<RoomResponse>>
+    + reactivateRoom(id: Long): ResponseEntity<ApiResponse<RoomResponse>>
+    + getAllRooms(includeInactive: boolean): ResponseEntity<ApiResponse<List<RoomResponse>>>
+    + getRoomsByCategory(category: RoomCategory): ResponseEntity<ApiResponse<List<RoomResponse>>>
+    + getRoomById(id: Long): ResponseEntity<ApiResponse<RoomResponse>>
+}
+
+interface RoomService {
+    + createRoom(request: RoomRequest): RoomResponse
+    + updateRoom(id: Long, request: RoomRequest): RoomResponse
+    + deactivateRoom(id: Long): RoomResponse
+    + reactivateRoom(id: Long): RoomResponse
+    + getAllRooms(includeInactive: boolean): List<RoomResponse>
+    + getRoomsByCategory(category: RoomCategory): List<RoomResponse>
+    + getRoomById(id: Long): RoomResponse
+}
+
+class RoomServiceImpl {
+    + createRoom(request: RoomRequest): RoomResponse
+    + updateRoom(id: Long, request: RoomRequest): RoomResponse
+    + deactivateRoom(id: Long): RoomResponse
+    + reactivateRoom(id: Long): RoomResponse
+    + getAllRooms(includeInactive: boolean): List<RoomResponse>
+    + getRoomsByCategory(category: RoomCategory): List<RoomResponse>
+    + getRoomById(id: Long): RoomResponse
+}
+
+class RoomRepository {
+    + save(room: Room): Room
+    + findById(id: Long): Optional<Room>
+    + findAll(spec: Specification): List<Room>
+    + findByCategory(category: RoomCategory): List<Room>
+}
+
+class Room {
+    - id: Long
+    - name: String
+    - category: RoomCategory
+    - capacity: Integer
+    - status: String
+    - createdAt: LocalDateTime
+    - updatedAt: LocalDateTime
+    + prePersist(): void
+    + preUpdate(): void
+}
+
+enum RoomCategory {
+    CLINICAL_EXAM
+    SURGERY
+    CARE_AND_RECOVERY
+    LAB_IMAGING
+}
+
+class ClinicService {
+    - id: Long
+    - serviceName: String
+}
+
+class RoomRequest {
+    - name: String
+    - category: RoomCategory
+    - serviceId: Long
+    - capacity: Integer
+}
+
+class RoomResponse {
+    - id: Long
+    - name: String
+    - category: RoomCategory
+    - serviceId: Long
+    - capacity: Integer
+    - status: String
+}
+
+class ApiResponse<T> {
+    - status: int
+    - message: String
+    - data: T
+}
+
+RoomController ..> RoomService : uses
+RoomController ..> ApiResponse : creates
+RoomService <|.. RoomServiceImpl : implements
+
+RoomServiceImpl ..> RoomRepository : uses
+RoomServiceImpl ..> RoomRequest : consumes
+RoomServiceImpl ..> RoomResponse : creates
+RoomServiceImpl ..> ClinicService : resolves
+
+RoomRepository ..> Room : manages
+Room "1" *-- "0..1" ClinicService : mapped to >
+Room --> RoomCategory : classified as >
+
+@enduml

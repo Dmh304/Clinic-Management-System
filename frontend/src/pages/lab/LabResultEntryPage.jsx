@@ -11,11 +11,12 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-//import Header from '../../components/layout/Header'
-import { Form, Input, InputNumber, Button, message, Tag, Spin, Row, Col, Divider, Card } from 'antd'
+import Header from '../../components/layout/Header'
+import { Form, Input, InputNumber, Button, message, Tag, Spin, Row, Col, Divider, Card, Tooltip } from 'antd'
 import { labService } from '../../services/labService'
 import { uploadImageToCloudinary } from '../../utils/uploadImage'
 import useConfirmAction from '../../hooks/useConfirmAction'
+import { isWithinClinicHours, CLINIC_HOURS_MESSAGE } from '../../utils/clinicHours'
 
 const { TextArea } = Input
 
@@ -207,8 +208,14 @@ export default function LabResultEntryPage() {
   const [submitting, setSubmitting] = useState(false)         // Đợi khi đang bấm nút "Gửi kết quả chính thức"
   const [savingDraft, setSavingDraft] = useState(false)       // Đợi khi đang bấm nút "Lưu bản nháp"
   const [orderInfo, setOrderInfo] = useState(null)           // Thông tin hành chính và chỉ định của phiếu xét nghiệm
-  const [imageUrls, setImageUrls] = useState([])             // Mảng lưu trữ danh sách URL ảnh phục vụ cho upload
-
+  const [imageUrls, setImageUrls] = useState([]) 
+  const [withinHours, setWithinHours] = useState(isWithinClinicHours())
+  
+  useEffect(() => {
+    const timer = setInterval(() => setWithinHours(isWithinClinicHours()), 60_000)
+    return () => clearInterval(timer)
+  }, [])
+    
   const { confirmAction, contextHolder } = useConfirmAction()
   
   /**
@@ -371,7 +378,7 @@ export default function LabResultEntryPage() {
   if (loading) {
     return (
       <>
-        {/* <Header /> */}
+        <Header />
         <div style={{ padding: 48, textAlign: 'center' }}>
           <Spin size="large" tip="Đang tải dữ liệu..." />
         </div>
@@ -383,7 +390,7 @@ export default function LabResultEntryPage() {
     <>
       {/* REQUIRED: contextHolder phải được mount để dialog hoạt động */}
       {contextHolder}
-      {/* <Header /> */}
+      <Header />
       <div style={{ padding: 24, backgroundColor: '#f8fafc', minHeight: '100%' }}>
         <div style={{ maxWidth: 1000, margin: '0 auto' }}>
           
@@ -434,12 +441,12 @@ export default function LabResultEntryPage() {
                     {orderInfo.doctorFullName ?? '—'}
                   </div>
                 </Col>
-                {/* <Col xs={24} sm={16}>
+                <Col xs={24} sm={16}>
                   <div style={{ fontSize: 12, color: '#94a3b8' }}>Chỉ định xét nghiệm</div>
                   <div style={{ fontWeight: 500, color: '#0d9488' }}>
                     {orderInfo.serviceName ?? 'Chưa xác định dịch vụ'}
                   </div>
-                </Col> */}
+                </Col>
                 {/* Hiển thị lưu ý lâm sàng từ bác sĩ nếu có */}
                 {orderInfo.notes && (
                   <Col span={24}>
@@ -453,7 +460,15 @@ export default function LabResultEntryPage() {
           )}
 
           {/* --- Form Nhập Kết Quả Khúc Xạ Chi Tiết --- */}
-          <Form form={form} layout="vertical" disabled={readonly} onFinish={handleSubmit}>
+          {!readonly && !withinHours && (
+            <div style={{
+              backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 10,
+              padding: '10px 16px', marginBottom: 16, fontSize: 13, color: '#92400e',
+            }}>
+              Ngoài giờ làm việc của phòng khám (07:30–17:00, trừ Chủ nhật) — không thể nhập/lưu kết quả lúc này.
+            </div>
+          )}
+          <Form form={form} layout="vertical" disabled={readonly || !withinHours} onFinish={handleSubmit}>
             <div style={{ backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: 24, marginBottom: 20 }}>
               
               {/* Layout hai cột phân chia rõ ràng: Mắt phải và Mắt trái */}
@@ -546,7 +561,7 @@ export default function LabResultEntryPage() {
                   <LabMultiImageUploader
                     values={imageUrls}
                     onChange={setImageUrls}
-                    disabled={readonly}
+                    disabled={readonly || !withinHours}
                   />
                 </Col>
                 <Col span={24}>
@@ -563,21 +578,27 @@ export default function LabResultEntryPage() {
                 <Button onClick={() => navigate('/lab/queue')} style={{ fontSize: 13 }}>
                   Hủy bỏ
                 </Button>
-                <Button
-                  onClick={handleSaveDraft}
-                  loading={savingDraft}
-                  style={{ fontSize: 13, borderColor: '#f59e0b', color: '#f59e0b' }}
-                >
-                  Lưu nháp
-                </Button>
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  loading={submitting}
-                  style={{ backgroundColor: '#0d9488', borderColor: '#0d9488', fontSize: 13 }}
-                >
-                  Hoàn thành và Gửi kết quả
-                </Button>
+                <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
+                  <Button
+                    onClick={handleSaveDraft}
+                    loading={savingDraft}
+                    disabled={!withinHours}
+                    style={{ fontSize: 13, borderColor: '#f59e0b', color: '#f59e0b' }}
+                  >
+                    Lưu nháp
+                  </Button>
+                </Tooltip>
+                <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
+                  <Button
+                    type="primary"
+                    htmlType="submit"
+                    loading={submitting}
+                    disabled={!withinHours}
+                    style={{ backgroundColor: '#0d9488', borderColor: '#0d9488', fontSize: 13 }}
+                  >
+                    Hoàn thành và Gửi kết quả
+                  </Button>
+                </Tooltip>
               </div>
             )}
           </Form>

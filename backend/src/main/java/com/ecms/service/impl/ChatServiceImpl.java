@@ -1,3 +1,7 @@
+//Author: DucTKH - HE204463
+//Created: 2026-07-20
+//Last Update: 2026-07-22
+
 package com.ecms.service.impl;
 
 import com.ecms.dto.request.ChatMessageRequest;
@@ -30,6 +34,7 @@ public class ChatServiceImpl implements ChatService {
     private final UserRepository userRepository;
     private final PatientRepository patientRepository;
 
+    // Xử lý gửi tin nhắn từ Patient hoặc Receptionist (UC-22). Các tin nhắn được lưu trữ bất biến (BR-27).
     @Override
     @Transactional
     public ChatMessageResponse sendMessage(ChatMessageRequest request, String email) {
@@ -63,13 +68,19 @@ public class ChatServiceImpl implements ChatService {
         
         message = chatMessageRepository.save(message);
         
-        // Update session updatedAt
+        // Update session updatedAt and hasUnread
         session.setUpdatedAt(message.getCreatedAt());
+        if ("PATIENT".equals(senderRole)) {
+            session.setHasUnread(true);
+        } else {
+            session.setHasUnread(false);
+        }
         chatSessionRepository.save(session);
 
         return toMessageResponse(message);
     }
 
+    //Lấy danh sách các phiên chat đang hoạt động để Lễ tân tiếp nhận (UC-22).
     @Override
     @Transactional(readOnly = true)
     public List<ChatSessionResponse> getActiveSessions() {
@@ -79,8 +90,17 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    @Transactional(readOnly = true)
-    public List<ChatMessageResponse> getMessagesBySession(Long sessionId) {
+    @Transactional
+    public List<ChatMessageResponse> getMessagesBySession(Long sessionId, String email) {
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user != null && "RECEPTIONIST".equals(user.getRole().getName())) {
+            ChatSession session = chatSessionRepository.findById(sessionId).orElse(null);
+            if (session != null && Boolean.TRUE.equals(session.getHasUnread())) {
+                session.setHasUnread(false);
+                chatSessionRepository.save(session);
+            }
+        }
+
         return chatMessageRepository.findBySessionIdOrderByCreatedAtAsc(sessionId).stream()
                 .map(this::toMessageResponse)
                 .collect(Collectors.toList());
@@ -102,6 +122,7 @@ public class ChatServiceImpl implements ChatService {
         return toSessionResponse(session);
     }
 
+    // Lễ tân giành quyền hoặc nhận phiên chat (UC-22). Phiên chat chỉ được đóng bởi Lễ tân (BR-26).
     @Override
     @Transactional
     public void assignSession(Long sessionId, String email) {
@@ -123,6 +144,7 @@ public class ChatServiceImpl implements ChatService {
                 .status(session.getStatus())
                 .createdAt(session.getCreatedAt())
                 .updatedAt(session.getUpdatedAt())
+                .hasUnread(session.getHasUnread())
                 .build();
     }
 

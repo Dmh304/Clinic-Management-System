@@ -1,4 +1,6 @@
-// DucTKH
+//Author: DucTKH - HE204463
+//Created: 2026-06-01
+//Last Update: 2026-07-02
 // Entity đại diện cho bảng invoice_details trong cơ sở dữ liệu.
 // Dùng để lưu trữ chi tiết từng mục trong hóa đơn (thuốc, dịch vụ, v.v.).
 // ThangNBHE201024

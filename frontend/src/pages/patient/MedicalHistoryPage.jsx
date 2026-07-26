@@ -1,5 +1,8 @@
-﻿/**
+/**
  * Author: TuanTD
+ * Author: DucTKH
+ * Created: 2026-06-01
+ * Last Update: 2026-07-22
  *  
  * * Màn hình: Quản lý và Xem Lịch sử / Chi tiết Hồ sơ bệnh án điện tử (EMR) dành cho Bệnh nhân
  * Tính năng chính:
@@ -29,19 +32,19 @@ const { Panel } = Collapse
 
 /* Cấu hình màu sắc và nhãn hiển thị của trạng thái Hồ sơ bệnh án điện tử (EMR Status) */
 const STATUS_MAP = {
-  DRAFT:       { color: 'default',    label: 'Nháp' },
+  DRAFT: { color: 'default', label: 'Nháp' },
   IN_PROGRESS: { color: 'processing', label: 'Đang khám' },
-  COMPLETED:   { color: 'success',    label: 'Hoàn thành' },
+  COMPLETED: { color: 'success', label: 'Hoàn thành' },
 }
 
 /* Cấu hình màu sắc và nhãn hiển thị cho từng trạng thái Lịch hẹn (Appointment Status) */
 const APPOINTMENT_STATUS_MAP = {
-  WAITING:     { color: 'orange',     label: 'Đang chờ' },
+  WAITING: { color: 'orange', label: 'Đang chờ' },
   IN_PROGRESS: { color: 'processing', label: 'Đang khám' },
-  COMPLETED:   { color: 'success',    label: 'Hoàn thành' },
-  CANCELLED:   { color: 'error',      label: 'Đã hủy' },
-  CONFIRMED:   { color: 'purple',     label: 'Đã xác nhận' },
-  PENDING:     { color: 'default',    label: 'Chờ xác nhận' },
+  COMPLETED: { color: 'success', label: 'Hoàn thành' },
+  CANCELLED: { color: 'error', label: 'Đã hủy' },
+  CONFIRMED: { color: 'purple', label: 'Đã xác nhận' },
+  PENDING: { color: 'default', label: 'Chờ xác nhận' },
 }
 
 /* Style cấu hình cắt chữ bằng CSS, giới hạn hiển thị văn bản dài trên 1 dòng kèm dấu 3 chấm (...) */
@@ -61,7 +64,7 @@ const calculateAge = (dobString) => {
   const birthDate = new Date(dobString);
   let age = today.getFullYear() - birthDate.getFullYear();
   const monthDiff = today.getMonth() - birthDate.getMonth();
-  
+
   // Trừ đi 1 tuổi nếu chưa đến tháng sinh hoặc chưa đến ngày sinh trong tháng đó
   if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
     age--;
@@ -75,35 +78,35 @@ function EyeFields({ prefix, label }) {
     <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
       <div style={{ fontWeight: 600, fontSize: 13, color: '#475569', marginBottom: 10 }}>{label}</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-        
+
         {/* VA - Thử thị lực không kính */}
         <Form.Item label="VA" name={`${prefix}Va`} style={{ marginBottom: 0 }}>
           <InputNumber style={{ width: '100%' }} placeholder="0.00" step={0.1} min={0} max={2} />
         </Form.Item>
-        
+
         {/* BCVA - Thị lực tối đa sau khi chỉnh kính */}
         <Form.Item label="BCVA" name={`${prefix}Bcva`} style={{ marginBottom: 0 }}>
           <InputNumber style={{ width: '100%' }} placeholder="0.00" step={0.1} min={0} max={2} />
         </Form.Item>
-        
+
         {/* IOP - Chỉ số Nhãn áp (Đơn vị tính: mmHg) */}
         <Form.Item label="IOP (mmHg)" name={`${prefix}Iop`} style={{ marginBottom: 0 }}>
           <InputNumber style={{ width: '100%' }} placeholder="0.0" step={0.5} min={0} />
         </Form.Item>
-        
+
         {/* Ô trống giữ layout grid cân xứng */}
         <div />
-        
+
         {/* SPH - Độ cầu (Cận thị (-) hoặc Viễn thị (+)) */}
         <Form.Item label="SPH" name={`${prefix}Sph`} style={{ marginBottom: 0 }}>
           <InputNumber style={{ width: '100%' }} placeholder="0.00" step={0.25} />
         </Form.Item>
-        
+
         {/* CYL - Độ loạn thị */}
         <Form.Item label="CYL" name={`${prefix}Cyl`} style={{ marginBottom: 0 }}>
           <InputNumber style={{ width: '100%' }} placeholder="0.00" step={0.25} />
         </Form.Item>
-        
+
         {/* AXIS - Trục loạn thị (Góc quay từ 0 đến 180 độ) */}
         <Form.Item label="AXIS (°)" name={`${prefix}Axis`} style={{ marginBottom: 0 }}>
           <InputNumber style={{ width: '100%' }} placeholder="0" min={0} max={180} />
@@ -121,9 +124,9 @@ export default function MedicalHistoryPage() {
   const [form] = Form.useForm()
 
   /* Trích xuất tham số điều hướng id bệnh án (?medicalRecordId=...) từ URL query string */
-  const medicalRecordId = searchParams.get('medicalRecordId') 
+  const medicalRecordId = searchParams.get('medicalRecordId')
 
-    /* Khai báo state quản lí dữ liệu */
+  /* Khai báo state quản lí dữ liệu */
   const [emr, setEmr] = useState(null)                             // lưu dữ liệu chi tiết của hồ sơ bệnh án đang xem / chỉnh sửa 
   //const [history, setHistory] = useState([])                       // mảng lưu danh sách các lần khám trước đó của bệnh nhân
   const [loading, setLoading] = useState(!!medicalRecordId)          // trạng thái chờ tải thông tin bệnh án chi tiết
@@ -171,25 +174,26 @@ export default function MedicalHistoryPage() {
    */
   const emrToFormValues = (data) => ({
     chiefComplaint: data.chiefComplaint,
-    symptoms:       data.symptoms,
-    diagnosis:      data.diagnosis,
-    treatmentPlan:  data.treatmentPlan,
-    notes:          data.notes,
-    lVa:   data.vaL,   rVa:   data.vaR,
+    symptoms: data.symptoms,
+    diagnosis: data.diagnosis,
+    treatmentPlan: data.treatmentPlan,
+    notes: data.notes,
+    lVa: data.vaL, rVa: data.vaR,
     lBcva: data.bcvaL, rBcva: data.bcvaR,
-    lIop:  data.iopL,  rIop:  data.iopR,
-    lSph:  data.sphL,  rSph:  data.sphR,
-    lCyl:  data.cylL,  rCyl:  data.cylR,
+    lIop: data.iopL, rIop: data.iopR,
+    lSph: data.sphL, rSph: data.sphR,
+    lCyl: data.cylL, rCyl: data.cylR,
     lAxis: data.axisL, rAxis: data.axisR,
   })
 
+  // Chức năng: Gọi API lấy cả danh sách đơn thuốc và đơn kính của bệnh nhân, sau đó lọc theo bệnh án hiện tại
   const fetchPrescriptions = useCallback(async () => {
     const patientId = user?.patientId || user?.id;
     if (!medicalRecordId || !patientId) return;
     try {
       const [drugRes, eyeRes] = await Promise.all([
-          prescriptionService.getByPatient(patientId),
-          eyeglassPrescriptionService.getByPatient(patientId)
+        prescriptionService.getByPatient(patientId),
+        eyeglassPrescriptionService.getByPatient(patientId)
       ]);
       setDrugPrescriptions((drugRes.data || []).filter(p => String(p.medicalRecordId) === String(medicalRecordId)));
       setEyePrescriptions((eyeRes.data || []).filter(p => String(p.medicalRecordId) === String(medicalRecordId)));
@@ -198,32 +202,35 @@ export default function MedicalHistoryPage() {
     }
   }, [medicalRecordId, user]);
 
+  // Chức năng: Tải và hiển thị bản in PDF của đơn thuốc hoặc in HTML của đơn kính
   const handlePrint = async (id, type) => {
-      if (type === 'drug') {
-          try {
-              const response = await prescriptionService.downloadPdf(id, true);
-              const url = window.URL.createObjectURL(new Blob([response]));
-              const link = document.createElement('a');
-              link.href = url;
-              link.setAttribute('download', `Don_Thuoc_${id}.pdf`);
-              document.body.appendChild(link);
-              link.click();
-              link.parentNode.removeChild(link);
-          } catch (error) {
-              message.error('Không thể tải file đơn thuốc');
-          }
-      } else {
-          const printContent = document.getElementById(`print-area-${type}-${id}`);
-          const originalContents = document.body.innerHTML;
-          
-          document.body.innerHTML = printContent.innerHTML;
-          window.print();
-          document.body.innerHTML = originalContents;
-          window.location.reload(); // Reload to restore React state bindings
+    // Điều kiện: Nếu là đơn thuốc (drug), gọi API tải PDF do backend sinh ra
+    if (type === 'drug') {
+      try {
+        const response = await prescriptionService.downloadPdf(id, true);
+        const url = window.URL.createObjectURL(new Blob([response]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `Don_Thuoc_${id}.pdf`);
+        document.body.appendChild(link);
+        link.click();
+        link.parentNode.removeChild(link);
+      } catch (error) {
+        message.error('Không thể tải file đơn thuốc');
       }
+    } else {
+      // Điều kiện: Nếu là đơn kính, dùng tính năng in HTML của trình duyệt (browser print)
+      const printContent = document.getElementById(`print-area-${type}-${id}`);
+      const originalContents = document.body.innerHTML;
+
+      document.body.innerHTML = printContent.innerHTML;
+      window.print();
+      document.body.innerHTML = originalContents;
+      window.location.reload(); // Reload to restore React state bindings
+    }
   };
 
-    // Hàm tải dữ liệu bệnh án hiện tại của lịch hẹn (nếu đã từng lưu nháp)
+  // Hàm tải dữ liệu bệnh án hiện tại của lịch hẹn (nếu đã từng lưu nháp)
   const fetchEMR = useCallback(async () => {
     if (!medicalRecordId) return
     setLoading(true)
@@ -330,18 +337,18 @@ export default function MedicalHistoryPage() {
   }, {})
 
   /* ================= GIAO DIỆN DANH SÁCH LỊCH SỬ KHÁM TỔNG HỢP ================= */
-  if(!medicalRecordId){
+  if (!medicalRecordId) {
     return (
       <>
         <Header />
         <div style={{ padding: 24 }}>
           <div style={{ marginBottom: 20 }}>
             <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Hồ sơ bệnh án</h2>
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b'}}>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
               Danh sách các lần khám của bạn
             </p>
           </div>
-          
+
           <div style={{ backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
             {/* Tabs lọc theo trạng thái lịch hẹn - đồng bộ cách làm với LabOrder */}
             <div style={{ padding: '0 16px', borderBottom: '1px solid #f1f5f9' }}>
@@ -350,7 +357,7 @@ export default function MedicalHistoryPage() {
                 onChange={setStatusFilter}
                 items={[
                   { key: 'ALL', label: `Tất cả (${appointmentList.length})` },
-                    ...Object.entries(APPOINTMENT_STATUS_MAP).map(([key, cfg]) => ({
+                  ...Object.entries(APPOINTMENT_STATUS_MAP).map(([key, cfg]) => ({
                     key,
                     label: `${cfg.label} (${statusCounts[key] || 0})`,
                   })),
@@ -367,7 +374,7 @@ export default function MedicalHistoryPage() {
                 style={{ maxWidth: 400 }}
               />
             </div>
-            
+
             <Spin spinning={listLoading}>
               {filteredList.length === 0 && !listLoading ? (
                 <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8', fontSize: 14 }}>
@@ -391,7 +398,7 @@ export default function MedicalHistoryPage() {
                         onMouseLeave={e => e.currentTarget.style.backgroundColor = ''}
                       >
                         <td style={{ padding: '12px 16px', color: '#64748b', fontSize: 13 }}>
-                            {(currentPage - 1) * pageSize + i + 1}
+                          {(currentPage - 1) * pageSize + i + 1}
                         </td>
                         <td style={{ padding: '12px 16px', fontSize: 13, color: '#475569' }}>
                           {r.appointmentTime ? new Date(r.appointmentTime).toLocaleDateString('vi-VN') : '—'}
@@ -497,11 +504,11 @@ export default function MedicalHistoryPage() {
           {!loading && (
             <div>
               {/* Thẻ hiển thị thông tin hành chính chi tiết đầy đủ của bệnh nhân */}
-              <div style={{ 
-                backgroundColor: '#fff', 
-                borderRadius: 12, 
-                boxShadow: '0 1px 4px rgba(0,0,0,0.06)', 
-                padding: '16px 24px', 
+              <div style={{
+                backgroundColor: '#fff',
+                borderRadius: 12,
+                boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+                padding: '16px 24px',
                 marginBottom: 16,
                 borderLeft: '4px solid #0d9488'
               }}>
@@ -518,31 +525,31 @@ export default function MedicalHistoryPage() {
                     <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Dịch vụ khám</div>
                     <div style={{ fontWeight: 500, color: '#334155' }}>{emr?.serviceName ?? '—'}</div>
                   </div>
-                </div>                
                 </div>
-                {/* ========================================================================= */}
-                <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  {/* form hiển thị chi tiết bệnh án (chỉ xem, không chỉnh sửa) */}
-                  <div style={{ backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                    <Form form={form} layout="vertical" disabled={true} style={{ padding: '20px 24px' }}>
-                      <Tabs
-                        size="small"
-                        items={[
-                          {
-                            key: 'complaint',
-                            label: 'Khai thác bệnh sử',
-                            children: (
-                              <div style={{ paddingTop: 12 }}>
-                                <Form.Item label="Lý do khám" name="chiefComplaint">
-                                  <TextArea rows={3} placeholder="Bệnh nhân đến khám vì…" style={{ borderRadius: 8 }} />
-                                </Form.Item>
-                                <Form.Item label="Triệu chứng" name="symptoms">
-                                  <TextArea rows={4} placeholder="Mô tả chi tiết triệu chứng..." style={{ borderRadius: 8 }} />
-                                </Form.Item>
-                              </div>
-                            ),
-                          },
-                          {
+              </div>
+              {/* ========================================================================= */}
+              <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {/* form hiển thị chi tiết bệnh án (chỉ xem, không chỉnh sửa) */}
+                <div style={{ backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                  <Form form={form} layout="vertical" disabled={true} style={{ padding: '20px 24px' }}>
+                    <Tabs
+                      size="small"
+                      items={[
+                        {
+                          key: 'complaint',
+                          label: 'Khai thác bệnh sử',
+                          children: (
+                            <div style={{ paddingTop: 12 }}>
+                              <Form.Item label="Lý do khám" name="chiefComplaint">
+                                <TextArea rows={3} placeholder="Bệnh nhân đến khám vì…" style={{ borderRadius: 8 }} />
+                              </Form.Item>
+                              <Form.Item label="Triệu chứng" name="symptoms">
+                                <TextArea rows={4} placeholder="Mô tả chi tiết triệu chứng..." style={{ borderRadius: 8 }} />
+                              </Form.Item>
+                            </div>
+                          ),
+                        },
+                        {
                           key: 'clinical',
                           label: 'Khám lâm sàng',
                           children: (
@@ -550,18 +557,18 @@ export default function MedicalHistoryPage() {
                               {/* Đổ dữ liệu cận lâm sàng chuyên khoa mắt trái và mắt phải */}
                               <EyeFields prefix="l" label="Mắt trái (OS)" />
                               <EyeFields prefix="r" label="Mắt phải (OD)" />
-                              
+
                               {/* Ảnh xét nghiệm từ Lab Result (nếu có) */}
                               {emr?.labImageUrls?.length > 0 && (
                                 <div style={{ marginTop: 16 }}>
                                   <div style={{ fontSize: 13, fontWeight: 600, color: '#475569', marginBottom: 8 }}>
                                     Ảnh kết quả đo mắt chuyên sâu ({emr.labImageUrls.length} ảnh)
                                   </div>
-                                    <div style={{
-                                      display: 'grid',
-                                      gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-                                      gap: 10,
-                                    }}>
+                                  <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+                                    gap: 10,
+                                  }}>
                                     {emr.labImageUrls.map((url, i) => (
                                       <img
                                         key={i}
@@ -585,170 +592,178 @@ export default function MedicalHistoryPage() {
                             </div>
                           ),
                         },
-                          {
-                            key: 'diagnosis',
-                            label: 'Chẩn đoán & Điều trị',
-                            children: (
-                              <div style={{ paddingTop: 12 }}>
-                                <Form.Item label="Chẩn đoán" name="diagnosis">
-                                  <TextArea rows={3} placeholder="Chẩn đoán bệnh..." style={{ borderRadius: 8 }} />
-                                </Form.Item>
-                                <Form.Item label="Kế hoạch điều trị" name="treatmentPlan">
-                                  <TextArea rows={4} placeholder="Hướng xử lý, đơn thuốc, tái khám..." style={{ borderRadius: 8 }} />
-                                </Form.Item>
-                                <Form.Item label="Ghi chú thêm" name="notes">
-                                  <TextArea rows={3} placeholder="Lưu ý đặc biệt..." style={{ borderRadius: 8 }} />
-                                </Form.Item>
-                              </div>
-                            ),
-                          },
-                          {
-                            key: 'drugs',
-                            label: 'Đơn thuốc',
-                            children: (
-                                <div style={{ paddingTop: 12 }}>
-                                    {drugPrescriptions.length === 0 ? <p>Chưa có đơn thuốc nào.</p> : (
-                                        drugPrescriptions.map(p => (
-                                            <div key={p.id} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 16, marginBottom: 16 }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-                                                    <div>
-                                                        <div style={{ fontWeight: 600 }}>Ngày khám: {new Date(p.createdAt).toLocaleDateString('vi-VN')}</div>
-                                                        <div style={{ color: '#64748b' }}>Bác sĩ kê: {p.doctorName}</div>
-                                                        {p.dispenserName && <div style={{ color: '#64748b' }}>Dược sĩ phát: {p.dispenserName}</div>}
-                                                        <div style={{ color: '#64748b' }}>Trạng thái: {p.status}</div>
-                                                    </div>
-                                                    <ConfigProvider componentDisabled={false}>
-                                                        <Button icon={<PrinterOutlined />} onClick={() => handlePrint(p.id, 'drug')}>In đơn thuốc</Button>
-                                                    </ConfigProvider>
-                                                </div>
-                                                
-                                                <div id={`print-area-drug-${p.id}`} className="print-area">
-                                                    <div className="print-header" style={{ display: 'none' }}>
-                                                        <h1 style={{ textAlign: 'center', margin: 0 }}>PHÒNG KHÁM EYESCARE</h1>
-                                                        <h2 style={{ textAlign: 'center', marginTop: 10 }}>ĐƠN THUỐC</h2>
-                                                        <p><strong>Bệnh nhân:</strong> {p.patientName}</p>
-                                                        <p><strong>Bác sĩ khám:</strong> {p.doctorName}</p>
-                                                        <p><strong>Ngày kê:</strong> {new Date(p.createdAt).toLocaleDateString('vi-VN')}</p>
-                                                        <hr/>
-                                                    </div>
-                                                    
-                                                    <Table 
-                                                        dataSource={p.items} 
-                                                        rowKey="id" 
-                                                        pagination={false} 
-                                                        size="small"
-                                                        columns={[
-                                                            { title: 'Tên thuốc', dataIndex: 'medicineName', render: (t, r) => <b>{t} ({r.dosageForm})</b> },
-                                                            { title: 'SL kê', dataIndex: 'quantity' },
-                                                            { title: 'Thực phát', render: (_, r) => r.actualQuantity != null ? r.actualQuantity : '-' },
-                                                            { title: 'ĐVT', dataIndex: 'unit' },
-                                                            { title: 'Đơn giá', dataIndex: 'unitPrice', render: val => (val || 0).toLocaleString('vi-VN') + ' đ' },
-                                                            { title: 'Thành tiền', dataIndex: 'totalPrice', render: val => (val || 0).toLocaleString('vi-VN') + ' đ' },
-                                                            { title: 'Cách dùng', render: (_, r) => [r.dosage, r.frequency, r.instructions].filter(v => v && v !== '-').join('. ') }
-                                                        ]}
-                                                    />
+                        {
+                          key: 'diagnosis',
+                          label: 'Chẩn đoán & Điều trị',
+                          children: (
+                            <div style={{ paddingTop: 12 }}>
+                              <Form.Item label="Chẩn đoán" name="diagnosis">
+                                <TextArea rows={3} placeholder="Chẩn đoán bệnh..." style={{ borderRadius: 8 }} />
+                              </Form.Item>
+                              <Form.Item label="Kế hoạch điều trị" name="treatmentPlan">
+                                <TextArea rows={4} placeholder="Hướng xử lý, đơn thuốc, tái khám..." style={{ borderRadius: 8 }} />
+                              </Form.Item>
+                              <Form.Item label="Ghi chú thêm" name="notes">
+                                <TextArea rows={3} placeholder="Lưu ý đặc biệt..." style={{ borderRadius: 8 }} />
+                              </Form.Item>
+                            </div>
+                          ),
+                        },
+                        {
+                          key: 'drugs',
+                          label: 'Đơn thuốc',
+                          children: (
+                            <div style={{ paddingTop: 12 }}>
+                              {drugPrescriptions.length === 0 ? <p>Chưa có đơn thuốc nào.</p> : (
+                                drugPrescriptions.map(p => (
+                                  <div key={p.id} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 16, marginBottom: 16 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+                                      <div>
+                                        <div style={{ fontWeight: 600 }}>Ngày khám: {new Date(p.createdAt).toLocaleDateString('vi-VN')}</div>
+                                        <div style={{ color: '#64748b' }}>Bác sĩ kê: {p.doctorName}</div>
+                                        {p.dispenserName && <div style={{ color: '#64748b' }}>Dược sĩ phát: {p.dispenserName}</div>}
+                                        <div style={{ color: '#64748b' }}>Trạng thái: {p.status}</div>
+                                      </div>
+                                      <ConfigProvider componentDisabled={false}>
+                                        <Button icon={<PrinterOutlined />} onClick={() => handlePrint(p.id, 'drug')}>In đơn thuốc</Button>
+                                      </ConfigProvider>
+                                    </div>
 
-                                                    <div style={{ marginTop: 16, textAlign: 'right', fontSize: 16 }}>
-                                                        <strong>Tổng tiền đơn thuốc: </strong>
-                                                        <span style={{ color: '#1677ff', fontSize: 18 }}>{p.items?.reduce((sum, item) => sum + (item.totalPrice || 0), 0).toLocaleString('vi-VN')} VNĐ</span>
-                                                    </div>
-                                                    
-                                                    <div className="print-footer" style={{ display: 'none', marginTop: 40, textAlign: 'right' }}>
-                                                        <p><strong>Chữ ký Bác sĩ</strong></p>
-                                                        <div style={{ height: 60 }}></div>
-                                                        <p>{p.doctorName}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            )
-                          },
-                          {
-                            key: 'eyeglasses',
-                            label: 'Đơn kính',
-                            children: (
-                                <div style={{ paddingTop: 12 }}>
-                                    {eyePrescriptions.length === 0 ? <p>Chưa có đơn kính nào.</p> : (
-                                        eyePrescriptions.map(p => (
-                                            <div key={p.id} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 16, marginBottom: 16 }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-                                                    <div>
-                                                        <div style={{ fontWeight: 600 }}>Ngày khám: {new Date(p.createdAt).toLocaleDateString('vi-VN')}</div>
-                                                        <div style={{ color: '#64748b' }}>Bác sĩ: {p.doctorName}</div>
-                                                        <div style={{ color: '#64748b' }}>PD: {p.pd}mm | Loại tròng: {p.lensType}</div>
-                                                    </div>
-                                                    <ConfigProvider componentDisabled={false}>
-                                                        <div>
-                                                            <Button icon={<PrinterOutlined />} onClick={() => handlePrint(p.id, 'eye')} style={{ marginRight: 8 }}>In đơn kính</Button>
-                                                            <Button type="primary" onClick={() => navigate(`/patient/order-glasses/${p.id}`)}>Đặt Kính</Button>
-                                                        </div>
-                                                    </ConfigProvider>
-                                                </div>
-                                                
-                                                <div id={`print-area-eye-${p.id}`} className="print-area">
-                                                    <div className="print-header" style={{ display: 'none' }}>
-                                                        <h1 style={{ textAlign: 'center', margin: 0 }}>PHÒNG KHÁM EYESCARE</h1>
-                                                        <h2 style={{ textAlign: 'center', marginTop: 10 }}>ĐƠN KÍNH</h2>
-                                                        <p><strong>Bệnh nhân:</strong> {p.patientName}</p>
-                                                        <p><strong>Bác sĩ đo:</strong> {p.doctorName}</p>
-                                                        <p><strong>Ngày đo:</strong> {new Date(p.createdAt).toLocaleDateString('vi-VN')}</p>
-                                                        <hr/>
-                                                    </div>
+                                    <div id={`print-area-drug-${p.id}`} className="print-area">
+                                      <div className="print-header" style={{ display: 'none' }}>
+                                        <h1 style={{ textAlign: 'center', margin: 0 }}>PHÒNG KHÁM EYESCARE</h1>
+                                        <h2 style={{ textAlign: 'center', marginTop: 10 }}>ĐƠN THUỐC</h2>
+                                        <p><strong>Bệnh nhân:</strong> {p.patientName}</p>
+                                        <p><strong>Bác sĩ khám:</strong> {p.doctorName}</p>
+                                        <p><strong>Ngày kê:</strong> {new Date(p.createdAt).toLocaleDateString('vi-VN')}</p>
+                                        <hr />
+                                      </div>
 
-                                                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', marginBottom: 20 }} border="1">
-                                                        <thead>
-                                                            <tr>
-                                                                <th>Mắt</th>
-                                                                <th>Cầu (SPH)</th>
-                                                                <th>Trụ (CYL)</th>
-                                                                <th>Trục (AXIS)</th>
-                                                                <th>Cộng thêm (ADD)</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            <tr>
-                                                                <td><strong>Phải (OD)</strong></td>
-                                                                <td>{p.odSph}</td>
-                                                                <td>{p.odCyl}</td>
-                                                                <td>{p.odAxis}</td>
-                                                                <td>{p.odAdd}</td>
-                                                            </tr>
-                                                            <tr>
-                                                                <td><strong>Trái (OS)</strong></td>
-                                                                <td>{p.osSph}</td>
-                                                                <td>{p.osCyl}</td>
-                                                                <td>{p.osAxis}</td>
-                                                                <td>{p.osAdd}</td>
-                                                            </tr>
-                                                        </tbody>
-                                                    </table>
+                                      <Table
+                                        dataSource={p.items}
+                                        rowKey="id"
+                                        pagination={false}
+                                        size="small"
+                                        columns={[
+                                          { title: 'Tên thuốc', dataIndex: 'medicineName', render: (t, r) => <b>{t} ({r.dosageForm})</b> },
+                                          { title: 'SL kê', dataIndex: 'quantity' },
+                                          { title: 'Thực phát', render: (_, r) => r.actualQuantity != null ? r.actualQuantity : '-' },
+                                          { title: 'ĐVT', dataIndex: 'unit' },
+                                          { title: 'Đơn giá', dataIndex: 'unitPrice', render: val => (val || 0).toLocaleString('vi-VN') + ' đ' },
+                                          { title: 'Thành tiền', dataIndex: 'totalPrice', render: val => (val || 0).toLocaleString('vi-VN') + ' đ' },
+                                          { title: 'Cách dùng', render: (_, r) => [r.dosage, r.frequency, r.instructions].filter(v => v && v !== '-').join('. ') }
+                                        ]}
+                                      />
 
-                                                    <p><strong>Khoảng cách đồng tử (PD):</strong> {p.pd} mm</p>
-                                                    <p><strong>Loại tròng:</strong> {p.lensType}</p>
-                                                    {p.notes && <p><strong>Ghi chú:</strong> {p.notes}</p>}
+                                      <div style={{ marginTop: 16, textAlign: 'right', fontSize: 16 }}>
+                                        <strong>Tổng tiền đơn thuốc: </strong>
+                                        <span style={{ color: '#1677ff', fontSize: 18 }}>{p.items?.reduce((sum, item) => sum + (item.totalPrice || 0), 0).toLocaleString('vi-VN')} VNĐ</span>
+                                      </div>
 
-                                                    <div className="print-footer" style={{ display: 'none', marginTop: 40, textAlign: 'right' }}>
-                                                        <p><strong>Chữ ký Bác sĩ</strong></p>
-                                                        <div style={{ height: 60 }}></div>
-                                                        <p>{p.doctorName}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            )
-                          },
-                        ]}
-                      />
-                    </Form>
-                  </div>
+                                      <div className="print-footer" style={{ display: 'none', marginTop: 40, textAlign: 'right' }}>
+                                        <p><strong>Chữ ký Bác sĩ</strong></p>
+                                        <div style={{ height: 60 }}></div>
+                                        <p>{p.doctorName}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          )
+                        },
+                        {
+                          key: 'eyeglasses',
+                          label: 'Đơn kính',
+                          children: (
+                            <div style={{ paddingTop: 12 }}>
+                              {eyePrescriptions.length === 0 ? <p>Chưa có đơn kính nào.</p> : (
+                                eyePrescriptions.map(p => (
+                                  <div key={p.id} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 16, marginBottom: 16 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+                                      <div>
+                                        <div style={{ fontWeight: 600 }}>Ngày khám: {new Date(p.createdAt).toLocaleDateString('vi-VN')}</div>
+                                        <div style={{ color: '#64748b' }}>Bác sĩ: {p.doctorName}</div>
+                                        <div style={{ color: '#64748b' }}>PD: {p.pd}mm | Loại tròng: {p.lensTypeName}</div>
+                                      </div>
+                                      <ConfigProvider componentDisabled={false}>
+                                        <div>
+                                          <Button icon={<PrinterOutlined />} onClick={() => handlePrint(p.id, 'eye')} style={{ marginRight: 8 }}>In đơn kính</Button>
+                                          {p.isOrdered ? (
+                                            <Tag color="green">Đã đặt kính</Tag>
+                                          ) : p.isExpired ? (
+                                            <Tag color="red">Đã hết hạn (Quá 12 tháng)</Tag>
+                                          ) : p.hasNewer ? (
+                                            <Tag color="orange">Đã có toa mới hơn</Tag>
+                                          ) : (
+                                            <Button type="primary" onClick={() => navigate(`/patient/order-glasses/${p.id}`)}>Đặt Kính</Button>
+                                          )}
+                                        </div>
+                                      </ConfigProvider>
+                                    </div>
+
+                                    <div id={`print-area-eye-${p.id}`} className="print-area">
+                                      <div className="print-header" style={{ display: 'none' }}>
+                                        <h1 style={{ textAlign: 'center', margin: 0 }}>PHÒNG KHÁM EYESCARE</h1>
+                                        <h2 style={{ textAlign: 'center', marginTop: 10 }}>ĐƠN KÍNH</h2>
+                                        <p><strong>Bệnh nhân:</strong> {p.patientName}</p>
+                                        <p><strong>Bác sĩ đo:</strong> {p.doctorName}</p>
+                                        <p><strong>Ngày đo:</strong> {new Date(p.createdAt).toLocaleDateString('vi-VN')}</p>
+                                        <hr />
+                                      </div>
+
+                                      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', marginBottom: 20 }} border="1">
+                                        <thead>
+                                          <tr>
+                                            <th>Mắt</th>
+                                            <th>Cầu (SPH)</th>
+                                            <th>Trụ (CYL)</th>
+                                            <th>Trục (AXIS)</th>
+                                            <th>Cộng thêm (ADD)</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          <tr>
+                                            <td><strong>Phải (OD)</strong></td>
+                                            <td>{p.odSph}</td>
+                                            <td>{p.odCyl}</td>
+                                            <td>{p.odAxis}</td>
+                                            <td>{p.odAdd}</td>
+                                          </tr>
+                                          <tr>
+                                            <td><strong>Trái (OS)</strong></td>
+                                            <td>{p.osSph}</td>
+                                            <td>{p.osCyl}</td>
+                                            <td>{p.osAxis}</td>
+                                            <td>{p.osAdd}</td>
+                                          </tr>
+                                        </tbody>
+                                      </table>
+
+                                      <p><strong>Khoảng cách đồng tử (PD):</strong> {p.pd} mm</p>
+                                      <p><strong>Loại tròng:</strong> {p.lensTypeName}</p>
+                                      {p.notes && <p><strong>Ghi chú:</strong> {p.notes}</p>}
+
+                                      <div className="print-footer" style={{ display: 'none', marginTop: 40, textAlign: 'right' }}>
+                                        <p><strong>Chữ ký Bác sĩ</strong></p>
+                                        <div style={{ height: 60 }}></div>
+                                        <p>{p.doctorName}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          )
+                        },
+                      ]}
+                    />
+                  </Form>
                 </div>
               </div>
-            )}
-             </Spin>
+            </div>
+          )}
+        </Spin>
         <style>{`
             @media print {
                 body * { visibility: hidden; }
@@ -759,7 +774,7 @@ export default function MedicalHistoryPage() {
                 .ant-table-pagination { display: none !important; }
             }
         `}</style>
-        </div>
+      </div>
     </>
   )
 }

@@ -119,6 +119,14 @@ public class RoomServiceImpl implements RoomService {
     }
 
     @Override
+    public List<RoomResponse> getRoomsByService(Long serviceId) {
+        return roomRepository.findByClinicService_IdAndStatusOrderByNameAsc(serviceId, "ACTIVE")
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     @Transactional
     public RoomResponse getRoomById(Long roomId) {
         return toResponse(getRoomOrThrow(roomId));

@@ -50,10 +50,11 @@ public class ServiceSubscriptionController {
         return ResponseEntity.ok(ApiResponse.success(subscriptionService.getSubscriptionsByPatient(patientId)));
     }
 
-    /** Chi tiết một gói */
+    /** Chi tiết một gói — patient chỉ xem được gói của chính mình */
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<ServiceSubscriptionResponse>> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(ApiResponse.success(subscriptionService.getById(id)));
+    public ResponseEntity<ApiResponse<ServiceSubscriptionResponse>> getById(
+            @PathVariable Long id, Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.success(subscriptionService.getById(id, authentication.getName())));
     }
 
     /** Huỷ gói */
@@ -61,6 +62,14 @@ public class ServiceSubscriptionController {
     public ResponseEntity<ApiResponse<Void>> cancel(@PathVariable Long id, Authentication authentication) {
         subscriptionService.cancelSubscription(id, authentication.getName());
         return ResponseEntity.ok(ApiResponse.success("Huỷ gói dịch vụ thành công", null));
+    }
+
+    /** Gia hạn gói đã hết hạn (còn buổi chưa dùng) — bệnh nhân tự thao tác, không cần tư vấn lại */
+    @PatchMapping("/{id}/renew")
+    public ResponseEntity<ApiResponse<ServiceSubscriptionResponse>> renew(
+            @PathVariable Long id, Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.success("Gia hạn gói dịch vụ thành công",
+                subscriptionService.renewSubscription(id, authentication.getName())));
     }
 
     /** Kiểm tra mã giảm giá */

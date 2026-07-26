@@ -1,4 +1,6 @@
-// DucTKH
+//Author: TuanTD, DucTKH
+//Created: 2026-06-22
+//Last Update: 2026-07-25
 // Service xử lý logic nghiệp vụ cho Đơn kính (tạo mới và lấy danh sách đơn kính của bệnh nhân).
 package com.ecms.service.impl;
 
@@ -8,16 +10,21 @@ import com.ecms.entity.Doctor;
 import com.ecms.entity.EyeglassPrescription;
 import com.ecms.entity.EyeglassPrescriptionStatus;
 import com.ecms.entity.MedicalRecord;
+import com.ecms.entity.LensType;
 import com.ecms.exception.ResourceNotFoundException;
 import com.ecms.repository.DoctorRepository;
 import com.ecms.repository.EyeglassPrescriptionRepository;
 import com.ecms.repository.LensTypeRepository;
 import com.ecms.repository.MedicalRecordRepository;
+import com.ecms.repository.EyeglassOrderRepository;
+import com.ecms.entity.EyeglassOrderStatus;
 import com.ecms.service.EyeglassPrescriptionService;
+import com.ecms.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -29,6 +36,8 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
     private final MedicalRecordRepository medicalRecordRepository;
     private final DoctorRepository doctorRepository;
     private final LensTypeRepository lensTypeRepository;
+    private final EyeglassOrderRepository eyeglassOrderRepository;
+    private final NotificationService notificationService;
 
     // // Tạo mới một đơn kính từ dữ liệu nhập của bác sĩ
     // @Override
@@ -80,12 +89,14 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
     @Override
     @Transactional
     public EyeglassPrescriptionResponse createPrescription(EyeglassPrescriptionRequest request, String doctorEmail) {
+        // Validate: Lấy thông tin bệnh án và bác sĩ
         MedicalRecord record = medicalRecordRepository.findById(request.getMedicalRecordId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bệnh án"));
 
         Doctor doctor = doctorRepository.findByEmail(doctorEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bác sĩ"));
 
+        // Điều kiện: Bác sĩ kê đơn phải đúng là bác sĩ phụ trách bệnh án
         if (!record.getDoctor().getId().equals(doctor.getId())) {
             throw new IllegalStateException("Bạn không có quyền kê đơn cho bệnh án này");
         }
@@ -112,6 +123,68 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
                 .build();
 
         return toResponse(eyeglassPrescriptionRepository.save(prescription));
+    }
+
+    @Override
+    @Transactional
+    public EyeglassPrescriptionResponse updatePrescription(Long id, EyeglassPrescriptionRequest request, String doctorEmail) {
+        EyeglassPrescription prescription = eyeglassPrescriptionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn kính"));
+
+        Doctor doctor = doctorRepository.findByEmail(doctorEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bác sĩ"));
+
+        if (!prescription.getDoctor().getId().equals(doctor.getId())) {
+            throw new IllegalStateException("Bạn không có quyền chỉnh sửa đơn kính này");
+        }
+
+        if (prescription.getStatus() != EyeglassPrescriptionStatus.ISSUED) {
+            throw new IllegalStateException("Đơn kính đã được xử lý (đặt kính hoặc hoàn thành), không thể chỉnh sửa!");
+        }
+
+        LensType lensType = lensTypeRepository.findById(request.getLensTypeId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy loại tròng kính"));
+
+        prescription.setOdSph(request.getOdSph());
+        prescription.setOdCyl(request.getOdCyl());
+        prescription.setOdAxis(request.getOdAxis());
+        prescription.setOdAdd(request.getOdAdd());
+        prescription.setOsSph(request.getOsSph());
+        prescription.setOsCyl(request.getOsCyl());
+        prescription.setOsAxis(request.getOsAxis());
+        prescription.setOsAdd(request.getOsAdd());
+        prescription.setPd(request.getPd());
+        prescription.setLensType(lensType);
+        prescription.setNotes(request.getNotes());
+        
+        // Cập nhật lại thời gian "Ngày kê" thành thời điểm hiện tại khi bác sĩ sửa đơn
+        prescription.setCreatedAt(LocalDateTime.now());
+
+        return toResponse(eyeglassPrescriptionRepository.save(prescription));
+    }
+
+    // Chức năng: Xóa đơn kính (chỉ xóa khi đơn còn đang ở trạng thái ban đầu ISSUED)
+    @Override
+    @Transactional
+    public void deletePrescription(Long id, String doctorEmail) {
+        // Lấy đơn kính theo id
+        EyeglassPrescription prescription = eyeglassPrescriptionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn kính"));
+
+        Doctor doctor = doctorRepository.findByEmail(doctorEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy bác sĩ"));
+
+        // Điều kiện: Chặn xóa nếu không phải bác sĩ phụ trách bệnh án
+        if (!prescription.getDoctor().getId().equals(doctor.getId())) {
+            throw new IllegalStateException("Bạn không có quyền xóa đơn kính này");
+        }
+
+        // Điều kiện: Chỉ cho phép xóa khi đơn kính chưa được đặt hàng hay xử lý
+        if (prescription.getStatus() != EyeglassPrescriptionStatus.ISSUED) {
+            throw new IllegalStateException("Đơn kính đã được xử lý, không thể xóa!");
+        }
+
+        eyeglassPrescriptionRepository.delete(prescription);
     }
 
     // Lấy chi tiết 1 đơn kính theo id — dùng cho trang chi tiết gia công của Lab
@@ -151,6 +224,16 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
         }
 
         p.setStatus(EyeglassPrescriptionStatus.IN_PRODUCTION);
+        
+        // Đồng bộ trạng thái sang Đơn đặt kính
+        List<com.ecms.entity.EyeglassOrder> orders = eyeglassOrderRepository.findByPrescriptionId(id);
+        for (com.ecms.entity.EyeglassOrder order : orders) {
+            if (order.getStatus() == EyeglassOrderStatus.PENDING_LAB) {
+                order.setStatus(EyeglassOrderStatus.IN_PRODUCTION);
+                eyeglassOrderRepository.save(order);
+            }
+        }
+        
         return toResponse(eyeglassPrescriptionRepository.save(p));
     }
 
@@ -166,13 +249,25 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
         }
 
         p.setStatus(EyeglassPrescriptionStatus.READY);
+        
+        // Đồng bộ trạng thái sang Đơn đặt kính
+        List<com.ecms.entity.EyeglassOrder> orders = eyeglassOrderRepository.findByPrescriptionId(id);
+        for (com.ecms.entity.EyeglassOrder order : orders) {
+            if (order.getStatus() == EyeglassOrderStatus.IN_PRODUCTION || order.getStatus() == EyeglassOrderStatus.PENDING_LAB) {
+                order.setStatus(EyeglassOrderStatus.READY);
+                eyeglassOrderRepository.save(order);
+            }
+        }
+        
+        // Gửi thông báo cho lễ tân
+        String message = "Đơn kính của bệnh nhân " + p.getPatient().getFullName() + " đã gia công xong, sẵn sàng giao!";
+        notificationService.createForReceptionists(message, p.getMedicalRecord().getAppointment().getId());
+        
         return toResponse(eyeglassPrescriptionRepository.save(p));
     }
 
-    // [SỬA] dispensePrescription: đổi guard từ PENDING -> READY, vì giờ đây phải
-    // gia công xong
-    // mới được giao kính cho bệnh nhân (dành cho UC-21, Receptionist dùng ở bước
-    // sau)
+    // Chức năng: Cập nhật trạng thái giao kính cho bệnh nhân (UC-21)
+    // Ràng buộc: Đơn kính phải hoàn thành gia công (READY) mới được giao
     @Override
     @Transactional
     public EyeglassPrescriptionResponse dispensePrescription(Long id) {
@@ -247,6 +342,12 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
 
     // Hàm bổ trợ để chuyển đổi từ Entity sang DTO để trả về cho Frontend
     private EyeglassPrescriptionResponse toResponse(EyeglassPrescription p) {
+        boolean isOrdered = eyeglassOrderRepository.existsByPrescriptionIdAndStatusNot(p.getId(), EyeglassOrderStatus.CANCELLED);
+        boolean isExpired = p.getCreatedAt().plusMonths(12).isBefore(java.time.LocalDateTime.now());
+        
+        List<EyeglassPrescription> latestList = eyeglassPrescriptionRepository.findByPatientIdOrderByCreatedAtDesc(p.getPatient().getId());
+        boolean hasNewer = !latestList.isEmpty() && !latestList.get(0).getId().equals(p.getId());
+
         return EyeglassPrescriptionResponse.builder()
                 .id(p.getId())
                 .medicalRecordId(p.getMedicalRecord().getId())
@@ -269,6 +370,9 @@ public class EyeglassPrescriptionServiceImpl implements EyeglassPrescriptionServ
                 .notes(p.getNotes())
                 .status(p.getStatus())
                 .createdAt(p.getCreatedAt())
+                .isOrdered(isOrdered)
+                .isExpired(isExpired)
+                .hasNewer(hasNewer)
                 .build();
     }
 }

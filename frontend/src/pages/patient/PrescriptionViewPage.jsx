@@ -1,4 +1,6 @@
-// DucTKH
+//Author: DucTKH - HE204463
+//Created: 2026-06-01
+//Last Update: 2026-07-21
 // Màn hình xem danh sách Đơn thuốc / Đơn kính tổng hợp của Bệnh nhân (hiện đã được tích hợp vào trong MedicalHistoryPage).
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Tabs, Spin, Tag, message } from 'antd';
@@ -13,7 +15,7 @@ export default function PrescriptionViewPage() {
     const { user } = useSelector(s => s.auth);
     const patientId = user?.patientId || user?.id;
     const navigate = useNavigate();
-    
+
     const [loading, setLoading] = useState(false);
     const [drugPrescriptions, setDrugPrescriptions] = useState([]);
     const [eyePrescriptions, setEyePrescriptions] = useState([]);
@@ -24,6 +26,7 @@ export default function PrescriptionViewPage() {
         }
     }, [patientId]);
 
+    // Chức năng: Gọi API lấy cả danh sách đơn thuốc và đơn kính của bệnh nhân cùng lúc
     const fetchData = async () => {
         setLoading(true);
         try {
@@ -40,7 +43,9 @@ export default function PrescriptionViewPage() {
         }
     };
 
+    // Chức năng: Tải và hiển thị bản in PDF của đơn thuốc hoặc đơn kính
     const handlePrint = async (id, type) => {
+        // Điều kiện: Nếu là đơn thuốc (drug), gọi API tải PDF do backend sinh ra
         if (type === 'drug') {
             try {
                 const response = await prescriptionService.downloadPdf(id, true);
@@ -55,9 +60,10 @@ export default function PrescriptionViewPage() {
                 message.error('Không thể tải file đơn thuốc');
             }
         } else {
+            // Điều kiện: Nếu là đơn kính, dùng tính năng in HTML của trình duyệt (browser print)
             const printContent = document.getElementById(`print-area-${type}-${id}`);
             const originalContents = document.body.innerHTML;
-            
+
             document.body.innerHTML = printContent.innerHTML;
             window.print();
             document.body.innerHTML = originalContents;
@@ -74,7 +80,7 @@ export default function PrescriptionViewPage() {
     return (
         <div style={{ padding: '24px', maxWidth: 1000, margin: '0 auto' }}>
             <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>Đơn thuốc của tôi</h2>
-            
+
             <Spin spinning={loading}>
                 <Tabs
                     items={[
@@ -95,7 +101,7 @@ export default function PrescriptionViewPage() {
                                                     </div>
                                                     <Button icon={<PrinterOutlined />} onClick={() => handlePrint(p.id, 'drug')}>In đơn thuốc</Button>
                                                 </div>
-                                                
+
                                                 {/* Print Area - Hidden normally, only visible during print or here for demonstration */}
                                                 <div id={`print-area-drug-${p.id}`} className="print-area">
                                                     <div className="print-header" style={{ display: 'none' }}>
@@ -104,13 +110,13 @@ export default function PrescriptionViewPage() {
                                                         <p><strong>Bệnh nhân:</strong> {p.patientName}</p>
                                                         <p><strong>Bác sĩ khám:</strong> {p.doctorName}</p>
                                                         <p><strong>Ngày kê:</strong> {new Date(p.createdAt).toLocaleDateString('vi-VN')}</p>
-                                                        <hr/>
+                                                        <hr />
                                                     </div>
-                                                    
-                                                    <Table 
-                                                        dataSource={p.items} 
-                                                        rowKey="id" 
-                                                        pagination={false} 
+
+                                                    <Table
+                                                        dataSource={p.items}
+                                                        rowKey="id"
+                                                        pagination={false}
                                                         size="small"
                                                         columns={[
                                                             { title: 'Tên thuốc', dataIndex: 'medicineName', render: (t, r) => <b>{t} ({r.dosageForm})</b> },
@@ -122,7 +128,7 @@ export default function PrescriptionViewPage() {
                                                             { title: 'Cách dùng', render: (_, r) => [r.dosage, r.frequency, r.instructions].filter(v => v && v !== '-').join('. ') }
                                                         ]}
                                                     />
-                                                    
+
                                                     <div style={{ marginTop: 16, textAlign: 'right', fontSize: 16 }}>
                                                         <strong>Tổng tiền đơn thuốc: </strong>
                                                         <span style={{ color: '#1677ff', fontSize: 18 }}>{p.items?.reduce((sum, item) => sum + (item.totalPrice || 0), 0).toLocaleString('vi-VN')} VNĐ</span>
@@ -163,7 +169,7 @@ export default function PrescriptionViewPage() {
                                                         )}
                                                     </div>
                                                 </div>
-                                                
+
                                                 <div id={`print-area-eye-${p.id}`} className="print-area">
                                                     <div className="print-header" style={{ display: 'none' }}>
                                                         <h1 style={{ textAlign: 'center', margin: 0 }}>PHÒNG KHÁM EYESCARE</h1>
@@ -171,7 +177,7 @@ export default function PrescriptionViewPage() {
                                                         <p><strong>Bệnh nhân:</strong> {p.patientName}</p>
                                                         <p><strong>Bác sĩ đo:</strong> {p.doctorName}</p>
                                                         <p><strong>Ngày đo:</strong> {new Date(p.createdAt).toLocaleDateString('vi-VN')}</p>
-                                                        <hr/>
+                                                        <hr />
                                                     </div>
 
                                                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', marginBottom: 20 }} border="1">
@@ -203,7 +209,7 @@ export default function PrescriptionViewPage() {
                                                     </table>
 
                                                     <p><strong>Khoảng cách đồng tử (PD):</strong> {p.pd} mm</p>
-                                                    <p><strong>Loại tròng:</strong> {p.lensType}</p>
+                                                    <p><strong>Loại tròng:</strong> {p.lensTypeName}</p>
                                                     {p.notes && <p><strong>Ghi chú:</strong> {p.notes}</p>}
 
                                                     <div className="print-footer" style={{ display: 'none', marginTop: 40, textAlign: 'right' }}>

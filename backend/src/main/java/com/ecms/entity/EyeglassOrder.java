@@ -1,3 +1,7 @@
+//Author: DucTKH - HE204463
+//Created: 2026-06-22
+//Last Update: 2026-07-23
+
 package com.ecms.entity;
 
 import jakarta.persistence.*;
@@ -9,7 +13,11 @@ import java.util.Set;
 
 @Entity
 @Table(name = "eyeglass_orders")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class EyeglassOrder {
 
     @Id
@@ -35,22 +43,21 @@ public class EyeglassOrder {
     @Column(name = "total_amount", precision = 15, scale = 2, nullable = false)
     private BigDecimal totalAmount;
 
+    // Người giao kính: trỏ thẳng tới users chứ không phải staffs, để nhận được cả
+    // Lễ tân/Dược sĩ (bảng staffs) lẫn KTV (bảng lab_technicians) — cùng pattern với
+    // care_sessions.check_in_by, appointments.booked_by...
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dispensed_by")
-    private Staff dispensedBy;
+    private User dispensedBy;
 
     @Column(name = "dispensed_at")
     private LocalDateTime dispensedAt;
-    
-    @Column(name = "cancel_reason", columnDefinition = "TEXT")
+
+    @Column(name = "cancel_reason", columnDefinition = "NVARCHAR(MAX)")
     private String cancelReason;
 
     @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-            name = "eyeglass_order_coatings",
-            joinColumns = @JoinColumn(name = "order_id"),
-            inverseJoinColumns = @JoinColumn(name = "coating_id")
-    )
+    @JoinTable(name = "eyeglass_order_coatings", joinColumns = @JoinColumn(name = "order_id"), inverseJoinColumns = @JoinColumn(name = "coating_id"))
     private Set<EyeglassCoating> coatings;
 
     @Column(name = "created_at", updatable = false)

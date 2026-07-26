@@ -1,0 +1,129 @@
+@startuml UC56_ManageStaffRoomRoster_SequenceDiagram
+<style>
+document {
+  ParticipantPadding 10
+  BoxPadding 10
+}
+</style>
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 250
+
+skinparam participant {
+    BackgroundColor #DDEEFF
+    BorderColor     #336699
+    FontStyle       bold
+}
+skinparam actor {
+    BackgroundColor #FFFACD
+    BorderColor     #CC9900
+}
+skinparam note {
+    BackgroundColor #FFFFF0
+    BorderColor     #AAAAAA
+}
+skinparam ArrowColor #336699
+skinparam LifeLineBorderColor #336699
+
+title UC-56: Manage Staff Room Roster\n(Simplified Sequence Diagram)
+
+actor       "Clinic Manager"                                     as Actor
+participant "<<Controller>>\nStaffRoomAssignmentController"      as C
+participant "<<Service>>\nStaffRoomAssignmentService"            as S
+participant "<<ServiceImpl>>\nStaffRoomAssignmentServiceImpl"    as SImpl
+participant "<<Repository>>\nStaffRoomAssignmentRepository"      as Repo
+participant "<<Log>>\nAuditLog"                                  as Audit
+
+note over Actor
+  PRE: Clinic Manager is authenticated.
+  Staff member is on duty.
+end note
+
+== Step 1: View Staff Room Roster for a Date ==
+Actor -> C : getRoster(date: LocalDate)
+activate C
+
+C -> S : getRosterForDate(date)
+activate S
+S -> SImpl : getRosterForDate(date)
+activate SImpl
+
+SImpl -> Repo : findByWorkDateOrEffectiveFrom(date)
+activate Repo
+Repo --> SImpl : List<StaffRoomAssignment>
+deactivate Repo
+
+SImpl --> S : List<StaffRoomAssignmentResponse>
+deactivate SImpl
+S --> C : List<StaffRoomAssignmentResponse>
+deactivate S
+
+C --> Actor : HTTP 200 OK (ApiResponse<List<StaffRoomAssignmentResponse>>)
+deactivate C
+
+== Step 2: Assign/Change Room ==
+Actor -> C : assignRoom(request: StaffRoomAssignmentRequest)
+activate C
+
+C -> C : extract managerUserId from UserDetails
+
+C -> S : assignRoom(request, managerUserId)
+activate S
+S -> SImpl : assignRoom(request, managerUserId)
+activate SImpl
+
+note right of SImpl
+  BR-24 Validation:
+  - If isOneDayOverride = false: 
+    creates standing assignment from effectiveFrom.
+  - If isOneDayOverride = true: 
+    creates assignment just for workDate.
+end note
+
+SImpl -> Repo : save(assignment: StaffRoomAssignment)
+activate Repo
+Repo --> SImpl : StaffRoomAssignment
+deactivate Repo
+
+SImpl -> Audit : logAssignmentAction()
+activate Audit
+Audit --> SImpl : ok
+deactivate Audit
+
+SImpl --> S : StaffRoomAssignmentResponse
+deactivate SImpl
+S --> C : StaffRoomAssignmentResponse
+deactivate S
+
+C --> Actor : HTTP 200 OK (ApiResponse<StaffRoomAssignmentResponse>)
+deactivate C
+
+== (Internal) Step 3: Room Resolution ==
+note right of Actor
+  Other use cases (e.g., Booking, Check-in, Lab Orders) 
+  will call resolveRoom() to determine which room a staff 
+  member is assigned to on a specific date.
+end note
+
+Actor -> C : resolveRoom(staffType, staffId, date)
+activate C
+C -> S : resolveRoomForStaff(staffType, staffId, date)
+activate S
+S -> SImpl : resolveRoomForStaff(staffType, staffId, date)
+activate SImpl
+
+SImpl -> Repo : find overrides first, then standing assignments
+activate Repo
+Repo --> SImpl : StaffRoomAssignment
+deactivate Repo
+
+SImpl --> S : RoomResolutionResponse
+deactivate SImpl
+S --> C : RoomResolutionResponse
+deactivate S
+
+C --> Actor : HTTP 200 OK (ApiResponse<RoomResolutionResponse>)
+deactivate C
+
+@enduml

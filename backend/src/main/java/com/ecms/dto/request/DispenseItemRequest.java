@@ -1,4 +1,6 @@
-// DucTKH
+//Author: DucTKH - HE204463
+//Created: 2026-06-25
+//Last Update: 2026-06-25
 // DTO chứa thông tin số lượng thực tế của một thuốc khi cấp phát.
 package com.ecms.dto.request;
 

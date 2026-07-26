@@ -1,4 +1,6 @@
-// DucTKH
+//Author: DucTKH - HE204463
+//Created: 2026-06-01
+//Last Update: 2026-07-21
 // Repository cho Entity Invoice, hỗ trợ các thao tác truy xuất hóa đơn từ database.
 package com.ecms.repository;
 
@@ -22,20 +24,24 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     @Query("SELECT COUNT(i) FROM Invoice i WHERE i.paymentStatus <> 'PAID' AND i.status <> 'CANCELLED'")
     long countOutstanding();
 
+  
+  
     // UC-49: tổng tiền hóa đơn còn nợ
     @Query("SELECT COALESCE(SUM(i.totalAmount), 0) FROM Invoice i WHERE i.paymentStatus <> 'PAID' AND i.status <> 'CANCELLED'")
     java.math.BigDecimal sumOutstanding();
 
-    // --- Hàm của nhánh Duc ---
+
+
     List<Invoice> findByPatientId(Long patientId);
 
-    // --- Các hàm của nhánh main ---
     @Query("""
             SELECT DISTINCT i FROM Invoice i
             LEFT JOIN FETCH i.appointment a
             LEFT JOIN FETCH i.patient p
             LEFT JOIN FETCH a.doctor
             LEFT JOIN FETCH a.clinicService
+            LEFT JOIN FETCH i.subscription sub
+            LEFT JOIN FETCH sub.service
             ORDER BY i.createdAt DESC
             """)
     List<Invoice> findAllWithDetails();
@@ -59,6 +65,8 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
             LEFT JOIN FETCH i.patient p
             LEFT JOIN FETCH a.doctor
             LEFT JOIN FETCH a.clinicService
+            LEFT JOIN FETCH i.subscription sub
+            LEFT JOIN FETCH sub.service
             WHERE LOWER(i.patient.fullName) LIKE LOWER(CONCAT('%', :keyword, '%'))
                OR i.patient.phone LIKE CONCAT('%', :keyword, '%')
                OR i.invoiceCode LIKE CONCAT('%', :keyword, '%')
@@ -87,6 +95,10 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     // Kiểm tra lịch hẹn đã có hóa đơn CHƯA BỊ HỦY chưa — dùng để tránh tạo trùng
     // khi hóa đơn cũ đã CANCELLED, lễ tân vẫn có thể tạo lại cho lịch hẹn đó.
     boolean existsByAppointment_IdAndStatusNot(Long appointmentId, String status);
+
+    // UC-21: kiểm tra gói/buổi dịch vụ chăm sóc đã có hóa đơn CHƯA BỊ HỦY chưa —
+    // dùng cả khi tạo hóa đơn lẫn khi hiển thị cờ "đã thu tiền" trên CareSessionResponse.
+    boolean existsBySubscription_IdAndStatusNot(Long subscriptionId, String status);
 
     // Lấy tất cả hóa đơn của một bệnh nhân kèm chi tiết — dùng cho trang "Hóa đơn của tôi" (Patient)
     @Query("""

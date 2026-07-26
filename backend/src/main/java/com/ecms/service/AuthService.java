@@ -29,6 +29,9 @@ public interface AuthService {
     // Bước 2 đăng nhập nhân viên: xác minh mã OTP, cấp JWT nếu hợp lệ
     AuthResponse staffVerifyOtp(StaffVerifyOtpRequest request);
 
+    // Đăng nhập tài khoản ảo/demo: chỉ chấp nhận user có cờ isVirtual=true, bỏ qua OTP, cấp JWT ngay
+    AuthResponse demoLogin(StaffLoginRequest request, String ipAddress);
+
     // Yêu cầu quên mật khẩu: luôn phản hồi giống nhau để tránh dò email tồn tại trong hệ thống
     void forgotPassword(ForgotPasswordRequest request);
 
