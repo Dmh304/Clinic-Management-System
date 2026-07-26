@@ -16,7 +16,12 @@
 
 Add-Type -AssemblyName System.Data
 
-$connStr = "Server=localhost,1433;Database=ecms_backup;User Id=sa;Password=0864213579;Encrypt=false;TrustServerCertificate=true;"
+# Ten DB + mat khau lay theo backend/src/main/resources/application.properties.
+# May nao dat ten DB khac thi doi $DbName ben duoi (hoac set bien moi truong ECMS_DB_NAME).
+$DbName   = $env:ECMS_DB_NAME;     if (-not $DbName)   { $DbName   = "ecms_db" }
+$DbUser   = $env:ECMS_DB_USER;     if (-not $DbUser)   { $DbUser   = "sa" }
+$DbPass   = $env:ECMS_DB_PASSWORD; if (-not $DbPass)   { $DbPass   = "mh3k42k6" }
+$connStr = "Server=localhost,1433;Database=$DbName;User Id=$DbUser;Password=$DbPass;Encrypt=false;TrustServerCertificate=true;"
 $conn = New-Object System.Data.SqlClient.SqlConnection $connStr
 $conn.Open()
 

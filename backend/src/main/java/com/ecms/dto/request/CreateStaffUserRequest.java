@@ -31,4 +31,8 @@ public class CreateStaffUserRequest {
 
     // Số điện thoại nhân viên (tuỳ chọn, dùng trong hồ sơ bác sĩ/nhân viên)
     private String phone;
+
+    // Tích "Tài khoản ảo" trên UI admin: tạo tài khoản ACTIVE ngay với mật khẩu cố định,
+    // bỏ qua bước gửi email kích hoạt (dùng cho demo với gmail không thật)
+    private Boolean isVirtual;
 }

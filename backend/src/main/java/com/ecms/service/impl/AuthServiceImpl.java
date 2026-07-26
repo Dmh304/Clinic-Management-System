@@ -21,6 +21,7 @@ import com.ecms.repository.PatientRepository;
 import com.ecms.repository.RoleRepository;
 import com.ecms.repository.UserRepository;
 import com.ecms.security.JwtUtil;
+import com.ecms.service.AuditLogService;
 import com.ecms.service.AuthService;
 import com.ecms.service.EmailService;
 import com.ecms.service.VerificationTokenService;
@@ -51,6 +52,7 @@ public class AuthServiceImpl implements AuthService {
     private final JwtUtil jwtUtil;
     private final EmailService emailService;
     private final VerificationTokenService verificationTokenService;
+    private final AuditLogService auditLogService;
 
     @Value("${google.oauth.client-id}")
     private String googleClientId;
@@ -201,6 +203,12 @@ public class AuthServiceImpl implements AuthService {
             throw new UnauthorizedException("Vui lòng đăng nhập bằng cổng bệnh nhân");
         }
 
+        // Tài khoản ảo/demo dùng gmail không thật — gửi OTP sẽ không ai nhận được, chặn sớm
+        // và hướng dẫn dùng đúng cổng Demo (không qua OTP).
+        if (Boolean.TRUE.equals(user.getIsVirtual())) {
+            throw new UnauthorizedException("Đây là tài khoản demo. Vui lòng đăng nhập qua tab Demo");
+        }
+
         ensureNotLocked(user, true);
 
         if (user.getPasswordHash() == null || !passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
@@ -216,6 +224,40 @@ public class AuthServiceImpl implements AuthService {
 
         String otp = verificationTokenService.issueOtp(user, VerificationTokenType.LOGIN_OTP);
         emailService.sendLoginOtp(user.getEmail(), user.getFullName(), otp);
+    }
+
+    // Đăng nhập tài khoản ảo/demo: 1 bước duy nhất (không OTP), chỉ chấp nhận user có cờ
+    // isVirtual=true — dù ai đó đoán đúng mật khẩu cố định cũng không đăng nhập được vào
+    // tài khoản thật vì cờ này chỉ admin gán được khi tạo tài khoản (UC-55).
+    @Override
+    @Transactional
+    public AuthResponse demoLogin(StaffLoginRequest request, String ipAddress) {
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new UnauthorizedException(GENERIC_LOGIN_ERROR));
+
+        if (user.getRole() == null || "PATIENT".equals(user.getRole().getName())) {
+            throw new UnauthorizedException("Vui lòng đăng nhập bằng cổng bệnh nhân");
+        }
+
+        if (!Boolean.TRUE.equals(user.getIsVirtual())) {
+            throw new UnauthorizedException("Tài khoản này không phải tài khoản demo. Vui lòng đăng nhập qua cổng Nhân viên");
+        }
+
+        ensureNotLocked(user, true);
+
+        if (user.getPasswordHash() == null || !passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+            registerFailedAttempt(user, true);
+            throw new UnauthorizedException(GENERIC_LOGIN_ERROR);
+        }
+
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new UnauthorizedException(GENERIC_LOGIN_ERROR);
+        }
+
+        registerSuccessfulLogin(user);
+        auditLogService.log(user.getId(), "DEMO_LOGIN", "User", String.valueOf(user.getId()), null, null, ipAddress);
+
+        return buildAuthResponse(user);
     }
 
     // Bước 2 đăng nhập nhân viên: xác minh OTP rồi cấp JWT

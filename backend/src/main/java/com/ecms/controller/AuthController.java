@@ -8,6 +8,7 @@ import com.ecms.dto.request.*;
 import com.ecms.dto.response.ApiResponse;
 import com.ecms.dto.response.AuthResponse;
 import com.ecms.service.AuthService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -68,6 +69,14 @@ public class AuthController {
     public ResponseEntity<ApiResponse<AuthResponse>> staffVerifyOtp(@Valid @RequestBody StaffVerifyOtpRequest request) {
         AuthResponse data = authService.staffVerifyOtp(request);
         return ResponseEntity.ok(ApiResponse.success("Đăng nhập thành công", data));
+    }
+
+    // Đăng nhập tài khoản ảo/demo: 1 bước duy nhất, không OTP — chỉ dành cho tài khoản có cờ isVirtual=true
+    @PostMapping("/demo/login")
+    public ResponseEntity<ApiResponse<AuthResponse>> demoLogin(
+            @Valid @RequestBody StaffLoginRequest request, HttpServletRequest httpRequest) {
+        AuthResponse data = authService.demoLogin(request, httpRequest.getRemoteAddr());
+        return ResponseEntity.ok(ApiResponse.success("Đăng nhập demo thành công", data));
     }
 
     // Yêu cầu quên mật khẩu: luôn phản hồi giống nhau để tránh dò email tồn tại trong hệ thống

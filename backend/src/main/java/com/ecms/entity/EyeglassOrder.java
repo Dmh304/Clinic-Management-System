@@ -43,6 +43,9 @@ public class EyeglassOrder {
     @Column(name = "total_amount", precision = 15, scale = 2, nullable = false)
     private BigDecimal totalAmount;
 
+    // Người giao kính: trỏ thẳng tới users chứ không phải staffs, để nhận được cả
+    // Lễ tân/Dược sĩ (bảng staffs) lẫn KTV (bảng lab_technicians) — cùng pattern với
+    // care_sessions.check_in_by, appointments.booked_by...
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dispensed_by")
     private User dispensedBy;

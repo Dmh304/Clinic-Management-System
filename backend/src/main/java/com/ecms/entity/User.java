@@ -81,4 +81,10 @@ public class User {
     @Column(name = "marketing_opt_out", nullable = false)
     @Builder.Default
     private Boolean marketingOptOut = false;
+
+    // Tài khoản "ảo"/demo (dùng gmail giả) tạo qua UC-55 với cờ isVirtual: bỏ qua email kích hoạt,
+    // mật khẩu cố định, và chỉ đăng nhập được qua cổng Demo (AuthController#demoLogin), không qua OTP.
+    @Column(name = "is_virtual", nullable = false)
+    @Builder.Default
+    private Boolean isVirtual = false;
 }

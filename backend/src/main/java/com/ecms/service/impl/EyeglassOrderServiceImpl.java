@@ -316,6 +316,9 @@ public class EyeglassOrderServiceImpl implements EyeglassOrderService {
         EyeglassOrder order = eyeglassOrderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn đặt kính"));
 
+        // Ghi nhận theo tài khoản đăng nhập, KHÔNG tra bảng staffs nữa: KTV xét nghiệm
+        // nằm ở bảng lab_technicians nên tra staffs sẽ ném "Tài khoản không phải là
+        // nhân viên" dù họ hoàn toàn có quyền giao kính (quyền đã chặn ở tầng API).
         User user = userRepository.findByEmail(staffEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy user"));
 

@@ -39,6 +39,8 @@ import java.util.Map;
 public class AdminUserServiceImpl implements AdminUserService {
 
     private static final String PATIENT_ROLE = "PATIENT";
+    // Mật khẩu cố định cho tài khoản ảo/demo — không gửi email nên phải là hằng số đã biết trước
+    private static final String VIRTUAL_ACCOUNT_PASSWORD = "Password@123";
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
@@ -77,14 +79,19 @@ public class AdminUserServiceImpl implements AdminUserService {
         // Validate các field bắt buộc theo role trước khi tạo user
         validateRoleSpecificFields(request);
 
+        boolean isVirtual = Boolean.TRUE.equals(request.getIsVirtual());
+
         User user = User.builder()
                 .fullName(request.getFullName())
                 .email(request.getEmail())
                 .department(request.getDepartment())
                 .role(role)
                 .authProvider(AuthProvider.LOCAL)
-                .status(UserStatus.PENDING_VERIFICATION)
-                .passwordHash(passwordEncoder.encode(TempPasswordGenerator.generate()))
+                // Tài khoản ảo (demo, gmail không thật) không thể nhận email kích hoạt nên được tạo
+                // ACTIVE ngay với mật khẩu cố định, thay vì PENDING_VERIFICATION + mật khẩu tạm ngẫu nhiên.
+                .status(isVirtual ? UserStatus.ACTIVE : UserStatus.PENDING_VERIFICATION)
+                .passwordHash(passwordEncoder.encode(isVirtual ? VIRTUAL_ACCOUNT_PASSWORD : TempPasswordGenerator.generate()))
+                .isVirtual(isVirtual)
                 .build();
         User saved = userRepository.save(user);
 
@@ -191,8 +198,11 @@ public class AdminUserServiceImpl implements AdminUserService {
     @Transactional
     public StaffUserResponse resetPassword(Long id, String actorEmail, String ipAddress) {
         User user = getStaffUserOrThrow(id);
+        boolean isVirtual = Boolean.TRUE.equals(user.getIsVirtual());
 
-        String tempPassword = TempPasswordGenerator.generate();
+        // Tài khoản ảo không có email thật để nhận mật khẩu mới ngẫu nhiên — luôn set về
+        // mật khẩu cố định đã biết trước, không gửi email.
+        String tempPassword = isVirtual ? VIRTUAL_ACCOUNT_PASSWORD : TempPasswordGenerator.generate();
         user.setPasswordHash(passwordEncoder.encode(tempPassword));
         user.setFailedLoginAttempts(0);
         user.setLockUntil(null);
@@ -201,7 +211,9 @@ public class AdminUserServiceImpl implements AdminUserService {
         }
         User saved = userRepository.save(user);
 
-        emailService.sendAdminPasswordResetEmail(saved.getEmail(), saved.getFullName(), tempPassword);
+        if (!isVirtual) {
+            emailService.sendAdminPasswordResetEmail(saved.getEmail(), saved.getFullName(), tempPassword);
+        }
 
         auditLogService.log(resolveActorId(actorEmail), "RESET_PASSWORD", "User", String.valueOf(saved.getId()),
                 null, null, ipAddress);
@@ -339,6 +351,7 @@ public class AdminUserServiceImpl implements AdminUserService {
                 .department(user.getDepartment())
                 .status(user.getStatus() != null ? user.getStatus().name() : null)
                 .createdAt(user.getCreatedAt())
+                .isVirtual(user.getIsVirtual())
                 .build();
     }
 }

@@ -26,6 +26,9 @@ const authService = {
   // Bước 2 đăng nhập nhân viên: xác minh mã OTP, nhận token JWT nếu hợp lệ
   staffVerifyOtp: (email, otp) => axiosClient.post('/v1/auth/staff/verify-otp', { email, otp }),
 
+  // Đăng nhập tài khoản ảo/demo: 1 bước duy nhất, không OTP — chỉ hoạt động với tài khoản isVirtual=true
+  demoLogin: (email, password) => axiosClient.post('/v1/auth/demo/login', { email, password }),
+
   // Yêu cầu quên mật khẩu: gửi email chứa liên kết đặt lại mật khẩu (nếu email tồn tại)
   forgotPassword: (email) => axiosClient.post('/v1/auth/forgot-password', { email }),
 
