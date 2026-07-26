@@ -44,6 +44,7 @@ import com.ecms.repository.MedicalRecordRepository;
 import com.ecms.repository.LabTechnicianRepository;
 import com.ecms.service.LabOrderService;
 import com.ecms.service.NotificationService;
+import com.ecms.util.ClinicHoursUtil;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
@@ -161,6 +162,7 @@ public class LabOrderServiceImpl implements LabOrderService {
     @Override
     @Transactional
     public LabOrderResponse submitLabResult(Long labOrderId, LabResultRequest request, Long labTechnicianId) {
+        ClinicHoursUtil.requireWithinClinicHours();
         LabOrder labOrder = labOrderRepository.findById(labOrderId)
                 .orElseThrow(() -> new RuntimeException("LabOrder not found: " + labOrderId));
         if (labOrder.getLabTechnician() == null || !labOrder.getLabTechnician().getId().equals(labTechnicianId)) {
@@ -528,6 +530,7 @@ public class LabOrderServiceImpl implements LabOrderService {
     @Override
     @Transactional
     public LabOrderResponse startLabOrder(Long labOrderId, Long labTechnicianId) {
+        ClinicHoursUtil.requireWithinClinicHours();
         LabOrder labOrder = labOrderRepository.findById(labOrderId)
                 .orElseThrow(() -> new RuntimeException("LabOrder not found: " + labOrderId));
 
@@ -579,6 +582,7 @@ public class LabOrderServiceImpl implements LabOrderService {
     @Override
     @Transactional
     public LabOrderResponse saveDraft(Long labOrderId, LabResultRequest request, Long labTechnicianId) {
+        ClinicHoursUtil.requireWithinClinicHours();
         LabOrder labOrder = labOrderRepository.findById(labOrderId)
                 .orElseThrow(() -> new RuntimeException("LabOrder not found: " + labOrderId));
 

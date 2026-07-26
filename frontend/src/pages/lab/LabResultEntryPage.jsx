@@ -12,7 +12,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import Header from '../../components/layout/Header'
-import { Form, Input, InputNumber, Button, message, Tag, Spin, Row, Col, Divider, Card } from 'antd'
+import { Form, Input, InputNumber, Button, message, Tag, Spin, Row, Col, Divider, Card, Tooltip } from 'antd'
 import { labService } from '../../services/labService'
 import { uploadImageToCloudinary } from '../../utils/uploadImage'
 import useConfirmAction from '../../hooks/useConfirmAction'
@@ -36,6 +36,12 @@ function LabMultiImageUploader({ values = [], onChange, disabled }) {
   const [uploading, setUploading] = useState(false)
   // inputRef: Tham chiếu DOM tới thẻ input[type="file"] ẩn để kích hoạt sự kiện click qua button giao diện
   const inputRef = useRef(null)
+  const [withinHours, setWithinHours] = useState(isWithinClinicHours())
+
+  useEffect(() => {
+    const timer = setInterval(() => setWithinHours(isWithinClinicHours()), 60_000)
+    return () => clearInterval(timer)
+  }, [])
 
   /**
    *  Kiểm tra dữ liệu tệp đầu vào, chặn file không phải ảnh và tiến hành upload bất đồng bộ hàng loạt 
@@ -563,21 +569,27 @@ export default function LabResultEntryPage() {
                 <Button onClick={() => navigate('/lab/queue')} style={{ fontSize: 13 }}>
                   Hủy bỏ
                 </Button>
-                <Button
-                  onClick={handleSaveDraft}
-                  loading={savingDraft}
-                  style={{ fontSize: 13, borderColor: '#f59e0b', color: '#f59e0b' }}
-                >
-                  Lưu nháp
-                </Button>
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  loading={submitting}
-                  style={{ backgroundColor: '#0d9488', borderColor: '#0d9488', fontSize: 13 }}
-                >
-                  Hoàn thành và Gửi kết quả
-                </Button>
+                <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
+                  <Button
+                    onClick={handleSaveDraft}
+                    loading={savingDraft}
+                    disabled={!withinHours}
+                    style={{ fontSize: 13, borderColor: '#f59e0b', color: '#f59e0b' }}
+                  >
+                    Lưu nháp
+                  </Button>
+                </Tooltip>
+                <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
+                  <Button
+                    type="primary"
+                    htmlType="submit"
+                    loading={submitting}
+                    disabled={!withinHours}
+                    style={{ backgroundColor: '#0d9488', borderColor: '#0d9488', fontSize: 13 }}
+                  >
+                    Hoàn thành và Gửi kết quả
+                  </Button>
+                </Tooltip>
               </div>
             )}
           </Form>

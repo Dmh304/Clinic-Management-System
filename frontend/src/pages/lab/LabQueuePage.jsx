@@ -14,8 +14,9 @@ import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import Header from '../../components/layout/Header'
-import { Form, Input, InputNumber, Tabs, Button, message, Tag, Spin, Collapse, Divider, Result, Pagination } from 'antd'
+import { Form, Input, InputNumber, Tabs, Button, message, Tag, Spin, Collapse, Divider, Result, Pagination, Tooltip } from 'antd'
 import { labService } from '../../services/labService'
+import { isWithinClinicHours } from '../../utils/clinicHours'
 
 const { TextArea } = Input
 const { Panel } = Collapse
@@ -74,6 +75,13 @@ export default function LabQueuePage() {
   // searchText: Từ khóa tìm kiếm do người dùng nhập vào ô Input
   const [searchText, setSearchText]  = useState('')
   const [currentPage, setCurrentPage] = useState(1)
+  const [withinHours, setWithinHours] = useState(isWithinClinicHours())
+
+  useEffect(() => {
+    const timer = setInterval(() => setWithinHours(isWithinClinicHours()), 60_000)
+    return () => clearInterval(timer)
+  }, [])  
+
   const pageSize = 10
   /**
    * Khối Guard: Xác thực xem người dùng hiện tại có phải là Kỹ thuật viên xét nghiệm hay không
@@ -354,31 +362,31 @@ export default function LabQueuePage() {
                       <td style={{ padding: '12px 16px' }}>
                         {/* Trạng thái PENDING: Cho phép bấm để kích hoạt làm việc */}
                         {order.status === 'PENDING' && (
-                          <Button
-                            type="primary"
-                            size="small"
-                            loading={startingId === order.id}
-                            onClick={() => handleStart(order)}
-                            style={{
-                              fontSize: 12,
-                              backgroundColor: '#0d9488',
-                              borderColor: '#0d9488',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            Bắt đầu khám
-                          </Button>
+                          <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
+                            <Button
+                              type="primary"
+                              size="small"
+                              disabled={!withinHours}
+                              loading={startingId === order.id}
+                              onClick={() => handleStart(order)}
+                              style={{ fontSize: 12, backgroundColor: '#0d9488', borderColor: '#0d9488', whiteSpace: 'nowrap' }}
+                            >
+                              Bắt đầu khám
+                            </Button>
+                          </Tooltip>
                         )}
                         
-                        {/* Trạng thái IN_PROGRESS: Đang dở dang, cho phép tiếp tục điền kết quả */}
                         {order.status === 'IN_PROGRESS' && (
-                          <Button
-                            size="small"
-                            onClick={() => navigate(`/lab/result-entry?orderId=${order.id}`)}
-                            style={{ fontSize: 12, borderColor: '#0d9488', color: '#0d9488', whiteSpace: 'nowrap' }}
-                          >
-                            Tiếp tục nhập
-                          </Button>
+                          <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
+                            <Button
+                              size="small"
+                              disabled={!withinHours}
+                              onClick={() => navigate(`/lab/result-entry?orderId=${order.id}`)}
+                              style={{ fontSize: 12, borderColor: '#0d9488', color: '#0d9488', whiteSpace: 'nowrap' }}
+                            >
+                              Tiếp tục nhập
+                            </Button>
+                          </Tooltip>
                         )}
                         
                         {/* Trạng thái SUBMITTED: Đã chuyển đi chờ duyệt, chỉ cho phép xem thông tin dạng Read-only */}
