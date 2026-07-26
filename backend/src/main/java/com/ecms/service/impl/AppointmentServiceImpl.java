@@ -228,7 +228,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                                 .orElseThrow(() -> new ResourceNotFoundException("Lịch hẹn không tồn tại: " + id));
 
                 if (status == AppointmentStatus.IN_PROGRESS) {
-                        ClinicHoursUtil.requireWithinClinicHours();
+                        ClinicHoursUtil.requireOperableToday(appointment.getAppointmentDate());
                 }
 
                 appointment.setStatus(status);
@@ -236,7 +236,8 @@ public class AppointmentServiceImpl implements AppointmentService {
                 return toResponse(appointmentRepository.save(appointment));
         }
 
-        // Chức năng: Lễ tân xác nhận lịch hẹn (chuyển trạng thái từ PENDING sang CONFIRMED)
+        // Chức năng: Lễ tân xác nhận lịch hẹn (chuyển trạng thái từ PENDING sang
+        // CONFIRMED)
         @Override
         @Transactional
         public AppointmentResponse confirmAppointment(Long id, Long doctorId) {
@@ -310,7 +311,8 @@ public class AppointmentServiceImpl implements AppointmentService {
                 return toResponse(saved);
         }
 
-        // Chức năng: Check-in bệnh nhân (UC-15) - Lễ tân đánh dấu bệnh nhân đã đến phòng khám và lấy số thứ tự
+        // Chức năng: Check-in bệnh nhân (UC-15) - Lễ tân đánh dấu bệnh nhân đã đến
+        // phòng khám và lấy số thứ tự
         @Override
         @Transactional
         public AppointmentResponse checkInAppointment(Long id, Long checkInByUserId) {
@@ -1140,7 +1142,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                                                         "Trạng thái hiện tại: " + appointment.getStatus());
                 }
 
-                ClinicHoursUtil.requireWithinClinicHours();
+                ClinicHoursUtil.requireOperableToday(appointment.getAppointmentDate());
 
                 // Chuyển appointment về CANCELLED
                 appointment.setStatus(AppointmentStatus.CANCELLED);
@@ -1173,9 +1175,12 @@ public class AppointmentServiceImpl implements AppointmentService {
                                                 AppointmentStatus.WAITING, AppointmentStatus.IN_PROGRESS));
         }
 
-        // Le Thi Bich Ngan - HE204710 | Tạo: 18/07/2026, sửa 2026-07-25 (huỷ ngay khi trễ giờ)
-        // Chức năng: dùng chung logic huỷ với autoCancelNoShowAppointments() (00:05) qua
-        // cancelStaleAppointments() được tách ra bên dưới, chỉ khác cutoff (thời điểm hiện
+        // Le Thi Bich Ngan - HE204710 | Tạo: 18/07/2026, sửa 2026-07-25 (huỷ ngay khi
+        // trễ giờ)
+        // Chức năng: dùng chung logic huỷ với autoCancelNoShowAppointments() (00:05)
+        // qua
+        // cancelStaleAppointments() được tách ra bên dưới, chỉ khác cutoff (thời điểm
+        // hiện
         // tại) và statuses (không đụng WAITING/IN_PROGRESS). Không gắn BR số cụ thể.
         @Override
         @Transactional

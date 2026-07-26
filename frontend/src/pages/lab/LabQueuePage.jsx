@@ -16,7 +16,7 @@ import { useSelector } from 'react-redux'
 import Header from '../../components/layout/Header'
 import { Form, Input, InputNumber, Tabs, Button, message, Tag, Spin, Collapse, Divider, Result, Pagination, Tooltip } from 'antd'
 import { labService } from '../../services/labService'
-import { isWithinClinicHours, CLINIC_HOURS_MESSAGE } from '../../utils/clinicHours'
+import { isWithinClinicHours, isSameDayAsToday, CLINIC_HOURS_MESSAGE } from '../../utils/clinicHours'
 
 const { TextArea } = Input
 const { Panel } = Collapse
@@ -361,33 +361,39 @@ export default function LabQueuePage() {
                       {/* Khối hành động linh hoạt theo từng trạng thái của đơn */}
                       <td style={{ padding: '12px 16px' }}>
                         {/* Trạng thái PENDING: Cho phép bấm để kích hoạt làm việc */}
-                        {order.status === 'PENDING' && (
-                          <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
-                            <Button
-                              type="primary"
-                              size="small"
-                              disabled={!withinHours}
-                              loading={startingId === order.id}
-                              onClick={() => handleStart(order)}
-                              style={{ fontSize: 12, backgroundColor: '#0d9488', borderColor: '#0d9488', whiteSpace: 'nowrap' }}
-                            >
-                              Bắt đầu khám
-                            </Button>
-                          </Tooltip>
-                        )}
+                        {order.status === 'PENDING' && (() => {
+                          const canOperate = withinHours && isSameDayAsToday(order.appointmentTime)
+                          return (
+                            <Tooltip title={!canOperate ? (!isSameDayAsToday(order.appointmentTime) ? 'Chỉ có thể thao tác với lịch hẹn của hôm nay' : CLINIC_HOURS_MESSAGE) : ''}>
+                              <Button
+                                type="primary"
+                                size="small"
+                                disabled={!canOperate}
+                                loading={startingId === order.id}
+                                onClick={() => handleStart(order)}
+                                style={{ fontSize: 12, backgroundColor: '#0d9488', borderColor: '#0d9488', whiteSpace: 'nowrap' }}
+                              >
+                                Bắt đầu khám
+                              </Button>
+                            </Tooltip>
+                          )
+                        })()}
                         
-                        {order.status === 'IN_PROGRESS' && (
-                          <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
-                            <Button
-                              size="small"
-                              disabled={!withinHours}
-                              onClick={() => navigate(`/lab/result-entry?orderId=${order.id}`)}
-                              style={{ fontSize: 12, borderColor: '#0d9488', color: '#0d9488', whiteSpace: 'nowrap' }}
-                            >
-                              Tiếp tục nhập
-                            </Button>
-                          </Tooltip>
-                        )}
+                        {order.status === 'IN_PROGRESS' && (() => {
+                          const canOperate = withinHours && isSameDayAsToday(order.appointmentTime)
+                          return (
+                            <Tooltip title={!canOperate ? (!isSameDayAsToday(order.appointmentTime) ? 'Chỉ có thể thao tác với lịch hẹn của hôm nay' : CLINIC_HOURS_MESSAGE) : ''}>
+                              <Button
+                                size="small"
+                                disabled={!canOperate}
+                                onClick={() => navigate(`/lab/result-entry?orderId=${order.id}`)}
+                                style={{ fontSize: 12, borderColor: '#0d9488', color: '#0d9488', whiteSpace: 'nowrap' }}
+                              >
+                                Tiếp tục nhập
+                              </Button>
+                            </Tooltip>
+                          )
+                        })()}
                         
                         {/* Trạng thái SUBMITTED: Đã chuyển đi chờ duyệt, chỉ cho phép xem thông tin dạng Read-only */}
                         {order.status === 'SUBMITTED' && (

@@ -236,12 +236,13 @@ export default function DoctorDashboard() {
       width: 200,
       render: (_, record) => {
         if (record.status === 'WAITING') {
+          const canOperate = withinHours && isToday
           return (
-            <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
+            <Tooltip title={!canOperate ? (!isToday ? 'Chỉ có thể bắt đầu khám lịch hẹn của hôm nay' : CLINIC_HOURS_MESSAGE) : ''}>
               <Button
                 type="primary"
                 size="small"
-                disabled={!withinHours}
+                disabled={!canOperate}
                 loading={actionLoading === record.id}
                 onClick={() => handleStartExam(record)}
                 style={{ backgroundColor: '#0d9488', borderColor: '#0d9488', fontSize: 12 }}
@@ -252,23 +253,24 @@ export default function DoctorDashboard() {
           )
         }
         if (record.status === 'IN_PROGRESS') {
+          const canOperate = withinHours && isToday
           return (
             <Space size={6}>
-              <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
+              <Tooltip title={!canOperate ? (!isToday ? 'Chỉ có thể thao tác với lịch hẹn của hôm nay' : CLINIC_HOURS_MESSAGE) : ''}>
                 <Button
                   size="small"
-                  disabled={!withinHours}
+                  disabled={!canOperate}
                   onClick={() => handleViewEMR(record)}
                   style={{ borderColor: '#0d9488', color: '#0d9488', fontSize: 12 }}
                 >
                   Cập nhật HSBA
                 </Button>
               </Tooltip>
-              <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
+              <Tooltip title={!canOperate ? (!isToday ? 'Chỉ có thể thao tác với lịch hẹn của hôm nay' : CLINIC_HOURS_MESSAGE) : ''}>
                 <Button
                   size="small"
                   danger
-                  disabled={!withinHours}
+                  disabled={!canOperate}
                   loading={actionLoading === record.id}
                   onClick={() => handleAbandonExam(record)}
                   style={{ fontSize: 12 }}
@@ -307,6 +309,8 @@ export default function DoctorDashboard() {
     }
     return parts.join(', ');
   };
+
+  const isTodaySelected = selectedDate && selectedDate.isSame(dayjs(), 'day')
 
   /* Kiểm tra ngày đang xem có phải hôm nay không để hiển thị tiêu đề phù hợp */
   const isToday = selectedDate && selectedDate.isSame(dayjs(), 'day')
