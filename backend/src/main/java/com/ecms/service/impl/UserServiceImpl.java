@@ -6,9 +6,12 @@ package com.ecms.service.impl;
 
 import com.ecms.dto.request.UpdateProfileRequest;
 import com.ecms.dto.response.UserProfileResponse;
+import com.ecms.entity.MedicalRecord;
+import com.ecms.entity.MedicalRecordStatus;
 import com.ecms.entity.Patient;
 import com.ecms.entity.User;
 import com.ecms.exception.ResourceNotFoundException;
+import com.ecms.repository.MedicalRecordRepository;
 import com.ecms.repository.PatientRepository;
 import com.ecms.repository.UserRepository;
 import com.ecms.service.UserService;
@@ -17,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -25,6 +29,7 @@ public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final PatientRepository patientRepository;
+    private final MedicalRecordRepository medicalRecordRepository;
     private final UnsubscribeTokenUtil unsubscribeTokenUtil;
 
     // Lấy thông tin hồ sơ người dùng: tìm User theo email, kết hợp dữ liệu Patient
@@ -71,6 +76,21 @@ public class UserServiceImpl implements UserService {
             if (request.getAddress() != null) {
                 patient.setAddress(request.getAddress());
             }
+            if (request.getCccd() != null) {
+                patient.setCccd(request.getCccd());
+            }
+            if (request.getBloodType() != null) {
+                patient.setBloodType(request.getBloodType());
+            }
+            if (request.getAllergyNotes() != null) {
+                patient.setAllergyNotes(request.getAllergyNotes());
+            }
+            if (request.getEmergencyContactName() != null) {
+                patient.setEmergencyContactName(request.getEmergencyContactName());
+            }
+            if (request.getEmergencyContactPhone() != null) {
+                patient.setEmergencyContactPhone(request.getEmergencyContactPhone());
+            }
             patientRepository.save(patient);
             return buildResponse(user, patient);
         }
@@ -92,7 +112,14 @@ public class UserServiceImpl implements UserService {
                     .dateOfBirth(request.getDateOfBirth())
                     .gender(request.getGender())
                     .address(request.getAddress())
+                    .cccd(request.getCccd())
+                    .allergyNotes(request.getAllergyNotes())
+                    .emergencyContactName(request.getEmergencyContactName())
+                    .emergencyContactPhone(request.getEmergencyContactPhone())
                     .build();
+            if (request.getBloodType() != null) {
+                patient.setBloodType(request.getBloodType());
+            }
             patientRepository.save(patient);
             return buildResponse(user, patient);
         }
@@ -124,7 +151,25 @@ public class UserServiceImpl implements UserService {
                 .dateOfBirth(patient != null ? patient.getDateOfBirth() : null)
                 .gender(patient != null ? patient.getGender() : null)
                 .address(patient != null ? patient.getAddress() : null)
+                .cccd(patient != null ? patient.getCccd() : null)
+                .bloodType(patient != null ? patient.getBloodType() : null)
+                .allergyNotes(patient != null ? patient.getAllergyNotes() : null)
+                .emergencyContactName(patient != null ? patient.getEmergencyContactName() : null)
+                .emergencyContactPhone(patient != null ? patient.getEmergencyContactPhone() : null)
+                .latestExamConclusion(patient != null ? findLatestExamConclusion(patient.getId()) : null)
                 .createdAt(user.getCreatedAt())
                 .build();
+    }
+
+    // Lấy chẩn đoán (diagnosis) của hồ sơ bệnh án gần nhất làm "kết luận lần khám gần nhất"
+    // — chỉ đọc, không thể chỉnh sửa qua form hồ sơ cá nhân
+    private String findLatestExamConclusion(Long patientId) {
+        List<MedicalRecord> records = medicalRecordRepository.findByPatientIdOrderByCreatedAtDesc(patientId);
+        return records.stream()
+                .filter(record -> record.getStatus() == MedicalRecordStatus.COMPLETED)
+                .map(MedicalRecord::getDiagnosis)
+                .filter(diagnosis -> diagnosis != null && !diagnosis.isBlank())
+                .findFirst()
+                .orElse(null);
     }
 }
