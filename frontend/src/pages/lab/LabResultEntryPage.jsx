@@ -16,6 +16,7 @@ import { Form, Input, InputNumber, Button, message, Tag, Spin, Row, Col, Divider
 import { labService } from '../../services/labService'
 import { uploadImageToCloudinary } from '../../utils/uploadImage'
 import useConfirmAction from '../../hooks/useConfirmAction'
+import { isWithinClinicHours, CLINIC_HOURS_MESSAGE } from '../../utils/clinicHours'
 
 const { TextArea } = Input
 
@@ -36,12 +37,6 @@ function LabMultiImageUploader({ values = [], onChange, disabled }) {
   const [uploading, setUploading] = useState(false)
   // inputRef: Tham chiếu DOM tới thẻ input[type="file"] ẩn để kích hoạt sự kiện click qua button giao diện
   const inputRef = useRef(null)
-  const [withinHours, setWithinHours] = useState(isWithinClinicHours())
-
-  useEffect(() => {
-    const timer = setInterval(() => setWithinHours(isWithinClinicHours()), 60_000)
-    return () => clearInterval(timer)
-  }, [])
 
   /**
    *  Kiểm tra dữ liệu tệp đầu vào, chặn file không phải ảnh và tiến hành upload bất đồng bộ hàng loạt 
@@ -213,8 +208,14 @@ export default function LabResultEntryPage() {
   const [submitting, setSubmitting] = useState(false)         // Đợi khi đang bấm nút "Gửi kết quả chính thức"
   const [savingDraft, setSavingDraft] = useState(false)       // Đợi khi đang bấm nút "Lưu bản nháp"
   const [orderInfo, setOrderInfo] = useState(null)           // Thông tin hành chính và chỉ định của phiếu xét nghiệm
-  const [imageUrls, setImageUrls] = useState([])             // Mảng lưu trữ danh sách URL ảnh phục vụ cho upload
-
+  const [imageUrls, setImageUrls] = useState([]) 
+  const [withinHours, setWithinHours] = useState(isWithinClinicHours())
+  
+  useEffect(() => {
+    const timer = setInterval(() => setWithinHours(isWithinClinicHours()), 60_000)
+    return () => clearInterval(timer)
+  }, [])
+    
   const { confirmAction, contextHolder } = useConfirmAction()
   
   /**
@@ -459,7 +460,15 @@ export default function LabResultEntryPage() {
           )}
 
           {/* --- Form Nhập Kết Quả Khúc Xạ Chi Tiết --- */}
-          <Form form={form} layout="vertical" disabled={readonly} onFinish={handleSubmit}>
+          {!readonly && !withinHours && (
+            <div style={{
+              backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 10,
+              padding: '10px 16px', marginBottom: 16, fontSize: 13, color: '#92400e',
+            }}>
+              Ngoài giờ làm việc của phòng khám (07:30–17:00, trừ Chủ nhật) — không thể nhập/lưu kết quả lúc này.
+            </div>
+          )}
+          <Form form={form} layout="vertical" disabled={readonly || !withinHours} onFinish={handleSubmit}>
             <div style={{ backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: 24, marginBottom: 20 }}>
               
               {/* Layout hai cột phân chia rõ ràng: Mắt phải và Mắt trái */}
@@ -552,7 +561,7 @@ export default function LabResultEntryPage() {
                   <LabMultiImageUploader
                     values={imageUrls}
                     onChange={setImageUrls}
-                    disabled={readonly}
+                    disabled={readonly || !withinHours}
                   />
                 </Col>
                 <Col span={24}>

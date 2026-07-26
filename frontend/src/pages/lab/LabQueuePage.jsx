@@ -16,7 +16,7 @@ import { useSelector } from 'react-redux'
 import Header from '../../components/layout/Header'
 import { Form, Input, InputNumber, Tabs, Button, message, Tag, Spin, Collapse, Divider, Result, Pagination, Tooltip } from 'antd'
 import { labService } from '../../services/labService'
-import { isWithinClinicHours } from '../../utils/clinicHours'
+import { isWithinClinicHours, CLINIC_HOURS_MESSAGE } from '../../utils/clinicHours'
 
 const { TextArea } = Input
 const { Panel } = Collapse

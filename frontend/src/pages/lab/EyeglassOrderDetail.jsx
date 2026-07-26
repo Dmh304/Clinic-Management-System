@@ -8,10 +8,10 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import Header from '../../components/layout/Header'
-import { Button, message, Tag, Spin, Row, Col, Divider, Card } from 'antd'
+import { Button, message, Tag, Spin, Row, Col, Divider, Card, Tooltip } from 'antd'
 import { eyeglassOrderService } from '../../services/eyeglassOrderService'
 import useConfirmAction from '../../hooks/useConfirmAction'
-
+import { isWithinClinicHours, CLINIC_HOURS_MESSAGE } from '../../utils/clinicHours'
 
 const STATUS_MAP = {
   PENDING_CONFIRMATION: { color: 'default',    label: 'Chờ xác nhận' },
@@ -48,6 +48,12 @@ export default function EyeglassOrderDetail() {
   const [completing, setCompleting] = useState(false)
   const [dispensing, setDispensing] = useState(false)
   const [order, setOrder] = useState(null)
+  const [withinHours, setWithinHours] = useState(isWithinClinicHours())
+
+  useEffect(() => {
+    const timer = setInterval(() => setWithinHours(isWithinClinicHours()), 60_000)
+    return () => clearInterval(timer)
+  }, [])
 
   const loadData = useCallback(async () => {
     if (!id) {
@@ -234,27 +240,33 @@ export default function EyeglassOrderDetail() {
 
           {!readonly && status === 'IN_PRODUCTION' && (
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button
-                type="primary"
-                loading={completing}
-                onClick={handleComplete}
-                style={{ backgroundColor: '#0d9488', borderColor: '#0d9488', fontSize: 13 }}
-              >
-                Hoàn tất gia công
-              </Button>
+              <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
+                <Button
+                  type="primary"
+                  loading={completing}
+                  disabled={!withinHours}
+                  onClick={handleComplete}
+                  style={{ backgroundColor: '#0d9488', borderColor: '#0d9488', fontSize: 13 }}
+                >
+                  Hoàn tất gia công
+                </Button>
+              </Tooltip>
             </div>
           )}
 
           {status === 'READY' && (
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button
-                type="primary"
-                loading={dispensing}
-                onClick={handleDispense}
-                style={{ backgroundColor: '#16a34a', borderColor: '#16a34a', fontSize: 13 }}
-              >
-                Giao kính
-              </Button>
+              <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
+                <Button
+                  type="primary"
+                  loading={dispensing}
+                  disabled={!withinHours}
+                  onClick={handleDispense}
+                  style={{ backgroundColor: '#16a34a', borderColor: '#16a34a', fontSize: 13 }}
+                >
+                  Giao kính
+                </Button>
+              </Tooltip>
             </div>
           )}
 
