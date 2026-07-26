@@ -1,4 +1,17 @@
-// UC-54: Phê duyệt bảng lương — soạn/điều chỉnh/duyệt theo kỳ.
+/**
+ * @author  ThangNB - HE201024
+ * @created 2026-07-19
+ * @updated 2026-07-20
+ *
+ * Payroll approval screen for the Clinic Manager
+ * (UC-54 Approve Payroll): generate a monthly draft, adjust individual lines,
+ * then approve the period.
+ *
+ * Business rules surfaced here:
+ *  - BR-17 — only a Clinic Manager reaches this screen; the backend re-checks
+ *  - BR-09 — once APPROVED every line is locked, so the inputs and the save
+ *    action are disabled and the approve button disappears
+ */
 import { useEffect, useState } from 'react'
 import { FiRefreshCw, FiDownload, FiCheckCircle, FiUsers, FiAlertTriangle, FiSearch, FiClock, FiSave } from 'react-icons/fi'
 import { FaWallet } from 'react-icons/fa'
@@ -10,7 +23,16 @@ const initials = (name) => (name || '').replace(/^(BS|ĐD|KTV)\.?\s*/i, '').spli
 
 const card = { background: '#fff', border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: '0 2px 4px rgba(0,0,0,0.03)' }
 
-// Trạng thái từng dòng lương suy ra từ dữ liệu
+/**
+ * Derives the review badge for one payroll line.
+ *
+ * Validate: UC-54 E-2 — a line with no base salary is flagged "needs review"
+ * so missing data is visible before the Manager approves the period.
+ *
+ * @param {Object} it       the payroll line
+ * @param {boolean} approved whether the period is already approved
+ * @returns {{label:string, bg:string, c:string, note:?string}} badge spec
+ */
 function rowStatus(it, approved) {
   if (approved) return { label: 'Đã duyệt', bg: '#e2e8f0', c: '#334155', note: null }
   if (!Number(it.baseSalary)) return { label: 'Cần kiểm tra', bg: '#fef3c7', c: C.warnInk, note: it.note || 'Thiếu lương cơ bản' }
@@ -35,6 +57,11 @@ const numInput = { width: 110, textAlign: 'right', border: `1px solid ${C.border
 const th = { padding: '12px 16px', fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase', fontWeight: 600, color: C.muted, whiteSpace: 'nowrap' }
 const td = { padding: '12px 16px', fontSize: 14, borderTop: `1px solid ${C.border}` }
 
+/**
+ * Renders the payroll period list, the editable line table and the approve
+ * action.
+ * @returns {JSX.Element} the payroll screen
+ */
 export default function PayrollPage() {
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
@@ -45,22 +72,54 @@ export default function PayrollPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  /** Refreshes the pay-period picker. Failures are ignored — the picker is
+   *  secondary to whichever period is already open. */
   const loadPeriods = async () => { try { const r = await payrollService.listPeriods(); setPeriods(r.data || []) } catch { /* ignore */ } }
   useEffect(() => { loadPeriods() }, [])
 
+  /**
+   * Opens one pay period with its lines (UC-54 step 3).
+   * @param {number} id pay period id
+   */
   const openPeriod = async (id) => {
     setLoading(true); setError('')
     try { const r = await payrollService.getPeriod(id); setPeriod(r.data) }
     catch (e) { setError(e?.response?.data?.message || 'Không tải được kỳ lương') } finally { setLoading(false) }
   }
+  /**
+   * Generates the draft payroll for the selected month (UC-54 step 2).
+   *
+   * Validate: BR-09 — the backend refuses to regenerate an APPROVED period;
+   * that rejection is shown as the error message.
+   */
   const generate = async () => {
     setLoading(true); setError('')
     try { const r = await payrollService.generate(year, month); setPeriod(r.data); await loadPeriods() }
     catch (e) { setError(e?.response?.data?.message || 'Không tạo được bảng lương') } finally { setLoading(false) }
   }
+
+  /** BR-09 gate: drives the read-only state of every input on this screen. */
   const approved = period?.status === 'APPROVED'
 
+  /**
+   * Updates one field of a line in local state, before it is saved.
+   * @param {number} idx   row index
+   * @param {string} field field name
+   * @param {*} value      new value
+   */
   const editItem = (idx, field, value) => setPeriod((p) => ({ ...p, items: p.items.map((it, i) => i === idx ? { ...it, [field]: value } : it) }))
+
+  /**
+   * Persists one adjusted payroll line (UC-54 step 3).
+   *
+   * Empty numeric inputs are coerced to 0 so the server never receives NaN,
+   * which would corrupt the net-pay calculation.
+   *
+   * @param {Object} item the edited line
+   *
+   * Validate: BR-09 — rejected server-side if the period was approved in the
+   * meantime, e.g. by another manager in a second tab.
+   */
   const saveItem = async (item) => {
     try {
       const r = await payrollService.updateItem(item.id, {
@@ -70,12 +129,26 @@ export default function PayrollPage() {
       setPeriod((p) => ({ ...p, items: p.items.map((it) => it.id === item.id ? r.data : it) }))
     } catch (e) { setError(e?.response?.data?.message || 'Không lưu được dòng lương') }
   }
+  /**
+   * Approves the open pay period (UC-54 step 4).
+   *
+   * Validate: BR-09 — approval is irreversible, so an explicit confirmation is
+   * required before the request goes out. BR-17 — the approving manager is
+   * taken from the auth token server-side, never sent from here.
+   */
   const approve = async () => {
     if (!window.confirm('Phê duyệt bảng lương này? Sau khi duyệt sẽ không thể chỉnh sửa.')) return
     setLoading(true); setError('')
     try { const r = await payrollService.approve(period.id); setPeriod(r.data); await loadPeriods() }
     catch (e) { setError(e?.response?.data?.message || 'Không duyệt được bảng lương') } finally { setLoading(false) }
   }
+  /**
+   * Exports the open period as CSV for Accounting (UC-54 POST-3 / ALT-2).
+   *
+   * Built client-side from the loaded rows. A UTF-8 BOM is prepended so Excel
+   * decodes Vietnamese names correctly, and every cell is quoted with inner
+   * quotes doubled so a name containing a comma cannot shift the columns.
+   */
   const exportCsv = () => {
     if (!period) return
     const rows = [['Nhan vien', 'Vai tro', 'Luong co ban', 'Hoat dong', 'Phu cap/Hieu suat', 'Khau tru', 'Tong luong', 'Ghi chu']]

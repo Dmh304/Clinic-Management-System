@@ -4,8 +4,13 @@ import jakarta.persistence.*;
 import lombok.*;
 
 /**
- * UC-48: Điểm đánh giá cho MỘT người tham gia buổi khám (bác sĩ / lễ tân / KTV),
- * gắn với một Feedback tổng thể. Bảng tự tạo bởi Hibernate (ddl-auto=update).
+ * @author  ThangNB - HE201024
+ * @created 2026-07-20
+ * @updated 2026-07-20
+ *
+ * Rating for a single participant in a visit — doctor, receptionist or lab
+ * technician — hanging off the overall {@link Feedback} (UC-48).
+ * Table created by Hibernate under ddl-auto=update.
  */
 @Entity
 @Table(name = "feedback_participant_ratings")
@@ -24,14 +29,17 @@ public class FeedbackParticipantRating {
     @JoinColumn(name = "feedback_id", nullable = false)
     private Feedback feedback;
 
-    // DOCTOR | RECEPTIONIST | LAB_TECHNICIAN
+    /** DOCTOR | RECEPTIONIST | LAB_TECHNICIAN. */
     @Column(name = "participant_role", nullable = false, length = 30)
     private String participantRole;
 
+    /** Name captured at submission time, so a later staff rename does not
+     *  rewrite historical feedback. */
     @Column(name = "participant_name")
     private String participantName;
 
-    // 1..5 sao
+    /** Star rating 1..5. Validate: bounds are enforced on the request DTO
+     *  before this row is built. */
     @Column(name = "rating", nullable = false)
     private Integer rating;
 }

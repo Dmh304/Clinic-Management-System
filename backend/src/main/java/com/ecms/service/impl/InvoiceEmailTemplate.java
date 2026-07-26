@@ -8,18 +8,33 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
 /**
- * Sinh nội dung HTML của email hóa đơn điện tử từ InvoiceResponse (DTO).
+ * @author  ThangNB - HE201024
+ * @created 2026-07-11
+ * @updated 2026-07-11
  *
- * Tách khỏi InvoiceServiceImpl để việc gửi email chạy nền (InvoiceMailDispatcher)
- * không phụ thuộc vào entity/transaction — build từ dữ liệu đã load sẵn.
+ * Builds the HTML body of the e-invoice email from an {@link InvoiceResponse}
+ * (UC-24 Deliver Invoice).
+ *
+ * Kept out of {@code InvoiceServiceImpl} so the background mailer
+ * ({@code InvoiceMailDispatcher}) can render from an already-loaded DTO with
+ * no entity or transaction attached — nothing here can trigger a lazy load on
+ * a detached session.
  */
 final class InvoiceEmailTemplate {
 
     private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
+    /** Utility class — never instantiated. */
     private InvoiceEmailTemplate() {
     }
 
+    /**
+     * Renders the invoice as an inline-styled HTML email.
+     * Styles are inlined because most mail clients strip {@code <style>} blocks.
+     *
+     * @param inv invoice with its charge lines populated
+     * @return HTML body ready to hand to the mail sender
+     */
     static String build(InvoiceResponse inv) {
         NumberFormat vnd = NumberFormat.getInstance(new Locale("vi", "VN"));
 
@@ -70,6 +85,13 @@ final class InvoiceEmailTemplate {
              + "</body></html>";
     }
 
+    /**
+     * Null-safe string for templating — keeps a missing optional field from
+     * printing the literal "null" in the customer-facing email.
+     *
+     * @param s value that may be null
+     * @return {@code s}, or an empty string
+     */
     private static String nz(String s) {
         return s != null ? s : "";
     }

@@ -24,23 +24,30 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * ThangNBHE201024
+ * @author      ThangNB - HE201024
+ * @contributor Đồng Mạnh Hùng - HE200743
+ * @created     2026-05-31
+ * @updated     2026-07-19
  *
- * REST Controller xử lý toàn bộ các yêu cầu HTTP liên quan đến hóa đơn.
+ * REST entry point of the billing module.
  * Base URL: /api/v1/invoices
- * Quyền truy cập: ADMIN, RECEPTIONIST, MANAGER (cấu hình trong SecurityConfig).
+ * Access: ADMIN, RECEPTIONIST, MANAGER for the staff endpoints and PATIENT for
+ * {@code GET /my} (enforced in SecurityConfig).
  *
- * Danh sách endpoint:
- *   GET    /                        — Lấy tất cả hóa đơn
- *   GET    /search?keyword=         — Tìm kiếm hóa đơn
- *   GET    /{id}                    — Chi tiết hóa đơn kèm khoản phí
- *   GET    /appointment/{id}        — Hóa đơn theo lịch hẹn
- *   POST   /                        — Tạo hóa đơn nháp
- *   PATCH  /{id}/issue              — Phát hành hóa đơn (thu tiền)
- *   PATCH  /{id}/cancel             — Hủy hóa đơn nháp
- *   POST   /{id}/send-email         — Gửi hóa đơn qua email
- *   GET    /my                       — Hóa đơn của bệnh nhân đang đăng nhập
- *   GET    /{id}/pdf                — Tải xuống hóa đơn PDF
+ * Implements UC-23 (Process Payment) and UC-24 (Deliver Invoice):
+ *   GET    /                                        list invoices
+ *   GET    /search?keyword=                         search by name / phone / code
+ *   GET    /{id}                                    invoice detail with charge lines
+ *   GET    /appointment/{id}                        invoice of a visit
+ *   GET    /appointment/{id}/suggested-items        prefill data for the create form
+ *   POST   /                                        create a DRAFT invoice
+ *   PATCH  /{id}/issue                              collect payment, DRAFT → ISSUED
+ *   PATCH  /{id}/cancel                             void a DRAFT invoice
+ *   POST   /{id}/send-email                         e-mail the e-invoice
+ *   GET    /my                                      signed-in patient's own invoices
+ *   GET    /{id}/pdf                                download the invoice PDF
+ *
+ * Business rules: BR-08, BR-09, BR-10, BR-11, BR-15.
  */
 @RestController
 @RequestMapping("/api/v1/invoices")
@@ -52,13 +59,29 @@ public class InvoiceController {
     private final UserRepository userRepository;
     private final PatientRepository patientRepository;
 
-    // Lấy danh sách tất cả hóa đơn (không kèm items) — dùng cho tab Lịch sử hóa đơn
+    /**
+     * Lists every invoice without charge lines — backs the "Invoice history"
+     * tab of the Receptionist screen.
+     *
+     * @return all invoices, newest first
+     */
     @GetMapping
     public ResponseEntity<ApiResponse<List<InvoiceResponse>>> getAllInvoices() {
         return ResponseEntity.ok(ApiResponse.success(invoiceService.getAllInvoices()));
     }
 
-    // Hóa đơn của bệnh nhân đang đăng nhập — dùng cho trang "Hóa đơn của tôi" (PATIENT)
+    /**
+     * Returns the invoices of the signed-in patient for the portal
+     * "My Invoices" screen (UC-24 ALT-2).
+     *
+     * @param userDetails authenticated principal injected by Spring Security
+     * @return that patient's invoices
+     * @throws ResourceNotFoundException if the account has no patient profile
+     *
+     * Validate: BR-08 — the patient id is resolved from the JWT principal, not
+     * from a request parameter, so a patient can never read someone else's
+     * billing record by tampering with the URL.
+     */
     @GetMapping("/my")
     public ResponseEntity<ApiResponse<List<InvoiceResponse>>> getMyInvoices(
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -69,20 +92,37 @@ public class InvoiceController {
         return ResponseEntity.ok(ApiResponse.success(invoiceService.getMyInvoices(patient.getId())));
     }
 
-    // Tìm kiếm hóa đơn theo tên, SĐT bệnh nhân hoặc mã hóa đơn
+    /**
+     * Searches invoices by patient name, patient phone or invoice code.
+     *
+     * @param keyword search term; when omitted the full list is returned
+     */
     @GetMapping("/search")
     public ResponseEntity<ApiResponse<List<InvoiceResponse>>> searchInvoices(
             @RequestParam(required = false) String keyword) {
         return ResponseEntity.ok(ApiResponse.success(invoiceService.searchInvoices(keyword)));
     }
 
-    // Lấy chi tiết một hóa đơn kèm danh sách khoản phí — dùng khi mở modal chi tiết, in, gửi email
+    /**
+     * Returns one invoice with all charge lines — used by the detail modal,
+     * the print preview and the e-invoice mailer.
+     *
+     * @param id invoice primary key
+     */
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<InvoiceResponse>> getInvoiceById(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success(invoiceService.getInvoiceById(id)));
     }
 
-    // Tìm hóa đơn theo appointmentId — dùng khi kiểm tra lịch hẹn đã có HĐ chưa
+    /**
+     * Returns the live invoice of a visit, or null when none exists.
+     * The UI calls this before offering "create invoice".
+     *
+     * @param appointmentId visit primary key
+     *
+     * Validate: UC-23 E1 — lets the client load the existing invoice instead
+     * of creating a duplicate for the same visit.
+     */
     @GetMapping("/appointment/{appointmentId}")
     public ResponseEntity<ApiResponse<InvoiceResponse>> getInvoiceByAppointment(
             @PathVariable Long appointmentId) {
@@ -90,8 +130,15 @@ public class InvoiceController {
                 ApiResponse.success(invoiceService.getInvoiceByAppointmentId(appointmentId)));
     }
 
-    // ThangNBHE201024 — Gợi ý khoản phí cho lịch hẹn: dịch vụ khám đã đặt + thuốc bác sĩ
-    // đã kê (UC-27). Frontend gọi khi mở modal "Thu phí" để đổ sẵn, lễ tân không nhập tay.
+    /**
+     * Suggests the charge lines of a visit — the booked consultation service
+     * plus the medicines the Doctor prescribed — so the create-invoice modal
+     * opens prefilled and the Receptionist does not retype them
+     * (UC-23 normal flow step 2). Read-only, creates nothing.
+     *
+     * @param appointmentId visit primary key
+     * @return suggested charge lines
+     */
     @GetMapping("/appointment/{appointmentId}/suggested-items")
     public ResponseEntity<ApiResponse<List<InvoiceRequest.InvoiceItemRequest>>> getSuggestedItems(
             @PathVariable Long appointmentId) {
@@ -99,7 +146,19 @@ public class InvoiceController {
                 ApiResponse.success(invoiceService.getSuggestedItems(appointmentId)));
     }
 
-    // Tạo hóa đơn nháp (DRAFT) từ danh sách khoản phí do lễ tân nhập
+    /**
+     * Creates a DRAFT invoice from the lines entered by the Receptionist.
+     *
+     * @param request charge lines, optional discount, payment method
+     * @return the created invoice (DRAFT / UNPAID)
+     * @throws IllegalStateException when two Receptionists create an invoice at
+     *         the same instant and the generated codes collide
+     *
+     * Validate: {@code @Valid} enforces appointmentId presence; the service
+     * layer then applies BR-11 (total recomputed server-side) and BR-15
+     * (a single discount). The unique index on invoice_code is what surfaces
+     * the concurrent-creation collision handled here.
+     */
     @PostMapping
     public ResponseEntity<ApiResponse<InvoiceResponse>> createInvoice(
             @Valid @RequestBody InvoiceRequest request) {
@@ -110,7 +169,19 @@ public class InvoiceController {
         }
     }
 
-    // Phát hành hóa đơn sau khi thu tiền: DRAFT → ISSUED, paymentStatus → PAID
+    /**
+     * Records payment and issues the invoice: DRAFT → ISSUED, UNPAID → PAID
+     * (UC-23 normal flow step 6).
+     *
+     * @param id   invoice primary key
+     * @param body payment method (CASH / VIET_QR) and optional bank reference
+     * @return the issued invoice
+     *
+     * Validate: BR-10 — the service only flips paymentStatus to PAID for a
+     * full payment. Emailing the e-invoice afterwards is best-effort: a mail
+     * failure must not roll back a payment that was actually collected
+     * (UC-24 E1 leaves the Receptionist a manual resend).
+     */
     @PatchMapping("/{id}/issue")
     public ResponseEntity<ApiResponse<InvoiceResponse>> issueInvoice(
             @PathVariable Long id,
@@ -119,30 +190,45 @@ public class InvoiceController {
         String ref = body != null ? body.getPaymentReference() : null;
         InvoiceResponse issued = invoiceService.issueInvoice(id, method, ref);
 
-        // UC-24: tự động gửi hóa đơn điện tử qua email ngay khi thu tiền (nếu bệnh nhân có email).
-        // Best-effort: lỗi gửi mail không được làm hỏng việc phát hành đã thành công.
+        // UC-24 normal flow: e-mail the e-invoice as soon as payment is taken.
+        // BR-10 guard — only a PAID invoice is worth sending.
         if ("PAID".equals(issued.getPaymentStatus())
                 && issued.getPatientEmail() != null && !issued.getPatientEmail().isBlank()) {
             try {
                 invoiceService.markEmailSending(id);
                 invoiceMailDispatcher.dispatch(id);
             } catch (Exception ignored) {
-                // Lễ tân vẫn có thể bấm gửi lại thủ công nếu tự động gửi lỗi
+                // Swallowed on purpose: the payment already succeeded. UC-24 E1 —
+                // the Receptionist can resend or print manually.
             }
         }
         return ResponseEntity.ok(ApiResponse.success(issued));
     }
 
-    // Hủy hóa đơn nháp — chỉ cho phép khi trạng thái là DRAFT
+    /**
+     * Voids an invoice.
+     *
+     * @param id invoice primary key
+     * @return the cancelled invoice
+     *
+     * Validate: only a DRAFT invoice may be cancelled (checked in the service),
+     * and BR-09 — the row is flagged CANCELLED, never physically deleted.
+     */
     @PatchMapping("/{id}/cancel")
     public ResponseEntity<ApiResponse<InvoiceResponse>> cancelInvoice(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success(invoiceService.cancelInvoice(id)));
     }
 
-    // ThangNBHE201024 - Gửi hóa đơn điện tử qua email đến bệnh nhân
-    // Đồng bộ: kiểm tra email + đánh dấu tình trạng gửi = SENDING, trả về ngay.
-    // Việc gửi SMTP (Gmail) chạy nền qua InvoiceMailDispatcher để không treo
-    // thread request khi SMTP chậm; tình trạng gửi (SENT/FAILED) cập nhật sau.
+    /**
+     * Sends the e-invoice to the patient by email (UC-24 ALT / manual resend).
+     *
+     * Returns as soon as the invoice is flagged SENDING; the SMTP send runs on
+     * the background mail pool so a slow Gmail handshake never blocks the HTTP
+     * thread. The final SENT / FAILED outcome is written by the worker.
+     *
+     * @param id invoice primary key
+     * @throws IllegalStateException if the patient has no email on file
+     */
     @PostMapping("/{id}/send-email")
     public ResponseEntity<ApiResponse<Void>> sendEmail(@PathVariable Long id) {
         invoiceService.markEmailSending(id);
@@ -150,7 +236,14 @@ public class InvoiceController {
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
-    // Tải xuống hóa đơn dạng PDF — trả về file với Content-Disposition inline để trình duyệt hiển thị
+    /**
+     * Streams the invoice as a PDF for printing or download
+     * (UC-24 ALT-1 print, ALT-2 patient download).
+     * Served inline so the browser renders it instead of forcing a save.
+     *
+     * @param id invoice primary key
+     * @return PDF bytes with a hoa-don-{code}.pdf filename
+     */
     @GetMapping("/{id}/pdf")
     public ResponseEntity<byte[]> downloadPdf(@PathVariable Long id) {
         InvoiceResponse inv = invoiceService.getInvoiceById(id);
@@ -162,7 +255,7 @@ public class InvoiceController {
                 .body(pdf);
     }
 
-    // DTO nội bộ nhận paymentMethod và paymentReference khi phát hành hóa đơn
+    /** Inline body of {@code PATCH /{id}/issue}: how the payment was taken. */
     @Data
     public static class IssueRequest {
         private String paymentMethod;

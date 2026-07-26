@@ -1,12 +1,3 @@
-// ThangNBHE201024 - HE187030
-// Entity đại diện cho bảng payment_transactions: lưu lại mọi giao dịch chuyển khoản
-// do cổng thanh toán (SePay/Casso) đẩy về qua webhook.
-//
-// Vai trò:
-//  - Nhật ký đối soát: giữ nguyên payload gốc của cổng để tra cứu khi có tranh chấp.
-//  - Chống ghi trùng (idempotency): gateway_txn_id là UNIQUE, cổng bắn lặp cũng chỉ ghi 1 lần.
-//  - Truy vết: một giao dịch không khớp hóa đơn nào vẫn được lưu với status = UNMATCHED
-//    thay vì bị bỏ qua âm thầm, để lễ tân/kế toán xử lý tay.
 package com.ecms.entity;
 
 import jakarta.persistence.*;
@@ -15,6 +6,26 @@ import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/**
+ * @author  ThangNB - HE201024
+ * @created 2026-07-17
+ * @updated 2026-07-17
+ *
+ * Maps the {@code payment_transactions} table — every bank transfer the
+ * payment gateway (SePay / Casso) reports through the webhook
+ * (UC-23 ALT-2 Process Payment via QR / bank transfer).
+ *
+ * Three jobs:
+ *  - Reconciliation journal: the gateway's raw payload is kept verbatim so a
+ *    disputed payment can be traced back to what the bank actually sent.
+ *  - Idempotency: {@code gateway_txn_id} is UNIQUE, so a retried webhook is
+ *    written once and can never settle the same invoice twice.
+ *  - Traceability: a transfer that matches no invoice is still stored with
+ *    status UNMATCHED instead of being dropped, leaving accounting a worklist.
+ *
+ * Business rules: BR-10 — only a transfer whose amount covers the invoice
+ * total is allowed to mark that invoice PAID.
+ */
 @Entity
 @Table(name = "payment_transactions")
 @Getter
@@ -28,66 +39,80 @@ public class PaymentTransaction {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Mã giao dịch do cổng thanh toán cấp — UNIQUE để chặn xử lý trùng khi cổng retry
+    /** Gateway-assigned transaction id.
+     *  Validate: UNIQUE constraint is the idempotency guard — a gateway retry
+     *  of the same transaction cannot be journalled, or settled, twice. */
     @Column(name = "gateway_txn_id", nullable = false, unique = true, length = 100)
     private String gatewayTxnId;
 
-    // Tên cổng/ngân hàng gửi webhook (ví dụ: SePay, Vietcombank)
+    /** Gateway or bank that sent the webhook, e.g. SePay, Vietcombank. */
     @Column(name = "gateway", length = 50)
     private String gateway;
 
-    // Hóa đơn được khớp; null khi giao dịch không tìm được hóa đơn tương ứng
+    /** Invoice this transfer settled; null when no invoice could be matched. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "invoice_id")
     private Invoice invoice;
 
-    // Mã hóa đơn trích ra từ nội dung chuyển khoản (INV-yyyyMMdd-XXXX)
+    /** Invoice code recovered from the transfer memo (INV-yyyyMMdd-XXXX). */
     @Column(name = "matched_invoice_code", length = 30)
     private String matchedInvoiceCode;
 
+    /** Amount received. Compared against the invoice total under BR-10. */
     @Column(name = "amount", precision = 12, scale = 2)
     private BigDecimal amount;
 
-    // Nội dung chuyển khoản do người trả nhập — nguồn để dò mã hóa đơn
+    /** Transfer memo as typed by the payer — the text the invoice code is parsed from. */
     @Column(name = "content", length = 500)
     private String content;
 
-    // Số tài khoản nhận tiền
+    /** Receiving account number. */
     @Column(name = "account_number", length = 50)
     private String accountNumber;
 
-    // Mã tham chiếu của ngân hàng (ví dụ MBVCB.3278907687)
+    /** Bank reference code, e.g. MBVCB.3278907687. */
     @Column(name = "reference_code", length = 100)
     private String referenceCode;
 
-    // in = tiền vào, out = tiền ra. Chỉ giao dịch "in" mới được đối soát.
+    /** "in" = money received, "out" = money sent.
+     *  Validate: only "in" transfers are reconciled; an "out" movement is
+     *  journalled as IGNORED so clinic payouts never settle a patient invoice. */
     @Column(name = "transfer_type", length = 10)
     private String transferType;
 
-    // MATCHED       — khớp hóa đơn và đã gạch nợ thành công
-    // UNMATCHED     — không dò được mã hóa đơn trong nội dung chuyển khoản
-    // AMOUNT_MISMATCH — khớp hóa đơn nhưng số tiền không đủ
-    // DUPLICATE     — hóa đơn đã PAID từ trước
-    // IGNORED       — giao dịch tiền ra, không liên quan
+    /** Reconciliation outcome:
+     *  MATCHED         — invoice found and settled
+     *  UNMATCHED       — no invoice code could be parsed from the memo
+     *  AMOUNT_MISMATCH — invoice found but the amount did not cover the total (BR-10)
+     *  DUPLICATE       — the invoice was already PAID
+     *  IGNORED         — outgoing transfer, not a patient payment */
     @Column(name = "status", nullable = false, length = 20)
     private String status;
 
-    // Ghi chú lý do khi status khác MATCHED — hiển thị cho kế toán khi đối soát
+    /** Reason text for any status other than MATCHED, shown to accounting
+     *  during manual reconciliation. */
     @Column(name = "note", length = 500)
     private String note;
 
-    // Payload JSON gốc của cổng — giữ nguyên để đối soát/debug
+    /** Verbatim gateway JSON — kept for dispute resolution and debugging. */
     @Column(name = "raw_payload", columnDefinition = "NVARCHAR(MAX)")
     private String rawPayload;
 
-    // Thời điểm giao dịch theo cổng báo về
+    /** Transaction time as reported by the gateway. */
     @Column(name = "transaction_date")
     private LocalDateTime transactionDate;
 
-    // Thời điểm hệ thống ECMS nhận được webhook
+    /** Time ECMS received the webhook. */
     @Column(name = "received_at", nullable = false)
     private LocalDateTime receivedAt;
 
+    /**
+     * Fills defaults before INSERT.
+     *
+     * Validate: status defaults to UNMATCHED, never MATCHED — a transaction is
+     * only promoted to MATCHED after the reconciliation logic has actually
+     * found the invoice and verified the amount (BR-10).
+     */
     @PrePersist
     protected void onCreate() {
         if (receivedAt == null) receivedAt = LocalDateTime.now();

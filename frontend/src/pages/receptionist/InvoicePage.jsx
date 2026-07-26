@@ -1,27 +1,35 @@
 /**
- * InvoicePage — Trang thu phí & phát hành hóa đơn cho Lễ tân
- * ThangNBHE201024 - HE187030
+ * @author      ThangNB - HE201024
+ * @contributor Đồng Mạnh Hùng - HE200743
+ * @created     2026-05-31
+ * @updated     2026-07-19
  *
- * Luồng nghiệp vụ:
- *  1. Lễ tân chọn lịch hẹn COMPLETED chưa có hóa đơn từ tab "Tạo hóa đơn"
- *  2. Nhập các khoản phí (dịch vụ, xét nghiệm, thuốc, kính...)
- *  3. Chọn phương thức thanh toán: Tiền mặt hoặc QR Code (VietQR)
- *     - Tiền mặt: lễ tân cầm tiền → tạo hóa đơn (DRAFT) và phát hành ngay (ISSUED)
- *     - QR Code: tạo hóa đơn nháp trước để có mã INV-yyyyMMdd-XXXX → sinh mã QR mang
- *       chính mã đó làm nội dung chuyển khoản → chờ ngân hàng xác nhận. Hóa đơn CHỈ
- *       chuyển sang PAID khi cổng thanh toán bắn webhook báo tiền đã vào tài khoản,
- *       lễ tân không tự xác nhận thay ngân hàng.
- *  4. Tab "Lịch sử hóa đơn": xem chi tiết, in hoặc gửi email hóa đơn
+ * Receptionist billing screen — UC-23 (Process Payment) and UC-24 (Deliver
+ * Invoice).
  *
- * State quản lý qua Redux (invoiceSlice):
- *  - list: danh sách hóa đơn, loading: trạng thái tải
+ * Flow:
+ *  1. Pick a COMPLETED visit that has no invoice yet, from the "create" tab
+ *  2. Enter the charge lines (service, lab, medicine, eyeglasses...)
+ *  3. Choose the payment method — cash or VietQR:
+ *     - Cash (UC-23 ALT-1): the Receptionist takes the money, so the invoice is
+ *       created DRAFT and issued immediately
+ *     - VietQR (UC-23 ALT-2): the draft is created first to obtain its
+ *       INV-yyyyMMdd-XXXX code, the QR carries that code as the transfer memo,
+ *       and the invoice only becomes PAID when the gateway webhook confirms
+ *       the funds. Per BR-10 the Receptionist cannot confirm on the bank's
+ *       behalf.
+ *  4. The "history" tab shows detail, printing and emailing
  *
- * Tích hợp:
- *  - VietQR Image API: sinh mã QR chuyển khoản theo thông tin ngân hàng từ .env
- *  - Payment webhook (backend, UC-22): cổng thanh toán báo tiền về → tự gạch nợ;
- *    trang này polling GET /payments/invoice/{id}/status mỗi 3 giây để cập nhật UI
- *  - JavaMailSender (backend): gửi email HTML hóa đơn đến bệnh nhân
- *  - window.print(): in hóa đơn trực tiếp từ trình duyệt
+ * State lives in Redux (invoiceSlice): `list` and `loading`.
+ *
+ * Integrations:
+ *  - VietQR Image API — renders the transfer QR from the bank details in .env
+ *  - Payment webhook (backend, UC-23 ALT-2) — this page polls
+ *    GET /payments/invoice/{id}/status every 3 seconds to reflect settlement
+ *  - JavaMailSender (backend) — HTML e-invoice email
+ *  - window.print() — direct browser printing (UC-24 ALT-1)
+ *
+ * Business rules: BR-10, BR-11, BR-15, BR-09.
  */
 
 import { useEffect, useState, useCallback } from 'react'
@@ -126,6 +134,10 @@ const fmt = (amount) =>
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+/**
+ * Renders the two-tab billing screen: create invoice and invoice history.
+ * @returns {JSX.Element} the billing screen
+ */
 export default function InvoicePage() {
   const dispatch = useDispatch()
   const location = useLocation()
@@ -403,6 +415,23 @@ export default function InvoicePage() {
 
   // Kiểm tra hợp lệ dùng chung cho cả hai luồng tiền mặt và QR.
   // Trả về values của form nếu hợp lệ, null nếu có lỗi (đã hiện cảnh báo).
+  /**
+   * Validates the create-invoice form before any request is sent
+   * (UC-23 normal flow step 4).
+   *
+   * Checks, in order:
+   *  - the Ant Design form rules (payment method, etc.)
+   *  - at least one charge line exists — an empty invoice is meaningless
+   *  - every line has a description, so the printed invoice is readable
+   *  - no two lines share a description, which would make the invoice
+   *    ambiguous and is rejected by the backend as a duplicate row
+   *  - every unit price is greater than 0
+   *  - BR-11 / BR-15 — the discount sits within [0, subtotal], so the total
+   *    can never go negative or exceed the charges actually incurred; the
+   *    backend clamps this too, this check is only for immediate feedback
+   *
+   * @returns {Promise<Object|null>} the form values, or null when invalid
+   */
   const validateInvoiceForm = async () => {
     let values
     try { values = await form.validateFields() } catch { return null }
@@ -412,6 +441,8 @@ export default function InvoicePage() {
       message.warning('Vui lòng nhập mô tả cho tất cả các khoản phí')
       return null
     }
+    // Duplicate descriptions make the invoice ambiguous to read and are
+    // rejected server-side, so catch them before the round trip.
     const descs = items.map((it) => it.description.trim().toLowerCase())
     if (descs.length !== new Set(descs).size) {
       message.warning('Có khoản phí bị trùng nhau, vui lòng kiểm tra lại')
@@ -421,6 +452,7 @@ export default function InvoicePage() {
       message.warning('Đơn giá phải lớn hơn 0 cho tất cả các khoản phí')
       return null
     }
+    // BR-11 / BR-15: keep the discount inside [0, subtotal].
     if ((discount || 0) < 0 || (discount || 0) > totalAmount) {
       message.warning('Số tiền giảm giá phải từ 0 đến tổng tạm tính')
       return null
@@ -428,6 +460,15 @@ export default function InvoicePage() {
     return values
   }
 
+  /**
+   * Shapes the validated form state into the create-invoice request body.
+   *
+   * Note it sends no total: BR-11 requires the server to derive it from the
+   * lines, so a tampered client cannot dictate the amount owed.
+   *
+   * @param {Object} values validated form values
+   * @returns {Object} the request payload
+   */
   const buildInvoicePayload = (values) => ({
     appointmentId: createModal.appointment.id,
     paymentMethod: values.paymentMethod,
@@ -442,9 +483,15 @@ export default function InvoicePage() {
     })),
   })
 
-  // UC-22/UC-23 (BP-4): thu tiền xong thì gửi hóa đơn điện tử vào email bệnh nhân.
-  // Lỗi gửi email (bệnh nhân chưa có email, SMTP timeout...) chỉ cảnh báo,
-  // không làm hỏng luồng thu phí đã hoàn tất.
+  /**
+   * Emails the e-invoice once payment is taken (UC-24).
+   *
+   * Deliberately quiet: a mail failure (no email on file, SMTP timeout) only
+   * warns. The payment has already been collected, so it must not be
+   * invalidated by a delivery problem — UC-24 E1 leaves a manual resend.
+   *
+   * @param {number} invoiceId invoice to send
+   */
   const sendInvoiceEmailQuietly = async (invoiceId) => {
     try {
       await invoiceService.sendEmail(invoiceId)
@@ -459,9 +506,15 @@ export default function InvoicePage() {
     }
   }
 
-  // Luồng TIỀN MẶT: tạo hóa đơn ở trạng thái "Chờ nhận tiền" (chưa phát hành), KHÔNG đánh dấu
-  // đã thanh toán ngay. Bệnh nhân xem được và có thể yêu cầu hủy trước khi trả tiền. Lễ tân
-  // bấm "Đã nhận tiền" (bảng lịch sử) để chốt khi thực nhận đủ tiền mặt.
+  /**
+   * Cash flow (UC-23 ALT-1): creates the invoice as "awaiting cash", i.e. a
+   * DRAFT that is not yet issued.
+   *
+   * Validate: BR-10 — creation alone does not mark the invoice paid. The
+   * patient can see it and request cancellation before handing over money;
+   * the Receptionist confirms with "cash received" in the history tab only
+   * once the full amount is actually in hand.
+   */
   const handleSubmit = async () => {
     const values = await validateInvoiceForm()
     if (!values) return
@@ -472,9 +525,9 @@ export default function InvoicePage() {
       const created = await dispatch(createInvoice(buildInvoicePayload(values))).unwrap()
       message.success(`Đã tạo hóa đơn ${created.invoiceCode} (chờ nhận tiền).`)
 
-      // UC-22/UC-23 (BP-4): tạo & phát hành xong thì gửi hóa đơn điện tử vào email
-      // bệnh nhân. Việc gửi chạy nền; tình trạng gửi hiển thị ở cột "Gửi email".
-      // Lỗi (bệnh nhân chưa có email) chỉ cảnh báo, không làm hỏng luồng thu phí.
+      // UC-24: email the e-invoice. Sending runs in the background and the
+      // outcome shows in the "email" column. A failure (no address on file)
+      // only warns — it must not undo the billing step.
       try {
         await invoiceService.sendEmail(created.id)
         message.success('Đang gửi hóa đơn vào email bệnh nhân…')
@@ -495,10 +548,16 @@ export default function InvoicePage() {
     }
   }
 
-  // Luồng QR (ThangNBHE201024): KHÔNG phát hành ngay.
-  // Chỉ tạo hóa đơn nháp để có mã hóa đơn, rồi sinh mã QR mang đúng mã đó làm nội dung
-  // chuyển khoản. Hóa đơn chỉ chuyển sang PAID khi cổng thanh toán bắn webhook báo
-  // tiền đã thực sự vào tài khoản phòng khám — lễ tân không tự xác nhận thay ngân hàng.
+  /**
+   * VietQR flow (UC-23 ALT-2): deliberately does NOT issue the invoice.
+   *
+   * It creates the draft purely to obtain an invoice code, then renders a QR
+   * whose transfer memo is that code.
+   *
+   * Validate: BR-10 — the invoice only reaches PAID when the gateway webhook
+   * confirms the funds actually landed. The Receptionist cannot confirm on the
+   * bank's behalf, which is why no issue call happens here.
+   */
   const handleCreateQrInvoice = async () => {
     const values = await validateInvoiceForm()
     if (!values) return
@@ -561,7 +620,12 @@ export default function InvoicePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingInvoice, pollTimedOut, dispatch, refreshAppointments])
 
-  // Kiểm tra thủ công sau khi đã hết giờ chờ tự động
+  /**
+   * Manual "check now" after the automatic polling window has timed out.
+   *
+   * Validate: BR-10 — this still only reads the gateway-confirmed state; it is
+   * not a way for the Receptionist to force the invoice paid.
+   */
   const handleCheckPaymentNow = async () => {
     if (!pendingInvoice) return
     setCheckingNow(true)
@@ -581,6 +645,13 @@ export default function InvoicePage() {
 
   // ─── Cancel invoice ───────────────────────────────────────────────────────────
 
+  /**
+   * Cancels a draft invoice.
+   * @param {number} id invoice id
+   *
+   * Validate: BR-09 — a soft cancel; the backend keeps the row so its charge
+   * lines can be restored if the invoice is re-created for the same visit.
+   */
   const handleCancelInvoice = async (id) => {
     try {
       await dispatch(cancelInvoice(id)).unwrap()
@@ -592,7 +663,16 @@ export default function InvoicePage() {
     }
   }
 
-  // Lễ tân xác nhận đã nhận đủ tiền mặt → phát hành hóa đơn (Chờ nhận tiền → Đã thanh toán)
+  /**
+   * Confirms the full cash amount was received, issuing the invoice
+   * (awaiting cash → ISSUED / PAID) — UC-23 ALT-1 step 2.
+   *
+   * @param {number} id invoice id
+   *
+   * Validate: BR-10 — this is the cash counterpart of the gateway webhook; the
+   * Receptionist is accountable for the money, which is what makes a manual
+   * confirmation acceptable here but not for VietQR.
+   */
   const handleConfirmCash = async (id) => {
     try {
       await dispatch(issueInvoice({ id, paymentMethod: 'CASH', paymentReference: null })).unwrap()
@@ -605,9 +685,18 @@ export default function InvoicePage() {
     }
   }
 
-  // ─── In hóa đơn PDF (ThangNBHE201024) ───────────────────────────────────────
-  // Gọi API GET /{id}/pdf để lấy file PDF từ backend, tạo Blob URL rồi mở tab mới.
-  // Trình duyệt tự hiển thị PDF viewer và cho phép người dùng in hoặc tải về.
+  // ─── Print the invoice PDF (UC-24 ALT-1) ────────────────────────────────────
+
+  /**
+   * Fetches the invoice PDF and opens it in a new tab, letting the browser's
+   * viewer handle printing or saving.
+   *
+   * The error branch unwraps a Blob error body, because the endpoint responds
+   * with a PDF stream on success and JSON on failure — without this the user
+   * would only ever see a generic message.
+   *
+   * @param {Object} inv the invoice to print
+   */
   const handlePrint = async (inv) => {
     setPrintLoading(true)
     try {
@@ -640,9 +729,18 @@ export default function InvoicePage() {
     }
   }
 
-  // ─── Gửi hóa đơn điện tử qua email (ThangNBHE201024) ────────────────────────
-  // Gọi API POST /{id}/send-email, backend dùng JavaMailSender gửi HTML email đến bệnh nhân.
-  // Kiểm tra patientEmail trước khi gọi — nếu không có email thì hiện cảnh báo.
+  // ─── Send the e-invoice by email (UC-24) ────────────────────────────────────
+
+  /**
+   * Emails the HTML e-invoice to the patient, on request or as a resend after
+   * a failed automatic send (UC-24 E1).
+   *
+   * @param {Object} inv the invoice to send
+   *
+   * Validate: patientEmail is checked before the call so the Receptionist gets
+   * an immediate, specific warning instead of a generic server error; the
+   * backend re-checks and rejects a send with no recipient.
+   */
   const handleSendEmail = async (inv) => {
     if (!inv.patientEmail) {
       message.warning('Bệnh nhân chưa có địa chỉ email trong hồ sơ')

@@ -1,6 +1,19 @@
-// UC-48: Bệnh nhân đánh giá buổi khám đã hoàn thành.
-// Luồng 2 bước: (1) chọn buổi khám → (2) form đánh giá gồm ĐÁNH GIÁ TỔNG THỂ
-// và ĐÁNH GIÁ TỪNG NGƯỜI THAM GIA (bác sĩ, lễ tân, KTV xét nghiệm).
+/**
+ * @author  ThangNB - HE201024
+ * @created 2026-07-19
+ * @updated 2026-07-20
+ *
+ * Patient feedback screen (UC-48 Submit Feedback).
+ *
+ * Two steps: pick a completed visit, then fill the form — an overall rating
+ * plus optional per-participant ratings for the doctor, receptionist and lab
+ * technician who took part.
+ *
+ * Business rules:
+ *  - UC-48 PRE-2 — only COMPLETED visits are offered
+ *  - BR-21 — one feedback per appointment; an already-rated visit is not
+ *    offered, and the backend rejects a duplicate regardless
+ */
 import { useEffect, useState } from 'react'
 import { FiUser, FiCalendar, FiClock } from 'react-icons/fi'
 import { FaStar, FaRegStar, FaStethoscope, FaFlask, FaConciergeBell } from 'react-icons/fa'
@@ -43,6 +56,10 @@ function RoleIcon({ role }) {
   return <Icon size={16} color="#0f6e66" />
 }
 
+/**
+ * Renders the two-step feedback flow: visit picker, then rating form.
+ * @returns {JSX.Element} the feedback screen
+ */
 export default function FeedbackPage() {
   const [appointments, setAppointments] = useState([])
   const [doneIds, setDoneIds] = useState(new Set())
@@ -57,6 +74,10 @@ export default function FeedbackPage() {
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
 
+  /**
+   * Loads the patient's completed visits and marks the ones already rated, so
+   * BR-21 is reflected in the list rather than only failing on submit.
+   */
   const loadList = async () => {
     setLoadingList(true)
     try {
@@ -72,6 +93,11 @@ export default function FeedbackPage() {
   }
   useEffect(() => { loadList() }, [])
 
+  /**
+   * Opens the rating form for a visit, loading who took part so each person
+   * can be rated individually.
+   * @param {Object} appt the selected appointment
+   */
   const openForm = async (appt) => {
     setSelected(appt); setVisit(null); setRating(0); setContent(''); setPartRatings({}); setError(''); setMsg('')
     try {
@@ -84,6 +110,15 @@ export default function FeedbackPage() {
 
   const backToList = () => { setSelected(null); setVisit(null) }
 
+  /**
+   * Submits the feedback form (UC-48 normal flow steps 4-6).
+   *
+   * Validate: UC-48 E1 — an overall star rating is mandatory; submission is
+   * blocked with an inline message when none is chosen. Per-participant
+   * ratings are optional, so unrated participants are filtered out rather
+   * than sent as nulls. BR-21 is enforced by the backend and surfaces as an
+   * error if the visit was somehow already rated.
+   */
   const submit = async () => {
     if (!rating) { setError('Vui lòng chọn số sao đánh giá tổng thể'); return }
     const participants = visit?.participants || []

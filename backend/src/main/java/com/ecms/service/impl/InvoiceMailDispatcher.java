@@ -13,15 +13,21 @@ import org.springframework.stereotype.Component;
 import jakarta.mail.internet.MimeMessage;
 
 /**
- * Worker gửi email hóa đơn chạy NỀN trên pool "mailExecutor".
+ * @author  ThangNB - HE201024
+ * @created 2026-07-11
+ * @updated 2026-07-11
  *
- * Vì sao tách riêng: SMTP (Gmail) có thể chậm vài giây. Nếu gửi ngay trên
- * thread request thì HTTP response bị treo tới khi SMTP xong -> frontend báo
- * "không nhận response" dù email vẫn tới. Ở đây endpoint đã trả về ngay
- * (sau khi đánh dấu SENDING), còn việc gửi + cập nhật tình trạng chạy nền.
+ * Background worker that emails the e-invoice PDF to the patient (UC-24),
+ * running on the dedicated "mailExecutor" pool.
  *
- * Quan trọng: việc gửi SMTP KHÔNG nằm trong transaction DB, nên không giữ
- * connection HikariCP suốt thời gian chờ SMTP.
+ * Why it is split out: Gmail SMTP can take several seconds. Sending on the
+ * request thread would hold the HTTP response open until SMTP finished, so the
+ * frontend appeared to hang even though the mail went out. The endpoint now
+ * returns immediately after flagging the invoice SENDING, and this worker does
+ * the send plus the status update.
+ *
+ * Just as important, the SMTP call sits outside any DB transaction, so a slow
+ * mail server never pins a HikariCP connection for its duration.
  */
 @Component
 @RequiredArgsConstructor
@@ -34,13 +40,23 @@ public class InvoiceMailDispatcher {
     @Value("${spring.mail.username:no-reply@ecms.vn}")
     private String fromAddress;
 
+    /**
+     * Renders and sends the e-invoice email, then records the outcome.
+     *
+     * Runs asynchronously — the caller has already returned to the client.
+     * Never rethrows: a mail failure must not undo a payment that was
+     * genuinely collected, so the error is logged and the invoice is flagged
+     * FAILED, which is what exposes the resend action described in UC-24 E1.
+     *
+     * @param invoiceId invoice to send
+     */
     @Async("mailExecutor")
     public void dispatch(Long invoiceId) {
         try {
-            // Đọc dữ liệu (transaction ngắn) rồi build HTML từ DTO
+            // Short read transaction, then build the HTML body from the DTO
             InvoiceResponse inv = invoiceService.getInvoiceById(invoiceId);
 
-            // Gửi SMTP — ngoài transaction, không giữ DB connection
+            // SMTP send — outside any transaction, holds no DB connection
             MimeMessage mime = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mime, true, "UTF-8");
             helper.setFrom(fromAddress);
@@ -52,7 +68,8 @@ public class InvoiceMailDispatcher {
             invoiceService.markEmailStatus(invoiceId, "SENT");
             log.info("Đã gửi email hóa đơn {} tới {}", inv.getInvoiceCode(), inv.getPatientEmail());
         } catch (Exception e) {
-            // Hóa đơn vẫn PAID; chỉ tình trạng gửi = FAILED để lễ tân gửi lại
+            // UC-24 E1: the invoice stays PAID, only the delivery state turns
+            // FAILED so the Receptionist can retry or print instead.
             log.error("Gửi email hóa đơn id={} thất bại: {}", invoiceId, e.getMessage());
             invoiceService.markEmailStatus(invoiceId, "FAILED");
         }

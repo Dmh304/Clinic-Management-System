@@ -1,3 +1,21 @@
+/**
+ * @author  ThangNB - HE201024
+ * @created 2026-07-03
+ * @updated 2026-07-18
+ *
+ * Patient portal "My Invoices" screen — UC-24 Deliver Invoice (ALT-2 patient
+ * download) plus the VietQR payment flow of UC-23 (ALT-2).
+ *
+ * The patient can review their invoices, download the PDF, request an emailed
+ * copy, pay an outstanding invoice by scanning a VietQR code, and cancel an
+ * unpaid draft.
+ *
+ * Business rules:
+ *  - BR-08 — the list is scoped server-side to the signed-in patient
+ *  - BR-10 — an invoice is only shown as paid once the gateway confirms it;
+ *    this screen never marks anything paid itself
+ *  - BR-09 — cancelling is a soft state change, the invoice remains visible
+ */
 import { useEffect, useState } from 'react'
 import { Modal, Spin, message, Empty } from 'antd'
 import { invoiceService } from '../../services/invoiceService'
@@ -57,6 +75,10 @@ const TAB_ALL      = 'ALL'
 const TAB_UNPAID   = 'UNPAID'   // lọc theo trạng thái thanh toán, không phải status hóa đơn
 const TAB_ISSUED   = 'ISSUED'
 
+/**
+ * Renders the patient's invoice list, detail modal and QR payment modal.
+ * @returns {JSX.Element} the invoices screen
+ */
 export default function MyInvoicesPage() {
   const [invoices, setInvoices]     = useState([])
   const [loading, setLoading]       = useState(true)
@@ -68,6 +90,7 @@ export default function MyInvoicesPage() {
   // Hóa đơn đang thanh toán bằng QR (mở modal QR + polling trạng thái)
   const [payModal, setPayModal] = useState(null)
 
+  /** Reloads the patient's own invoices (BR-08: scoped server-side). */
   const reloadInvoices = () =>
     invoiceService.getMy()
       .then(res => setInvoices(res.data || []))
@@ -77,8 +100,13 @@ export default function MyInvoicesPage() {
     reloadInvoices().finally(() => setLoading(false))
   }, [])
 
-  // Đang mở modal QR: hỏi backend mỗi 3 giây xem cổng thanh toán đã báo tiền về chưa.
-  // Tiền về → tự đóng modal, báo thành công và tải lại danh sách.
+  // While the QR modal is open, poll the backend every 3 seconds to see
+  // whether the gateway has reported the transfer (UC-23 ALT-2 step 4).
+  // On success the modal closes itself and the list refreshes.
+  //
+  // Validate: BR-10 — this only *reads* `paid`, which the backend sets solely
+  // from a confirmed full payment. Transient network errors are swallowed so
+  // one failed poll does not abort the loop.
   useEffect(() => {
     if (!payModal) return
     let cancelled = false
@@ -95,7 +123,15 @@ export default function MyInvoicesPage() {
     return () => { cancelled = true; clearInterval(timer) }
   }, [payModal])
 
-  // Bệnh nhân yêu cầu hủy một hóa đơn chưa thanh toán (hủy hóa đơn nháp).
+  /**
+   * Cancels an unpaid draft invoice at the patient's request.
+   *
+   * @param {Object} inv the invoice to cancel
+   *
+   * Validate: confirmation is required first; the backend then enforces that
+   * only a DRAFT invoice may be cancelled, and BR-09 keeps the row as
+   * CANCELLED rather than deleting it.
+   */
   const handleRequestCancel = (inv) => {
     Modal.confirm({
       title: 'Yêu cầu hủy hóa đơn',
@@ -129,6 +165,10 @@ export default function MyInvoicesPage() {
     .filter(i => i.paymentStatus === 'PAID')
     .reduce((s, i) => s + (i.totalAmount ?? 0), 0)
 
+  /**
+   * Opens the detail modal, loading the invoice with its charge lines.
+   * @param {Object} inv the invoice row that was clicked
+   */
   const handleOpenDetail = async (inv) => {
     setDetailLoading(true)
     setDetail({ ...inv, items: [] })
@@ -142,6 +182,10 @@ export default function MyInvoicesPage() {
     }
   }
 
+  /**
+   * Downloads the invoice PDF (UC-24 ALT-2 "Patient downloads from Portal").
+   * @param {Object} inv the invoice to download
+   */
   const handleDownloadPdf = async (inv) => {
     setPdfLoading(inv.id)
     try {
@@ -164,6 +208,15 @@ export default function MyInvoicesPage() {
 
   // Gửi hóa đơn điện tử vào chính email của bệnh nhân (backend gửi tới patient.email
   // gắn với hóa đơn — cũng là email tài khoản đang đăng nhập).
+  /**
+   * Requests an emailed copy of the e-invoice (UC-24).
+   *
+   * @param {Object} inv the invoice to send
+   *
+   * Validate: the backend rejects the request when the patient has no email
+   * on file; delivery itself completes asynchronously, so success here means
+   * "queued", not "delivered" (UC-24 E1 covers the failure path).
+   */
   const handleSendEmail = async (inv) => {
     setEmailSending(inv.id)
     try {

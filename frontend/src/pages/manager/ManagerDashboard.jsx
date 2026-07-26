@@ -1,4 +1,18 @@
-// UC-49: Dashboard vận hành thời gian thực cho Quản lý (auto-refresh 60s).
+/**
+ * @author      ThangNB - HE201024
+ * @contributor Đồng Mạnh Hùng - HE200743
+ * @created     2026-05-31
+ * @updated     2026-07-20
+ *
+ * Real-time operational dashboard for the Clinic Manager
+ * (UC-49 View Real-time Operational Analytics Dashboard).
+ *
+ * Shows today's appointment progress, per-doctor queue lengths, prescriptions
+ * awaiting dispensing, outstanding invoices and lab orders in progress, and
+ * auto-refreshes every 60 seconds per UC-49 normal flow step 3.
+ *
+ * Read-only screen — no business rule is applied here.
+ */
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { FiSearch, FiBell, FiChevronDown, FiMoreHorizontal, FiRefreshCw, FiCalendar, FiCheckCircle, FiDollarSign } from 'react-icons/fi'
@@ -29,6 +43,7 @@ const STAT_ICONS = {
   lab: { bg: '#e0e7ff', Icon: FaFlask },
 }
 
+/** One headline metric tile of the dashboard. */
 function StatCard({ type, label, value, sub }) {
   const cfg = STAT_ICONS[type]
   const Icon = cfg.Icon
@@ -49,11 +64,16 @@ function StatCard({ type, label, value, sub }) {
   )
 }
 
+/**
+ * Renders the operational dashboard and keeps it current.
+ * @returns {JSX.Element} the dashboard screen
+ */
 export default function ManagerDashboard() {
   const [data, setData] = useState(null)
   const [updatedAt, setUpdatedAt] = useState(null)
   const [error, setError] = useState('')
 
+  /** Fetches the current dashboard snapshot; also the 60s refresh callback. */
   const load = async () => {
     try {
       const res = await reportService.operationalDashboard()

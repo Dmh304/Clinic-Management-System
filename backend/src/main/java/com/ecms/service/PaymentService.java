@@ -1,25 +1,65 @@
-// ThangNBHE201024 - HE187030
-// Interface nghiệp vụ thanh toán tự động (UC-22 Process Payment — luồng VietQR).
-//
-// Bối cảnh: trước đây lễ tân bấm "Xác nhận thu tiền" và hệ thống tin tưởng tuyệt đối,
-// tức hóa đơn được đánh dấu PAID kể cả khi bệnh nhân chưa thực sự chuyển khoản.
-// Các method dưới đây cho phép chính ngân hàng/cổng thanh toán báo ngược về hệ thống
-// khi tiền đã vào tài khoản, rồi ECMS tự gạch nợ hóa đơn.
 package com.ecms.service;
 
 import com.ecms.dto.request.PaymentWebhookRequest;
 import com.ecms.dto.response.PaymentStatusResponse;
 
+/**
+ * @author  ThangNB - HE201024
+ * @created 2026-07-17
+ * @updated 2026-07-17
+ *
+ * Automated settlement contract for the VietQR branch of UC-23 (Process
+ * Payment, ALT-2 QR Code / Bank Transfer).
+ *
+ * Why this exists: the cash path relies on a Receptionist asserting that money
+ * changed hands. For a bank transfer that assertion is not good enough — an
+ * invoice would reach PAID even if the patient never transferred. These
+ * methods let the gateway itself report the incoming funds, and ECMS settles
+ * the invoice from that report.
+ *
+ * Business rules: BR-10 — an invoice becomes PAID only when the reported
+ * amount covers the total; anything short leaves it untouched (UC-23 E2).
+ */
 public interface PaymentService {
 
-    // Xử lý một webhook biến động số dư từ cổng thanh toán.
-    // Trả về trạng thái đối soát: MATCHED | UNMATCHED | AMOUNT_MISMATCH | DUPLICATE | IGNORED.
-    // Luôn ghi nhật ký giao dịch, kể cả khi không khớp hóa đơn nào.
+    /**
+     * Processes one incoming-payment webhook from the gateway
+     * (UC-23 ALT-2 step 5).
+     *
+     * Every call is journalled to {@code payment_transactions}, including
+     * transfers that match no invoice, so accounting can reconcile them later.
+     *
+     * @param request    parsed webhook payload
+     * @param rawPayload the untouched JSON body, stored for audit
+     * @return reconciliation outcome — MATCHED | UNMATCHED | AMOUNT_MISMATCH
+     *         | DUPLICATE | IGNORED
+     *
+     * Validate: BR-10 — only a MATCHED transfer whose amount covers the
+     * invoice total may settle it; AMOUNT_MISMATCH deliberately leaves the
+     * invoice PENDING_PAYMENT.
+     */
     String handleWebhook(PaymentWebhookRequest request, String rawPayload);
 
-    // Kiểm tra hóa đơn đã được thanh toán chưa — frontend polling khi đang hiện mã QR.
+    /**
+     * Reports whether an invoice has been settled yet — polled by the frontend
+     * every few seconds while the QR code is on screen (UC-23 ALT-2 step 4),
+     * so no manual confirmation is needed.
+     *
+     * @param invoiceId invoice being paid
+     * @return current payment state of that invoice
+     */
     PaymentStatusResponse getPaymentStatus(Long invoiceId);
 
-    // So khớp API key trong header Authorization của webhook với key cấu hình.
+    /**
+     * Authenticates a webhook call by comparing the Authorization header
+     * against the configured gateway API key.
+     *
+     * @param authorizationHeader raw Authorization header, may be null
+     * @return true when the key matches
+     *
+     * Validate: the webhook endpoint is public by necessity (the gateway has
+     * no session), so this shared-secret check is the only thing preventing an
+     * attacker from marking arbitrary invoices as paid.
+     */
     boolean isValidApiKey(String authorizationHeader);
 }

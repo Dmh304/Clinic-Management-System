@@ -8,8 +8,17 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * UC-48: Đánh giá của bệnh nhân sau buổi khám (mỗi lịch hẹn tối đa 1 feedback — BR-21).
- * Trạng thái: PENDING (chờ Quản lý duyệt) | APPROVED | HIDDEN.
+ * @author      ThangNB - HE201024
+ * @contributor Đồng Mạnh Hùng - HE200743
+ * @created     2026-05-31
+ * @updated     2026-07-20
+ *
+ * A patient's rating of a completed visit (UC-48 Submit Feedback); the source
+ * data behind the Manager's feedback report (UC-53).
+ *
+ * Moderation status: PENDING (awaiting Manager review) | APPROVED | HIDDEN.
+ *
+ * Business rules: BR-21 — at most one feedback per appointment.
  */
 @Entity
 @Table(name = "feedbacks")
@@ -28,6 +37,9 @@ public class Feedback {
     @JoinColumn(name = "patient_id", nullable = false)
     private Patient patient;
 
+    /** The visit being rated.
+     *  Validate: BR-21 — this is the key the one-feedback-per-appointment rule
+     *  is checked against before insert. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "appointment_id", nullable = false)
     private Appointment appointment;
@@ -36,7 +48,9 @@ public class Feedback {
     @JoinColumn(name = "doctor_id")
     private Doctor doctor;
 
-    // 1..5 sao (ràng buộc CHECK ở DB)
+    /** Overall star rating 1..5.
+     *  Validate: bounded by a CHECK constraint at the database level as well
+     *  as by bean validation on the request DTO (UC-48 E1). */
     @Column(name = "rating", nullable = false)
     private Integer rating;
 
@@ -46,18 +60,26 @@ public class Feedback {
     @Column(name = "is_anonymous", nullable = false)
     private Boolean isAnonymous;
 
-    // PENDING | APPROVED | HIDDEN
+    /** Moderation state: PENDING | APPROVED | HIDDEN (UC-48 POST-1). */
     @Column(name = "status", nullable = false, length = 20)
     private String status;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
-    // UC-48: điểm đánh giá riêng cho từng người tham gia (bác sĩ, lễ tân, KTV)
+    /** Optional per-person ratings for the staff involved in the visit. */
     @Builder.Default
     @OneToMany(mappedBy = "feedback", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<FeedbackParticipantRating> participantRatings = new ArrayList<>();
 
+    /**
+     * Fills defaults before INSERT.
+     *
+     * Validate: UC-48 POST-1 — new feedback always starts PENDING so it
+     * reaches the Manager for review rather than appearing published; and
+     * anonymity defaults to false, since withholding a name must be an
+     * explicit choice by the patient, not an accident of a missing field.
+     */
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) createdAt = LocalDateTime.now();

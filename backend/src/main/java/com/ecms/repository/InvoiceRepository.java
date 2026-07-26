@@ -1,5 +1,3 @@
-// DucTKH
-// Repository cho Entity Invoice, hỗ trợ các thao tác truy xuất hóa đơn từ database.
 package com.ecms.repository;
 
 import com.ecms.entity.Invoice;
@@ -12,24 +10,56 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * @author      ThangNB - HE201024
+ * @contributor Thái Khắc Hữu Đức - HE204463, Đồng Mạnh Hùng - HE200743, Tuấn - HE204215
+ * @created     2026-05-31
+ * @updated     2026-07-20
+ *
+ * Data access for {@link Invoice}. Serves three consumers:
+ *   - the Receptionist billing screen (UC-23 / UC-24),
+ *   - the patient portal invoice list (UC-24 ALT-2),
+ *   - the manager analytics module (UC-49 dashboard, UC-50 revenue report).
+ *
+ * Every "is there already an invoice" query excludes CANCELLED rows, because
+ * BR-09 keeps cancelled invoices in the table forever and they must not block
+ * a fresh invoice for the same visit.
+ */
 @Repository
 public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 
-    // UC-50: hóa đơn đã thanh toán trong khoảng thời gian (theo ngày thu tiền) — dùng cho báo cáo doanh thu
+    /**
+     * Settled invoices whose payment landed inside the window — the source
+     * rows of the revenue report (UC-50 normal flow step 3).
+     * Filters on {@code paidAt}, not {@code createdAt}, so revenue is
+     * attributed to the day the money arrived.
+     *
+     * @param paymentStatus normally "PAID"
+     * @param from          window start, inclusive
+     * @param to            window end, inclusive
+     */
     List<Invoice> findByPaymentStatusAndPaidAtBetween(String paymentStatus, LocalDateTime from, LocalDateTime to);
 
-    // UC-49: đếm hóa đơn còn nợ (chưa PAID, chưa hủy) cho dashboard vận hành
+    /**
+     * Counts outstanding invoices for the "Outstanding (unpaid) invoices"
+     * widget of the operational dashboard (UC-49 normal flow step 2).
+     * Excludes CANCELLED so a voided invoice is not reported as a debt.
+     */
     @Query("SELECT COUNT(i) FROM Invoice i WHERE i.paymentStatus <> 'PAID' AND i.status <> 'CANCELLED'")
     long countOutstanding();
 
-    // UC-49: tổng tiền hóa đơn còn nợ
+    /** Total money outstanding, companion to {@link #countOutstanding()} (UC-49). */
     @Query("SELECT COALESCE(SUM(i.totalAmount), 0) FROM Invoice i WHERE i.paymentStatus <> 'PAID' AND i.status <> 'CANCELLED'")
     java.math.BigDecimal sumOutstanding();
 
-    // --- Hàm của nhánh Duc ---
+    /** All invoices of one patient, without eager details. */
     List<Invoice> findByPatientId(Long patientId);
 
-    // --- Các hàm của nhánh main ---
+    /**
+     * Invoice list for the Receptionist screen, newest first, with
+     * appointment / patient / doctor / service joined in one round trip
+     * to avoid N+1 queries while rendering the table.
+     */
     @Query("""
             SELECT DISTINCT i FROM Invoice i
             LEFT JOIN FETCH i.appointment a
@@ -40,8 +70,16 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
             """)
     List<Invoice> findAllWithDetails();
 
-    // Trả về hóa đơn hoạt động (không bị huỷ) của 1 lịch hẹn — tránh NonUniqueResultException
-    // khi tồn tại cả hóa đơn CANCELLED lẫn hóa đơn mới cho cùng 1 lịch hẹn.
+    /**
+     * The one live (non-cancelled) invoice of a visit.
+     *
+     * Validate: BR-09 / UC-23 E1 — a visit may accumulate several CANCELLED
+     * invoices plus at most one live invoice, so the CANCELLED filter is what
+     * keeps this a single result instead of a NonUniqueResultException.
+     *
+     * @param appointmentId visit primary key
+     * @return the live invoice, or empty when the visit has none
+     */
     @Query("""
             SELECT DISTINCT i FROM Invoice i
             LEFT JOIN FETCH i.appointment a
@@ -53,6 +91,12 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
             """)
     Optional<Invoice> findByAppointmentId(@Param("appointmentId") Long appointmentId);
 
+    /**
+     * Free-text invoice search by patient name, patient phone or invoice code
+     * — backs the search box on the Receptionist billing screen.
+     *
+     * @param keyword search term, matched case-insensitively on the name
+     */
     @Query("""
             SELECT DISTINCT i FROM Invoice i
             LEFT JOIN FETCH i.appointment a
@@ -66,29 +110,66 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
             """)
     List<Invoice> searchInvoices(@Param("keyword") String keyword);
 
-    // ThangNBHE201024 — tra hóa đơn theo mã, dùng khi webhook cổng thanh toán dò mã
-    // hóa đơn trong nội dung chuyển khoản để tự động gạch nợ (UC-22).
+    /**
+     * Looks an invoice up by its code. Used by the payment webhook, which
+     * recovers the invoice code from the bank transfer description in order
+     * to settle the right invoice automatically (UC-23 ALT-2 step 5).
+     *
+     * @param invoiceCode code in the form INV-yyyyMMdd-XXXX
+     */
     Optional<Invoice> findByInvoiceCode(String invoiceCode);
 
-    // ThangNBHE201024 — các hóa đơn của một lịch hẹn theo trạng thái, mới nhất trước.
-    // Dùng khi tạo hóa đơn mới: nếu lịch hẹn từng có hóa đơn CANCELLED thì đổ lại đúng
-    // khoản phí của hóa đơn đã hủy gần nhất (hủy rồi tạo lại khôi phục nguyên trạng).
+    /**
+     * Invoices of one visit in a given status, newest first.
+     *
+     * Used when raising a replacement invoice: if the visit previously had a
+     * CANCELLED invoice, its charge lines are restored so "cancel then
+     * re-create" reproduces the original itemisation rather than starting
+     * from an empty form (UC-23 normal flow step 2, "restore items from a
+     * prior cancelled invoice").
+     *
+     * @param appointmentId visit primary key
+     * @param status        DRAFT | ISSUED | CANCELLED
+     */
     List<Invoice> findByAppointment_IdAndStatusOrderByCreatedAtDesc(Long appointmentId, String status);
 
-    // Đếm số hóa đơn đã tạo trong ngày để sinh mã tự động (INV-yyyyMMdd-XXXX)
+    /**
+     * Counts invoices already issued today, to derive the running sequence
+     * number of the generated code INV-yyyyMMdd-XXXX.
+     *
+     * @param dateStr the yyyyMMdd part of the code
+     */
     @Query("""
             SELECT COUNT(i) FROM Invoice i
             WHERE i.invoiceCode LIKE CONCAT('INV-', :dateStr, '%')
             """)
     long countByDatePrefix(@Param("dateStr") String dateStr);
 
+    /** Whether a visit has any invoice at all, cancelled ones included. */
     boolean existsByAppointment_Id(Long appointmentId);
 
-    // Kiểm tra lịch hẹn đã có hóa đơn CHƯA BỊ HỦY chưa — dùng để tránh tạo trùng
-    // khi hóa đơn cũ đã CANCELLED, lễ tân vẫn có thể tạo lại cho lịch hẹn đó.
+    /**
+     * Whether a visit already has a live invoice.
+     *
+     * Validate: UC-23 E1 — blocks a duplicate invoice for the same visit,
+     * while still allowing a new one after the previous was CANCELLED (BR-09
+     * keeps that cancelled row in place).
+     *
+     * @param appointmentId visit primary key
+     * @param status        the status to exclude, i.e. "CANCELLED"
+     */
     boolean existsByAppointment_IdAndStatusNot(Long appointmentId, String status);
 
-    // Lấy tất cả hóa đơn của một bệnh nhân kèm chi tiết — dùng cho trang "Hóa đơn của tôi" (Patient)
+    /**
+     * A single patient's invoices with details joined, for the patient portal
+     * "My Invoices" screen (UC-24 ALT-2).
+     *
+     * Validate: BR-08 — the {@code patientId} predicate is what scopes the
+     * result to the owning patient; the caller must pass the authenticated
+     * patient's own id, never one from the request body.
+     *
+     * @param patientId owning patient
+     */
     @Query("""
             SELECT DISTINCT i FROM Invoice i
             LEFT JOIN FETCH i.appointment a

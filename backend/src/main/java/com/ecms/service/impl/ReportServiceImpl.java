@@ -38,14 +38,27 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * UC-49/50/51/52/53: Tổng hợp báo cáo & phân tích cho Quản lý.
+ * @author      ThangNB - HE201024
+ * @contributor Đồng Mạnh Hùng - HE200743
+ * @created     2026-05-31
+ * @updated     2026-07-20
  *
- * Cách tiếp cận: nạp dữ liệu theo khoảng thời gian rồi tổng hợp trong Java (quy mô
- * phòng khám nhỏ nên chấp nhận được), tránh native query phụ thuộc dialect.
+ * Aggregates every Clinic Manager report: UC-49 (operational dashboard),
+ * UC-50 (revenue), UC-51 (patient statistics), UC-52 (staff performance) and
+ * UC-53 (feedback).
  *
- * Lưu ý trung thực: thời gian khám trung bình và tỉ lệ đúng giờ (UC-52) hiện KHÔNG
- * tính được vì hệ thống chưa lưu mốc bắt đầu/kết thúc buổi khám — các trường này để
- * null thay vì bịa số.
+ * Approach: load the rows for the period and aggregate in Java rather than in
+ * SQL. At clinic scale the volume is small, and it keeps the module free of
+ * dialect-specific native queries.
+ *
+ * On UC-52 metrics: average consultation time is derived from
+ * {@code lockedAt − createdAt} on completed EMRs (the doctor locking the
+ * record is the closest thing to a visit end timestamp), and the on-time rate
+ * from check-in time versus scheduled time. Both are approximations of the
+ * "average consultation time" and "on-time start rate" KPIs in UC-52, since
+ * the system records no explicit consultation start/end.
+ *
+ * Read-only throughout — no business rule is mutated here.
  */
 @Service
 @RequiredArgsConstructor
@@ -60,6 +73,17 @@ public class ReportServiceImpl implements ReportService {
     private final DoctorRepository doctorRepository;
 
     // ─────────────────────────────── UC-49 ───────────────────────────────
+
+    /**
+     * Builds today's live operational snapshot (UC-49 normal flow step 2):
+     * appointments booked vs completed, waiting queue per doctor, prescriptions
+     * awaiting dispensing, outstanding invoices and lab orders in progress.
+     *
+     * Always scoped to the current day — the dashboard is a "right now" view,
+     * which is why it takes no date range.
+     *
+     * @return widget values keyed by metric name
+     */
     @Override
     @Transactional(readOnly = true)
     public Map<String, Object> operationalDashboard() {
@@ -70,7 +94,7 @@ public class ReportServiceImpl implements ReportService {
         long total = appointmentRepository.countByDate(start, end);
         long completed = appointmentRepository.countByDateAndStatus(start, end, AppointmentStatus.COMPLETED);
 
-        // Hàng đợi hôm nay theo từng bác sĩ: số đang chờ (WAITING) + đang khám (IN_PROGRESS)
+        // Per-doctor queue for today: WAITING plus IN_PROGRESS (UC-49 "queue lengths per doctor")
         Map<Long, long[]> agg = new LinkedHashMap<>();      // doctorId -> [waiting, inProgress]
         Map<Long, Doctor> doctorMap = new LinkedHashMap<>();
         long waitingTotal = 0;
@@ -95,7 +119,7 @@ public class ReportServiceImpl implements ReportService {
             doctorQueue.add(row);
         }
 
-        // Đơn thuốc chờ cấp phát (top 8) — cho panel Nhà thuốc
+        // Prescriptions awaiting dispensing, capped at 8 for the pharmacy panel
         List<Map<String, Object>> pendingList = new ArrayList<>();
         List<Prescription> pending = prescriptionRepository.findByStatusOrderByCreatedAtAsc(PrescriptionStatus.PENDING);
         for (Prescription p : pending.stream().limit(8).toList()) {
@@ -123,6 +147,20 @@ public class ReportServiceImpl implements ReportService {
     }
 
     // ─────────────────────────────── UC-50 ───────────────────────────────
+
+    /**
+     * Revenue over a period, split by service category, doctor and payment
+     * method, plus a monthly trend for the year of {@code to}
+     * (UC-50 normal flow steps 3-4).
+     *
+     * Only PAID invoices count, matched on {@code paidAt}, so revenue is
+     * recognised on the day the money arrived (BR-10: an invoice is PAID only
+     * once fully settled, which is what makes this figure trustworthy).
+     *
+     * @param from period start, inclusive
+     * @param to   period end, inclusive
+     * @return totals and per-dimension breakdowns
+     */
     @Override
     @Transactional(readOnly = true)
     public Map<String, Object> revenueReport(LocalDate from, LocalDate to) {
@@ -158,11 +196,11 @@ public class ReportServiceImpl implements ReportService {
         byCategory.put("LAB", labFee);
         byCategory.put("MEDICINE", medicineFee);
 
-        // Doanh thu trung bình mỗi hóa đơn
+        // Average revenue per invoice
         BigDecimal avgPerInvoice = paid.isEmpty() ? BigDecimal.ZERO
                 : totalRevenue.divide(BigDecimal.valueOf(paid.size()), 0, java.math.RoundingMode.HALF_UP);
 
-        // Chi tiết hóa đơn đã thanh toán (top 30 theo tiền giảm dần)
+        // Paid-invoice detail, top 30 by amount descending
         List<Map<String, Object>> paidInvoices = paid.stream()
                 .sorted((a, b) -> nz(b.getTotalAmount()).compareTo(nz(a.getTotalAmount())))
                 .limit(30)
@@ -176,7 +214,7 @@ public class ReportServiceImpl implements ReportService {
                     return row;
                 }).toList();
 
-        // Xu hướng doanh thu theo tháng trong năm của mốc "đến ngày"
+        // Monthly revenue trend across the year that the "to" date falls in
         int year = to.getYear();
         int upToMonth = (year == LocalDate.now().getYear()) ? LocalDate.now().getMonthValue() : 12;
         long[] monthly = new long[13]; // 1..12
@@ -209,7 +247,12 @@ public class ReportServiceImpl implements ReportService {
         return result;
     }
 
-    // Trả về {name, amount} của khoản có doanh thu cao nhất trong map
+    /**
+     * Picks the highest-earning entry of a breakdown map.
+     *
+     * @param m breakdown keyed by category / doctor name
+     * @return {@code {name, amount}}; name is null and amount zero on an empty map
+     */
     private Map<String, Object> topEntry(Map<String, BigDecimal> m) {
         String bestName = null;
         BigDecimal best = BigDecimal.valueOf(-1);
@@ -223,6 +266,19 @@ public class ReportServiceImpl implements ReportService {
     }
 
     // ─────────────────────────────── UC-51 ───────────────────────────────
+
+    /**
+     * Patient volume analytics for a period (UC-51 normal flow step 3):
+     * appointments by status, distinct patients, new vs returning, top
+     * diagnoses and appointments per doctor.
+     *
+     * "New" means the patient has no appointment before the window start, so
+     * the same patient can be new in one period and returning in the next.
+     *
+     * @param from period start, inclusive
+     * @param to   period end, inclusive
+     * @return statistics keyed by metric name
+     */
     @Override
     @Transactional(readOnly = true)
     public Map<String, Object> patientStatistics(LocalDate from, LocalDate to) {
@@ -254,7 +310,7 @@ public class ReportServiceImpl implements ReportService {
             else returningPatients++;
         }
 
-        // Top 5 chẩn đoán theo hồ sơ bệnh án tạo trong kỳ
+        // UC-51: top 5 diagnoses across EMRs created in the period
         Map<String, Long> diagnosisCount = new LinkedHashMap<>();
         for (MedicalRecord mr : medicalRecordRepository.findByCreatedAtBetween(start, end)) {
             String dx = mr.getDiagnosis();
@@ -287,6 +343,18 @@ public class ReportServiceImpl implements ReportService {
     }
 
     // ─────────────────────────────── UC-52 ───────────────────────────────
+
+    /**
+     * Per-doctor KPIs for a period (UC-52 normal flow steps 3-4): patients
+     * seen, on-time rate, prescription volume and average consultation time.
+     *
+     * See the class comment on how the two time-based KPIs are approximated —
+     * the schema has no explicit consultation start/end timestamps.
+     *
+     * @param from period start, inclusive
+     * @param to   period end, inclusive
+     * @return one row per doctor
+     */
     @Override
     @Transactional(readOnly = true)
     public List<Map<String, Object>> staffPerformance(LocalDate from, LocalDate to) {
@@ -297,8 +365,11 @@ public class ReportServiceImpl implements ReportService {
         List<Prescription> prescriptions = prescriptionRepository.findByCreatedAtBetween(start, end);
         List<MedicalRecord> records = medicalRecordRepository.findByCreatedAtBetween(start, end);
 
-        // Đếm số bệnh nhân đã khám (lịch COMPLETED) + tỉ lệ đúng giờ theo bác sĩ.
-        // Đúng giờ = có check-in và giờ check-in không trễ hơn giờ hẹn.
+        // Patients seen (COMPLETED appointments) and on-time rate per doctor.
+        // On time = the patient checked in and did so no later than the
+        // scheduled time. Appointments with no check-in are excluded from the
+        // denominator rather than counted as late, so walk-in flows that skip
+        // check-in do not distort the KPI.
         Map<Long, Long> seenByDoctor = new LinkedHashMap<>();
         Map<Long, long[]> onTimeByDoctor = new LinkedHashMap<>(); // [đúng giờ, tổng có check-in]
         for (Appointment a : appts) {
@@ -312,7 +383,7 @@ public class ReportServiceImpl implements ReportService {
             }
         }
 
-        // Đếm số đơn thuốc theo bác sĩ (qua hồ sơ bệnh án)
+        // Prescription volume per doctor, reached through the EMR
         Map<Long, Long> presByDoctor = new LinkedHashMap<>();
         for (Prescription p : prescriptions) {
             if (p.getMedicalRecord() != null && p.getMedicalRecord().getDoctor() != null) {
@@ -320,8 +391,10 @@ public class ReportServiceImpl implements ReportService {
             }
         }
 
-        // Thời gian khám trung bình theo bác sĩ = trung bình (lockedAt − createdAt) của các
-        // bệnh án đã hoàn tất trong kỳ (lockedAt là mốc bác sĩ khóa hồ sơ khi kết thúc khám).
+        // Average consultation time per doctor = mean of (lockedAt − createdAt)
+        // over EMRs completed in the period. lockedAt is when the doctor locked
+        // the record at the end of the visit (UC-27c), the closest available
+        // proxy for a consultation end timestamp.
         Map<Long, long[]> durByDoctor = new LinkedHashMap<>(); // [tổng phút, số ca]
         for (MedicalRecord mr : records) {
             if (mr.getStatus() != MedicalRecordStatus.COMPLETED || mr.getDoctor() == null) continue;
@@ -356,6 +429,15 @@ public class ReportServiceImpl implements ReportService {
     }
 
     // ─────────────────────────────── UC-53 ───────────────────────────────
+
+    /**
+     * Aggregated patient feedback for a period (UC-53 normal flow step 4):
+     * average rating per doctor, total responses and response rate.
+     *
+     * @param from period start, inclusive
+     * @param to   period end, inclusive
+     * @return feedback analytics keyed by metric name
+     */
     @Override
     @Transactional(readOnly = true)
     public Map<String, Object> feedbackReport(LocalDate from, LocalDate to) {
@@ -388,7 +470,9 @@ public class ReportServiceImpl implements ReportService {
             perDoctor.add(row);
         }
 
-        // Tỉ lệ phản hồi = số feedback / số lịch hẹn đã hoàn thành trong kỳ
+        // Response rate = feedback count / completed appointments in the period.
+        // BR-21 caps feedback at one per appointment, which is what keeps this
+        // ratio bounded at 100% and meaningful as a percentage.
         long completed = appointmentRepository.countByDateAndStatus(start, end, AppointmentStatus.COMPLETED);
         double responseRate = completed > 0 ? (double) totalResponses / completed : 0.0;
 
@@ -403,12 +487,31 @@ public class ReportServiceImpl implements ReportService {
         return result;
     }
 
+    /**
+     * Null-safe amount, so a missing fee contributes 0 to a sum instead of
+     * producing a NullPointerException mid-aggregation.
+     *
+     * @param v amount, may be null
+     * @return {@code v}, or {@code BigDecimal.ZERO}
+     */
     private static BigDecimal nz(BigDecimal v) {
         return v != null ? v : BigDecimal.ZERO;
     }
 
-    // ─────────────────────────── Xuất Excel (CSV UTF-8) ───────────────────────────
+    // ─────────────────────────── Exports (UTF-8 CSV) ───────────────────────────
+    // Note: UC-50 step 6 specifies a real .xlsx download; these endpoints emit
+    // CSV that Excel opens natively, which is a deviation from the SRS.
 
+    /**
+     * Streams the revenue report as CSV (UC-50 steps 5-6).
+     * Re-runs {@link #revenueReport} so the export always matches the figures
+     * currently on screen for the same date range.
+     *
+     * @param from     period start, inclusive
+     * @param to       period end, inclusive
+     * @param response servlet response the CSV is written to
+     * @throws IOException if the response stream fails
+     */
     @Override
     @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
@@ -436,6 +539,14 @@ public class ReportServiceImpl implements ReportService {
     @Override
     @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
+    /**
+     * Streams the patient statistics as CSV (UC-51 step 4).
+     *
+     * @param from     period start, inclusive
+     * @param to       period end, inclusive
+     * @param response servlet response the CSV is written to
+     * @throws IOException if the response stream fails
+     */
     public void exportPatientStatisticsCsv(LocalDate from, LocalDate to, HttpServletResponse response) throws IOException {
         Map<String, Object> r = patientStatistics(from, to);
         List<String[]> rows = new ArrayList<>();
@@ -463,6 +574,14 @@ public class ReportServiceImpl implements ReportService {
     @Override
     @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
+    /**
+     * Streams the feedback report as CSV (UC-53 step 5).
+     *
+     * @param from     period start, inclusive
+     * @param to       period end, inclusive
+     * @param response servlet response the CSV is written to
+     * @throws IOException if the response stream fails
+     */
     public void exportFeedbackCsv(LocalDate from, LocalDate to, HttpServletResponse response) throws IOException {
         Map<String, Object> r = feedbackReport(from, to);
         List<String[]> rows = new ArrayList<>();
@@ -479,7 +598,17 @@ public class ReportServiceImpl implements ReportService {
         writeCsv(response, "feedback-report.csv", rows);
     }
 
-    // Ghi CSV UTF-8 kèm BOM để Excel mở đúng tiếng Việt.
+    /**
+     * Writes rows to the response as UTF-8 CSV.
+     *
+     * A UTF-8 BOM is prepended deliberately: without it Excel decodes the file
+     * as the local ANSI codepage and every Vietnamese character is mangled.
+     *
+     * @param response servlet response to stream into
+     * @param filename download filename offered to the browser
+     * @param rows     CSV rows, one String[] per line
+     * @throws IOException if the response stream fails
+     */
     private void writeCsv(HttpServletResponse response, String filename, List<String[]> rows) throws IOException {
         response.setContentType("text/csv; charset=UTF-8");
         response.setHeader("Content-Disposition", "attachment; filename=" + filename);
@@ -497,6 +626,16 @@ public class ReportServiceImpl implements ReportService {
         w.flush();
     }
 
+    /**
+     * Escapes one CSV cell per RFC 4180.
+     *
+     * Validate: a value containing a comma, quote or newline must be quoted
+     * and its inner quotes doubled — otherwise a patient name or a free-text
+     * feedback comment would shift every following column.
+     *
+     * @param v raw cell value, may be null
+     * @return the escaped cell, empty string for null
+     */
     private String csvCell(String v) {
         if (v == null) return "";
         String s = v.replace("\"", "\"\"");

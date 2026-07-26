@@ -1,6 +1,23 @@
+/**
+ * @author      ThangNB - HE201024
+ * @contributor Đồng Mạnh Hùng - HE200743
+ * @created     2026-06-22
+ * @updated     2026-07-02
+ *
+ * Redux slice for the Receptionist billing screen — UC-23 (Process Payment)
+ * and UC-24 (Deliver Invoice).
+ *
+ * Every thunk mirrors a backend endpoint and converts a rejected request into
+ * a user-facing message. No business rule is evaluated here: BR-10, BR-11 and
+ * BR-09 all live server-side, and a violation arrives as a rejected action.
+ */
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
 import { invoiceService } from '../../services/invoiceService'
 
+/**
+ * Loads every invoice into `state.list`.
+ * @returns {Promise} fulfilled with the invoice array
+ */
 export const fetchAllInvoices = createAsyncThunk(
   'invoice/fetchAll',
   async (_, { rejectWithValue }) => {
@@ -13,6 +30,10 @@ export const fetchAllInvoices = createAsyncThunk(
   }
 )
 
+/**
+ * Replaces `state.list` with search results.
+ * @param {string} keyword patient name, phone or invoice code
+ */
 export const searchInvoices = createAsyncThunk(
   'invoice/search',
   async (keyword, { rejectWithValue }) => {
@@ -25,6 +46,13 @@ export const searchInvoices = createAsyncThunk(
   }
 )
 
+/**
+ * Creates a DRAFT invoice and prepends it to the list.
+ * @param {Object} data charge lines, optional discount, payment method
+ *
+ * Validate: BR-11 / BR-15 and the duplicate-invoice check (UC-23 E1) run on
+ * the server; a rejection here carries that message straight to the UI.
+ */
 export const createInvoice = createAsyncThunk(
   'invoice/create',
   async (data, { rejectWithValue }) => {
@@ -37,6 +65,13 @@ export const createInvoice = createAsyncThunk(
   }
 )
 
+/**
+ * Issues an invoice after payment and swaps the updated row into the list.
+ * @param {{id:number, paymentMethod:string, paymentReference?:string}} args
+ *
+ * Validate: BR-10 — the server refuses to issue a VietQR invoice that is
+ * still awaiting the bank, so the rejection message is the guard the UI shows.
+ */
 export const issueInvoice = createAsyncThunk(
   'invoice/issue',
   async ({ id, paymentMethod, paymentReference }, { rejectWithValue }) => {
@@ -49,6 +84,13 @@ export const issueInvoice = createAsyncThunk(
   }
 )
 
+/**
+ * Cancels a draft invoice and swaps the updated row into the list.
+ * @param {number} id invoice id
+ *
+ * Validate: BR-09 — a soft cancel, so the row stays in `state.list` with
+ * status CANCELLED instead of being removed.
+ */
 export const cancelInvoice = createAsyncThunk(
   'invoice/cancel',
   async (id, { rejectWithValue }) => {

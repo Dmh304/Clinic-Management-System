@@ -1,4 +1,18 @@
-// UC-52: Dashboard hiệu suất nhân viên (bác sĩ) — biểu đồ so sánh + bảng chi tiết KPI.
+/**
+ * @author      ThangNB - HE201024
+ * @contributor Đồng Mạnh Hùng - HE200743
+ * @created     2026-05-31
+ * @updated     2026-07-20
+ *
+ * Staff performance dashboard for the Clinic Manager
+ * (UC-52 Monitor Staff Performance Dashboard): comparison charts plus a
+ * per-doctor KPI table — patients seen, average consultation time,
+ * prescription volume and on-time rate.
+ *
+ * The two time-based KPIs are approximations: the schema stores no explicit
+ * consultation start/end, so average duration is derived from when the doctor
+ * locked the EMR and the on-time rate from check-in versus scheduled time.
+ */
 import { useEffect, useMemo, useState } from 'react'
 import { FiClock } from 'react-icons/fi'
 import { reportService } from '../../services/reportService'
@@ -18,6 +32,11 @@ const RANGES = {
   month: { label: 'Tháng này', range: () => { const n = new Date(); return [new Date(n.getFullYear(), n.getMonth(), 1), n] } },
   year: { label: 'Năm nay', range: () => { const n = new Date(); return [new Date(n.getFullYear(), 0, 1), n] } },
 }
+/**
+ * Colour band for the on-time rate: green ≥ 95%, amber ≥ 85%, red below.
+ * @param {number} p on-time percentage
+ * @returns {string} hex colour
+ */
 const onTimeColor = (p) => (p >= 95 ? '#10b981' : p >= 85 ? '#e67e22' : '#ef4444')
 
 function GroupedBars({ rows }) {
@@ -54,6 +73,10 @@ function LineChart({ rows }) {
   )
 }
 
+/**
+ * Renders the staff performance dashboard.
+ * @returns {JSX.Element} the KPI screen
+ */
 export default function StaffPerformancePage() {
   const [rangeKey, setRangeKey] = useState('month')
   const [staff, setStaff] = useState('ALL')
@@ -63,6 +86,7 @@ export default function StaffPerformancePage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  /** Loads per-doctor KPIs for the selected period (UC-52 steps 3-4). */
   const load = async () => {
     setLoading(true); setError('')
     try {

@@ -1,4 +1,17 @@
-// UC-53: Báo cáo tổng hợp đánh giá của bệnh nhân.
+/**
+ * @author  ThangNB - HE201024
+ * @created 2026-07-19
+ * @updated 2026-07-20
+ *
+ * Aggregated patient feedback report for the Clinic Manager
+ * (UC-53 Generate Feedback Report): average star rating per doctor, total
+ * responses and response rate, with a CSV export.
+ *
+ * The response rate is meaningful because BR-21 caps feedback at one per
+ * appointment, so the ratio cannot exceed 100%.
+ * Anonymous submissions arrive with no patient name — that is withheld by the
+ * backend, not merely hidden here.
+ */
 import { useEffect, useState } from 'react'
 import { FaStar, FaStarHalfAlt, FaRegStar } from 'react-icons/fa'
 import { FiRefreshCw, FiDownload, FiMessageSquare, FiCheckCircle, FiPercent, FiSearch } from 'react-icons/fi'
@@ -11,6 +24,7 @@ const initials = (name) => (name || '').replace(/^(BS|ĐD|KTV)\.?\s*/i, '').spli
 const firstOfMonth = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01` }
 const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
 
+/** Renders a 1..5 star rating, supporting half stars. */
 function Stars({ v, size = 14 }) {
   if (v == null) return <span style={{ color: C.muted }}>—</span>
   const val = Number(v)
@@ -42,6 +56,10 @@ function StatCard({ label, value, sub, Icon, iconBg, iconColor, children }) {
 const th = { padding: '12px 16px', fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase', fontWeight: 600, color: C.muted, whiteSpace: 'nowrap', textAlign: 'left' }
 const td = { padding: '12px 16px', fontSize: 14, borderTop: `1px solid ${C.border}` }
 
+/**
+ * Renders the feedback report and its export action.
+ * @returns {JSX.Element} the report screen
+ */
 export default function FeedbackReportPage() {
   const [from, setFrom] = useState(firstOfMonth())
   const [to, setTo] = useState(today())
@@ -50,6 +68,7 @@ export default function FeedbackReportPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  /** Loads the aggregated feedback for the selected period (UC-53 steps 3-4). */
   const load = async () => {
     setLoading(true); setError('')
     try { const res = await reportService.feedbackReport(from, to); setData(res.data || {}) }

@@ -1,4 +1,17 @@
-// UC-50: Báo cáo doanh thu — tổng quan, xu hướng theo tháng, breakdown, chi tiết hóa đơn.
+/**
+ * @author      ThangNB - HE201024
+ * @contributor Đồng Mạnh Hùng - HE200743
+ * @created     2026-05-31
+ * @updated     2026-07-20
+ *
+ * Revenue report for the Clinic Manager (UC-50 Generate Revenue Report):
+ * headline totals, monthly trend, breakdown by service category / doctor /
+ * payment method, and the paid-invoice detail list.
+ *
+ * Figures come only from PAID invoices, so what is shown is money actually
+ * collected under BR-10 rather than amounts merely billed.
+ * Export produces UTF-8 CSV, a deviation from the .xlsx named in UC-50 step 6.
+ */
 import { useEffect, useState } from 'react'
 import { FiEye, FiDownload, FiRefreshCw } from 'react-icons/fi'
 import { reportService, downloadBlob } from '../../services/reportService'
@@ -108,6 +121,10 @@ const RANGES = [
   { key: 'year', label: 'Năm' }, { key: 'custom', label: 'Tùy chỉnh' },
 ]
 
+/**
+ * Renders the revenue report and its export action.
+ * @returns {JSX.Element} the report screen
+ */
 export default function RevenueReportPage() {
   const today = new Date()
   const [range, setRange] = useState('month')
@@ -117,6 +134,11 @@ export default function RevenueReportPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  /**
+   * Applies a preset period (UC-50 normal flow step 2).
+   * @param {'day'|'week'|'month'|'year'|'custom'} key preset; 'custom' leaves
+   *   the dates alone so the manual pickers stay in control
+   */
   const applyRange = (key) => {
     setRange(key)
     const now = new Date()
@@ -126,6 +148,7 @@ export default function RevenueReportPage() {
     else if (key === 'year') { setFrom(iso(new Date(now.getFullYear(), 0, 1))); setTo(iso(now)) }
   }
 
+  /** Loads the revenue figures for the selected period (UC-50 step 3). */
   const load = async () => {
     setLoading(true); setError('')
     try {

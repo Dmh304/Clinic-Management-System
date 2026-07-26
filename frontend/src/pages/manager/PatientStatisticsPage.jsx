@@ -1,4 +1,14 @@
-// UC-51: Thống kê bệnh nhân — lượt khám, mới/cũ, trạng thái lịch, theo bác sĩ, top chẩn đoán.
+/**
+ * @author  ThangNB - HE201024
+ * @created 2026-07-19
+ * @updated 2026-07-20
+ *
+ * Patient statistics for the Clinic Manager (UC-51 View Patient Statistics):
+ * total visits, new vs returning patients, appointment status distribution,
+ * appointments per doctor and the top diagnoses.
+ *
+ * Read-only screen — no business rule is applied here.
+ */
 import { useEffect, useState } from 'react'
 import { FiRefreshCw, FiDownload, FiCalendar, FiUsers, FiUserPlus, FiTrendingUp, FiTrendingDown, FiMinus, FiMoreHorizontal, FiActivity } from 'react-icons/fi'
 import { FaNotesMedical, FaHistory } from 'react-icons/fa'
@@ -46,6 +56,10 @@ function Metric({ label, value, color, Icon, iconBg, delta }) {
 function firstOfMonth() { const d = new Date(); return iso(new Date(d.getFullYear(), d.getMonth(), 1)) }
 function todayStr() { return iso(new Date()) }
 
+/**
+ * Renders the patient statistics screen and its export action.
+ * @returns {JSX.Element} the statistics screen
+ */
 export default function PatientStatisticsPage() {
   const [from, setFrom] = useState(firstOfMonth())
   const [to, setTo] = useState(todayStr())
@@ -54,6 +68,7 @@ export default function PatientStatisticsPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  /** Loads the statistics for the selected period (UC-51 step 3). */
   const load = async () => {
     setLoading(true); setError('')
     try {

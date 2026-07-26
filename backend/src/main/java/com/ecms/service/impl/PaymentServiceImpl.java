@@ -1,18 +1,3 @@
-// ThangNBHE201024 - HE187030
-// Triển khai đối soát thanh toán tự động cho luồng VietQR (UC-22).
-//
-// Luồng đầy đủ:
-//  1. Lễ tân tạo hóa đơn nháp → hệ thống sinh mã INV-yyyyMMdd-XXXX.
-//  2. Mã QR được sinh với nội dung chuyển khoản chứa đúng mã hóa đơn đó.
-//  3. Bệnh nhân quét QR và chuyển khoản; app ngân hàng giữ nguyên nội dung.
-//  4. Tiền vào tài khoản phòng khám → cổng (SePay) POST webhook về ECMS.
-//  5. Hệ thống dò mã hóa đơn trong nội dung, đối chiếu số tiền, rồi tự gạch nợ.
-//
-// Nguyên tắc an toàn:
-//  - Idempotency: gatewayTxnId là UNIQUE; cổng bắn lặp lần 2 sẽ dừng ngay ở bước kiểm tra.
-//  - Không bao giờ mất dấu tiền: giao dịch không khớp vẫn được ghi với status UNMATCHED
-//    để kế toán đối soát tay, thay vì trả 200 rồi bỏ qua âm thầm.
-//  - Chỉ gạch nợ khi số tiền nhận >= tổng hóa đơn; thiếu tiền → AMOUNT_MISMATCH, không PAID.
 package com.ecms.service.impl;
 
 import com.ecms.dto.request.PaymentWebhookRequest;
@@ -38,6 +23,31 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * @author  ThangNB - HE201024
+ * @created 2026-07-17
+ * @updated 2026-07-19
+ *
+ * Automated reconciliation for the VietQR branch of UC-23 (Process Payment).
+ *
+ * End-to-end flow:
+ *  1. The Receptionist creates a draft invoice; the system generates
+ *     INV-yyyyMMdd-XXXX.
+ *  2. A QR code is produced whose transfer memo carries that invoice code.
+ *  3. The patient scans and transfers; the banking app preserves the memo.
+ *  4. Funds land in the clinic account and the gateway POSTs a webhook to ECMS.
+ *  5. The system recovers the invoice code from the memo, checks the amount,
+ *     and settles the invoice on its own.
+ *
+ * Safety principles baked into the flow:
+ *  - Idempotency: gatewayTxnId is UNIQUE and checked first, so a gateway retry
+ *    cannot settle the same invoice twice.
+ *  - Money is never lost track of: an unmatched transfer is still journalled
+ *    as UNMATCHED for manual reconciliation rather than silently 200-ed away.
+ *  - BR-10: the invoice is only marked PAID when the received amount covers
+ *    the total; anything short becomes AMOUNT_MISMATCH and stays unpaid
+ *    (UC-23 E2 partial payment).
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -45,27 +55,37 @@ public class PaymentServiceImpl implements PaymentService {
 
     private final InvoiceRepository invoiceRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
-    // Gửi thông báo "Thanh toán thành công" cho bệnh nhân (UC-22)
+    /** Sends the "payment received" notification to the patient (UC-10). */
     private final com.ecms.service.NotificationService notificationService;
-    // UC-24: tự gửi hóa đơn điện tử qua email khi cổng báo tiền về (chạy nền)
+    /** Sends the e-invoice in the background once funds are confirmed (UC-24). */
     private final InvoiceMailDispatcher invoiceMailDispatcher;
 
-    // API key cổng thanh toán phải gửi kèm header: Authorization: Apikey <key>
+    /** Shared secret the gateway must present as {@code Authorization: Apikey <key>}. */
     @Value("${payment.webhook.api-key:}")
     private String webhookApiKey;
 
-    // Dò mã hóa đơn trong nội dung chuyển khoản. App ngân hàng thường viết hoa toàn bộ
-    // và xóa dấu gạch ngang, nên chấp nhận cả "INV-20250717-0001" lẫn "INV202507170001".
+    /** Recovers the invoice code from a transfer memo. Banking apps commonly
+     *  upper-case the memo and strip hyphens, so both "INV-20250717-0001" and
+     *  "INV202507170001" must be accepted. */
     private static final Pattern INVOICE_CODE_PATTERN =
             Pattern.compile("INV[-\\s]?(\\d{8})[-\\s]?(\\d{4})", Pattern.CASE_INSENSITIVE);
 
     private static final DateTimeFormatter TXN_DATE_FMT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
+    /**
+     * Authenticates a webhook call against the configured gateway API key.
+     *
+     * @param authorizationHeader raw Authorization header, may be null
+     * @return true only on an exact match
+     *
+     * Validate: fails closed. If no key is configured the method rejects
+     * everything rather than running an unprotected webhook — otherwise anyone
+     * who knows the URL could mark invoices PAID, defeating BR-10 entirely.
+     */
     @Override
     public boolean isValidApiKey(String authorizationHeader) {
-        // Chưa cấu hình key → từ chối tất cả. Không cho phép chạy webhook không bảo vệ,
-        // vì bất kỳ ai biết URL cũng có thể tự đánh dấu hóa đơn đã thanh toán.
+        // Fail closed: an unconfigured key must never mean "allow all".
         if (webhookApiKey == null || webhookApiKey.isBlank()) {
             log.error("payment.webhook.api-key chưa được cấu hình — từ chối mọi webhook");
             return false;
@@ -74,23 +94,46 @@ public class PaymentServiceImpl implements PaymentService {
             return false;
         }
         String expected = "Apikey " + webhookApiKey;
-        // So sánh theo thời gian hằng số để tránh lộ key qua timing attack
+        // Constant-time comparison so the key cannot be recovered by timing.
         return java.security.MessageDigest.isEqual(
                 authorizationHeader.trim().getBytes(java.nio.charset.StandardCharsets.UTF_8),
                 expected.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
+    /**
+     * Reconciles one incoming-payment webhook and settles the matching invoice
+     * (UC-23 ALT-2 step 5).
+     *
+     * Runs as a single transaction so the journal entry, the invoice update and
+     * the appointment completion either all land or none do.
+     *
+     * @param request    parsed gateway payload
+     * @param rawPayload verbatim JSON, stored on the journal row for audit
+     * @return MATCHED | UNMATCHED | AMOUNT_MISMATCH | DUPLICATE | IGNORED
+     * @throws IllegalArgumentException if the payload carries no transaction id
+     *
+     * Validate, in order:
+     *   1. transaction id present — without it idempotency is impossible
+     *   2. DUPLICATE — gatewayTxnId already journalled (gateway retry)
+     *   3. IGNORED — outgoing transfer, not a patient payment
+     *   4. UNMATCHED — no invoice code in the memo, or no such invoice,
+     *      or the invoice was cancelled (needs a manual refund)
+     *   5. DUPLICATE — the invoice was already PAID
+     *   6. BR-10 — received amount must cover the invoice total, else
+     *      AMOUNT_MISMATCH and the invoice stays PENDING_PAYMENT
+     */
     @Override
     @Transactional
     public String handleWebhook(PaymentWebhookRequest request, String rawPayload) {
         String gatewayTxnId = request.getId();
+        // No transaction id means the duplicate guard below cannot work at all.
         if (gatewayTxnId == null || gatewayTxnId.isBlank()) {
             throw new IllegalArgumentException("Webhook thiếu mã giao dịch (id)");
         }
 
-        // ── Bước 1: chống xử lý trùng ──────────────────────────────────────────
-        // Cổng thanh toán retry khi không nhận được 200 (mạng chập chờn, deploy...).
-        // Nếu không chặn ở đây, cùng một lần chuyển khoản có thể gạch nợ nhiều hóa đơn.
+        // ── Step 1: idempotency guard ──────────────────────────────────────────
+        // The gateway retries whenever it does not receive a 200 (flaky network,
+        // a deploy...). Without this check one transfer could settle repeatedly.
         if (paymentTransactionRepository.existsByGatewayTxnId(gatewayTxnId)) {
             log.info("Webhook trùng, bỏ qua. gatewayTxnId={}", gatewayTxnId);
             return "DUPLICATE";
@@ -109,7 +152,8 @@ public class PaymentServiceImpl implements PaymentService {
                 .receivedAt(LocalDateTime.now())
                 .build();
 
-        // ── Bước 2: chỉ quan tâm tiền vào ──────────────────────────────────────
+        // ── Step 2: only incoming money can settle an invoice ──────────────────
+        // An outgoing transfer (a clinic payout) must never touch a patient invoice.
         if (request.getTransferType() != null && !"in".equalsIgnoreCase(request.getTransferType())) {
             txn.setStatus("IGNORED");
             txn.setNote("Giao dịch tiền ra, không liên quan đến thu phí");
@@ -117,7 +161,9 @@ public class PaymentServiceImpl implements PaymentService {
             return "IGNORED";
         }
 
-        // ── Bước 3: dò mã hóa đơn trong nội dung chuyển khoản ──────────────────
+        // ── Step 3: recover the invoice code from the transfer memo ────────────
+        // A transfer we cannot attribute is journalled, never discarded, so the
+        // money stays traceable for manual reconciliation.
         String invoiceCode = extractInvoiceCode(request);
         if (invoiceCode == null) {
             txn.setStatus("UNMATCHED");
@@ -139,7 +185,7 @@ public class PaymentServiceImpl implements PaymentService {
         Invoice invoice = found.get();
         txn.setInvoice(invoice);
 
-        // ── Bước 4: hóa đơn đã thanh toán rồi thì không gạch nợ lần nữa ────────
+        // ── Step 4: never settle an invoice twice ──────────────────────────────
         if ("PAID".equals(invoice.getPaymentStatus())) {
             txn.setStatus("DUPLICATE");
             txn.setNote("Hóa đơn " + invoiceCode + " đã ở trạng thái PAID từ trước");
@@ -147,6 +193,8 @@ public class PaymentServiceImpl implements PaymentService {
             return "DUPLICATE";
         }
 
+        // Money arrived for a voided invoice — BR-09 keeps the cancelled row, so
+        // this is recoverable, but it needs a human to issue a refund.
         if ("CANCELLED".equals(invoice.getStatus())) {
             txn.setStatus("UNMATCHED");
             txn.setNote("Hóa đơn " + invoiceCode + " đã bị hủy — cần hoàn tiền thủ công");
@@ -155,12 +203,14 @@ public class PaymentServiceImpl implements PaymentService {
             return "UNMATCHED";
         }
 
-        // ── Bước 5: đối chiếu số tiền ─────────────────────────────────────────
+        // ── Step 5: amount check ───────────────────────────────────────────────
         BigDecimal received = request.getTransferAmount() == null
                 ? BigDecimal.ZERO : request.getTransferAmount();
         BigDecimal expected = invoice.getTotalAmount() == null
                 ? BigDecimal.ZERO : invoice.getTotalAmount();
 
+        // BR-10 / UC-23 E2: a short transfer does NOT settle the invoice — it is
+        // journalled as AMOUNT_MISMATCH and the invoice stays PENDING_PAYMENT.
         if (received.compareTo(expected) < 0) {
             txn.setStatus("AMOUNT_MISMATCH");
             txn.setNote("Số tiền nhận " + received + " nhỏ hơn tổng hóa đơn " + expected);
@@ -169,25 +219,28 @@ public class PaymentServiceImpl implements PaymentService {
             return "AMOUNT_MISMATCH";
         }
 
-        // ── Bước 6: gạch nợ ───────────────────────────────────────────────────
+        // ── Step 6: settle the invoice ─────────────────────────────────────────
+        // BR-10 satisfied: the bank confirmed funds covering the full total.
         invoice.setPaymentMethod("VIET_QR");
         invoice.setPaymentReference(request.getReferenceCode() != null
                 ? request.getReferenceCode() : gatewayTxnId);
         invoice.setPaymentStatus("PAID");
         invoice.setPaidAt(LocalDateTime.now());
-        // Hóa đơn nháp được phát hành luôn khi tiền đã về; hóa đơn ISSUED giữ nguyên trạng thái.
+        // UC-23 ALT-2 step 5: a draft is promoted DRAFT → ISSUED once paid; an
+        // already-ISSUED invoice keeps its status.
         if ("DRAFT".equals(invoice.getStatus())) {
             invoice.setStatus("ISSUED");
         }
 
-        // UC-23 POST-3: chốt lượt khám sang COMPLETED khi đã thu tiền (bỏ qua lịch đã hủy/đã hoàn tất).
+        // UC-23 POST-3: close the visit out as COMPLETED. A cancelled or already
+        // completed appointment is left untouched.
         Appointment appt = invoice.getAppointment();
         if (appt != null && appt.getStatus() != AppointmentStatus.CANCELLED
                 && appt.getStatus() != AppointmentStatus.COMPLETED) {
             appt.setStatus(AppointmentStatus.COMPLETED);
         }
 
-        // UC-24: tự động gửi hóa đơn điện tử qua email khi thanh toán thành công (nếu có email).
+        // UC-24: e-mail the e-invoice automatically once payment is confirmed.
         boolean hasEmail = invoice.getPatient() != null
                 && invoice.getPatient().getEmail() != null
                 && !invoice.getPatient().getEmail().isBlank();
@@ -208,8 +261,9 @@ public class PaymentServiceImpl implements PaymentService {
         txn.setNote("Đã tự động gạch nợ hóa đơn " + invoiceCode);
         paymentTransactionRepository.save(txn);
 
-        // Thông báo "Thanh toán thành công" cho bệnh nhân (nếu có tài khoản). Lỗi tạo thông báo
-        // không được làm hỏng việc gạch nợ đã hoàn tất → bọc try/catch.
+        // UC-10 / UC-23 step 5: tell the patient the payment landed. Wrapped in
+        // try/catch because a notification failure must not undo a settlement
+        // that the bank has already confirmed.
         try {
             Long patientUserId = (invoice.getPatient() != null && invoice.getPatient().getUser() != null)
                     ? invoice.getPatient().getUser().getId() : null;
@@ -228,6 +282,17 @@ public class PaymentServiceImpl implements PaymentService {
         return "MATCHED";
     }
 
+    /**
+     * Current settlement state of an invoice, for the QR-screen polling loop
+     * (UC-23 ALT-2 step 4).
+     *
+     * {@code paidAmount} is taken from the most recent MATCHED journal entry,
+     * so it reflects what the bank actually reported rather than what was owed.
+     *
+     * @param invoiceId invoice being paid
+     * @return the payment state
+     * @throws ResourceNotFoundException if no such invoice
+     */
     @Override
     @Transactional(readOnly = true)
     public PaymentStatusResponse getPaymentStatus(Long invoiceId) {
@@ -256,14 +321,29 @@ public class PaymentServiceImpl implements PaymentService {
                 .build();
     }
 
-    // Một số cổng đẩy nội dung vào description thay vì content — thử cả hai.
+    /**
+     * Picks the transfer memo, tolerating gateways that populate
+     * {@code description} instead of {@code content}.
+     *
+     * @param r webhook payload
+     * @return the memo text, or null when neither field is set
+     */
     private String pickContent(PaymentWebhookRequest r) {
         if (r.getContent() != null && !r.getContent().isBlank()) return r.getContent();
         return r.getDescription();
     }
 
-    // Ưu tiên field code nếu cổng đã tự bóc tách sẵn theo cấu hình prefix,
-    // ngược lại tự dò bằng regex trong nội dung chuyển khoản.
+    /**
+     * Extracts the invoice code from a webhook payload.
+     *
+     * Prefers the gateway's own pre-parsed {@code code} field when its prefix
+     * rule is configured, and otherwise falls back to regex-scanning the memo
+     * and then the description.
+     *
+     * @param r webhook payload
+     * @return normalised invoice code, or null when none can be found — which
+     *         is what drives the UNMATCHED outcome
+     */
     private String extractInvoiceCode(PaymentWebhookRequest r) {
         String fromCode = normalizeInvoiceCode(r.getCode());
         if (fromCode != null) return fromCode;
@@ -274,7 +354,13 @@ public class PaymentServiceImpl implements PaymentService {
         return normalizeInvoiceCode(r.getDescription());
     }
 
-    // Chuẩn hóa về đúng định dạng lưu trong DB: INV-yyyyMMdd-XXXX
+    /**
+     * Normalises whatever the bank produced back into the stored format
+     * INV-yyyyMMdd-XXXX, so a memo that lost its hyphens still matches.
+     *
+     * @param text memo or code fragment, may be null
+     * @return the canonical invoice code, or null when no code is present
+     */
     private String normalizeInvoiceCode(String text) {
         if (text == null || text.isBlank()) return null;
         Matcher m = INVOICE_CODE_PATTERN.matcher(text);
@@ -282,6 +368,14 @@ public class PaymentServiceImpl implements PaymentService {
         return "INV-" + m.group(1) + "-" + m.group(2);
     }
 
+    /**
+     * Parses the gateway's "yyyy-MM-dd HH:mm:ss" timestamp.
+     *
+     * @param raw timestamp string, may be null or malformed
+     * @return the parsed value, or null — an unparseable date is not worth
+     *         rejecting a real payment over, and {@code receivedAt} still
+     *         records when ECMS saw it
+     */
     private LocalDateTime parseTxnDate(String raw) {
         if (raw == null || raw.isBlank()) return null;
         try {
