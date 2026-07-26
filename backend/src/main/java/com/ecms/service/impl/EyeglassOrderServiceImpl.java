@@ -307,7 +307,7 @@ public class EyeglassOrderServiceImpl implements EyeglassOrderService {
         }
     }
 
-    // Chức năng: Lễ tân giao kính cho bệnh nhân và xác nhận hoàn tất (UC-42)
+    // Chức năng: Lab giao kính cho bệnh nhân và xác nhận hoàn tất
     @Override
     @Transactional
     public EyeglassOrderResponse dispenseOrder(Long id, String staffEmail) {
