@@ -8,7 +8,7 @@ import { DeleteOutlined } from '@ant-design/icons';
 import { medicineService } from '../../../services/medicineService';
 import { prescriptionService } from '../../../services/prescriptionService';
 
-export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, onPrescriptionSaved }) {
+export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, onPrescriptionSaved, onAutoSaveEMR }) {
     const [form] = Form.useForm();
     const [medicines, setMedicines] = useState([]);
     const [selectedItems, setSelectedItems] = useState([]);

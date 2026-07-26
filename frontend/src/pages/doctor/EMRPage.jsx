@@ -9,7 +9,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import Header from '../../components/layout/Header'
-import { Form, Input, InputNumber, Tabs, Button, message, Tag, Spin, Collapse, Divider, Modal, Select, Pagination } from 'antd'
+import { Form, Input, InputNumber, Tabs, Button, message, Tag, Spin, Collapse, Divider, Modal, Select, Pagination, Tooltip } from 'antd'
 import { emrService } from '../../services/emrService'
 import { labService } from '../../services/labService'
 import DrugPrescriptionForm from './components/DrugPrescriptionForm'
@@ -17,6 +17,7 @@ import EyeglassPrescriptionForm from './components/EyeglassPrescriptionForm'
 import useConfirmAction from '../../hooks/useConfirmAction'
 import { appointmentService } from '../../services/appointmentService'
 import { clinicServiceService } from '../../services/clinicServiceService'
+import { isWithinClinicHours, CLINIC_HOURS_MESSAGE } from '../../utils/clinicHours'
 
 const { TextArea } = Input
 const { Panel } = Collapse
@@ -175,6 +176,12 @@ export default function EMRPage() {
   const [labTechnicians,    setLabTechnicians]    = useState([])   // danh sách dịch vụ XN từ backend
   const [loadingLabTechs,  setLoadingLabTechs]  = useState(false)
   const [creatingOrder,  setCreatingOrder]  = useState(false)
+  const [withinHours, setWithinHours] = useState(isWithinClinicHours())
+
+  useEffect(() => {
+    const timer = setInterval(() => setWithinHours(isWithinClinicHours()), 60_000)
+    return () => clearInterval(timer)
+  }, [])
 
   /**
   * Dừng khám ngay trong màn hình EMR — dùng chung API abandonExam với Dashboard.
@@ -714,52 +721,60 @@ export default function EMRPage() {
       <Spin spinning={loading}>
         {!loading && (
           <div>
-          {/* ================= THẺ THÔNG TIN CHI TIẾT BỆNH NHÂN ================= */}
-      <div style={{ 
-        backgroundColor: '#fff', 
-        borderRadius: 12, 
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)', 
-        padding: '16px 24px', 
-        marginBottom: 16,
-        borderLeft: '4px solid #0d9488'
-      }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
-          <div>
-            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Họ và tên</div>
-            <div style={{ fontWeight: 600, color: '#1e293b', fontSize: 14 }}>{emr?.patientName ?? '—'}</div>
-          </div>
-          <div>
-            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Ngày sinh / Tuổi</div>
-            <div style={{ fontWeight: 500, color: '#334155' }}>
-              {emr?.patientDob ? new Date(emr.patientDob).toLocaleDateString('vi-VN') : '—'} 
-              {emr?.patientDob && ` (${calculateAge(emr.patientDob)} tuổi)`}
+            {!isReadOnly && !withinHours && (
+            <div style={{
+              backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 10,
+              padding: '10px 16px', marginBottom: 16, fontSize: 13, color: '#92400e',
+            }}>
+              Ngoài giờ làm việc của phòng khám (07:30–17:00, trừ Chủ nhật) — hồ sơ tạm khóa, không thể chỉnh sửa lúc này.
             </div>
-          </div>
-          <div>
-            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Giới tính</div>
-            <div style={{ fontWeight: 500, color: '#334155' }}>{emr?.patientGender === 'FEMALE' ? 'Nữ' : 
-     emr?.patientGender === 'MALE' ? 'Nam' : (emr?.patientGender ?? '—')}</div>
-          </div>
-          <div>
-            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Số điện thoại</div>
-            <div style={{ fontWeight: 500, color: '#334155' }}>{emr?.patientPhone ?? '—'}</div>
-          </div>
-          <div>
-            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Địa chỉ thường trú</div>
-            <div style={{ fontWeight: 500, color: '#334155' }}>{emr?.patientAddress ?? '—'}</div>
-          </div>
-          <div>
-            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Dịch vụ khám</div>
-            <div style={{ fontWeight: 500, color: '#334155' }}>{emr?.serviceName ?? '—'}</div>
-          </div>
-        </div>
-      </div>
+          )}
+          {/* ================= THẺ THÔNG TIN CHI TIẾT BỆNH NHÂN ================= */}
+            <div style={{ 
+              backgroundColor: '#fff', 
+              borderRadius: 12, 
+              boxShadow: '0 1px 4px rgba(0,0,0,0.06)', 
+              padding: '16px 24px', 
+              marginBottom: 16,
+              borderLeft: '4px solid #0d9488'
+            }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+                <div>
+                  <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Họ và tên</div>
+                  <div style={{ fontWeight: 600, color: '#1e293b', fontSize: 14 }}>{emr?.patientName ?? '—'}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Ngày sinh / Tuổi</div>
+                  <div style={{ fontWeight: 500, color: '#334155' }}>
+                    {emr?.patientDob ? new Date(emr.patientDob).toLocaleDateString('vi-VN') : '—'} 
+                    {emr?.patientDob && ` (${calculateAge(emr.patientDob)} tuổi)`}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Giới tính</div>
+                  <div style={{ fontWeight: 500, color: '#334155' }}>{emr?.patientGender === 'FEMALE' ? 'Nữ' : 
+                                emr?.patientGender === 'MALE' ? 'Nam' : (emr?.patientGender ?? '—')}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Số điện thoại</div>
+                  <div style={{ fontWeight: 500, color: '#334155' }}>{emr?.patientPhone ?? '—'}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Địa chỉ thường trú</div>
+                  <div style={{ fontWeight: 500, color: '#334155' }}>{emr?.patientAddress ?? '—'}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Dịch vụ khám</div>
+                  <div style={{ fontWeight: 500, color: '#334155' }}>{emr?.serviceName ?? '—'}</div>
+                </div>
+              </div>
+            </div>
       {/* ========================================================================= */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 16, alignItems: 'start' }}>
           
           {/* form nhập liệu bệnh án hiện tại */}
           <div style={{ backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
-            <Form form={form} layout="vertical" disabled={isReadOnly} style={{ padding: '20px 24px' }}>
+            <Form form={form} layout="vertical" disabled={isReadOnly || !withinHours} style={{ padding: '20px 24px' }}>
               <Tabs
                 size="small"
                 items={[
@@ -843,7 +858,7 @@ export default function EMRPage() {
                     label: 'Kê đơn thuốc',
                     forceRender: true,
                     children: (
-                      <DrugPrescriptionForm emr={emr} isReadOnly={isReadOnly} onAutoSaveEMR={handleAutoSave} />
+                      <DrugPrescriptionForm emr={emr} isReadOnly={isReadOnly || !withinHours} onAutoSaveEMR={handleAutoSave} />
                     ),
                   },
                   {
@@ -851,7 +866,7 @@ export default function EMRPage() {
                     label: 'Kê đơn kính',
                     forceRender: true,
                     children: (
-                      <EyeglassPrescriptionForm emr={emr} isReadOnly={isReadOnly} onAutoSaveEMR={handleAutoSave} />
+                      <EyeglassPrescriptionForm emr={emr} isReadOnly={isReadOnly || !withinHours} onAutoSaveEMR={handleAutoSave} />
                     ),
                   },
                 ]}
@@ -864,38 +879,48 @@ export default function EMRPage() {
                 borderTop: '1px solid #f1f5f9', padding: '14px 24px',
                 display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'center',
               }}>
-                {/* Nút chỉ định XN — chỉ hiện khi EMR đang IN_PROGRESS */}
                 {emr?.status === 'IN_PROGRESS' ? (
-                  <Button
-                    onClick={openLabModal}
-                    style={{ fontSize: 13, borderColor: '#7c3aed', color: '#7c3aed' }}
-                  >
-                    Yêu cầu đo mắt chuyên sâu
-                  </Button>
+                  <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
+                    <Button
+                      onClick={openLabModal}
+                      disabled={!withinHours}
+                      style={{ fontSize: 13, borderColor: '#7c3aed', color: '#7c3aed' }}
+                    >
+                      Yêu cầu đo mắt chuyên sâu
+                    </Button>
+                  </Tooltip>
                 ) : (
                   <div />
                 )}
 
                 <div style={{ display: 'flex', gap: 10 }}>
-                  <Button
-                    danger
-                    onClick={handleAbandonExamInEMR}
-                    loading={abandoning}
-                    style={{ fontSize: 13 }}
-                  >
-                    Dừng khám
-                  </Button>
-                  <Button onClick={handleSaveDraft} loading={saving} style={{ fontSize: 13 }}>
-                    Lưu nháp
-                  </Button>
-                  <Button
-                    type="primary"
-                    onClick={handleComplete}
-                    loading={saving}
-                    style={{ backgroundColor: '#0d9488', borderColor: '#0d9488', fontSize: 13 }}
-                  >
-                    Hoàn thành khám
-                  </Button>
+                  <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
+                    <Button
+                      danger
+                      onClick={handleAbandonExamInEMR}
+                      loading={abandoning}
+                      disabled={!withinHours}
+                      style={{ fontSize: 13 }}
+                    >
+                      Dừng khám
+                    </Button>
+                  </Tooltip>
+                  <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
+                    <Button onClick={handleSaveDraft} loading={saving} disabled={!withinHours} style={{ fontSize: 13 }}>
+                      Lưu nháp
+                    </Button>
+                  </Tooltip>
+                  <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
+                    <Button
+                      type="primary"
+                      onClick={handleComplete}
+                      loading={saving}
+                      disabled={!withinHours}
+                      style={{ backgroundColor: '#0d9488', borderColor: '#0d9488', fontSize: 13 }}
+                    >
+                      Hoàn thành khám
+                    </Button>
+                  </Tooltip>
                 </div>
             </div>
             )}
