@@ -88,7 +88,11 @@ public class User {
 
     // Tài khoản "ảo"/demo (dùng gmail giả) tạo qua UC-55 với cờ isVirtual: bỏ qua email kích hoạt,
     // mật khẩu cố định, và chỉ đăng nhập được qua cổng Demo (AuthController#demoLogin), không qua OTP.
-    @Column(name = "is_virtual", nullable = false)
+    // DEFAULT 0 bắt buộc, giống marketing_opt_out ở trên: thiếu nó thì ddl-auto=update
+    // sinh ALTER TABLE ... ADD ... NOT NULL không kèm default, SQL Server từ chối trên
+    // bảng users đã có dữ liệu, Hibernate chỉ log cảnh báo rồi chạy tiếp — cột không bao
+    // giờ được tạo và MỌI truy vấn users (kể cả đăng nhập) chết với "Invalid column name".
+    @Column(name = "is_virtual", nullable = false, columnDefinition = "BIT NOT NULL DEFAULT 0")
     @Builder.Default
     private Boolean isVirtual = false;
 }

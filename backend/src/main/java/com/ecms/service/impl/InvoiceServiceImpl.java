@@ -68,6 +68,8 @@ public class InvoiceServiceImpl implements InvoiceService {
     private final MedicalRecordRepository medicalRecordRepository;
     private final PrescriptionRepository prescriptionRepository;
     private final LabOrderRepository labOrderRepository;
+    private final com.ecms.repository.EyeglassPrescriptionRepository eyeglassPrescriptionRepository;
+    private final com.ecms.repository.EyeglassOrderRepository eyeglassOrderRepository;
     private final NotificationService notificationService;
     private final InvoicePdfService invoicePdfService;
     private final DiscountCampaignService discountCampaignService;
@@ -374,6 +376,7 @@ public class InvoiceServiceImpl implements InvoiceService {
         // (cộng dồn số lượng) — tránh dòng trùng mô tả khiến modal chặn khi lưu.
         java.util.LinkedHashMap<Long, InvoiceRequest.InvoiceItemRequest> labByService = new java.util.LinkedHashMap<>();
         java.util.LinkedHashMap<Long, InvoiceRequest.InvoiceItemRequest> medById = new java.util.LinkedHashMap<>();
+        java.util.LinkedHashMap<Long, InvoiceRequest.InvoiceItemRequest> glassesByOrder = new java.util.LinkedHashMap<>();
         medicalRecordRepository.findByAppointmentId(appointmentId).ifPresent(emr -> {
             // 2) Xét nghiệm: mỗi lab order gắn một dịch vụ CLINICAL (chụp/đo/soi) có giá
             for (LabOrder lo : labOrderRepository.findByMedicalRecordIdOrderByCreatedAt(emr.getId())) {
@@ -424,11 +427,54 @@ public class InvoiceServiceImpl implements InvoiceService {
                     }
                 }
             }
+            // 4) Đơn kính đã cắt cho buổi khám này (UC-30).
+            // Luồng thường là khám xong → bác sĩ kê đơn kính → bệnh nhân mới ra quầy thu
+            // tiền, tức là đơn kính có TRƯỚC hóa đơn. EyeglassOrderServiceImpl chỉ cộng
+            // dòng kính khi hóa đơn đã tồn tại sẵn, nên ở luồng thường nó không bắt được
+            // và lễ tân phải tự nhớ thêm dòng rồi gõ tay số tiền — sót là mất doanh thu.
+            //
+            // Đơn CANCELLED không tính. Đơn đã DISPENSED vẫn tính: giao kính rồi thì
+            // càng phải thu tiền.
+            for (EyeglassPrescription ep : eyeglassPrescriptionRepository.findByMedicalRecordId(emr.getId())) {
+                for (EyeglassOrder order : eyeglassOrderRepository.findByPrescriptionId(ep.getId())) {
+                    if (order.getStatus() == EyeglassOrderStatus.CANCELLED) continue;
+                    InvoiceRequest.InvoiceItemRequest item = new InvoiceRequest.InvoiceItemRequest();
+                    item.setItemType("GLASSES");
+                    item.setRefId(order.getId());
+                    item.setDescription(describeEyeglassOrder(order));
+                    item.setQuantity(1);
+                    item.setUnitPrice(order.getTotalAmount() != null
+                            ? order.getTotalAmount() : BigDecimal.ZERO);
+                    glassesByOrder.put(order.getId(), item);
+                }
+            }
         });
         suggestions.addAll(labByService.values());
         suggestions.addAll(medById.values());
+        suggestions.addAll(glassesByOrder.values());
 
         return suggestions;
+    }
+
+    /**
+     * Mô tả dòng phí kính: gọng + số lớp phủ, để lễ tân đối chiếu được với đơn thay vì
+     * chỉ thấy một dòng "Đơn kính" chung chung khi bệnh nhân thắc mắc về giá.
+     *
+     * @param order đơn kính đã đặt
+     * @return mô tả hiển thị trên hóa đơn
+     */
+    private String describeEyeglassOrder(EyeglassOrder order) {
+        StringBuilder sb = new StringBuilder("Đơn kính");
+        // Không thêm chữ "gọng" phía trước: tên gọng trong danh mục vốn đã bắt đầu bằng
+        // "Gọng kính ...", ghép vào sẽ thành "gọng Gọng kính ...".
+        if (order.getFrame() != null && order.getFrame().getName() != null) {
+            sb.append(" — ").append(order.getFrame().getName());
+        }
+        int coatings = order.getCoatings() != null ? order.getCoatings().size() : 0;
+        if (coatings > 0) {
+            sb.append(" + ").append(coatings).append(" lớp phủ");
+        }
+        return sb.toString();
     }
 
     /**
