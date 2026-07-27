@@ -8,7 +8,7 @@ import { Form, Input, Button, InputNumber, Select, message, Spin, Tag, Descripti
 import { eyeglassPrescriptionService } from '../../../services/eyeglassPrescriptionService';
 import axiosClient from '../../../api/axiosClient';
 
-const EyeFields = ({ prefix, label, isReadOnly }) => (
+const EyeFields = ({ prefix, label, isReadOnly, isAddDisabled }) => (
     <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
         <div style={{ fontWeight: 600, fontSize: 13, color: '#475569', marginBottom: 10 }}>{label}</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12 }}>
@@ -22,7 +22,7 @@ const EyeFields = ({ prefix, label, isReadOnly }) => (
                 <InputNumber style={{ width: '100%' }} placeholder="0" min={0} max={180} disabled={isReadOnly} />
             </Form.Item>
             <Form.Item label="ADD" name={`${prefix}Add`} style={{ marginBottom: 0 }}>
-                <InputNumber style={{ width: '100%' }} placeholder="0.00" step={0.25} disabled={isReadOnly} />
+                <InputNumber style={{ width: '100%' }} placeholder="0.00" step={0.25} disabled={isAddDisabled !== undefined ? isAddDisabled : isReadOnly} />
             </Form.Item>
         </div>
     </div>
@@ -129,6 +129,13 @@ export default function EyeglassPrescriptionForm({ emr, isReadOnly, onPrescripti
     const hasPendingPrescription = existingPrescriptions.some(p => p.status === 'ISSUED');
     const isFormDisabled = isReadOnly || (hasPendingPrescription && !editPrescriptionId);
 
+    // Watch the selected lens type to dynamically disable ADD fields
+    const selectedLensTypeId = Form.useWatch('lensTypeId', form);
+    const isSingleVision = React.useMemo(() => {
+        const lt = lensTypes.find(l => l.id === selectedLensTypeId);
+        return lt ? lt.name.toLowerCase().includes('đơn tròng') : false;
+    }, [selectedLensTypeId, lensTypes]);
+
     const handleDeletePrescription = async (id) => {
         try {
             await eyeglassPrescriptionService.delete(id);
@@ -143,15 +150,28 @@ export default function EyeglassPrescriptionForm({ emr, isReadOnly, onPrescripti
     return (
         <div style={{ paddingTop: 12 }}>
             <Form component={false} form={form} layout="vertical" onFinish={handleSave} disabled={isFormDisabled}>
-                <EyeFields prefix="od" label="Mắt phải (OD)" isReadOnly={isFormDisabled} />
-                <EyeFields prefix="os" label="Mắt trái (OS)" isReadOnly={isFormDisabled} />
-                
+                <EyeFields prefix="od" label="Mắt phải (OD)" isReadOnly={isFormDisabled} isAddDisabled={isFormDisabled || isSingleVision} />
+                <EyeFields prefix="os" label="Mắt trái (OS)" isReadOnly={isFormDisabled} isAddDisabled={isFormDisabled || isSingleVision} />
+
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
                     <Form.Item label="Khoảng cách đồng tử (PD)" name="pd" rules={[{ required: true, message: 'Nhập PD' }]}>
                         <InputNumber style={{ width: '100%' }} placeholder="mm" />
                     </Form.Item>
                     <Form.Item label="Loại tròng kính" name="lensTypeId" rules={[{ required: true, message: 'Chọn loại tròng' }]}>
-                        <Select placeholder="Chọn loại tròng">
+                        <Select 
+                            placeholder="Chọn loại tròng"
+                            onChange={(value) => {
+                                const selected = lensTypes.find(lt => lt.id === value);
+                                if (selected && selected.name.toLowerCase().includes('đơn tròng')) {
+                                    // Tự động xóa độ ADD nếu lỡ nhập trước đó
+                                    form.setFieldsValue({
+                                        odAdd: null,
+                                        osAdd: null
+                                    });
+                                    message.info('Đã xóa độ ADD vì Kính Đơn tròng không có thông số này.');
+                                }
+                            }}
+                        >
                             {lensTypes.map(lt => (
                                 <Select.Option key={lt.id} value={lt.id}>{lt.name}</Select.Option>
                             ))}
@@ -208,7 +228,7 @@ export default function EyeglassPrescriptionForm({ emr, isReadOnly, onPrescripti
                                     </div>
                                 )}
                             </div>
-                            
+
                             <Descriptions bordered size="small" column={2}>
                                 <Descriptions.Item label="Mắt phải (OD)">
                                     SPH: <b>{p.odSph}</b>, CYL: <b>{p.odCyl}</b>, AXIS: <b>{p.odAxis}°</b>, ADD: <b>{p.odAdd}</b>
