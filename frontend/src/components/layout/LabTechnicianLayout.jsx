@@ -73,14 +73,14 @@ export default function LabTechnicianLayout() {
       <aside style={{
         width: 220,
         flexShrink: 0,
-        backgroundColor: '#fff',
-        borderRight: '1px solid #e8eef4',
+        backgroundColor: '#1c1b1f',
+        borderRight: '1px solid rgba(255,255,255,0.08)',
         display: 'flex',
         flexDirection: 'column',
         boxShadow: '2px 0 8px rgba(0,0,0,0.04)',
       }}>
         {/* Brand */}
-        <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid #f1f5f9' }}>
+        <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
             <div style={{
               width: 36, height: 36, borderRadius: 10, flexShrink: 0,
@@ -102,7 +102,7 @@ export default function LabTechnicianLayout() {
               <div style={{ fontWeight: 700, fontSize: 13, color: '#0d9488', lineHeight: 1.3 }}>Portal</div>
             </div>
           </div>
-          <div style={{ fontSize: 11, color: '#94a3b8' }}>Main Clinic Branch</div>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>Main Clinic Branch</div>
         </div>
 
         {/* Khu vực Menu điều hướng */}
@@ -113,15 +113,15 @@ export default function LabTechnicianLayout() {
               <NavLink
                 key={to}
                 to={to}
-                style={{
+                style={({ isActive }) => ({
                   display: 'flex', alignItems: 'center', gap: 10,
                   padding: '9px 12px', borderRadius: 8, marginBottom: 2,
-                  textDecoration: 'none', fontSize: 13,
-                  fontWeight: isActive ? 600 : 400,
-                  color: isActive ? '#0d9488' : '#64748b',
-                  backgroundColor: isActive ? '#ccfbf1' : 'transparent',
+                  textDecoration: 'none', fontSize: 14,
+                  fontWeight: 500,
+                  color: isActive ? '#fff' : 'rgba(255,255,255,0.6)',
+                  backgroundColor: isActive ? '#0d9488' : 'transparent',
                   transition: 'background-color 0.15s, color 0.15s',
-                }}
+                })}
               >
                 {icon}
                 {label}
@@ -131,13 +131,13 @@ export default function LabTechnicianLayout() {
         </nav>
 
         {/* Khu vực thông tin User (Kỹ thuật viên) và nút đăng xuất nằm ở cuối Sidebar */}
-        <div style={{ padding: '12px 16px', borderTop: '1px solid #f1f5f9' }}>
+        <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
           <Link
             to="/"
             style={{
               display: 'flex', alignItems: 'center', gap: 8,
               padding: '7px 10px', borderRadius: 8, marginBottom: 6,
-              fontSize: 12, color: '#64748b', textDecoration: 'none',
+              fontSize: 12, color: 'rgba(255,255,255,0.6)', textDecoration: 'none',
             }}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -160,7 +160,7 @@ export default function LabTechnicianLayout() {
               {user?.fullName?.[0]?.toUpperCase() ?? 'L'}
             </div>
             <span style={{
-              fontSize: 12, color: '#374151', fontWeight: 500,
+              fontSize: 12, color: '#fff', fontWeight: 500,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
               {user?.fullName ?? user?.email}
@@ -168,10 +168,9 @@ export default function LabTechnicianLayout() {
           </div>
 
           <button
-            onClick={handleLogout}
             style={{
-              width: '100%', background: 'none', border: '1px solid #e2e8f0',
-              cursor: 'pointer', color: '#64748b', padding: '6px 0',
+              width: '100%', background: 'none', border: '1px solid rgba(255,255,255,0.15)',
+              cursor: 'pointer', color: 'rgba(255,255,255,0.6)', padding: '6px 0',
               borderRadius: 8, fontSize: 12, display: 'flex', alignItems: 'center',
               justifyContent: 'center', gap: 6,
             }}
@@ -187,7 +186,7 @@ export default function LabTechnicianLayout() {
       </aside>
 
       {/* Phần Main Content (Bên phải Sidebar) */}
-      <main style={{ flex: 1, overflow: 'auto' }}>
+      <main style={{ flex: 1, overflow: 'auto', scrollbarGutter: 'stable' }}>
         <Outlet />
       </main>
     </div>

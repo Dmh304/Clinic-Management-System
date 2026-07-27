@@ -770,7 +770,7 @@ export default function EMRPage() {
                 </div>
                 <div>
                   <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 2 }}>Dịch vụ khám</div>
-                  <div style={{ fontWeight: 500, color: '#334155' }}>{emr?.serviceName ?? '—'}</div>
+                  <div style={{ fontWeight: 500, color: '#334155' }}>{emr?.serviceName ?? 'Khám tổng quát'}</div>
                 </div>
               </div>
             </div>
