@@ -1,0 +1,263 @@
+@startuml UC54_ApprovePayroll_ClassDiagram
+
+' ============================================================================
+' UC-54: Approve Payroll  (Actor: Clinic Manager)
+' Perspective: Implementation (Spring Boot) — derived from the real backend/ code
+'   POST  /api/v1/payroll/generate             -> generateDraft()  (NF 1-2, ALT-1)
+'   GET   /api/v1/payroll/periods{,/{id}}      -> listPeriods() / getPeriod()  (NF 3)
+'   PATCH /api/v1/payroll/items/{id}           -> updateItem()     (NF 3)
+'   POST  /api/v1/payroll/periods/{id}/approve -> approve()        (NF 4-7)
+' Every operation here matches 1:1 a message in the UC-54 Sequence Diagram.
+' ============================================================================
+
+skinparam classAttributeIconSize 0
+skinparam monochrome false
+skinparam backgroundColor white
+skinparam roundcorner 5
+skinparam class {
+    BackgroundColor #f9f9f9
+    ArrowColor #336699
+    BorderColor #336699
+}
+
+' ─────────────────── Presentation layer ───────────────────
+class PayrollController {
+    - payrollService: PayrollService
+    - userRepository: UserRepository
+    + generate(year: Integer, month: Integer): ResponseEntity<ApiResponse<Map<String, Object>>>
+    + periods(): ResponseEntity<ApiResponse<List<Map<String, Object>>>>
+    + period(id: Long): ResponseEntity<ApiResponse<Map<String, Object>>>
+    + updateItem(id: Long, request: PayrollItemUpdateRequest): ResponseEntity<ApiResponse<Map<String, Object>>>
+    + approve(userDetails: UserDetails, id: Long): ResponseEntity<ApiResponse<Map<String, Object>>>
+}
+
+' ─────────────────── Service layer ───────────────────
+interface PayrollService {
+    + generateDraft(year: int, month: int): Map<String, Object>
+    + listPeriods(): List<Map<String, Object>>
+    + getPeriod(periodId: Long): Map<String, Object>
+    + updateItem(itemId: Long, request: PayrollItemUpdateRequest): Map<String, Object>
+    + approve(periodId: Long, actorUserId: Long): Map<String, Object>
+}
+
+class PayrollServiceImpl {
+    - doctorRatePerVisit: BigDecimal
+    - baseSalaryDoctor: BigDecimal
+    - baseSalaryStaff: BigDecimal
+    + generateDraft(year: int, month: int): Map<String, Object>
+    + listPeriods(): List<Map<String, Object>>
+    + getPeriod(periodId: Long): Map<String, Object>
+    + updateItem(itemId: Long, request: PayrollItemUpdateRequest): Map<String, Object>
+    + approve(periodId: Long, actorUserId: Long): Map<String, Object>
+    - isActive(status: String): boolean
+    - nz(v: BigDecimal): BigDecimal
+    - toPeriodMap(p: PayrollPeriod, withItems: boolean): Map<String, Object>
+    - toItemMap(i: PayrollItem): Map<String, Object>
+}
+
+interface AuditLogService {
+    + log(actorUserId: Long, action: String, entityType: String, entityId: String, oldValue: String, newValue: String, ipAddress: String): void
+}
+
+' ─────────────────── Repository layer ───────────────────
+interface PayrollPeriodRepository {
+    + findById(id: Long): Optional<PayrollPeriod>
+    + findByYearAndMonth(year: Integer, month: Integer): Optional<PayrollPeriod>
+    + findAllByOrderByYearDescMonthDesc(): List<PayrollPeriod>
+    + save(period: PayrollPeriod): PayrollPeriod
+}
+
+interface PayrollItemRepository {
+    + findById(id: Long): Optional<PayrollItem>
+    + findByPeriod_IdOrderByStaffTypeAscStaffNameAsc(periodId: Long): List<PayrollItem>
+    + saveAll(items: List<PayrollItem>): List<PayrollItem>
+    + deleteAll(items: List<PayrollItem>): void
+}
+
+interface DoctorRepository {
+    + findAll(): List<Doctor>
+}
+
+interface StaffRepository {
+    + findAll(): List<Staff>
+}
+
+interface AppointmentRepository {
+    + countByDateAndStatusAndDoctorId(start: LocalDateTime, end: LocalDateTime, status: AppointmentStatus, doctorId: Long): long
+}
+
+interface UserRepository {
+    + findByEmail(email: String): Optional<User>
+}
+
+' ─────────────────── DTO ───────────────────
+class PayrollItemUpdateRequest <<DTO>> {
+    - baseSalary: BigDecimal
+    - performanceBonus: BigDecimal
+    - deduction: BigDecimal
+    - note: String
+}
+
+class ApiResponse<T> <<DTO>> {
+    - success: boolean
+    - message: String
+    - data: T
+    + {static} success(data: T): ApiResponse<T>
+}
+
+' ─────────────────── Entity (domain) ───────────────────
+class PayrollPeriod <<Entity>> {
+    - id: Long
+    - year: Integer
+    - month: Integer
+    - status: String
+    - approvedBy: Long
+    - approvedAt: LocalDateTime
+    - createdAt: LocalDateTime
+}
+
+class PayrollItem <<Entity>> {
+    - id: Long
+    - staffType: String
+    - staffRefId: Long
+    - staffName: String
+    - role: String
+    - baseSalary: BigDecimal
+    - activityCount: Integer
+    - performanceBonus: BigDecimal
+    - deduction: BigDecimal
+    - netPay: BigDecimal
+    - note: String
+    - locked: Boolean
+}
+
+class Doctor <<Entity>> {
+    - id: Long
+    - fullName: String
+    - specialization: String
+    - status: String
+}
+
+class Staff <<Entity>> {
+    - id: Long
+    - employeeCode: String
+    - fullName: String
+    - department: String
+    - position: String
+    - status: String
+}
+
+class User <<Entity>> {
+    - id: Long
+    - email: String
+    - fullName: String
+    - role: Role
+}
+
+class AuditLog <<Entity>> {
+    - id: Long
+    - action: String
+    - entityType: String
+    - entityId: String
+    - newValue: String
+    - createdAt: LocalDateTime
+}
+
+class ResourceNotFoundException <<Exception>> {
+    + ResourceNotFoundException(message: String)
+}
+
+' ─────────────────── Dependency (dashed line) ───────────────────
+PayrollController ..> PayrollService : <<use>>
+PayrollController ..> UserRepository : <<use>>
+PayrollController ..> PayrollItemUpdateRequest : <<use>>
+PayrollController ..> ApiResponse : creates
+
+PayrollService <|.. PayrollServiceImpl : implements
+
+PayrollServiceImpl ..> PayrollPeriodRepository : <<use>>
+PayrollServiceImpl ..> PayrollItemRepository : <<use>>
+PayrollServiceImpl ..> DoctorRepository : <<use>>
+PayrollServiceImpl ..> StaffRepository : <<use>>
+PayrollServiceImpl ..> AppointmentRepository : <<use>>
+PayrollServiceImpl ..> AuditLogService : <<use>>
+PayrollServiceImpl ..> PayrollPeriod : creates
+PayrollServiceImpl ..> PayrollItem : creates
+PayrollServiceImpl ..> ResourceNotFoundException : throws
+
+AuditLogService ..> AuditLog : creates
+
+PayrollPeriodRepository ..> PayrollPeriod : manages
+PayrollItemRepository ..> PayrollItem : manages
+DoctorRepository ..> Doctor : manages
+StaffRepository ..> Staff : manages
+UserRepository ..> User : manages
+
+PayrollPeriod ..> User : approvedBy (raw FK)
+PayrollItem ..> Doctor : staffRefId when staffType = DOCTOR
+PayrollItem ..> Staff : staffRefId when staffType = STAFF
+
+' ─────────────────── Composition (solid line) ───────────────────
+PayrollPeriod "1" *-- "0..*" PayrollItem : contains >
+
+' ─────────────────── Note ───────────────────
+note right of PayrollServiceImpl
+  BR-17 (Payroll Approval Authority):
+  enforced in SecurityConfig — /api/v1/payroll/**
+  hasAnyRole("MANAGER", "ADMIN").
+  The approver is taken from the JWT principal,
+  NOT from the request body, so it cannot be spoofed.
+  BR-09 (No Hard Delete): approve() sets locked = true
+  on EVERY line in the same transaction as the status
+  change; afterwards updateItem() and generateDraft()
+  both refuse the period.
+end note
+
+note bottom of PayrollItem
+  Composition (filled diamond): @OneToMany with
+  cascade = ALL + orphanRemoval = true —
+  a payroll line cannot exist outside its period.
+
+  staffType + staffRefId form a "polymorphic" foreign key
+  of type Long; it is NOT mapped as an association to
+  Doctor/Staff, hence the conditional dependencies above.
+
+  netPay is always derived as baseSalary
+  + performanceBonus - deduction,
+  never taken directly from the client.
+end note
+
+note bottom of PayrollPeriod
+  status is a String: {DRAFT, APPROVED}
+  (not yet extracted into an enum in the current code).
+  approve() has an idempotency guard: approving twice
+  throws IllegalStateException so approvedBy / approvedAt
+  are never overwritten.
+end note
+
+note left of PayrollController
+  Deviations from SRS UC-54, need a decision:
+  1. POST-3 "export the payroll to Accounting/Admin":
+     NO export endpoint exists in the code yet.
+  2. E-1 "an adjustment beyond the variance threshold
+     requires a mandatory note": the code checks no
+     threshold and the note stays optional.
+  3. BR-17 says ONLY the Clinic Manager, but the current
+     configuration also lets ADMIN approve.
+  4. The API returns Map<String,Object> instead of DTOs
+     (no PayrollPeriodResponse/PayrollItemResponse),
+     so there is no explicit data contract for the FE.
+end note
+
+note as N_ALT
+  ALT-1 (Reject & recalculate) is implemented by calling
+  generateDraft() again: it wipes the previous lines of a
+  DRAFT period and rebuilds them from activity data
+  (Doctor: count of COMPLETED Appointments in the period;
+  Staff: seeded with the base salary only, to be adjusted
+  manually). This delete only ever touches a DRAFT period,
+  so it does not violate BR-09.
+end note
+N_ALT .. PayrollServiceImpl
+
+@enduml
