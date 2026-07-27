@@ -207,40 +207,28 @@ export default function NotificationBell({ viewAllPath, iconColor = '#64748b', p
       if (entityId) {
         if (isPatient) {
           navigate(`/patient/appointments?highlight=${n.relatedAppointmentId}`)
-        } 
-        // ── DOCTOR ──
-        else if (user?.role === 'DOCTOR') {
-          // Bác sĩ bấm vào thông báo liên quan đến xét nghiệm
+        } else if (user?.role === 'PHARMACIST') {
+          navigate('/pharmacy/dispensing')
+        } else if (user?.role === 'DOCTOR') {
           if (msg.toLowerCase().includes('xét nghiệm')) {
             navigate(`/doctor/lab-order?appointmentId=${n.relatedAppointmentId}`)
           } else {
             navigate(`/doctor/emr?appointmentId=${n.relatedAppointmentId}`)
           }
-        } 
-        // ── LAB TECHNICIAN ──
-        else if (user?.role === 'LAB_TECHNICIAN') {
-          // KTV bấm vào thông báo đơn kính
+        } else if (user?.role === 'LAB_TECHNICIAN') {
           if (msg.toLowerCase().includes('đơn kính')) {
             navigate(`/lab/eyeglass-queue?appointmentId=${n.relatedAppointmentId}`)
-          } 
-          // KTV bấm vào thông báo xét nghiệm
-          else if (msg.toLowerCase().includes('xét nghiệm')) {
+          } else if (msg.toLowerCase().includes('xét nghiệm')) {
             navigate(`/lab/queue?appointmentId=${n.relatedAppointmentId}`)
           }
-        }
-        // ── RECEPTIONIST ──
-        else if (user?.role === 'RECEPTIONIST') {
-          // Lễ tân bấm vào thông báo bệnh nhân đặt kính
+        } else if (user?.role === 'RECEPTIONIST') {
           if (msg.toLowerCase().includes('đơn kính')) {
             navigate(`/receptionist/eyeglass-orders?appointmentId=${n.relatedAppointmentId}`)
           } else {
-            // Mở modal lịch hẹn bình thường
             const res = await appointmentService.getById(n.relatedAppointmentId)
             setDetail(res.data)
           }
-        } 
-        // Các role khác (Receptionist, Manager) mở modal chi tiết lịch hẹn
-        else {
+        } else {
           const res = await appointmentService.getById(n.relatedAppointmentId)
           setDetail(res.data)
         }

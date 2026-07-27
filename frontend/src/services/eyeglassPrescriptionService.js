@@ -2,6 +2,8 @@ import axiosClient from '../api/axiosClient';
 
 export const eyeglassPrescriptionService = {
   create: (data) => axiosClient.post('/v1/eyeglass-prescriptions', data),
+  update: (id, data) => axiosClient.put(`/v1/eyeglass-prescriptions/${id}`, data),
+  delete: (id) => axiosClient.delete(`/v1/eyeglass-prescriptions/${id}`),
   getByPatient: (patientId) => axiosClient.get(`/v1/eyeglass-prescriptions/patient/${patientId}`),
   getByMedicalRecord: (medicalRecordId) =>
     axiosClient.get(`/v1/eyeglass-prescriptions/medical-record/${medicalRecordId}`),

@@ -18,6 +18,7 @@ import com.ecms.repository.LabOrderRepository;
 import com.ecms.repository.LabResultRepository;
 import com.ecms.repository.MedicalRecordRepository;
 import com.ecms.service.EMRService;
+import com.ecms.util.ClinicHoursUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -59,7 +60,7 @@ public class EMRServiceImpl implements EMRService {
         @Transactional // Đảm bảo tính toàn vẹn dữ liệu (Atomic). Nếu có lỗi xảy ra, toàn bộ thao tác
                        // ghi DB sẽ bị rollback
         public EMRResponse saveEMR(EMRRequest request) {
-
+                ClinicHoursUtil.requireWithinClinicHours();
                 // Kiểm tra tính hợp lệ của Lịch hẹn. Nếu không thấy, ném ngoại lệ 404
                 // (ResourceNotFoundException)
                 Appointment appointment = appointmentRepository.findById(request.getAppointmentId())
@@ -148,6 +149,13 @@ public class EMRServiceImpl implements EMRService {
                 if (existing.isPresent()) {
                         MedicalRecord record = existing.get();
 
+                        // Chỉ khóa ngoài giờ khi hồ sơ CHƯA hoàn thành (đang xem/tiếp tục thao tác);
+                        // xem lại bệnh án đã COMPLETED/CANCELLED vẫn cho phép mọi lúc.
+                        if (record.getStatus() != MedicalRecordStatus.COMPLETED
+                                        && record.getStatus() != MedicalRecordStatus.CANCELLED) {
+                                ClinicHoursUtil.requireWithinClinicHours();
+                        }
+
                         /*
                          * Bác sĩ mở lại hồ sơ đang DRAFT (vd bấm "Cập nhật HSBA" từ Dashboard sau khi
                          * đã "Lưu nháp" trước đó) → coi như đang tiếp tục khám, tự động chuyển
@@ -170,6 +178,7 @@ public class EMRServiceImpl implements EMRService {
 
                 // Nếu chưa có, tiến hành lấy thông tin Lịch hẹn và Bác sĩ để tự động tạo bản
                 // ghi nháp (IN_PROGRESS)
+                ClinicHoursUtil.requireWithinClinicHours();
                 Appointment appointment = appointmentRepository.findById(appointmentId)
                                 .orElseThrow(() -> new ResourceNotFoundException(
                                                 "Lịch hẹn không tồn tại: " + appointmentId));

@@ -15,108 +15,110 @@ import java.util.List;
 
 public interface AppointmentService {
 
-    List<AppointmentResponse> getTodayAppointments();
+        List<AppointmentResponse> getTodayAppointments();
 
-    AppointmentResponse updateAppointmentStatus(Long id, AppointmentStatus status);
+        AppointmentResponse updateAppointmentStatus(Long id, AppointmentStatus status);
 
-    List<AppointmentResponse> getAllAppointments();
+        List<AppointmentResponse> getAllAppointments();
 
-    /* Lấy danh sách lịch sử lịch hẹn của một bệnh nhân cụ thể */
-    List<AppointmentResponse> getMyAppointments(Long patientId);
+        /* Lấy danh sách lịch sử lịch hẹn của một bệnh nhân cụ thể */
+        List<AppointmentResponse> getMyAppointments(Long patientId);
 
-    /* Xác nhận lịch hẹn trực tuyến và phân công bác sĩ phụ trách */
-    AppointmentResponse confirmAppointment(Long id, Long doctorId);
+        /* Xác nhận lịch hẹn trực tuyến và phân công bác sĩ phụ trách */
+        AppointmentResponse confirmAppointment(Long id, Long doctorId);
 
-    // "Lịch hẹn của tôi" theo USER — gồm cả lịch đặt hộ người thân (booked_by).
-    // List<AppointmentResponse> getMyAppointments(Long userId);
+        // "Lịch hẹn của tôi" theo USER — gồm cả lịch đặt hộ người thân (booked_by).
+        // List<AppointmentResponse> getMyAppointments(Long userId);
 
-    // Xác nhận lịch hẹn và phân công bác sĩ phụ trách (nếu có).
-    // reason bắt buộc khi đổi sang bác sĩ KHÁC với bác sĩ bệnh nhân đã đặt.
-    AppointmentResponse confirmAppointment(Long id, Long doctorId, String reason);
+        // Xác nhận lịch hẹn và phân công bác sĩ phụ trách (nếu có).
+        // reason bắt buộc khi đổi sang bác sĩ KHÁC với bác sĩ bệnh nhân đã đặt.
+        AppointmentResponse confirmAppointment(Long id, Long doctorId, String reason);
 
-    /**
-     * UC-15: Check-in bệnh nhân tại quầy. Cấp số thứ tự hàng đợi theo bác sĩ + ngày
-     * (BR-13) và lưu lại id nhân viên thực hiện check-in.
-     */
-    AppointmentResponse checkInAppointment(Long id, Long checkInByUserId);
+        /**
+         * UC-15: Check-in bệnh nhân tại quầy. Cấp số thứ tự hàng đợi theo bác sĩ + ngày
+         * (BR-13) và lưu lại id nhân viên thực hiện check-in.
+         */
+        AppointmentResponse checkInAppointment(Long id, Long checkInByUserId);
 
-    List<AppointmentResponse> searchAppointments(String keyword);
+        List<AppointmentResponse> searchAppointments(String keyword);
 
-    List<AppointmentResponse> getDoctorQueue(LocalDate date);
+        List<AppointmentResponse> getDoctorQueue(LocalDate date);
 
-    AppointmentResponse createWalkInAppointment(WalkInAppointmentRequest request);
+        AppointmentResponse createWalkInAppointment(WalkInAppointmentRequest request);
 
-    AppointmentResponse bookOnlineAppointment(BookAppointmentRequest request, String patientEmail);
+        AppointmentResponse bookOnlineAppointment(BookAppointmentRequest request, String patientEmail);
 
-    /**
-     * Danh sách khung giờ khám của 1 bác sĩ trong 1 ngày kèm tình trạng còn
-     * trống — dùng cho bệnh nhân chọn giờ khi đặt lịch (UC-46). Chủ nhật phòng
-     * khám nghỉ nên trả về danh sách rỗng.
-     */
-    List<com.ecms.dto.response.SlotAvailabilityResponse> getAvailableSlots(Long doctorId, LocalDate date);
+        /**
+         * Danh sách khung giờ khám của 1 bác sĩ trong 1 ngày kèm tình trạng còn
+         * trống — dùng cho bệnh nhân chọn giờ khi đặt lịch (UC-46). Chủ nhật phòng
+         * khám nghỉ nên trả về danh sách rỗng.
+         */
+        List<com.ecms.dto.response.SlotAvailabilityResponse> getAvailableSlots(Long doctorId, LocalDate date);
 
-    AppointmentDashboardResponse getDashboard(LocalDate date);
+        AppointmentDashboardResponse getDashboard(LocalDate date);
 
-    List<AppointmentResponse> getDoctorQueue(LocalDate date, Long doctorId);
+        List<AppointmentResponse> getDoctorQueue(LocalDate date, Long doctorId);
 
-    AppointmentDashboardResponse getDashboard(LocalDate date, Long doctorId);
+        AppointmentDashboardResponse getDashboard(LocalDate date, Long doctorId);
 
-    AppointmentResponse reassignAppointment(Long id, ReassignAppointmentRequest request);
+        AppointmentResponse reassignAppointment(Long id, ReassignAppointmentRequest request);
 
-    List<AppointmentResponse> getDailySchedule(LocalDate date);
+        List<AppointmentResponse> getDailySchedule(LocalDate date);
 
-    /**
-     * Lịch hẹn trong khoảng ngày [startDate, endDate] — dùng cho calendar view
-     * tuần/tháng
-     */
-    List<AppointmentResponse> getScheduleRange(LocalDate startDate, LocalDate endDate);
+        /**
+         * Lịch hẹn trong khoảng ngày [startDate, endDate] — dùng cho calendar view
+         * tuần/tháng
+         */
+        List<AppointmentResponse> getScheduleRange(LocalDate startDate, LocalDate endDate);
 
-    /**
-     * Huỷ lịch hẹn. isPatientSelf=true áp dụng BR-05 (không huỷ trễ hơn 1h trước
-     * giờ khám) và kiểm tra quyền sở hữu lịch hẹn.
-     */
-    AppointmentResponse cancelAppointment(Long id, CancelAppointmentRequest request, String actingUserEmail,
-            boolean isPatientSelf);
+        /**
+         * Huỷ lịch hẹn. isPatientSelf=true áp dụng BR-05 (không huỷ trễ hơn 1h trước
+         * giờ khám) và kiểm tra quyền sở hữu lịch hẹn.
+         */
+        AppointmentResponse cancelAppointment(Long id, CancelAppointmentRequest request, String actingUserEmail,
+                        boolean isPatientSelf);
 
-    /** Bệnh nhân tự đổi giờ khám (giữ nguyên bác sĩ) trong giới hạn cho phép */
-    AppointmentResponse reschedulePatientAppointment(Long id, RescheduleAppointmentRequest request,
-            String patientEmail);
+        /** Bệnh nhân tự đổi giờ khám (giữ nguyên bác sĩ) trong giới hạn cho phép */
+        AppointmentResponse reschedulePatientAppointment(Long id, RescheduleAppointmentRequest request,
+                        String patientEmail);
 
-    /** Lễ tân ghi chú thêm cho lịch hẹn, không đổi trạng thái */
-    AppointmentResponse updateAppointmentNotes(Long id, UpdateAppointmentNotesRequest request);
+        /** Lễ tân ghi chú thêm cho lịch hẹn, không đổi trạng thái */
+        AppointmentResponse updateAppointmentNotes(Long id, UpdateAppointmentNotesRequest request);
 
-    /** Lấy chi tiết 1 lịch hẹn theo id (dùng cho modal chi tiết). */
-    AppointmentResponse getAppointmentById(Long id);
+        /** Lấy chi tiết 1 lịch hẹn theo id (dùng cho modal chi tiết). */
+        AppointmentResponse getAppointmentById(Long id);
 
-    /**
-     * UC-13: Gửi nhắc lịch cho 1 lịch hẹn — gửi email cho bệnh nhân, đặt
-     * reminderSent=true và tạo thông báo cho Lễ tân. Dùng cho cả cron job
-     * lẫn endpoint nhắc thủ công (bỏ qua điều kiện cửa sổ 24h).
-     */
-    AppointmentResponse sendReminder(Long id);
+        /**
+         * UC-13: Gửi nhắc lịch cho 1 lịch hẹn — gửi email cho bệnh nhân, đặt
+         * reminderSent=true và tạo thông báo cho Lễ tân. Dùng cho cả cron job
+         * lẫn endpoint nhắc thủ công (bỏ qua điều kiện cửa sổ 24h).
+         */
+        AppointmentResponse sendReminder(Long id);
 
-    AppointmentResponse abandonExam(Long appointmentId);
+        AppointmentResponse abandonExam(Long appointmentId);
 
-    /**
-     * Tự động huỷ các lịch hẹn quá hạn mà bệnh nhân không đến khám (no-show):
-     * các lịch còn ở trạng thái PENDING/CONFIRMED nhưng giờ khám đã trôi qua
-     * (thuộc ngày trước đó). Trả về số lịch hẹn đã huỷ. Dùng cho cron job chạy
-     * 00:05 mỗi ngày — lưới an toàn dọn nốt các lịch WAITING/IN_PROGRESS bị bỏ
-     * dở qua đêm.
-     */
-    int autoCancelNoShowAppointments();
+        /**
+         * Tự động huỷ các lịch hẹn quá hạn mà bệnh nhân không đến khám (no-show):
+         * các lịch còn ở trạng thái PENDING/CONFIRMED nhưng giờ khám đã trôi qua
+         * (thuộc ngày trước đó). Trả về số lịch hẹn đã huỷ. Dùng cho cron job chạy
+         * 00:05 mỗi ngày — lưới an toàn dọn nốt các lịch WAITING/IN_PROGRESS bị bỏ
+         * dở qua đêm.
+         */
+        int autoCancelNoShowAppointments();
 
-    // Le Thi Bich Ngan - HE204710 | Tạo: 18/07/2026
-    // Chức năng: khai báo API huỷ no-show NGAY khi phòng khám đóng cửa, tách
-    // riêng khỏi autoCancelNoShowAppointments() (chỉ chạy nửa đêm) — không gắn
-    // BR cụ thể, là cải tiến vận hành cho cron no-show sẵn có.
-    /**
-     * Tự động huỷ các lịch hẹn HÔM NAY còn PENDING/CONFIRMED (bệnh nhân chưa
-     * check-in) mà giờ khám đã trôi qua tính đến thời điểm gọi — dùng cho cron
-     * chạy lúc phòng khám đóng cửa (17:05) để không phải chờ tới nửa đêm mới
-     * huỷ. KHÔNG đụng tới WAITING/IN_PROGRESS vì đó là các ca đang khám dở, huỷ
-     * ngay lúc đóng cửa là sai (bác sĩ có thể đang khám trễ giờ bình thường).
-     * Trả về số lịch hẹn đã huỷ.
-     */
-    int autoCancelOverdueTodayAppointments();
+        // Le Thi Bich Ngan - HE204710 | Tạo: 18/07/2026
+        // Chức năng: khai báo API huỷ no-show NGAY khi phòng khám đóng cửa, tách
+        // riêng khỏi autoCancelNoShowAppointments() (chỉ chạy nửa đêm) — không gắn
+        // BR cụ thể, là cải tiến vận hành cho cron no-show sẵn có.
+        /**
+         * Tự động huỷ các lịch hẹn HÔM NAY còn PENDING/CONFIRMED (bệnh nhân chưa
+         * check-in) mà giờ khám đã trôi qua tính đến thời điểm gọi — dùng cho cron
+         * chạy lúc phòng khám đóng cửa (17:05) để không phải chờ tới nửa đêm mới
+         * huỷ. KHÔNG đụng tới WAITING/IN_PROGRESS vì đó là các ca đang khám dở, huỷ
+         * ngay lúc đóng cửa là sai (bác sĩ có thể đang khám trễ giờ bình thường).
+         * Trả về số lịch hẹn đã huỷ.
+         */
+        int autoCancelOverdueTodayAppointments();
+
+        int autoCancelOverdue30MinAppointments();
 }

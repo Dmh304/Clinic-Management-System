@@ -22,6 +22,7 @@ public class NotificationServiceImpl implements NotificationService {
 
     private static final String ROLE_RECEPTIONIST = "RECEPTIONIST";
     private static final String ROLE_MANAGER = "MANAGER";
+    private static final String ROLE_PHARMACIST = "PHARMACIST";
     private static final String ROLE_LAB_TECHNICIAN = "LAB_TECHNICIAN";
 
     private final NotificationRepository notificationRepository;
@@ -46,6 +47,18 @@ public class NotificationServiceImpl implements NotificationService {
                 .relatedEntityType(relatedEntityType)
                 .isRead(false)
                 .build());
+    }
+
+    @Override
+    @Transactional
+    public void createForPharmacists(String message, Long relatedAppointmentId) {
+        createForRole(ROLE_PHARMACIST, message, relatedAppointmentId, DEFAULT_ENTITY_TYPE);
+    }
+
+    @Override
+    @Transactional
+    public void createForLabTechnicians(String message, Long relatedAppointmentId) {
+        createForRole(ROLE_LAB_TECHNICIAN, message, relatedAppointmentId, DEFAULT_ENTITY_TYPE);
     }
 
     @Override
@@ -132,13 +145,4 @@ public class NotificationServiceImpl implements NotificationService {
         notificationRepository.markAllAsReadForRecipient(userId, role);
     }
 
-    @Override
-    public void createForLabTechnicians(String message, Long relatedAppointmentId) {
-        notificationRepository.save(Notification.builder()
-                .message(message)
-                .targetRole(ROLE_LAB_TECHNICIAN)
-                .relatedAppointmentId(relatedAppointmentId)
-                .isRead(false)
-                .build());
-    }
 }

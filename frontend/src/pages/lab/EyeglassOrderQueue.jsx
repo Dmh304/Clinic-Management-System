@@ -10,9 +10,10 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import Header from '../../components/layout/Header'
-import { Button, message, Tag, Spin, Input, Result, Pagination } from 'antd'
+import { Button, message, Tag, Spin, Input, Result, Pagination, Tooltip } from 'antd'
 import { eyeglassOrderService } from '../../services/eyeglassOrderService'
 import useConfirmAction from '../../hooks/useConfirmAction'
+import { isWithinClinicHours, CLINIC_HOURS_MESSAGE } from '../../utils/clinicHours'
 
 const ORDER_STATUS_MAP = {
   PENDING_LAB:   { color: 'default',    label: 'Chờ xưởng cắt kính' },
@@ -44,6 +45,13 @@ export default function EyeglassOrderQueue() {
   const [searchText, setSearchText] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 10
+
+  const [withinHours, setWithinHours] = useState(isWithinClinicHours())
+
+  useEffect(() =>{
+    const timer = setInterval(() => setWithinHours(isWithinClinicHours()), 60_000)
+    return () => clearInterval(timer)
+  }, [])
 
   const isLabTech = user?.role === 'LAB_TECHNICIAN'
 
@@ -266,24 +274,30 @@ export default function EyeglassOrderQueue() {
                       <td style={{ padding: '12px 16px' }}>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'nowrap' }}>
                           {o.status === 'PENDING_LAB' && (
-                            <Button
-                              type="primary"
-                              size="small"
-                              loading={startingId === o.id}
-                              onClick={() => handleStart(o)}
-                              style={{ fontSize: 12, backgroundColor: '#0d9488', borderColor: '#0d9488', whiteSpace: 'nowrap' }}
-                            >
-                              Bắt đầu gia công
-                            </Button>
+                            <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
+                              <Button
+                                type="primary"
+                                size="small"
+                                disabled={!withinHours}
+                                loading={startingId === o.id}
+                                onClick={() => handleStart(o)}
+                                style={{ fontSize: 12, backgroundColor: '#0d9488', borderColor: '#0d9488', whiteSpace: 'nowrap' }}
+                              >
+                                Bắt đầu gia công
+                              </Button>
+                            </Tooltip>
                           )}
                           {o.status === 'IN_PRODUCTION' && (
-                            <Button
-                              size="small"
-                              onClick={() => navigate(`/lab/eyeglass-detail?id=${o.id}`)}
-                              style={{ fontSize: 12, borderColor: '#0d9488', color: '#0d9488', whiteSpace: 'nowrap' }}
-                            >
-                              Tiếp tục gia công
-                            </Button>
+                            <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
++                             <Button
+                                size="small"
+                                disabled={!withinHours}
+                                onClick={() => navigate(`/lab/eyeglass-detail?id=${o.id}`)}
+                                style={{ fontSize: 12, borderColor: '#0d9488', color: '#0d9488', whiteSpace: 'nowrap' }}
+                              >
+                                Tiếp tục gia công
+                              </Button>
+                            </Tooltip>
                           )}
                           {o.status === 'READY' && (
                             <>
@@ -294,15 +308,18 @@ export default function EyeglassOrderQueue() {
                               >
                                 Xem chi tiết
                               </Button>
-                              <Button
-                                type="primary"
-                                size="small"
-                                loading={dispensingId === o.id}
-                                onClick={() => handleDispense(o)}
-                                style={{ fontSize: 12, backgroundColor: '#16a34a', borderColor: '#16a34a', whiteSpace: 'nowrap' }}
-                              >
-                                Giao kính
-                              </Button>
+                              <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
+                                <Button
+                                  type="primary"
+                                  size="small"
+                                  disabled={!withinHours}
+                                  loading={dispensingId === o.id}
+                                  onClick={() => handleDispense(o)}
+                                  style={{ fontSize: 12, backgroundColor: '#16a34a', borderColor: '#16a34a', whiteSpace: 'nowrap' }}
+                                >
+                                  Giao kính
+                                </Button>
+                              </Tooltip>
                             </>
                           )}
                           {o.status === 'DISPENSED' && (

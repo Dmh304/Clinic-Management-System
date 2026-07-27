@@ -196,7 +196,7 @@ public class SecurityConfig {
                                                 .requestMatchers(HttpMethod.PATCH, "/api/v1/prescriptions/*/dispense",
                                                                 "/api/v1/prescriptions/*/skip")
                                                 .hasRole("PHARMACIST")
-                                                .requestMatchers(HttpMethod.GET, "/api/v1/prescriptions/pending")
+                                                .requestMatchers(HttpMethod.GET, "/api/v1/prescriptions/pending", "/api/v1/prescriptions/all")
                                                 .hasRole("PHARMACIST")
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/prescriptions/patient/*",
                                                                 "/api/v1/eyeglass-prescriptions/patient/*")

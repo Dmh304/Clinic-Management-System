@@ -20,6 +20,7 @@ import 'dayjs/locale/vi'
 dayjs.locale('vi')
 
 import { appointmentService } from '../../services/appointmentService'
+import { isWithinClinicHours, CLINIC_HOURS_MESSAGE } from '../../utils/clinicHours'
 
 /* Cấu hình màu sắc và nhãn hiển thị cho từng trạng thái lịch hẹn */
 const STATUS_CONFIG = {
@@ -68,6 +69,7 @@ export default function DoctorDashboard() {
   const [filterStatus, setFilterStatus] = useState('ALL')
   const [searchText, setSearchText] = useState('')
   const [selectedDate, setSelectedDate] = useState(dayjs())
+  const [withinHours, setWithinHours] = useState(isWithinClinicHours())
 
   /* Hàm lấy dữ liệu danh sách bệnh nhân chờ khám và các con số thống kê từ server
    * Truyền ngày đã chọn lên server để lọc đúng danh sách theo ngày
@@ -102,6 +104,11 @@ export default function DoctorDashboard() {
     const timer = setInterval(fetchData, 30_000)
     return () => clearInterval(timer)                    // Hủy bỏ bộ đếm thời gian khi component bị unmount khỏi DOM
   }, [fetchData, selectedDate])
+
+  useEffect(() => {
+    const timer = setInterval(() => setWithinHours(isWithinClinicHours()), 60_000)
+    return () => clearInterval(timer)
+  }, [])
 
   /* Xử lý lọc danh sách: Kết hợp giữa việc chọn bộ lọc trạng thái và tìm kiếm bằng từ khóa  */
   const filteredQueue = queue
@@ -230,31 +237,38 @@ export default function DoctorDashboard() {
       render: (_, record) => {
         if (record.status === 'WAITING') {
           return (
-            <Button
-              type="primary"
-              size="small"
-              loading={actionLoading === record.id}
-              onClick={() => handleStartExam(record)}
-              style={{ backgroundColor: '#0d9488', borderColor: '#0d9488', fontSize: 12 }}
-            >
-              Bắt đầu khám
-            </Button>
+            <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
+              <Button
+                type="primary"
+                size="small"
+                disabled={!withinHours}
+                loading={actionLoading === record.id}
+                onClick={() => handleStartExam(record)}
+                style={{ backgroundColor: '#0d9488', borderColor: '#0d9488', fontSize: 12 }}
+              >
+                Bắt đầu khám
+              </Button>
+            </Tooltip>
           )
         }
         if (record.status === 'IN_PROGRESS') {
           return (
             <Space size={6}>
-              <Button
-                size="small"
-                onClick={() => handleViewEMR(record)}
-                style={{ borderColor: '#0d9488', color: '#0d9488', fontSize: 12 }}
-              >
-                Cập nhật HSBA
-              </Button>
-              <Tooltip>
+              <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
+                <Button
+                  size="small"
+                  disabled={!withinHours}
+                  onClick={() => handleViewEMR(record)}
+                  style={{ borderColor: '#0d9488', color: '#0d9488', fontSize: 12 }}
+                >
+                  Cập nhật HSBA
+                </Button>
+              </Tooltip>
+              <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
                 <Button
                   size="small"
                   danger
+                  disabled={!withinHours}
                   loading={actionLoading === record.id}
                   onClick={() => handleAbandonExam(record)}
                   style={{ fontSize: 12 }}

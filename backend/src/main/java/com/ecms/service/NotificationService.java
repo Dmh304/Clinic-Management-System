@@ -18,6 +18,9 @@ public interface NotificationService {
      */
     void createForReceptionists(String message, Long relatedAppointmentId);
 
+    /** Tạo 1 thông báo cho toàn bộ Dược sĩ (targetRole = "PHARMACIST"). */
+    void createForPharmacists(String message, Long relatedAppointmentId);
+
     /**
      * Như trên nhưng entityId có thể thuộc bất kỳ loại thực thể nào (vd
      * "CARE_SESSION",

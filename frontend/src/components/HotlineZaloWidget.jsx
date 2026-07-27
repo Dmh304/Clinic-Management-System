@@ -1,5 +1,9 @@
-import { PhoneOutlined } from '@ant-design/icons'
+import { PhoneOutlined, MessageOutlined } from '@ant-design/icons'
+import { Tooltip } from 'antd'
+import { useSelector } from 'react-redux'
+import { useState } from 'react'
 import { CLINIC_INFO } from '../constants/clinicInfo'
+import SupportBox from './chat/SupportBox'
 
 /**
  * Widget nổi cố định (hotline + Zalo) cho khách hàng/bệnh nhân — kênh liên hệ
@@ -10,6 +14,10 @@ import { CLINIC_INFO } from '../constants/clinicInfo'
  * chú ý; di chuột vào mới mở rộng để lộ nhãn/số điện thoại.
  */
 export default function HotlineZaloWidget() {
+  const { user } = useSelector(s => s.auth)
+  const canChat = user && user.role === 'PATIENT'
+  const [isChatOpen, setIsChatOpen] = useState(false)
+
   return (
     <div
       style={{
@@ -109,6 +117,28 @@ export default function HotlineZaloWidget() {
         </span>
         <span className="hzw-label">Chat Zalo</span>
       </a>
+      <Tooltip title={!canChat ? "Vui lòng đăng nhập để nhận hỗ trợ chuyên sâu" : ""} placement="right">
+        <button
+          onClick={() => canChat && setIsChatOpen(!isChatOpen)}
+          className="hzw-btn"
+          style={{ 
+            backgroundColor: '#10b981', 
+            boxShadow: '0 6px 20px rgba(16,185,129,.4)',
+            border: 'none',
+            padding: 0,
+            cursor: canChat ? 'pointer' : 'not-allowed',
+            opacity: canChat ? 1 : 0.85
+          }}
+        >
+          <span className="hzw-icon">
+            <span className="hzw-ping" style={{ display: canChat ? 'block' : 'none' }} />
+            <MessageOutlined style={{ fontSize: 18 }} />
+          </span>
+          <span className="hzw-label">Hỗ trợ trực tuyến</span>
+        </button>
+      </Tooltip>
+
+      <SupportBox isOpen={isChatOpen} setIsOpen={setIsChatOpen} />
     </div>
   )
 }
