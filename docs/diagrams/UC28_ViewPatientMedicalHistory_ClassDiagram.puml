@@ -1,4 +1,4 @@
-@startuml UC26_ViewPatientMedicalHistory_ClassDiagram
+﻿@startuml UC28_ViewPatientMedicalHistory_ClassDiagram
 
 skinparam classAttributeIconSize 0
 skinparam monochrome false

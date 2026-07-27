@@ -1,4 +1,4 @@
-@startuml UC33_ViewLabQueue_ClassDiagram
+﻿@startuml UC35_ViewLabQueue_ClassDiagram
 
 skinparam classAttributeIconSize 0
 skinparam monochrome false
@@ -11,7 +11,7 @@ skinparam class {
 }
 
 class LabOrderController {
-    + getPendingLabOrders(userDetails: UserDetails): ResponseEntity<ApiResponse<List<LabOrderResponse>>>
+    + getLabOrderQueue(userDetails: UserDetails): ResponseEntity<ApiResponse<List<LabOrderResponse>>>
 }
 
 interface LabOrderService {

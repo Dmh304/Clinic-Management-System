@@ -1,4 +1,4 @@
-@startuml UC25_ManageEMR_ClassDiagram
+﻿@startuml UC27_ManageEMR_ClassDiagram
 
 skinparam classAttributeIconSize 0
 skinparam monochrome false

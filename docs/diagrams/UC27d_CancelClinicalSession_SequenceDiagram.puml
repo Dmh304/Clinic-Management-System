@@ -1,4 +1,4 @@
-@startuml UC25d_CancelClinicalSession_SequenceDiagram
+﻿@startuml UC27d_CancelClinicalSession_SequenceDiagram
 <style>
 document {
   ParticipantPadding 10
@@ -26,7 +26,7 @@ skinparam note {
 skinparam ArrowColor #336699
 skinparam LifeLineBorderColor #336699
 
-title UC-25d: Cancel Clinical Session\n(Simplified Sequence Diagram)
+title UC-27d: Cancel Clinical Session\n(Simplified Sequence Diagram)
 
 actor       "Doctor"                                    as Doctor
 participant "<<Controller>>\nEMRController"                 as EMRC

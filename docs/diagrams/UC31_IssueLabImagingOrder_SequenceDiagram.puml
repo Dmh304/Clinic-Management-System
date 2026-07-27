@@ -1,4 +1,4 @@
-@startuml UC29_IssueLabImagingOrder
+﻿@startuml UC31_IssueLabImagingOrder
 <style>
 document {
   ParticipantPadding 10
@@ -26,7 +26,7 @@ skinparam note {
 skinparam ArrowColor #336699
 skinparam LifeLineBorderColor #336699
 
-title UC-29: Issue Lab/Imaging Order\n(Simplified Sequence Diagram)
+title UC-31: Issue Lab/Imaging Order\n(Simplified Sequence Diagram)
 
 actor       "Doctor"                                            as Doctor
 participant "<<Controller>>\nLabOrderController"           as LC

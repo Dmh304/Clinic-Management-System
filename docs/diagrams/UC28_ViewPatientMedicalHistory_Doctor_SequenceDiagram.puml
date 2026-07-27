@@ -1,4 +1,4 @@
-@startuml UC26_ViewPatientMedicalHistory_Doctor_SequenceDiagram
+﻿@startuml UC28_ViewPatientMedicalHistory_Doctor_SequenceDiagram
 <style>
 document {
   ParticipantPadding 10
@@ -26,7 +26,7 @@ skinparam note {
 skinparam ArrowColor #336699
 skinparam LifeLineBorderColor #336699
 
-title UC-26: View Patient Medical History (Doctor Flow)\n(Simplified Sequence Diagram)
+title UC-28: View Patient Medical History (Doctor Flow)\n(Simplified Sequence Diagram)
 
 actor       "Doctor"                as Actor
 participant "<<Controller>>\nEMRController"         as EMRC

@@ -1,0 +1,107 @@
+@startuml UC36c_SubmitLabResult_SequenceDiagram
+<style>
+document {
+  ParticipantPadding 10
+  BoxPadding 10
+}
+</style>
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 250
+
+skinparam participant {
+    BackgroundColor #DDEEFF
+    BorderColor     #336699
+    FontStyle       bold
+}
+skinparam actor {
+    BackgroundColor #FFFACD
+    BorderColor     #CC9900
+}
+skinparam note {
+    BackgroundColor #FFFFF0
+    BorderColor     #AAAAAA
+}
+skinparam ArrowColor #336699
+skinparam LifeLineBorderColor #336699
+
+title UC-36c: Submit Lab Result\n(Simplified Sequence Diagram)
+
+actor       "LabTechnician"                                     as LabTech
+participant ":LabOrderController"           as LC
+participant ":LabOrderService"               as LS
+participant ":LabOrderServiceImpl"       as LSImpl
+participant ":LabOrderRepository"               as LORepo
+participant ":LabResultRepository"              as LRRepo
+participant ":NotificationService"              as Notif
+
+note over LabTech
+  PRE: Result data is fully entered.
+end note
+
+== Step 1 & 2: Technician Submits Result ==
+LabTech -> LC : submitResult(id, request, userDetails)
+activate LC
+LC -> LC : resolveLabTechnicianId(userDetails)
+LC -> LS : submitLabResult(id, request, labTechnicianId)
+activate LS
+LS -> LSImpl : submitLabResult(id, request, labTechnicianId)
+activate LSImpl
+
+LSImpl -> LORepo : findById(id)
+activate LORepo
+LORepo --> LSImpl : LabOrder
+deactivate LORepo
+
+LSImpl -> LRRepo : findByLabOrderId(id)
+activate LRRepo
+LRRepo --> LSImpl : LabResult
+deactivate LRRepo
+
+opt [Validation Fails]
+  LSImpl --> LS : IllegalArgumentException
+  LS --> LC : IllegalArgumentException
+  LC --> LabTech : HTTP 400 Bad Request
+end
+
+LSImpl -> LRRepo : save(result)
+activate LRRepo
+note right of LRRepo
+  Updates measuredValues and attachedImages.
+  Updates status to SUBMITTED.
+end note
+LRRepo --> LSImpl : LabResult
+deactivate LRRepo
+
+LSImpl -> LORepo : save(labOrder)
+activate LORepo
+note right of LORepo
+  Updates LabOrder status to SUBMITTED.
+end note
+LORepo --> LSImpl : LabOrder
+deactivate LORepo
+
+LSImpl -> Notif : sendNotification(...)
+activate Notif
+note right of Notif
+  Notify Doctor that
+  results are ready for review.
+end note
+Notif --> LSImpl : void
+deactivate Notif
+
+LSImpl --> LS : LabOrderResponse
+deactivate LSImpl
+LS --> LC : LabOrderResponse
+deactivate LS
+
+LC --> LabTech : HTTP 200 OK\nApiResponse<LabOrderResponse>
+deactivate LC
+
+note over LabTech
+  POST: Order moves out of Technician's active queue.
+  It moves to Doctor's queue (UC-37).
+end note
+
+@enduml

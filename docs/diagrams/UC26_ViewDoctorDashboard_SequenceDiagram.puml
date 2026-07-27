@@ -1,0 +1,103 @@
+@startuml UC26_ViewDoctorDashboard_SequenceDiagram
+<style>
+document {
+  ParticipantPadding 10
+  BoxPadding 10
+}
+</style>
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 250
+
+skinparam participant {
+    BackgroundColor #DDEEFF
+    BorderColor     #336699
+    FontStyle       bold
+}
+skinparam actor {
+    BackgroundColor #FFFACD
+    BorderColor     #CC9900
+}
+skinparam note {
+    BackgroundColor #FFFFF0
+    BorderColor     #AAAAAA
+}
+skinparam ArrowColor #336699
+skinparam LifeLineBorderColor #336699
+
+title UC-26: View Doctor Dashboard\n(Simplified Sequence Diagram)
+
+actor       "Doctor"                                            as Doctor
+participant ":AppointmentController"  as AC
+participant ":AppointmentService"     as AS
+participant ":AppointmentServiceImpl" as ASImpl
+participant ":AppointmentRepository"  as Repo
+
+note over Doctor
+  PRE: Doctor is authenticated.
+end note
+
+== Step 1 & 2: Doctor Opens Dashboard ==
+Doctor -> AC : getDashboard(userDetails)
+activate AC
+AC -> AC : resolveDoctorId(userDetails)
+AC -> AS : getDashboard(doctorId)
+activate AS
+AS -> ASImpl : getDashboard(doctorId)
+activate ASImpl
+
+ASImpl -> Repo : countByAppointmentDateAndDoctorId(today, doctorId)
+activate Repo
+Repo --> ASImpl : counts by status
+deactivate Repo
+
+ASImpl --> AS : AppointmentDashboardResponse
+deactivate ASImpl
+AS --> AC : AppointmentDashboardResponse
+deactivate AS
+AC --> Doctor : HTTP 200 OK\nApiResponse<AppointmentDashboardResponse>
+deactivate AC
+
+== Step 3: Load Today's Queue ==
+Doctor -> AC : getDoctorQueue(userDetails)
+activate AC
+AC -> AC : resolveDoctorId(userDetails)
+AC -> AS : getDoctorQueue(doctorId)
+activate AS
+AS -> ASImpl : getDoctorQueue(doctorId)
+activate ASImpl
+
+ASImpl -> Repo : findByAppointmentDateAndDoctorIdOrderByAppointmentTimeAsc(today, doctorId)
+activate Repo
+Repo --> ASImpl : List<Appointment>
+deactivate Repo
+
+ASImpl --> AS : List<AppointmentResponse>
+deactivate ASImpl
+AS --> AC : List<AppointmentResponse>
+deactivate AS
+AC --> Doctor : HTTP 200 OK\nApiResponse<List<AppointmentResponse>>
+deactivate AC
+
+== Step 4 (Optional): Search Patient ==
+opt Doctor searches for a patient
+    Doctor -> AC : searchAppointments(keyword, userDetails)
+    activate AC
+    AC -> AS : searchAppointments(keyword, doctorId)
+    activate AS
+    AS -> ASImpl : searchAppointments(keyword, doctorId)
+    activate ASImpl
+    ASImpl -> Repo : findByDoctorIdAndPatientFullNameContainingIgnoreCase(doctorId, keyword)
+    activate Repo
+    Repo --> ASImpl : List<Appointment>
+    deactivate Repo
+    ASImpl --> AS : List<AppointmentResponse>
+    deactivate ASImpl
+    AS --> AC : List<AppointmentResponse>
+    deactivate AS
+    AC --> Doctor : HTTP 200 OK\nApiResponse<List<AppointmentResponse>>
+    deactivate AC
+end
+
+@enduml

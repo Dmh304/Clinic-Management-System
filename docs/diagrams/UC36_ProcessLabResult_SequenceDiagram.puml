@@ -1,4 +1,4 @@
-@startuml UC34_RecordAndSubmitLabResults
+﻿@startuml UC36_ProcessLabResult
 <style>
 document {
   ParticipantPadding 10
@@ -26,7 +26,7 @@ skinparam note {
 skinparam ArrowColor #336699
 skinparam LifeLineBorderColor #336699
 
-title UC-34: Record and Submit Lab Results\n(Simplified Sequence Diagram)
+title UC-36: Record and Submit Lab Results\n(Simplified Sequence Diagram)
 
 actor       "LabTech/Doctor"                                    as Actor
 participant "<<Controller>>\nLabOrderController"           as LC

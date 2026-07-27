@@ -1,4 +1,4 @@
-@startuml UC30_ViewLabResults_ClassDiagram
+﻿@startuml UC32_ViewLabResults_ClassDiagram
 
 skinparam classAttributeIconSize 0
 skinparam monochrome false
@@ -13,6 +13,8 @@ skinparam class {
 class LabOrderController {
     + getLabResults(labOrderId: Long, userDetails: UserDetails): ResponseEntity<ApiResponse<LabResultResponse>>
     + getLabOrdersForMedicalRecord(medicalRecordId: Long): ResponseEntity<ApiResponse<List<LabOrderResponse>>>
+    + getLabOrdersForMedicalRecordAsPatient(medicalRecordId: Long, userDetails: UserDetails): ResponseEntity<ApiResponse<List<LabOrderResponse>>>
+    + getLabResultsAsPdf(labOrderId: Long, patientId: Long): byte[]
 }
 
 interface LabOrderService {

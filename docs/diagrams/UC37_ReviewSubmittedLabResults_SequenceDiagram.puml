@@ -1,4 +1,4 @@
-@startuml UC35_ReviewSubmittedLabResults_SequenceDiagram
+﻿@startuml UC37_ReviewSubmittedLabResults_SequenceDiagram
 <style>
 document {
   ParticipantPadding 10
@@ -26,7 +26,7 @@ skinparam note {
 skinparam ArrowColor #336699
 skinparam LifeLineBorderColor #336699
 
-title UC-35: Review Submitted Lab Results\n(Simplified Sequence Diagram)
+title UC-37: Review Submitted Lab Results\n(Simplified Sequence Diagram)
 
 actor       "Doctor"                                            as Doctor
 participant "<<WebSocket>>\nWebSocketBroker"                    as WS
@@ -44,7 +44,7 @@ note over Doctor
   Doctor is treating physician.
 end note
 
-== Step 1 — Real-time Notification ==
+== Step 1 â€” Real-time Notification ==
 note over WS
   Triggered when Lab Technician submits results (UC-34).
 end note
@@ -54,7 +54,7 @@ activate WS
 WS --> Doctor : [WebSocket] "Lab results ready"
 deactivate WS
 
-== Step 2 & 3 — Doctor Opens Result ==
+== Step 2 & 3 â€” Doctor Opens Result ==
 Doctor -> LC : GET /api/v1/lab-orders/{labOrderId}/results
 activate LC
 
@@ -69,7 +69,7 @@ activate LORepo
 LORepo --> LSImpl : LabOrder
 deactivate LORepo
 
-LSImpl -> LRRepo : findByLabOrderId(labOrderId)
+LSImpl -> LRRepo : findTopByLabOrderIdOrderByIdDesc(labOrderId)
 activate LRRepo
 LRRepo --> LSImpl : LabResult
 deactivate LRRepo
@@ -82,7 +82,7 @@ deactivate LS
 LC --> Doctor : HTTP 200 OK\nApiResponse<LabResultResponse>
 deactivate LC
 
-== Step 4, 5, 6 & 7 — Doctor Approves Result ==
+== Step 4, 5, 6 & 7 â€” Doctor Approves Result ==
 Doctor -> LC : PUT /api/v1/lab-orders/{labOrderId}/approve
 activate LC
 LC -> LC : resolve doctorId from JWT
@@ -97,12 +97,12 @@ activate LORepo
 LORepo --> LSImpl : LabOrder
 deactivate LORepo
 
-LSImpl -> LRRepo : findByLabOrderId(labOrderId)
+LSImpl -> LRRepo : findTopByLabOrderIdOrderByIdDesc(labOrderId)
 activate LRRepo
 LRRepo --> LSImpl : LabResult
 deactivate LRRepo
 
-LSImpl -> LRRepo : update LabResult (status=REVIEWED)
+LSImpl -> LRRepo : save(labResult) // status->APPROVED
 activate LRRepo
 LRRepo --> LSImpl : updatedResult
 deactivate LRRepo
@@ -130,7 +130,7 @@ activate LS
 LS -> LSImpl : requestRetest(labOrderId, doctorId, request)
 activate LSImpl
 
-LSImpl -> LORepo : update LabOrder (status=PENDING, testTypes...)
+LSImpl -> LORepo : save(updatedOrder) // status->PENDING, testTypes...)
 activate LORepo
 LORepo --> LSImpl : updatedOrder
 deactivate LORepo

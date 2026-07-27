@@ -1,4 +1,4 @@
-@startuml UC30_ViewLabResults_SequenceDiagram
+﻿@startuml UC32_ViewLabResults_SequenceDiagram
 <style>
 document {
   ParticipantPadding 10
@@ -26,7 +26,7 @@ skinparam note {
 skinparam ArrowColor #336699
 skinparam LifeLineBorderColor #336699
 
-title UC-30: View Lab Results\n(Simplified Sequence Diagram)
+title UC-32: View Lab Results\n(Simplified Sequence Diagram)
 
 actor       "Doctor / Patient"                                  as Actor
 participant "<<Controller>>\nLabOrderController"           as LC

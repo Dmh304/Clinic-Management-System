@@ -1,4 +1,4 @@
-@startuml UC35_ReviewSubmittedLabResults_ClassDiagram
+﻿@startuml UC37_ReviewSubmittedLabResults_ClassDiagram
 
 skinparam classAttributeIconSize 0
 skinparam monochrome false
@@ -25,8 +25,13 @@ class LabOrderServiceImpl {
     + requestRetest(labOrderId: Long, doctorId: Long, request: LabOrderRequest): LabOrderResponse
 }
 
+class LabOrderRepository {
+    + findById(id: Long): Optional<LabOrder>
+    + save(order: LabOrder): LabOrder
+}
+
 class LabResultRepository {
-    + findById(id: Long): LabResult
+    + findTopByLabOrderIdOrderByIdDesc(labOrderId: Long): Optional<LabResult>
     + save(result: LabResult): LabResult
 }
 

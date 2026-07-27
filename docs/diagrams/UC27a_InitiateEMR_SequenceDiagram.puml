@@ -1,4 +1,4 @@
-@startuml UC25a_InitiateEMR_SequenceDiagram
+﻿@startuml UC27a_InitiateEMR_SequenceDiagram
 <style>
 document {
   ParticipantPadding 10
@@ -26,7 +26,7 @@ skinparam note {
 skinparam ArrowColor #336699
 skinparam LifeLineBorderColor #336699
 
-title UC-25a: Initiate Electronic Medical Record (EMR)\n(Simplified Sequence Diagram)
+title UC-27a: Initiate Electronic Medical Record (EMR)\n(Simplified Sequence Diagram)
 
 actor       "Doctor"                                    as Doctor
 participant "<<Controller>>\nEMRController"             as EMRC

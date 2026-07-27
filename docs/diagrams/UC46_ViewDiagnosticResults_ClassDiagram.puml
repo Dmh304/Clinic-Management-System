@@ -1,4 +1,4 @@
-@startuml UC45_ViewDiagnosticResults_ClassDiagram
+﻿@startuml UC46_ViewDiagnosticResults_ClassDiagram
 
 skinparam classAttributeIconSize 0
 skinparam monochrome false
@@ -11,22 +11,22 @@ skinparam class {
 }
 
 class LabOrderController {
-    + getPatientLabOrders(userDetails: UserDetails): ResponseEntity<ApiResponse<List<LabOrderResponse>>>
+    + getLabOrdersForPatient(userDetails: UserDetails): ResponseEntity<ApiResponse<List<LabOrderResponse>>>
     + getLabResults(id: Long, userDetails: UserDetails): ResponseEntity<ApiResponse<LabResultResponse>>
 }
 
 interface LabOrderService {
-    + getPatientLabOrders(patientId: Long): List<LabOrderResponse>
+    + getLabOrdersForPatient(patientId: Long): List<LabOrderResponse>
     + getLabResults(id: Long, currentUserId: Long, role: String): LabResultResponse
 }
 
 class LabOrderServiceImpl {
-    + getPatientLabOrders(patientId: Long): List<LabOrderResponse>
+    + getLabOrdersForPatient(patientId: Long): List<LabOrderResponse>
     + getLabResults(id: Long, currentUserId: Long, role: String): LabResultResponse
 }
 
 class LabOrderRepository {
-    + findByPatientIdOrderByCreatedAtDesc(patientId: Long): List<LabOrder>
+    + findByMedicalRecord_PatientIdOrderByCreatedAtDesc(patientId: Long): List<LabOrder>
 }
 
 class LabResultRepository {

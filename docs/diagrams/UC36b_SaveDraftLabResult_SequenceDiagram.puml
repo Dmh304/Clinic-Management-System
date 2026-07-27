@@ -1,0 +1,88 @@
+@startuml UC36b_SaveDraftLabResult_SequenceDiagram
+<style>
+document {
+  ParticipantPadding 10
+  BoxPadding 10
+}
+</style>
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 250
+
+skinparam participant {
+    BackgroundColor #DDEEFF
+    BorderColor     #336699
+    FontStyle       bold
+}
+skinparam actor {
+    BackgroundColor #FFFACD
+    BorderColor     #CC9900
+}
+skinparam note {
+    BackgroundColor #FFFFF0
+    BorderColor     #AAAAAA
+}
+skinparam ArrowColor #336699
+skinparam LifeLineBorderColor #336699
+
+title UC-36b: Save Draft Lab Result\n(Simplified Sequence Diagram)
+
+actor       "LabTechnician"                                     as LabTech
+participant ":LabOrderController"           as LC
+participant ":LabOrderService"               as LS
+participant ":LabOrderServiceImpl"       as LSImpl
+participant ":LabOrderRepository"               as LORepo
+participant ":LabResultRepository"              as LRRepo
+
+note over LabTech
+  PRE: Order and Result are IN_PROGRESS.
+end note
+
+== Step 1 & 2: Technician Saves Draft ==
+LabTech -> LC : saveDraft(id, request, userDetails)
+activate LC
+LC -> LC : resolveLabTechnicianId(userDetails)
+LC -> LS : saveDraft(id, request, labTechnicianId)
+activate LS
+LS -> LSImpl : saveDraft(id, request, labTechnicianId)
+activate LSImpl
+
+LSImpl -> LORepo : findById(id)
+activate LORepo
+LORepo --> LSImpl : LabOrder
+deactivate LORepo
+
+LSImpl -> LRRepo : findByLabOrderId(id)
+activate LRRepo
+LRRepo --> LSImpl : LabResult
+deactivate LRRepo
+
+opt [order.status != IN_PROGRESS and != REJECTED]
+  LSImpl --> LS : IllegalStateException
+  LS --> LC : IllegalStateException
+  LC --> LabTech : HTTP 400 Bad Request
+end
+
+LSImpl -> LRRepo : save(result)
+activate LRRepo
+note right of LRRepo
+  Updates measuredValues and attachedImages.
+  Retains IN_PROGRESS status.
+end note
+LRRepo --> LSImpl : LabResult
+deactivate LRRepo
+
+LSImpl --> LS : LabOrderResponse
+deactivate LSImpl
+LS --> LC : LabOrderResponse
+deactivate LS
+
+LC --> LabTech : HTTP 200 OK\nApiResponse<LabOrderResponse>
+deactivate LC
+
+note over LabTech
+  Technician can continue editing later.
+end note
+
+@enduml

@@ -1,0 +1,91 @@
+@startuml UC36a_RecordLabResult_SequenceDiagram
+<style>
+document {
+  ParticipantPadding 10
+  BoxPadding 10
+}
+</style>
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 250
+
+skinparam participant {
+    BackgroundColor #DDEEFF
+    BorderColor     #336699
+    FontStyle       bold
+}
+skinparam actor {
+    BackgroundColor #FFFACD
+    BorderColor     #CC9900
+}
+skinparam note {
+    BackgroundColor #FFFFF0
+    BorderColor     #AAAAAA
+}
+skinparam ArrowColor #336699
+skinparam LifeLineBorderColor #336699
+
+title UC-36a: Start Lab Test\n(Simplified Sequence Diagram)
+
+actor       "LabTechnician"                                     as LabTech
+participant ":LabOrderController"           as LC
+participant ":LabOrderService"               as LS
+participant ":LabOrderServiceImpl"       as LSImpl
+participant ":LabOrderRepository"               as LORepo
+participant ":LabResultRepository"              as LRRepo
+
+note over LabTech
+  PRE: Lab Technician is assigned or claims a PENDING order.
+end note
+
+== Step 1 & 2: Start Lab Test ==
+LabTech -> LC : startLabOrder(id, userDetails)
+activate LC
+LC -> LC : resolveLabTechnicianId(userDetails)
+LC -> LS : startLabOrder(id, labTechnicianId)
+activate LS
+LS -> LSImpl : startLabOrder(id, labTechnicianId)
+activate LSImpl
+
+LSImpl -> LORepo : findById(id)
+activate LORepo
+LORepo --> LSImpl : LabOrder
+deactivate LORepo
+
+opt [order.status != PENDING]
+  LSImpl --> LS : IllegalStateException
+  LS --> LC : IllegalStateException
+  LC --> LabTech : HTTP 400 Bad Request
+end
+
+LSImpl -> LORepo : save(labOrder)
+activate LORepo
+note right of LORepo
+  Status updated to IN_PROGRESS.
+end note
+LORepo --> LSImpl : LabOrder
+deactivate LORepo
+
+LSImpl -> LRRepo : save(labResult)
+activate LRRepo
+note right of LRRepo
+  Initializes a new LabResult
+  with IN_PROGRESS status.
+end note
+LRRepo --> LSImpl : LabResult
+deactivate LRRepo
+
+LSImpl --> LS : LabOrderResponse
+deactivate LSImpl
+LS --> LC : LabOrderResponse
+deactivate LS
+
+LC --> LabTech : HTTP 200 OK\nApiResponse<LabOrderResponse>
+deactivate LC
+
+note over LabTech
+  UI allows data entry for the result.
+end note
+
+@enduml
