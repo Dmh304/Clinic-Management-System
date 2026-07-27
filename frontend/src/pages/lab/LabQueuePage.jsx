@@ -5,8 +5,9 @@
  * Thành phần này thực hiện các nhiệm vụ chính:
  * 1. Kiểm tra quyền truy cập - chỉ cho phép tài khoản có vai trò LAB_TECHNICIAN
  * 2. Tải danh sách các phiếu xét nghiệm được phân công từ hệ thống backend
- * 3. Phân loại và lọc các phiếu xét nghiệm theo thanh Tab trạng thái (Chờ thực hiện, Đang thực hiện, Đã gửi, Đã hủy, Hoàn thành, Tất cả)
- * 4. Tìm kiếm nâng cao theo thời gian thực (tên bệnh nhân, số điện thoại, bác sĩ chỉ định, tên dịch vụ)
+ * 3. Hiển thị các thẻ thống kê số lượng phiếu xét nghiệm theo từng trạng thái
+ * 4. Lọc danh sách theo trạng thái thông qua dropdown, kết hợp tìm kiếm nâng cao theo thời gian thực
+ *    (tên bệnh nhân, số điện thoại, bác sĩ chỉ định, tên dịch vụ)
  * 5. Điều hướng kỹ thuật viên bắt đầu thực hiện hoặc tiếp tục cập nhật kết quả đo khám
  */
 
@@ -14,12 +15,10 @@ import { useEffect, useState, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import Header from '../../components/layout/Header'
-import { Form, Input, InputNumber, Tabs, Button, message, Tag, Spin, Collapse, Divider, Result, Pagination, Tooltip } from 'antd'
+import { Input, Select, Button, message, Tag, Spin, Result, Pagination, Tooltip } from 'antd'
+import { ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons'
 import { labService } from '../../services/labService'
 import { isWithinClinicHours, isSameDayAsToday, CLINIC_HOURS_MESSAGE } from '../../utils/clinicHours'
-
-const { TextArea } = Input
-const { Panel } = Collapse
 
 /**
  * Bản đồ cấu hình màu sắc và nhãn hiển thị cho từng trạng thái của Đơn xét nghiệm (LabOrder)
@@ -43,6 +42,29 @@ const PRIORITY_MAP = {
 }
 
 /**
+ * Thứ tự ưu tiên xử lý (số càng nhỏ càng được xếp lên trước) - dùng làm tiêu chí sort chính,
+ * đảm bảo ca Khẩn cấp luôn được xếp lên đầu bất kể được tạo trước hay sau các ca khác (nguyên tắc triage)
+ */
+const PRIORITY_ORDER = {
+  EMERGENCY: 0,
+  WARNING: 1,
+  PRIMARY: 2,
+}
+
+/**
+ * Cấu hình các thẻ thống kê hiển thị phía trên bảng, mỗi thẻ tương ứng một trạng thái đơn xét nghiệm
+ * (bao gồm cả thẻ "Tất cả" tổng hợp toàn bộ số lượng)
+ */
+const STAT_CARDS = [
+  { key: 'ALL',         label: 'Tất cả',         color: '#6366f1' },
+  { key: 'PENDING',     label: 'Chờ thực hiện',   color: '#94a3b8' },
+  { key: 'IN_PROGRESS', label: 'Đang thực hiện', color: '#3b82f6' },
+  { key: 'SUBMITTED',   label: 'Đã gửi',          color: '#d97706' },
+  { key: 'APPROVED',    label: 'Hoàn thành',      color: '#10b981' },
+  { key: 'REJECTED',    label: 'Đã huỷ',          color: '#ef4444' },
+]
+
+/**
  * Định dạng CSS giúp cắt ngắn văn bản dài trên một dòng và hiển thị dấu ba chấm (...)
  * Áp dụng cho các cột hiển thị tên hoặc dịch vụ dài trên bảng để tránh vỡ khung giao diện
  */
@@ -53,6 +75,26 @@ const textEllipsisStyle = {
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   wordBreak: 'break-all',
+}
+
+/* Thẻ thống kê số lượng đơn xét nghiệm theo trạng thái - chỉ hiển thị thông tin, không thể bấm để lọc */
+function StatCard({ label, value, color }) {
+  return (
+    <div
+      style={{
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: '16px 20px',
+        borderTop: `3px solid ${color}`,
+        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+        minWidth: 120,
+        flex: 1,
+      }}
+    >
+      <div style={{ fontSize: 26, fontWeight: 700, color }}>{value ?? 0}</div>
+      <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{label}</div>
+    </div>
+  )
 }
 
 /* Thành phần Chính */
@@ -70,12 +112,17 @@ export default function LabQueuePage() {
   const [orders, setOrders]      = useState([])
   // loading: Trạng thái tải dữ liệu tổng thể của trang
   const [loading, setLoading]     = useState(true)
-  // activeTab: Lưu trạng thái Tab bộ lọc hiện tại, mặc định hiển thị danh sách đơn 'PENDING' (Chờ thực hiện)
-  const [activeTab, setActiveTab]  = useState('PENDING')
+  // statusFilter: Trạng thái lọc hiện tại, mặc định hiển thị 'PENDING' (Chờ thực hiện) — đúng vai trò
+  // hàng đợi công việc cần xử lý; người dùng có thể tự đổi sang trạng thái khác hoặc 'Tất cả' để tra cứu
+  const [statusFilter, setStatusFilter]  = useState('PENDING')
   // searchText: Từ khóa tìm kiếm do người dùng nhập vào ô Input
   const [searchText, setSearchText]  = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [withinHours, setWithinHours] = useState(isWithinClinicHours())
+  // sortAsc: Chiều sắp xếp theo thời gian tạo trong cùng một mức ưu tiên.
+  // true = cũ nhất trước (FIFO, mặc định), false = mới nhất trước. Người dùng có thể tự bấm cột
+  // "Ngày tạo" để đảo chiều; giá trị này không tự động đổi theo statusFilter đang chọn.
+  const [sortAsc, setSortAsc] = useState(true)
 
   useEffect(() => {
     const timer = setInterval(() => setWithinHours(isWithinClinicHours()), 60_000)
@@ -108,10 +155,14 @@ export default function LabQueuePage() {
 
   /**
    * Luồng Effect: Tự động kích hoạt gọi API lấy dữ liệu ngay khi trang được tải thành công
-   * và người dùng được xác minh đúng vai trò kỹ thuật viên
+   * và người dùng được xác minh đúng vai trò kỹ thuật viên. Tự động làm mới mỗi 30 giây.
    */ 
   useEffect(() => {
-    if (isLabTech) fetchOrders()
+    if (!isLabTech) return
+    fetchOrders()
+
+    const timer = setInterval(fetchOrders, 30_000)
+    return () => clearInterval(timer)
   }, [isLabTech, fetchOrders])
 
   /**
@@ -135,28 +186,42 @@ export default function LabQueuePage() {
 
   /**
    * Thực hiện lọc dữ liệu trực tiếp dựa trên danh sách gốc
-   * Kết hợp cả 2 điều kiện: Lọc theo Tab trạng thái và Lọc theo từ khóa tìm kiếm
+   * Kết hợp cả 2 điều kiện: Lọc theo trạng thái (dropdown) và Lọc theo từ khóa tìm kiếm
    */
-  const filteredOrders = orders.filter((o) => {
-    if (activeTab !== 'ALL' && o.status !== activeTab) return false
-    if (!searchText) return true
-    const kw = searchText.toLowerCase()
-    return (
-      o.patientFullName?.toLowerCase().includes(kw) ||
-      o.patientPhone?.toLowerCase().includes(kw) ||
-      o.serviceName?.toLowerCase().includes(kw)  ||
-      o.doctorFullName?.toLowerCase().includes(kw)
-    )
-  })
+  const filteredOrders = orders
+    .filter((o) => {
+      if (statusFilter !== 'ALL' && o.status !== statusFilter) return false
+      if (!searchText) return true
+      const kw = searchText.toLowerCase()
+      return (
+        o.patientFullName?.toLowerCase().includes(kw) ||
+        o.patientPhone?.toLowerCase().includes(kw) ||
+        o.serviceName?.toLowerCase().includes(kw)  ||
+        o.doctorFullName?.toLowerCase().includes(kw)
+      )
+    })
+    /**
+     * Sắp xếp: ưu tiên mức độ khẩn cấp (EMERGENCY > WARNING > PRIMARY) lên trước bất kể thời gian tạo,
+     * đúng nguyên tắc triage lâm sàng. Trong cùng một mức ưu tiên, sắp xếp theo thời gian tạo
+     * (createdAt) theo chiều do người dùng chọn qua việc bấm cột "Ngày tạo" (mặc định cũ nhất trước).
+     */
+    .slice()
+    .sort((a, b) => {
+      const prioDiff = (PRIORITY_ORDER[a.priority] ?? 99) - (PRIORITY_ORDER[b.priority] ?? 99)
+      if (prioDiff !== 0) return prioDiff
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+      return sortAsc ? timeA - timeB : timeB - timeA
+    })
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [activeTab, searchText])
+  }, [statusFilter, searchText, sortAsc])
 
   const pagedOrders = filteredOrders.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
   /**
-   * Đếm số lượng bản ghi theo từng trạng thái để hiển thị số lượng (Badge) trên đầu mỗi Tab
+   * Đếm số lượng bản ghi theo từng trạng thái để hiển thị trên các thẻ thống kê
    */
   const countByStatus = (status) =>
     status === 'ALL'
@@ -189,92 +254,64 @@ export default function LabQueuePage() {
   /* ====================================================================== */
   /* Giao diện chính                                         */
   /* ====================================================================== */
-  const TABS = [
-    { key: 'PENDING',     label: 'Chờ thực hiện' },
-    { key: 'IN_PROGRESS', label: 'Đang thực hiện' },
-    { key: 'SUBMITTED',   label: 'Đã gửi' },
-    { key: 'REJECTED',    label: 'Đã bị hủy' },
-    { key: 'APPROVED',    label: 'Hoàn thành' },
-    { key: 'ALL',         label: 'Tất cả' },
-  ]
-  
   return (
     <>
       <Header />
       <div style={{ padding: 24 }}>
 
         {/* --- Khối tiêu đề trang (Page Header) --- */}
-        <div style={{ marginBottom: 20, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>
-              Hàng đợi xét nghiệm
-            </h2>
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
-              Danh sách phiếu xét nghiệm đang chờ thực hiện
-            </p>
-          </div>
-          {/* Nút hỗ trợ ép buộc tải lại danh sách thủ công từ máy chủ */}
-          <Button onClick={fetchOrders} loading={loading} size="small" style={{ fontSize: 12 }}>
-              Làm mới
-          </Button>
+        <div style={{ marginBottom: 20 }}>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>
+            Hàng đợi xét nghiệm
+          </h2>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
+            Danh sách phiếu xét nghiệm đang chờ thực hiện
+          </p>
+        </div>
+
+        {/* --- Danh sách các thẻ thống kê số lượng đơn xét nghiệm theo trạng thái --- */}
+        <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+          {STAT_CARDS.map((card) => (
+            <StatCard
+              key={card.key}
+              label={card.label}
+              value={countByStatus(card.key)}
+              color={card.color}
+            />
+          ))}
         </div>
 
         {/* --- Bảng dữ liệu tập trung (Table Card) --- */}
         <div style={{ backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
-          
-          {/* ---- Tab thanh bộ lọc trạng thái ---- */}
-          <div style={{ display: 'flex', borderBottom: '1px solid #f1f5f9', padding: '0 16px', gap: 4, overflowX: 'auto' }}>
-            {TABS.map((tab) => {
-              const count = countByStatus(tab.key)
-              const isActive = activeTab === tab.key
-              return (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  style={{
-                    padding: '12px 16px',
-                    border: 'none',
-                    background: 'none',
-                    cursor: 'pointer',
-                    fontSize: 13,
-                    fontWeight: isActive ? 600 : 400,
-                    color: isActive ? '#0d9488' : '#64748b',
-                    borderBottom: isActive ? '2px solid #0d9488' : '2px solid transparent',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    whiteSpace: 'nowrap',
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  {tab.label}
-                  {/* Badge số lượng đi kèm từng tab */}
-                  <span style={{
-                    backgroundColor: isActive ? '#0d9488' : '#e2e8f0',
-                    color: isActive ? '#fff' : '#64748b',
-                    borderRadius: 99,
-                    padding: '1px 7px',
-                    fontSize: 11,
-                    fontWeight: 600,
-                    minWidth: 20,
-                    textAlign: 'center',
-                  }}>
-                    {count}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
 
-          {/* ---- Thanh tìm kiếm từ khóa (Search Bar) ---- */}
-          <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9' }}>
+          {/* ---- Thanh tìm kiếm, dropdown lọc trạng thái và nút làm mới ---- */}
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
             <Input.Search
               placeholder="Tìm theo tên bệnh nhân, SĐT, bác sĩ hoặc dịch vụ..."
               allowClear
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              style={{ maxWidth: 440 }}
+              style={{ flex: 1, minWidth: 200 }}
             />
+
+            {/* Dropdown lọc theo trạng thái - thay thế cho thanh Tab trước đây */}
+            <Select
+              value={statusFilter}
+              onChange={setStatusFilter}
+              style={{ width: 200, flexShrink: 0 }}
+              options={[
+                { label: `Tất cả (${countByStatus('ALL')})`, value: 'ALL' },
+                ...Object.entries(LAB_ORDER_STATUS_MAP).map(([value, cfg]) => ({
+                  label: `${cfg.label} (${countByStatus(value)})`,
+                  value,
+                })),
+              ]}
+            />
+
+            {/* Nút hỗ trợ ép buộc tải lại danh sách thủ công từ máy chủ */}
+            <Button onClick={fetchOrders} loading={loading} size="small" style={{ fontSize: 12, flexShrink: 0 }}>
+              Làm mới
+            </Button>
           </div>
 
           {/* ---- Khu vực hiển thị bảng dữ liệu (Data Table) ---- */}
@@ -284,7 +321,7 @@ export default function LabQueuePage() {
               <div style={{ textAlign: 'center', padding: '48px 0', color: '#94a3b8', fontSize: 14 }}>
                 {searchText
                   ? 'Không tìm thấy kết quả phù hợp'
-                  : activeTab === 'PENDING'
+                  : statusFilter === 'PENDING'
                     ? 'Không có phiếu xét nghiệm nào đang chờ'
                     : 'Không có dữ liệu'}
               </div>
@@ -295,9 +332,28 @@ export default function LabQueuePage() {
                     {['STT', 'Ngày tạo', 'Bệnh nhân', 'SĐT', 'Bác sĩ chỉ định', 'Dịch vụ', 'Ưu tiên', 'Trạng thái', 'Thao tác'].map((h) => (
                       <th
                         key={h}
-                        style={{ padding: '10px 16px', textAlign: 'left', fontSize: 13, fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}
+                        onClick={h === 'Ngày tạo' ? () => setSortAsc((v) => !v) : undefined}
+                        style={{
+                          padding: '10px 16px',
+                          textAlign: 'left',
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: '#475569',
+                          whiteSpace: 'nowrap',
+                          cursor: h === 'Ngày tạo' ? 'pointer' : 'default',
+                          userSelect: h === 'Ngày tạo' ? 'none' : 'auto',
+                        }}
                       >
-                        {h}
+                        {h === 'Ngày tạo' ? (
+                          <Tooltip title={sortAsc ? 'Đang sắp xếp: Cũ nhất trước — bấm để đổi' : 'Đang sắp xếp: Mới nhất trước — bấm để đổi'}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              {h}
+                              {sortAsc
+                                ? <ArrowUpOutlined style={{ fontSize: 11, color: '#0d9488' }} />
+                                : <ArrowDownOutlined style={{ fontSize: 11, color: '#0d9488' }} />}
+                            </span>
+                          </Tooltip>
+                        ) : h}
                       </th>
                     ))}
                   </tr>
