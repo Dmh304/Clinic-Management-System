@@ -16,7 +16,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { FiClock } from 'react-icons/fi'
 import { reportService } from '../../services/reportService'
-import { pageTitle } from './managerTypography'
 
 const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 const shortName = (name) => (name || '').split(' ').filter(Boolean).slice(-1)[0] || name
@@ -40,36 +39,96 @@ const RANGES = {
  */
 const onTimeColor = (p) => (p >= 95 ? '#10b981' : p >= 85 ? '#e67e22' : '#ef4444')
 
-function GroupedBars({ rows }) {
-  const maxVal = Math.max(1, ...rows.flatMap((r) => SERIES.map((s) => s.val(r))))
+// Hệ tọa độ dùng chung cho cả hai kiểu biểu đồ, nhờ vậy đổi Cột ↔ Đường thì vị trí
+// và cách đọc số liệu không đổi. padL chừa chỗ cho nhãn trục dọc, padB cho tên bác sĩ.
+const CHART = { w: 760, h: 260, padL: 46, padR: 12, padT: 12, padB: 30 }
+
+/** Làm tròn trần lên số "đẹp" để vạch chia không ra 3,7 hay 7,4. */
+function niceMax(v) {
+  if (v <= 5) return 5
+  const mag = 10 ** Math.floor(Math.log10(v))
+  const n = v / mag
+  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * mag
+}
+
+/**
+ * Trục dọc có vạch chia + đường kẻ ngang, trục ngang có tên bác sĩ.
+ *
+ * Thiếu phần này thì biểu đồ chỉ cho biết cột nào cao hơn cột nào, không đọc được
+ * giá trị thật — đó là lý do tách ra vẽ chung cho cả hai kiểu.
+ *
+ * @param {Object}   props
+ * @param {number}   props.max    giá trị lớn nhất của trục dọc (đã làm tròn đẹp)
+ * @param {string[]} props.labels nhãn trục ngang
+ * @param {Function} props.xOf    tọa độ x theo chỉ số cột
+ */
+function Axes({ max, labels, xOf }) {
+  const { w, h, padL, padR, padT, padB } = CHART
+  const TICKS = 4
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height: 240, borderBottom: '1px solid #f1f5f9', paddingTop: 8 }}>
-      {rows.map((r, i) => (
-        <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 210 }}>
-            {SERIES.map((s) => (
-              <div key={s.key} title={`${s.label}: ${s.val(r)}`} style={{ width: 14, height: `${(s.val(r) / maxVal) * 100}%`, background: s.color, borderRadius: '4px 4px 0 0', minHeight: 2 }} />
-            ))}
-          </div>
-          <div style={{ color: '#64748b', fontSize: 13, marginTop: 8 }}>{shortName(r.doctorName)}</div>
-        </div>
+    <>
+      {Array.from({ length: TICKS + 1 }, (_, i) => {
+        const v = (max / TICKS) * i
+        const y = h - padB - (v / max) * (h - padT - padB)
+        return (
+          <g key={i}>
+            <line x1={padL} y1={y} x2={w - padR} y2={y} stroke={i === 0 ? '#cbd5e1' : '#f1f5f9'} />
+            <text x={padL - 8} y={y + 4} textAnchor="end" fontSize="11" fill="#94a3b8">{Math.round(v)}</text>
+          </g>
+        )
+      })}
+      <line x1={padL} y1={padT} x2={padL} y2={h - padB} stroke="#cbd5e1" />
+      {labels.map((l, i) => (
+        <text key={i} x={xOf(i)} y={h - padB + 18} textAnchor="middle" fontSize="12" fill="#64748b">{l}</text>
       ))}
-    </div>
+    </>
+  )
+}
+
+function GroupedBars({ rows }) {
+  const { w, h, padL, padR, padT, padB } = CHART
+  const max = niceMax(Math.max(1, ...rows.flatMap((r) => SERIES.map((s) => s.val(r)))))
+  const band = (w - padL - padR) / Math.max(1, rows.length)
+  const barW = Math.max(6, Math.min(18, (band - 16) / SERIES.length))
+  const xOf = (i) => padL + band * (i + 0.5)
+  const yOf = (v) => h - padB - (v / max) * (h - padT - padB)
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%' }}>
+      <Axes max={max} labels={rows.map((r) => shortName(r.doctorName))} xOf={xOf} />
+      {rows.map((r, i) => SERIES.map((s, j) => {
+        const v = s.val(r)
+        const x = xOf(i) - (SERIES.length * barW) / 2 + j * barW
+        return (
+          <rect key={s.key + i} x={x} y={yOf(v)} width={barW - 2} height={Math.max(1, h - padB - yOf(v))}
+            fill={s.color} rx="3">
+            <title>{`${r.doctorName} · ${s.label}: ${v}`}</title>
+          </rect>
+        )
+      }))}
+    </svg>
   )
 }
 
 function LineChart({ rows }) {
-  const maxVal = Math.max(1, ...rows.flatMap((r) => SERIES.map((s) => s.val(r))))
-  const W = 760, H = 220, padX = 30, padY = 14
-  const x = (i) => padX + (rows.length <= 1 ? (W - 2 * padX) / 2 : (i * (W - 2 * padX)) / (rows.length - 1))
-  const y = (v) => H - padY - (v / maxVal) * (H - 2 * padY)
+  const { w, h, padL, padR, padT, padB } = CHART
+  const max = niceMax(Math.max(1, ...rows.flatMap((r) => SERIES.map((s) => s.val(r)))))
+  // Một điểm duy nhất thì đặt giữa khung, tránh chia cho 0 khi chỉ lọc 1 bác sĩ.
+  const xOf = (i) => (rows.length <= 1
+    ? padL + (w - padL - padR) / 2
+    : padL + (i * (w - padL - padR)) / (rows.length - 1))
+  const yOf = (v) => h - padB - (v / max) * (h - padT - padB)
   return (
-    <svg viewBox={`0 0 ${W} ${H + 22}`} style={{ width: '100%' }}>
+    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%' }}>
+      <Axes max={max} labels={rows.map((r) => shortName(r.doctorName))} xOf={xOf} />
       {SERIES.map((s) => (
-        <polyline key={s.key} fill="none" stroke={s.color} strokeWidth="2.5" points={rows.map((r, i) => `${x(i)},${y(s.val(r))}`).join(' ')} />
+        <polyline key={s.key} fill="none" stroke={s.color} strokeWidth="2.5"
+          points={rows.map((r, i) => `${xOf(i)},${yOf(s.val(r))}`).join(' ')} />
       ))}
-      {SERIES.flatMap((s) => rows.map((r, i) => <circle key={s.key + i} cx={x(i)} cy={y(s.val(r))} r="3" fill={s.color} />))}
-      {rows.map((r, i) => <text key={i} x={x(i)} y={H + 14} textAnchor="middle" fontSize="12" fill="#64748b">{shortName(r.doctorName)}</text>)}
+      {SERIES.flatMap((s) => rows.map((r, i) => (
+        <circle key={s.key + i} cx={xOf(i)} cy={yOf(s.val(r))} r="3.5" fill={s.color}>
+          <title>{`${r.doctorName} · ${s.label}: ${s.val(r)}`}</title>
+        </circle>
+      )))}
     </svg>
   )
 }
@@ -118,11 +177,11 @@ export default function StaffPerformancePage() {
   const td = { padding: '18px 8px', borderTop: '1px solid #f8fafc' }
 
   return (
-    <div style={{ background: '#f5f6ff' }}>
+    <div>
       {/* Header */}
-      <div style={{ padding: '24px 32px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+      <div style={{ padding: '24px 24px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={pageTitle}>Hiệu suất nhân viên</h1>
+          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Hiệu suất nhân viên</h1>
           <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Theo dõi KPI và năng suất của đội ngũ bác sĩ</p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
@@ -136,7 +195,7 @@ export default function StaffPerformancePage() {
         </div>
       </div>
 
-      <div style={{ padding: '20px 32px 32px' }}>
+      <div style={{ padding: '20px 24px 24px' }}>
         {error && <div style={{ color: '#dc2626', marginBottom: 12 }}>{error}</div>}
 
         {/* Biểu đồ so sánh */}

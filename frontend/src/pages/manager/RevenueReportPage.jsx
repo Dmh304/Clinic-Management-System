@@ -15,7 +15,6 @@
 import { useEffect, useState } from 'react'
 import { FiEye, FiDownload, FiRefreshCw } from 'react-icons/fi'
 import { reportService, downloadBlob } from '../../services/reportService'
-import { pageTitle } from './managerTypography'
 
 const vnd = (v) => `${Number(v || 0).toLocaleString('vi-VN')}đ`
 const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -167,17 +166,17 @@ export default function RevenueReportPage() {
   const topDoc = data?.topDoctor || {}
 
   return (
-    <div style={{ background: '#f5f6ff' }}>
+    <div>
       {/* Breadcrumb + title */}
       <div style={{ background: '#fff', borderBottom: '1px solid #eef0f6', padding: '14px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <div style={{ fontSize: 12, color: '#94a3b8' }}>Reports › <span style={{ color: '#4f46e5' }}>Revenue Report</span></div>
-          <h1 style={pageTitle}>Báo cáo Doanh thu</h1>
+          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Báo cáo Doanh thu</h1>
         </div>
         <div style={{ color: '#94a3b8', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}><FiEye /> Eyes Clinic Management System</div>
       </div>
 
-      <div style={{ padding: '24px 28px' }}>
+      <div style={{ padding: 24 }}>
         {/* Filter */}
         <div style={{ ...card, padding: '18px 22px', display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 16, marginBottom: 20 }}>
           <div>

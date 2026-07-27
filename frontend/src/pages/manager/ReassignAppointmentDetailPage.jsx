@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { appointmentService } from '../../services/appointmentService'
 import { doctorService } from '../../services/doctorService'
-import { pageTitle } from './managerTypography'
 
 // Cùng bảng màu/nhãn trạng thái đang dùng ở dashboard lễ tân, để đồng bộ hình ảnh
 // giữa trang danh sách và trang chi tiết chuyển lịch.
@@ -198,7 +197,7 @@ export default function ReassignAppointmentDetailPage() {
           <span style={{ cursor: 'pointer', color: '#2563eb' }} onClick={() => navigate('/manager/reassign-appointment')}>Quản lý lịch hẹn</span>
           {' › '}Chuyển lịch
         </div>
-        <h1 style={{ ...pageTitle, marginBottom: 20 }}>Chuyển lịch hẹn</h1>
+        <h1 style={{ margin: '0 0 20px', fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Chuyển lịch hẹn</h1>
 
         {/* Thẻ thông tin bệnh nhân + lịch hẹn hiện tại */}
         <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '18px 22px', marginBottom: 20, display: 'flex', flexWrap: 'wrap', gap: 20, justifyContent: 'space-between', alignItems: 'center' }}>

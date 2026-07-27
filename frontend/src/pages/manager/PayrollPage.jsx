@@ -16,7 +16,6 @@ import { useEffect, useState } from 'react'
 import { FiRefreshCw, FiDownload, FiCheckCircle, FiUsers, FiAlertTriangle, FiSearch, FiClock, FiSave } from 'react-icons/fi'
 import { FaWallet } from 'react-icons/fa'
 import { payrollService } from '../../services/payrollService'
-import { pageTitle } from './managerTypography'
 
 const C = { primary: '#7c3aed', secondary: '#00687a', success: '#059669', error: '#ba1a1a', warn: '#d97706', warnInk: '#92400e', ink: '#121c2a', muted: '#4a4455', border: '#e5e7eb', track: '#f1f5f9' }
 const vnd = (v) => Number(v || 0).toLocaleString('vi-VN')
@@ -173,12 +172,12 @@ export default function PayrollPage() {
   const btn = (bg, color, border) => ({ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 18px', borderRadius: 8, border: border || 'none', background: bg, color, cursor: 'pointer', fontWeight: 600, fontSize: 14 })
 
   return (
-    <div style={{ background: '#f8f9ff', color: C.ink }}>
-      <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div style={{ color: C.ink }}>
+      <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 16 }}>
           <div>
-            <h1 style={pageTitle}>Phê duyệt bảng lương</h1>
+            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Phê duyệt bảng lương</h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4, fontSize: 13, color: C.muted }}>
               <span>Kỳ lương tháng {period ? `${String(period.month).padStart(2, '0')}/${period.year}` : `${String(month).padStart(2, '0')}/${year}`}</span>
               {period && <>

@@ -18,7 +18,6 @@ import { Link } from 'react-router-dom'
 import { FiMoreHorizontal, FiRefreshCw, FiCalendar, FiCheckCircle, FiDollarSign } from 'react-icons/fi'
 import { FaPills, FaFlask } from 'react-icons/fa'
 import { reportService } from '../../services/reportService'
-import { pageTitle } from './managerTypography'
 
 const pad2 = (n) => (n == null ? '—' : String(n).padStart(2, '0'))
 const fmtAmount = (v) => {
@@ -96,13 +95,13 @@ export default function ManagerDashboard() {
   const pending = data?.pendingPrescriptionList || []
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f5f6ff' }}>
-      <div style={{ padding: '24px 28px' }}>
+    <div>
+      <div style={{ padding: 24 }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
           <div>
             <div style={{ color: '#4f46e5', fontSize: 12, letterSpacing: 2, fontWeight: 600 }}>PHÒNG ĐIỀU HÀNH · TRỰC TIẾP</div>
-            <h1 style={pageTitle}>Tổng quan vận hành</h1>
+            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Tổng quan vận hành</h1>
             <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Nhịp hoạt động tại phòng khám trong hôm nay.</p>
           </div>
           <button onClick={load} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 999, padding: '8px 16px', cursor: 'pointer', color: '#475569' }}>

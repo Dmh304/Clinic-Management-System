@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { roomService } from '../../services/roomService'
 import { staffDirectoryService } from '../../services/staffDirectoryService'
 import { doctorService } from '../../services/doctorService'
-import { pageTitle } from './managerTypography'
 
 // Map loại nhân sự -> category phòng tương ứng, đúng validateCategoryMatchesStaffType ở backend
 const STAFF_TYPE_CONFIG = {
@@ -223,7 +222,7 @@ export default function RoomRosterPage() {
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <h1 style={pageTitle}>Phân trực phòng</h1>
+            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Phân trực phòng</h1>
             <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
               Gán phòng cho nhân sự
             </p>

@@ -13,7 +13,6 @@ import { useEffect, useState } from 'react'
 import { FiRefreshCw, FiDownload, FiCalendar, FiUsers, FiUserPlus, FiTrendingUp, FiTrendingDown, FiMinus, FiMoreHorizontal, FiActivity } from 'react-icons/fi'
 import { FaNotesMedical, FaHistory } from 'react-icons/fa'
 import { reportService, downloadBlob } from '../../services/reportService'
-import { pageTitle } from './managerTypography'
 
 // Bảng màu theo DESIGN.md
 const C = { primary: '#7c3aed', secondary: '#00687a', tertiary: '#b45309', error: '#ba1a1a', success: '#10b981', ink: '#121c2a', muted: '#4a4455', border: '#e5e7eb', track: '#f1f5f9' }
@@ -107,11 +106,11 @@ export default function PatientStatisticsPage() {
   )
 
   return (
-    <div style={{ background: '#f8f9ff', color: C.ink }}>
+    <div style={{ color: C.ink }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16, padding: '20px 32px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16, padding: '20px 24px' }}>
         <div>
-          <h1 style={pageTitle}>Thống kê bệnh nhân</h1>
+          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Thống kê bệnh nhân</h1>
           <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Phân tích dữ liệu bệnh nhân thực tế theo thời gian</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -130,7 +129,7 @@ export default function PatientStatisticsPage() {
         </div>
       </div>
 
-      <div style={{ padding: '0 32px 32px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div style={{ padding: '0 24px 24px', display: 'flex', flexDirection: 'column', gap: 24 }}>
         {error && <div style={{ color: C.error }}>{error}</div>}
 
         {data && (

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { roomService } from '../../services/roomService'
 import { serviceService } from '../../services/serviceService'
-import { pageTitle } from './managerTypography'
 
 const CATEGORY_LABELS = {
   CLINICAL_EXAM: 'Phòng Khám Tổng Hợp',
@@ -113,7 +112,7 @@ export default function RoomManagementPage() {
       <div style={{ maxWidth: 1000, margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
           <div>
-            <h1 style={pageTitle}>Quản lý phòng</h1>
+            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Quản lý phòng</h1>
             <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
               Danh mục phòng vật lý và ánh xạ dịch vụ — dùng làm nguồn tham chiếu cho phân trực
             </p>

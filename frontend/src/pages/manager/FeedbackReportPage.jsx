@@ -22,7 +22,6 @@ import { useEffect, useState } from 'react'
 import { FaStar, FaStarHalfAlt, FaRegStar } from 'react-icons/fa'
 import { FiRefreshCw, FiDownload, FiMessageSquare, FiCheckCircle, FiPercent, FiSearch } from 'react-icons/fi'
 import { reportService, downloadBlob } from '../../services/reportService'
-import { pageTitle } from './managerTypography'
 
 const C = { primary: '#7c3aed', secondary: '#00687a', success: '#059669', star: '#f59e0b', ink: '#121c2a', muted: '#4a4455', border: '#e5e7eb' }
 const card = { background: '#fff', border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: '0 2px 4px rgba(0,0,0,0.03)' }
@@ -168,12 +167,12 @@ export default function FeedbackReportPage() {
   const btn = (bg, color, border) => ({ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 18px', borderRadius: 8, border: border || 'none', background: bg, color, cursor: 'pointer', fontWeight: 600, fontSize: 14 })
 
   return (
-    <div style={{ background: '#f8f9ff', color: C.ink }}>
-      <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div style={{ color: C.ink }}>
+      <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 16 }}>
           <div>
-            <h1 style={pageTitle}>Báo cáo đánh giá</h1>
+            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Báo cáo đánh giá</h1>
             <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Mức độ hài lòng của bệnh nhân theo kỳ & theo bác sĩ</p>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>

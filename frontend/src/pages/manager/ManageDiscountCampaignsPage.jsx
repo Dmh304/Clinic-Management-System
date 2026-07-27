@@ -3,7 +3,6 @@ import dayjs from 'dayjs'
 import { Table, Tag, Button, Progress, Select, Empty, Tooltip, Modal, message } from 'antd'
 import { EditOutlined, StopOutlined, PlusOutlined, GiftOutlined, ClockCircleOutlined, MailOutlined } from '@ant-design/icons'
 import { discountService } from '../../services/discountService'
-import { pageTitle } from './managerTypography'
 
 const INITIAL_FORM = {
   name: '', description: '', type: 'PERCENTAGE', value: '', voucherCode: '',
@@ -232,7 +231,7 @@ export default function ManageDiscountCampaignsPage() {
         <div style={{ fontSize: 13, color: '#94a3b8', marginBottom: 6 }}>Quản lý ▸ Chương trình khuyến mãi</div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <h1 style={pageTitle}>Chương trình khuyến mãi</h1>
+            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Chương trình khuyến mãi</h1>
             <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Quản lý ưu đãi, giảm giá theo mùa và chương trình tri ân khách hàng</p>
           </div>
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
