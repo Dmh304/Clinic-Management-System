@@ -314,6 +314,30 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
         boolean existsByDoctor_IdAndAppointmentTimeAndStatusNotAndIdNot(
                         Long doctorId, LocalDateTime appointmentTime, AppointmentStatus status, Long id);
 
+        // Le Thi Bich Ngan - HE204710 | Tạo: 27/07/2026
+        // Chức năng: query kiểm tra 1 bệnh nhân đã có lịch hẹn còn hiệu lực (khác
+        // CANCELLED) đúng vào một thời điểm hay chưa, KHÔNG phân biệt bác sĩ — dùng
+        // để chặn một bệnh nhân đặt cùng lúc 2 bác sĩ khác nhau trùng ngày/khung giờ.
+        // Business rule: BR-25 (new) — Patient Single-Slot Booking: một bệnh nhân
+        // không được có 2 lịch hẹn khám bác sĩ còn hiệu lực trùng đúng
+        // appointmentTime (ngay cả khi khác bác sĩ). Trước đây các query
+        // existsByDoctor_Id... ở trên chỉ khoá theo (doctor, time) nên hai bác sĩ
+        // khác nhau vẫn có thể vô tình nhận cùng 1 bệnh nhân ở cùng 1 giờ.
+        /**
+         * Kiểm tra một bệnh nhân đã có lịch hẹn còn hiệu lực (khác CANCELLED) đúng
+         * vào một thời điểm hay chưa (bất kể bác sĩ nào) — dùng để chặn đặt trùng
+         * khung giờ với bác sĩ khác.
+         */
+        boolean existsByPatient_IdAndAppointmentTimeAndStatusNot(
+                        Long patientId, LocalDateTime appointmentTime, AppointmentStatus status);
+
+        /**
+         * Như trên nhưng loại trừ chính lịch hẹn đang được sửa (id) — dùng khi
+         * reassign/đổi lịch để không tự đối chiếu trùng với chính nó.
+         */
+        boolean existsByPatient_IdAndAppointmentTimeAndStatusNotAndIdNot(
+                        Long patientId, LocalDateTime appointmentTime, AppointmentStatus status, Long id);
+
         /**
          * UC-13: lịch hẹn cần nhắc — đúng trạng thái, nằm trong khoảng thời gian
          * [start, end] và chưa gửi nhắc (reminder_sent = false). Dùng cho cron job
