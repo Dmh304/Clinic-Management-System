@@ -66,6 +66,8 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
             LEFT JOIN FETCH i.patient p
             LEFT JOIN FETCH a.doctor
             LEFT JOIN FETCH a.clinicService
+            LEFT JOIN FETCH i.subscription sub
+            LEFT JOIN FETCH sub.service
             ORDER BY i.createdAt DESC
             """)
     List<Invoice> findAllWithDetails();
@@ -103,6 +105,8 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
             LEFT JOIN FETCH i.patient p
             LEFT JOIN FETCH a.doctor
             LEFT JOIN FETCH a.clinicService
+            LEFT JOIN FETCH i.subscription sub
+            LEFT JOIN FETCH sub.service
             WHERE LOWER(i.patient.fullName) LIKE LOWER(CONCAT('%', :keyword, '%'))
                OR i.patient.phone LIKE CONCAT('%', :keyword, '%')
                OR i.invoiceCode LIKE CONCAT('%', :keyword, '%')
@@ -159,6 +163,16 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
      * @param status        the status to exclude, i.e. "CANCELLED"
      */
     boolean existsByAppointment_IdAndStatusNot(Long appointmentId, String status);
+
+    /**
+     * Whether a subscription / care package already has a live (non-cancelled)
+     * invoice (UC-21). Used both when creating an invoice and when showing the
+     * "already paid" flag on CareSessionResponse.
+     *
+     * @param subscriptionId subscription primary key
+     * @param status         the status to exclude, i.e. "CANCELLED"
+     */
+    boolean existsBySubscription_IdAndStatusNot(Long subscriptionId, String status);
 
     /**
      * A single patient's invoices with details joined, for the patient portal

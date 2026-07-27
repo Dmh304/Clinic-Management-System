@@ -37,16 +37,26 @@ public class Feedback {
     @JoinColumn(name = "patient_id", nullable = false)
     private Patient patient;
 
-    /** The visit being rated.
-     *  Validate: BR-21 — this is the key the one-feedback-per-appointment rule
-     *  is checked against before insert. */
+    /** The visit being rated — exactly one of {@code appointment} (a doctor
+     *  visit) or {@code careSession} (a nurse-run service session) is non-null.
+     *  Validate: BR-21 — one feedback per visit, checked in the service layer
+     *  before insert. */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "appointment_id", nullable = false)
+    @JoinColumn(name = "appointment_id")
     private Appointment appointment;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "care_session_id")
+    private CareSession careSession;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "doctor_id")
     private Doctor doctor;
+
+    // Điều dưỡng đảm nhiệm buổi dịch vụ (chỉ set khi careSession != null)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "nurse_id")
+    private User nurse;
 
     /** Overall star rating 1..5.
      *  Validate: bounded by a CHECK constraint at the database level as well

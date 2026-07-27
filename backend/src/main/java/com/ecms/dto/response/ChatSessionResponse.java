@@ -1,3 +1,7 @@
+//Author: DucTKH - HE204463
+//Created: 2026-06-22
+//Last Update: 2026-07-22
+
 package com.ecms.dto.response;
 
 import lombok.Builder;
@@ -15,4 +19,5 @@ public class ChatSessionResponse {
     private String status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Boolean hasUnread;
 }

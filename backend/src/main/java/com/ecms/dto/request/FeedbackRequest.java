@@ -20,11 +20,11 @@ import java.util.List;
 @Data
 public class FeedbackRequest {
 
-    /** Visit being rated.
-     *  Validate: required — BR-21 scopes the one-feedback rule to an
-     *  appointment, so feedback without one cannot be de-duplicated. */
-    @NotNull(message = "Thiếu mã lịch hẹn")
+    // Đúng 1 trong 2: đánh giá lịch khám bác sĩ HOẶC buổi dịch vụ điều dưỡng (kiểm ở service).
+    // appointmentId để nullable — quy tắc "đúng 1 trong 2" được kiểm ở tầng service, không dùng @NotNull.
     private Long appointmentId;
+
+    private Long careSessionId;
 
     /** Overall star rating.
      *  Validate: UC-48 normal flow step 4 / E1 — a rating is mandatory and
@@ -46,7 +46,7 @@ public class FeedbackRequest {
     /** Rating for one staff member who took part in the visit. */
     @Data
     public static class ParticipantRating {
-        /** DOCTOR | RECEPTIONIST | LAB_TECHNICIAN. */
+        /** DOCTOR | RECEPTIONIST | LAB_TECHNICIAN | NURSE. */
         private String role;
         private String name;
         /** Validate: same 1..5 bound as the overall rating. */

@@ -1,0 +1,24 @@
+Cols (22): ['id', 'name', 'category', 'price', 'duration_minutes', 'thumbnail_url', 'description', 'status', 'badge', 'price_label', 'sessions_included', 'validity_days', 'service_type', 'is_active', 'display_order', 'category_id', 'slug', 'content', 'created_at', 'updated_at', 'is_popular', 'benefits']
+Vals (22): ['1', "N'Thư giãn mắt'", "N'Thư giãn'", '150000.00', '30', "N'/images/services/thu-gian.jpg'", "N'Giúp mắt thư giãn sau những giờ làm việc căng thẳng'", "N'ACTIVE'", "N'Phổ biến'", "N'150k / lượt'", '1', '30', "N'SINGLE'", '1', '1', '1', "N'thu-gian-mat'", "N'<p>Liệu trình thư giãn...</p>'", "CAST(N'2026-06-30T04:05:08.3800000' AS DateTime2)", 'NULL', '1', 'N\'["Giảm nhức mỏi", "Cải thiện tuần hoàn máu", "Ngủ ngon hơn"]\'']
+0: id = 1
+1: name = N'Thư giãn mắt'
+2: category = N'Thư giãn'
+3: price = 150000.00
+4: duration_minutes = 30
+5: thumbnail_url = N'/images/services/thu-gian.jpg'
+6: description = N'Giúp mắt thư giãn sau những giờ làm việc căng thẳng'
+7: status = N'ACTIVE'
+8: badge = N'Phổ biến'
+9: price_label = N'150k / lượt'
+10: sessions_included = 1
+11: validity_days = 30
+12: service_type = N'SINGLE'
+13: is_active = 1
+14: display_order = 1
+15: category_id = 1
+16: slug = N'thu-gian-mat'
+17: content = N'<p>Liệu trình thư giãn...</p>'
+18: created_at = CAST(N'2026-06-30T04:05:08.3800000' AS DateTime2)
+19: updated_at = NULL
+20: is_popular = 1
+21: benefits = N'["Giảm nhức mỏi", "Cải thiện tuần hoàn máu", "Ngủ ngon hơn"]'

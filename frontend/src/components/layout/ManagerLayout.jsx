@@ -12,7 +12,7 @@
  */
 import { useDispatch, useSelector } from 'react-redux'
 import { NavLink, Outlet } from 'react-router-dom'
-import { FiGrid, FiDollarSign, FiBarChart2, FiActivity, FiStar, FiCreditCard, FiCalendar, FiBox, FiUsers, FiTag, FiUserPlus, FiRefreshCw, FiEye, FiLogOut } from 'react-icons/fi'
+import { FiGrid, FiDollarSign, FiBarChart2, FiActivity, FiStar, FiCreditCard, FiCalendar, FiBox, FiUsers, FiTag, FiUserPlus, FiRefreshCw, FiEye, FiLogOut, FiFileText } from 'react-icons/fi'
 import { logout } from '../../store/slices/authSlice'
 import NotificationBell from './NotificationBell'
 
@@ -28,6 +28,7 @@ const NAV_ITEMS = [
   { label: 'Bảng lương', to: '/manager/payroll', Icon: FiCreditCard },
   { label: 'Lịch khám', to: '/manager/daily-schedule', Icon: FiCalendar },
   { label: 'Gói dịch vụ', to: '/manager/service-packages', Icon: FiBox },
+  { label: 'Quản lý bài viết', to: '/manager/blogs', Icon: FiFileText },
   { label: 'Quản lý bác sĩ', to: '/manager/doctors', Icon: FiUsers },
   { label: 'Chương trình giảm giá', to: '/manager/discount-campaigns', Icon: FiTag },
   { label: 'Phân công điều dưỡng', to: '/manager/assign-nurse', Icon: FiUserPlus },

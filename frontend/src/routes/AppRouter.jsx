@@ -11,6 +11,10 @@ import ProtectedRoute from './ProtectedRoute'
 import HomePage from '../pages/HomePage'
 import BlogListPage from '../pages/BlogListPage'
 import BlogDetailPage from '../pages/BlogDetailPage'
+import DoctorDetailPage from '../pages/DoctorDetailPage'
+import PromotionsListPage from '../pages/PromotionsListPage'
+import PromotionsDetailPage from '../pages/PromotionsDetailPage'
+import UnsubscribePage from '../pages/UnsubscribePage'
 import LoginPage from '../pages/auth/LoginPage'
 import RegisterPage from '../pages/auth/RegisterPage'
 import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage'
@@ -30,6 +34,7 @@ import BookingPage from '../pages/patient/BookingPage'
 import MedicalHistoryPage from '../pages/patient/MedicalHistoryPage'
 import PrescriptionViewPage from '../pages/patient/PrescriptionViewPage'
 import ServicePackagesPage from '../pages/patient/ServicePackagesPage'
+import ServiceDetailPage from '../pages/patient/ServiceDetailPage'
 import MySubscriptionsPage from '../pages/patient/MySubscriptionsPage'
 import BookCareSessionPage from '../pages/patient/BookCareSessionPage'
 import MyCareSessionsPage from '../pages/patient/MyCareSessionsPage'
@@ -67,11 +72,12 @@ import DeliverCareSessionPage from '../pages/nurse/DeliverCareSessionPage'
 
 import LabQueuePage from '../pages/lab/LabQueuePage'
 import LabResultEntryPage from '../pages/lab/LabResultEntryPage'
-import EyeglassPrescriptionDetail from '../pages/lab/EyeglassPrescriptionDetail'
-import EyeglassPrescriptionQueue from '../pages/lab/EyeglassPrescriptionQueue'
+import EyeglassOrderDetail from '../pages/lab/EyeglassOrderDetail'
+import EyeglassOrderQueue from '../pages/lab/EyeglassOrderQueue'
 
 import DispensingPage from '../pages/pharmacy/DispensingPage'
 import PharmacyInvoicePage from '../pages/pharmacy/PharmacyInvoicePage'
+import PharmacyNotificationsPage from '../pages/pharmacy/PharmacyNotificationsPage'
 
 import ManagerDashboard from '../pages/manager/ManagerDashboard'
 import RevenueReportPage from '../pages/manager/RevenueReportPage'
@@ -80,10 +86,12 @@ import PatientStatisticsPage from '../pages/manager/PatientStatisticsPage'
 import FeedbackReportPage from '../pages/manager/FeedbackReportPage'
 import PayrollPage from '../pages/manager/PayrollPage'
 import ManageServicePackagesPage from '../pages/manager/ManageServicePackagesPage'
+import ManageBlogPage from '../pages/manager/ManageBlogPage'
 import ManageDoctorsPage from '../pages/manager/ManageDoctorsPage'
 import ManageDiscountCampaignsPage from '../pages/manager/ManageDiscountCampaignsPage'
 import AssignNursePage from '../pages/manager/AssignNursePage'
 import ReassignAppointmentPage from '../pages/manager/ReassignAppointmentPage'
+import ReassignAppointmentDetailPage from '../pages/manager/ReassignAppointmentDetailPage'
 import RoomManagementPage from '../pages/manager/RoomManagementPage'
 import RoomRosterPage from '../pages/manager/RoomRosterPage'
 
@@ -123,8 +131,13 @@ export default function AppRouter() {
       <Route path="/" element={<WithHeader><HomePage /></WithHeader>} />
       <Route path="/blogs" element={<WithHeader><BlogListPage /></WithHeader>} />
       <Route path="/blogs/:id" element={<WithHeader><BlogDetailPage /></WithHeader>} />
+      <Route path="/doctors/:id" element={<WithHeader><DoctorDetailPage /></WithHeader>} />
+      <Route path="/promotions" element={<WithHeader><PromotionsListPage /></WithHeader>} />
+      <Route path="/promotions/:id" element={<WithHeader><PromotionsDetailPage /></WithHeader>} />
+      <Route path="/unsubscribe" element={<WithHeader><UnsubscribePage /></WithHeader>} />
       {/* Trang dịch vụ — mọi người đều xem được (chỉ PATIENT/RECEPTIONIST mới đăng ký được) */}
       <Route path="/services" element={<WithHeader><ServicePackagesPage /></WithHeader>} />
+      <Route path="/services/:id" element={<WithHeader><ServiceDetailPage /></WithHeader>} />
 
       {/* ── Auth pages — không có Header ── */}
       <Route path="/login" element={<LoginPage />} />
@@ -150,6 +163,7 @@ export default function AppRouter() {
         <Route path="/patient/lab-results" element={<PatientLabResults />} />
         <Route path="/patient/prescription" element={<WithHeader><PrescriptionViewPage /></WithHeader>} />
         <Route path="/patient/subscriptions" element={<WithHeader><MySubscriptionsPage /></WithHeader>} />
+        <Route path="/patient/subscriptions/:subscriptionId/sessions" element={<WithHeader><MyCareSessionsPage /></WithHeader>} />
         <Route path="/patient/book-session" element={<WithHeader><BookCareSessionPage /></WithHeader>} />
         <Route path="/patient/care-sessions" element={<WithHeader><MyCareSessionsPage /></WithHeader>} />
         <Route path="/patient/appointments" element={<WithHeader><MyAppointmentsPage /></WithHeader>} />
@@ -196,8 +210,8 @@ export default function AppRouter() {
       <Route element={<LabTechnicianLayout />}>
         <Route path="/lab/queue" element={<LabQueuePage />} />
         <Route path="/lab/result-entry" element={<LabResultEntryPage />} />
-        <Route path="/lab/eyeglass-queue" element={<EyeglassPrescriptionQueue/>}/>
-        <Route path="/lab/eyeglass-detail" element={<EyeglassPrescriptionDetail/> }/>
+        <Route path="/lab/eyeglass-queue" element={<EyeglassOrderQueue/>}/>
+        <Route path="/lab/eyeglass-detail" element={<EyeglassOrderDetail/> }/>
         </Route>
       </Route>
 
@@ -205,6 +219,7 @@ export default function AppRouter() {
       <Route element={<ProtectedRoute allowedRoles={['PHARMACIST']} />}>
         <Route path="/pharmacy/dispensing" element={<WithHeader><DispensingPage /></WithHeader>} />
         <Route path="/pharmacy/invoice" element={<WithHeader><PharmacyInvoicePage /></WithHeader>} />
+        <Route path="/pharmacy/notifications" element={<WithHeader><PharmacyNotificationsPage /></WithHeader>} />
       </Route>
 
       {/* ── Manager ── */}
@@ -217,10 +232,12 @@ export default function AppRouter() {
           <Route path="/manager/feedback-report" element={<FeedbackReportPage />} />
           <Route path="/manager/payroll" element={<PayrollPage />} />
           <Route path="/manager/service-packages" element={<ManageServicePackagesPage />} />
+          <Route path="/manager/blogs" element={<ManageBlogPage />} />
           <Route path="/manager/doctors" element={<ManageDoctorsPage />} />
           <Route path="/manager/discount-campaigns" element={<ManageDiscountCampaignsPage />} />
           <Route path="/manager/assign-nurse" element={<AssignNursePage />} />
           <Route path="/manager/reassign-appointment" element={<ReassignAppointmentPage />} />
+          <Route path="/manager/reassign-appointment/:appointmentId" element={<ReassignAppointmentDetailPage />} />
           <Route path="/manager/daily-schedule" element={<DailySchedulePage />} />
           <Route path="/manager/rooms" element={<RoomManagementPage />} />
           <Route path="/manager/room-roster" element={<RoomRosterPage />} />

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { FiClipboard, FiCalendar, FiActivity, FiAward, FiCheck } from 'react-icons/fi'
 import { subscriptionService } from '../../services/subscriptionService'
 import { serviceService } from '../../services/serviceService'
 
@@ -22,12 +23,77 @@ function StatusBadge({ status }) {
   )
 }
 
+// Hành trình khám bệnh — suy ra từ gói dịch vụ đang có tiến độ nhất (đã dùng buổi
+// nếu có, ưu tiên gói ACTIVE) — không bịa thêm trạng thái không có dữ liệu backing.
+function buildJourneySteps(sub) {
+  const used = sub?.usedSessions || 0
+  const total = sub?.totalSessions || 0
+  const hasBooked = used > 0
+  const finished = total > 0 && used >= total
+
+  return [
+    { key: 'register', label: 'Đăng ký', icon: FiClipboard, state: 'done', caption: 'Đã hoàn tất' },
+    {
+      key: 'book', label: 'Đặt lịch', icon: FiCalendar,
+      state: hasBooked || finished ? 'done' : 'active',
+      caption: hasBooked || finished ? 'Đã hoàn tất' : 'Bước tiếp theo',
+    },
+    {
+      key: 'execute', label: 'Thực hiện liệu trình', icon: FiActivity,
+      state: finished ? 'done' : hasBooked ? 'active' : 'pending',
+      caption: finished ? 'Đã hoàn tất' : hasBooked ? 'Đang thực hiện' : 'Chưa bắt đầu',
+    },
+    {
+      key: 'review', label: 'Đánh giá kết quả', icon: FiAward,
+      state: finished ? 'active' : 'pending',
+      caption: finished ? 'Hãy chia sẻ trải nghiệm' : 'Chưa bắt đầu',
+    },
+  ]
+}
+
+function JourneyStepper({ sub }) {
+  const steps = buildJourneySteps(sub)
+  return (
+    <div style={{ background: '#fff', borderRadius: 12, padding: 24, border: '1px solid #e2e8f0', marginTop: 24 }}>
+      <h3 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 700, color: '#1e293b' }}>Hành trình khám bệnh của bạn</h3>
+      <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+        {steps.map((s, i) => {
+          const Icon = s.icon
+          const done = s.state === 'done'
+          const active = s.state === 'active'
+          const circleColor = done ? '#2563eb' : active ? '#0f6e66' : '#cbd5e1'
+          const circleBg = done ? '#dbeafe' : active ? '#d7f0ec' : '#f1f5f9'
+          return (
+            <div key={s.key} style={{ display: 'flex', alignItems: 'center', flex: i < steps.length - 1 ? 1 : 'none' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 90 }}>
+                <div style={{
+                  width: 44, height: 44, borderRadius: '50%', background: circleBg,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: circleColor,
+                  border: active ? `2px solid ${circleColor}` : 'none',
+                }}>
+                  {done ? <FiCheck size={20} /> : <Icon size={18} />}
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#1e293b', marginTop: 8, textAlign: 'center' }}>{s.label}</div>
+                <div style={{ fontSize: 11, color: done ? '#2563eb' : active ? '#0f6e66' : '#94a3b8', marginTop: 2, textAlign: 'center' }}>{s.caption}</div>
+              </div>
+              {i < steps.length - 1 && (
+                <div style={{ flex: 1, height: 2, background: done ? '#2563eb' : '#e2e8f0', margin: '0 4px', marginTop: -34 }} />
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export default function MySubscriptionsPage() {
   const [subscriptions, setSubscriptions] = useState([])
   const [registrations, setRegistrations] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [cancelling, setCancelling] = useState(null)
+  const [renewing, setRenewing] = useState(null)
 
   const fetchSubscriptions = async () => {
     setLoading(true)
@@ -68,6 +134,28 @@ export default function MySubscriptionsPage() {
     }
   }
 
+  // Gói đã hết hạn nhưng còn buổi chưa dùng — cho gia hạn thẳng, không cần tư vấn lại
+  // vì bệnh nhân đã từng đăng ký/dùng gói này rồi (khác mua gói MỚI phải chờ tư vấn).
+  // status có thể vẫn là ACTIVE trong DB nếu backend chưa lazy-check lại (chỉ set EXPIRED
+  // khi có lần đặt buổi) nên xét luôn expiryDate, không chỉ dựa vào status.
+  const isRenewable = (sub) => {
+    const timeExpired = sub.expiryDate && new Date(sub.expiryDate) < new Date(new Date().toDateString())
+    return (sub.status === 'EXPIRED' || timeExpired) && sub.remainingSessions > 0
+  }
+
+  const handleRenew = async (id) => {
+    if (!window.confirm('Gia hạn gói dịch vụ này để tiếp tục dùng các buổi còn lại?')) return
+    setRenewing(id)
+    try {
+      await subscriptionService.renew(id)
+      fetchSubscriptions()
+    } catch (err) {
+      alert(err.response?.data?.message || 'Không thể gia hạn gói')
+    } finally {
+      setRenewing(null)
+    }
+  }
+
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#6b7280' }}>Đang tải...</div>
 
   // Chỉ hiển thị các đăng ký đang chờ/đã liên hệ tư vấn; đăng ký đã xử lý (COMPLETED)
@@ -75,6 +163,12 @@ export default function MySubscriptionsPage() {
   const pendingRegistrations = registrations.filter(
     (r) => r.status === 'PENDING' || r.status === 'CONFIRMED'
   )
+
+  // Gói dùng để suy ra hành trình khám bệnh — ưu tiên gói đang có tiến độ, sau đó
+  // gói ACTIVE bất kỳ, cuối cùng là gói đầu tiên nếu không có gói ACTIVE nào.
+  const primarySub = subscriptions.find((s) => s.usedSessions > 0)
+    || subscriptions.find((s) => s.status === 'ACTIVE')
+    || subscriptions[0]
 
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc', padding: '32px 16px' }}>
@@ -145,8 +239,18 @@ export default function MySubscriptionsPage() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                      <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#1e293b' }}>{sub.serviceName}</h3>
+                      <Link to={`/patient/subscriptions/${sub.id}/sessions`}
+                        style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#1e293b', textDecoration: 'none' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none' }}>
+                        {sub.serviceName}
+                      </Link>
                       <StatusBadge status={sub.status} />
+                    </div>
+                    <div style={{ fontSize: 12, marginBottom: 8 }}>
+                      <Link to={`/patient/subscriptions/${sub.id}/sessions`} style={{ color: '#2563eb', textDecoration: 'none' }}>
+                        Xem lịch sử & lịch hẹn buổi khám →
+                      </Link>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8 }}>
                       <div style={{ background: '#f1f5f9', borderRadius: 8, padding: '8px 12px' }}>
@@ -178,23 +282,41 @@ export default function MySubscriptionsPage() {
                         {Number(sub.finalPrice).toLocaleString('vi-VN')}₫
                       </div>
                     )}
-                    {sub.status === 'ACTIVE' && sub.remainingSessions > 0 && (
-                      <Link to={`/patient/book-session?subscriptionId=${sub.id}`}
-                        style={{ background: '#2563eb', color: '#fff', padding: '8px 16px', borderRadius: 8, textDecoration: 'none', fontWeight: 600, fontSize: 13 }}>
-                        Đặt buổi khám
-                      </Link>
-                    )}
-                    {sub.status === 'ACTIVE' && sub.usedSessions === 0 && (
-                      <button onClick={() => handleCancel(sub.id)} disabled={cancelling === sub.id}
-                        style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
-                        {cancelling === sub.id ? '...' : 'Huỷ gói'}
-                      </button>
-                    )}
+                    {(() => {
+                      const timeExpired = sub.expiryDate && new Date(sub.expiryDate) < new Date(new Date().toDateString())
+                      const bookable = sub.status === 'ACTIVE' && !timeExpired && sub.remainingSessions > 0
+                      const cancellable = sub.status === 'ACTIVE' && !timeExpired && sub.usedSessions === 0
+                      const renewable = isRenewable(sub)
+                      return (
+                        <>
+                          {bookable && (
+                            <Link to={`/patient/book-session?subscriptionId=${sub.id}`}
+                              style={{ background: '#2563eb', color: '#fff', padding: '8px 16px', borderRadius: 8, textDecoration: 'none', fontWeight: 600, fontSize: 13 }}>
+                              Đặt buổi khám
+                            </Link>
+                          )}
+                          {renewable && (
+                            <button onClick={() => handleRenew(sub.id)} disabled={renewing === sub.id}
+                              style={{ background: '#0f6e66', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+                              {renewing === sub.id ? '...' : 'Gia hạn'}
+                            </button>
+                          )}
+                          {cancellable && (
+                            <button onClick={() => handleCancel(sub.id)} disabled={cancelling === sub.id}
+                              style={{ background: '#fee2e2', color: '#dc2626', border: 'none', padding: '8px 16px', borderRadius: 999, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+                              {cancelling === sub.id ? '...' : 'Huỷ gói'}
+                            </button>
+                          )}
+                        </>
+                      )
+                    })()}
                   </div>
                 </div>
               </div>
               ))}
             </div>
+
+            {primarySub && <JourneyStepper sub={primarySub} />}
           </div>
         )}
       </div>

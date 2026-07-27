@@ -166,6 +166,7 @@ public class AppointmentController {
                                 ApiResponse.success(appointmentService.getAvailableSlots(doctorId, date)));
         }
 
+        // DucTKH: Tạo lịch hẹn trực tiếp tại quầy (Walk-in) cho bệnh nhân (UC-15).
         @PostMapping("/walk-in")
         public ResponseEntity<ApiResponse<AppointmentResponse>> createWalkInAppointment(
                         @Valid @RequestBody WalkInAppointmentRequest request) {
@@ -215,7 +216,7 @@ public class AppointmentController {
                         @PathVariable Long id,
                         @RequestBody(required = false) CancelAppointmentRequest request,
                         @AuthenticationPrincipal UserDetails userDetails) {
-                boolean isPatientSelf = patientRepository.findByEmail(userDetails.getUsername()).isPresent();
+                boolean isPatientSelf = patientRepository.findByUser_Email(userDetails.getUsername()).isPresent();
                 return ResponseEntity.ok(ApiResponse.success(
                                 appointmentService.cancelAppointment(id, request, userDetails.getUsername(),
                                                 isPatientSelf)));

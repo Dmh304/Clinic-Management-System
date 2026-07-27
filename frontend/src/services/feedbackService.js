@@ -11,12 +11,13 @@ import axiosClient from '../api/axiosClient'
 
 export const feedbackService = {
   /**
-   * Submits feedback for a completed visit.
-   * @param {{appointmentId:number, rating:number, content?:string, isAnonymous?:boolean}} data
+   * Submits feedback for a completed visit. Provide exactly one of
+   * appointmentId (doctor visit) or careSessionId (nurse-run service session).
+   * @param {{appointmentId?:number, careSessionId?:number, rating:number, content?:string, isAnonymous?:boolean}} data
    * @returns {Promise} the stored feedback (status PENDING)
    *
    * Validate: rating is required and must be 1..5, checked in the form and
-   * again by the backend (UC-48 E1). BR-21 (one feedback per appointment) is
+   * again by the backend (UC-48 E1). BR-21 (one feedback per visit) is
    * enforced server-side and surfaces here as an error response.
    */
   submit: (data) => axiosClient.post('/v1/feedbacks', data),

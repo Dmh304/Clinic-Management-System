@@ -18,12 +18,15 @@ import java.time.LocalDateTime;
 public class FeedbackResponse {
     private Long id;
     private Long appointmentId;
+    private Long careSessionId;
     private Long patientId;
     /** Null when the patient submitted anonymously — withheld rather than
      *  merely hidden client-side, so the name never leaves the server. */
     private String patientName;
     private Long doctorId;
     private String doctorName;
+    private Long nurseId;
+    private String nurseName;
     private Integer rating;
     private String content;
     private Boolean isAnonymous;

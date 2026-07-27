@@ -1,3 +1,7 @@
+//Author: DucTKH - HE204463
+//Created: 2026-07-12
+//Last Update: 2026-07-22
+
 package com.ecms.dto.request;
 
 import lombok.AllArgsConstructor;

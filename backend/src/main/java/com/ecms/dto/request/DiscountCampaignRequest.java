@@ -36,4 +36,8 @@ public class DiscountCampaignRequest {
     private Integer maxUsageCount;
 
     private Boolean isActive;
+
+    private String thumbnailUrl;
+
+    private String content;
 }

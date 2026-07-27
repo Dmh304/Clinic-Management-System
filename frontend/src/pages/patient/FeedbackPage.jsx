@@ -3,21 +3,23 @@
  * @created 2026-07-19
  * @updated 2026-07-20
  *
- * Patient feedback screen (UC-48 Submit Feedback).
+ * Patient feedback screen (UC-48 Submit Feedback). Covers both a doctor
+ * appointment and a nurse-run service session (CareSession).
  *
- * Two steps: pick a completed visit, then fill the form — an overall rating
- * plus optional per-participant ratings for the doctor, receptionist and lab
- * technician who took part.
+ * Two steps: pick a completed visit / service session, then fill the form —
+ * an overall rating plus optional per-participant ratings for the people who
+ * took part (doctor or nurse, receptionist, lab technician).
  *
  * Business rules:
- *  - UC-48 PRE-2 — only COMPLETED visits are offered
- *  - BR-21 — one feedback per appointment; an already-rated visit is not
- *    offered, and the backend rejects a duplicate regardless
+ *  - UC-48 PRE-2 — only COMPLETED visits/sessions are offered
+ *  - BR-21 — one feedback per visit; an already-rated one is not offered,
+ *    and the backend rejects a duplicate regardless
  */
 import { useEffect, useState } from 'react'
-import { FiUser, FiCalendar, FiClock } from 'react-icons/fi'
-import { FaStar, FaRegStar, FaStethoscope, FaFlask, FaConciergeBell } from 'react-icons/fa'
+import { FiUser, FiCalendar, FiClock, FiCheckCircle, FiFlag } from 'react-icons/fi'
+import { FaStar, FaRegStar, FaStethoscope, FaFlask, FaConciergeBell, FaUserNurse } from 'react-icons/fa'
 import { appointmentService } from '../../services/appointmentService'
+import { careSessionService } from '../../services/careSessionService'
 import { feedbackService } from '../../services/feedbackService'
 
 const TEAL = '#0f6e66'
@@ -33,7 +35,7 @@ const fmtDate = (iso) => {
 }
 const fmtTime = (iso) => (iso ? new Date(iso).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '')
 
-const ROLE_ICON = { DOCTOR: FaStethoscope, RECEPTIONIST: FaConciergeBell, LAB_TECHNICIAN: FaFlask }
+const ROLE_ICON = { DOCTOR: FaStethoscope, RECEPTIONIST: FaConciergeBell, LAB_TECHNICIAN: FaFlask, NURSE: FaUserNurse }
 
 function Stars({ value, onChange, size = 40 }) {
   const [hover, setHover] = useState(0)
@@ -51,9 +53,9 @@ function Stars({ value, onChange, size = 40 }) {
   )
 }
 
-function RoleIcon({ role }) {
+function RoleIcon({ role, size = 16 }) {
   const Icon = ROLE_ICON[role] || FiUser
-  return <Icon size={16} color="#0f6e66" />
+  return <Icon size={size} color="#0f6e66" />
 }
 
 /**
@@ -61,11 +63,12 @@ function RoleIcon({ role }) {
  * @returns {JSX.Element} the feedback screen
  */
 export default function FeedbackPage() {
-  const [appointments, setAppointments] = useState([])
-  const [doneIds, setDoneIds] = useState(new Set())
+  const [visits, setVisits] = useState([]) // { type, id, title, subtitle, dateTime, serviceName, raw }
+  const [doneApptIds, setDoneApptIds] = useState(new Set())
+  const [doneCareSessionIds, setDoneCareSessionIds] = useState(new Set())
   const [loadingList, setLoadingList] = useState(true)
 
-  const [selected, setSelected] = useState(null)
+  const [selected, setSelected] = useState(null) // { type, id, ... }
   const [visit, setVisit] = useState(null)
   const [rating, setRating] = useState(0)
   const [content, setContent] = useState('')
@@ -81,30 +84,76 @@ export default function FeedbackPage() {
   const loadList = async () => {
     setLoadingList(true)
     try {
-      const [apptRes, fbRes] = await Promise.all([
+      const [apptRes, careRes, fbRes] = await Promise.all([
         appointmentService.getMyAppointments(),
+        careSessionService.getMy(),
         feedbackService.getMy(),
       ])
-      setAppointments((apptRes.data || []).filter((a) => a.status === 'COMPLETED'))
-      setDoneIds(new Set((fbRes.data || []).map((f) => f.appointmentId)))
+
+      const appts = (apptRes.data || [])
+        .filter((a) => a.status === 'COMPLETED')
+        .map((a) => ({
+          type: 'APPOINTMENT',
+          id: a.id,
+          title: a.doctorName ? `BS. ${a.doctorName}` : 'Bác sĩ',
+          subtitleRole: 'DOCTOR',
+          dateTime: a.appointmentTime,
+          serviceName: a.serviceName,
+          raw: a,
+        }))
+
+      const sessions = (careRes.data || [])
+        .filter((s) => s.status === 'COMPLETED')
+        .map((s) => ({
+          type: 'CARE_SESSION',
+          id: s.id,
+          title: s.nurseName ? `ĐD. ${s.nurseName}` : 'Điều dưỡng',
+          subtitleRole: 'NURSE',
+          dateTime: s.scheduledDateTime,
+          serviceName: s.serviceName,
+          raw: s,
+        }))
+
+      const merged = [...appts, ...sessions].sort(
+        (a, b) => new Date(b.dateTime) - new Date(a.dateTime)
+      )
+      setVisits(merged)
+
+      const feedbacks = fbRes.data || []
+      setDoneApptIds(new Set(feedbacks.filter((f) => f.appointmentId).map((f) => f.appointmentId)))
+      setDoneCareSessionIds(new Set(feedbacks.filter((f) => f.careSessionId).map((f) => f.careSessionId)))
     } catch (e) {
       setError(e?.response?.data?.message || 'Không tải được danh sách buổi khám')
     } finally { setLoadingList(false) }
   }
   useEffect(() => { loadList() }, [])
 
+  const isDone = (v) => (v.type === 'APPOINTMENT' ? doneApptIds.has(v.id) : doneCareSessionIds.has(v.id))
+
   /**
-   * Opens the rating form for a visit, loading who took part so each person
-   * can be rated individually.
-   * @param {Object} appt the selected appointment
+   * Opens the rating form for a visit or service session, loading who took
+   * part so each person can be rated individually.
+   * @param {Object} v the selected visit (type APPOINTMENT) or service session
    */
-  const openForm = async (appt) => {
-    setSelected(appt); setVisit(null); setRating(0); setContent(''); setPartRatings({}); setError(''); setMsg('')
-    try {
-      const res = await feedbackService.getParticipants(appt.id)
-      setVisit(res.data || {})
-    } catch (e) {
-      setError(e?.response?.data?.message || 'Không tải được thông tin buổi khám')
+  const openForm = async (v) => {
+    setSelected(v); setVisit(null); setRating(0); setContent(''); setPartRatings({}); setError(''); setMsg('')
+    if (v.type === 'APPOINTMENT') {
+      try {
+        const res = await feedbackService.getParticipants(v.id)
+        setVisit(res.data || {})
+      } catch (e) {
+        setError(e?.response?.data?.message || 'Không tải được thông tin buổi khám')
+      }
+    } else {
+      // Buổi dịch vụ: chỉ có 1 người tham gia — điều dưỡng đảm nhiệm (đã có sẵn trong raw)
+      const s = v.raw
+      setVisit({
+        appointmentTime: s.scheduledDateTime,
+        serviceName: s.serviceName,
+        participants: s.nurseName
+          ? [{ role: 'NURSE', roleLabel: 'Điều dưỡng', name: s.nurseName, detail: null }]
+          : [],
+      })
     }
   }
 
@@ -127,11 +176,14 @@ export default function FeedbackPage() {
       .filter((x) => x.rating)
     setSubmitting(true); setError('')
     try {
-      await feedbackService.submit({
-        appointmentId: selected.id, rating, content: content || null, isAnonymous: false, participantRatings,
-      })
+      const payload = {
+        rating, content: content || null, isAnonymous: false, participantRatings,
+        ...(selected.type === 'APPOINTMENT' ? { appointmentId: selected.id } : { careSessionId: selected.id }),
+      }
+      await feedbackService.submit(payload)
       setMsg('Cảm ơn bạn đã gửi đánh giá!')
-      setDoneIds((s) => new Set([...s, selected.id]))
+      if (selected.type === 'APPOINTMENT') setDoneApptIds((s) => new Set([...s, selected.id]))
+      else setDoneCareSessionIds((s) => new Set([...s, selected.id]))
       await loadList()
       backToList()
     } catch (e) {
@@ -141,8 +193,12 @@ export default function FeedbackPage() {
 
   // ─────────────────── BƯỚC 2: form đánh giá ───────────────────
   if (selected) {
-    const doctorName = visit?.doctorName || selected.doctorName
-    const specialty = visit?.doctorSpecialty
+    const isAppt = selected.type === 'APPOINTMENT'
+    const headerName = isAppt
+      ? (visit?.doctorName || selected.raw.doctorName)
+      : selected.raw.nurseName
+    const headerLabel = isAppt ? (headerName ? `BS. ${headerName}` : 'Bác sĩ') : (headerName ? `ĐD. ${headerName}` : 'Điều dưỡng')
+    const specialty = isAppt ? visit?.doctorSpecialty : null
     const participants = visit?.participants || []
     return (
       <div style={PAGE}>
@@ -151,17 +207,21 @@ export default function FeedbackPage() {
             {/* Header teal */}
             <div style={{ background: TEAL, color: '#fff', padding: '22px 28px' }}>
               <div style={{ fontSize: 12, letterSpacing: 2, opacity: 0.85, marginBottom: 10 }}>ECMS — CỔNG BỆNH NHÂN</div>
-              <div style={{ fontSize: 30, fontWeight: 700, fontFamily: 'Georgia, serif' }}>Buổi khám của bạn thế nào?</div>
+              <div style={{ fontSize: 30, fontWeight: 700, fontFamily: 'Georgia, serif' }}>
+                {isAppt ? 'Buổi khám của bạn thế nào?' : 'Buổi dịch vụ của bạn thế nào?'}
+              </div>
               <div style={{ opacity: 0.9, marginTop: 6 }}>Đánh giá của bạn giúp chúng tôi cải thiện chất lượng chăm sóc.</div>
             </div>
 
             {/* Thông tin buổi khám */}
             <div style={{ background: '#eaf3f1', padding: '16px 28px', borderBottom: '1px solid #e2e8f0' }}>
               <div style={{ color: TEAL, fontWeight: 700, fontSize: 16 }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><FiUser /> {doctorName ? `BS. ${doctorName}` : 'Bác sĩ'}{specialty ? ` · ${specialty}` : ''}</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <RoleIcon role={isAppt ? 'DOCTOR' : 'NURSE'} size={18} /> {headerLabel}{specialty ? ` · ${specialty}` : ''}
+                </span>
               </div>
               <div style={{ color: '#475569', fontSize: 13, marginTop: 6 }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><FiCalendar /> {fmtDate(visit?.appointmentTime || selected.appointmentTime)}</span> &nbsp;&nbsp; <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><FiClock /> {fmtTime(visit?.appointmentTime || selected.appointmentTime)}</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><FiCalendar /> {fmtDate(visit?.appointmentTime || selected.dateTime)}</span> &nbsp;&nbsp; <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><FiClock /> {fmtTime(visit?.appointmentTime || selected.dateTime)}</span>
               </div>
               {visit?.serviceName && <div style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>{visit.serviceName}</div>}
             </div>
@@ -217,30 +277,48 @@ export default function FeedbackPage() {
     )
   }
 
-  // ─────────────────── BƯỚC 1: chọn buổi khám ───────────────────
+  // ─────────────────── BƯỚC 1: chọn buổi khám / buổi dịch vụ ───────────────────
   return (
     <div style={PAGE}>
       <div style={{ maxWidth: 720, margin: '0 auto', padding: 24 }}>
         <h2 style={{ color: '#0f172a', marginBottom: 4 }}>Đánh giá buổi khám</h2>
-        <p style={{ color: '#64748b', marginTop: 0 }}>Chọn một buổi khám đã hoàn thành để gửi đánh giá.</p>
+        <p style={{ color: '#64748b', marginTop: 0 }}>Chọn một buổi khám hoặc buổi dịch vụ đã hoàn thành để gửi đánh giá.</p>
         {msg && <div style={{ color: '#059669', marginBottom: 12 }}>{msg}</div>}
         {error && <div style={{ color: '#dc2626', marginBottom: 12 }}>{error}</div>}
 
         {loadingList ? <p style={{ color: '#64748b' }}>Đang tải…</p>
-          : appointments.length === 0 ? <p style={{ color: '#64748b' }}>Bạn chưa có buổi khám hoàn thành nào.</p>
-            : appointments.map((a) => {
-              const done = doneIds.has(a.id)
+          : visits.length === 0 ? <p style={{ color: '#64748b' }}>Bạn chưa có buổi khám hoặc buổi dịch vụ hoàn thành nào.</p>
+            : visits.map((v) => {
+              const done = isDone(v)
+              const iconBg = v.type === 'APPOINTMENT' ? '#e0edff' : '#e3f5ee'
+              const iconColor = v.type === 'APPOINTMENT' ? '#2563eb' : '#0f6e66'
+              const Icon = v.type === 'APPOINTMENT' ? FaStethoscope : FaUserNurse
               return (
-                <div key={a.id} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 16, marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontWeight: 600, color: '#0f172a' }}>{a.doctorName ? `BS. ${a.doctorName}` : 'Buổi khám'}</div>
-                    <div style={{ color: '#64748b', fontSize: 13, marginTop: 2 }}>
-                      {fmtDate(a.appointmentTime)} · {fmtTime(a.appointmentTime)}{a.serviceName ? ` · ${a.serviceName}` : ''}
+                <div key={`${v.type}-${v.id}`} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 16, marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 10, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Icon size={18} color={iconColor} />
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 600, color: '#0f172a' }}>{v.title}</div>
+                      <div style={{ color: '#64748b', fontSize: 13, marginTop: 2, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><FiCalendar size={12} /> {fmtDate(v.dateTime)}</span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><FiClock size={12} /> {fmtTime(v.dateTime)}</span>
+                      </div>
+                      {v.serviceName && <div style={{ color: '#64748b', fontSize: 13, marginTop: 2 }}>{v.serviceName}</div>}
                     </div>
                   </div>
                   {done
-                    ? <span style={{ color: '#059669', fontWeight: 600 }}>✓ Đã đánh giá</span>
-                    : <button onClick={() => openForm(a)} style={{ background: TEAL, color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer' }}>Đánh giá</button>}
+                    ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: '#059669', fontWeight: 600, background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 999, padding: '6px 14px', fontSize: 13, whiteSpace: 'nowrap' }}>
+                        <FiCheckCircle /> Đã đánh giá
+                      </span>
+                    )
+                    : (
+                      <button onClick={() => openForm(v)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: TEAL, color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        <FiFlag /> Gửi đánh giá
+                      </button>
+                    )}
                 </div>
               )
             })}

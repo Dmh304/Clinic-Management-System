@@ -1,6 +1,7 @@
 package com.ecms.service.impl;
 
 import com.ecms.dto.request.InvoiceRequest;
+import com.ecms.dto.response.DiscountApplicationResponse;
 import com.ecms.dto.response.InvoiceResponse;
 import com.ecms.entity.*;
 import com.ecms.exception.ResourceNotFoundException;
@@ -8,7 +9,9 @@ import com.ecms.repository.AppointmentRepository;
 import com.ecms.repository.InvoiceRepository;
 import com.ecms.repository.LabOrderRepository;
 import com.ecms.repository.MedicalRecordRepository;
+import com.ecms.repository.PatientServiceSubscriptionRepository;
 import com.ecms.repository.PrescriptionRepository;
+import com.ecms.service.DiscountCampaignService;
 import com.ecms.service.InvoiceService;
 import com.ecms.service.InvoicePdfService;
 import com.ecms.service.NotificationService;
@@ -36,6 +39,10 @@ import java.util.stream.Collectors;
  *  - cancel an unissued draft
  *  - hand the e-invoice to the background mailer and render the PDF
  *
+ * Also bills a standalone care-session subscription (UC-21) in addition to a
+ * doctor appointment: createInvoice accepts exactly one of appointmentId or
+ * subscriptionId.
+ *
  * Enforced business rules:
  *  - BR-10 — an invoice only reaches PAID on a confirmed full payment; a
  *            VietQR invoice can be settled only by the gateway webhook
@@ -55,11 +62,15 @@ public class InvoiceServiceImpl implements InvoiceService {
 
     private final InvoiceRepository invoiceRepository;
     private final AppointmentRepository appointmentRepository;
+    private final PatientServiceSubscriptionRepository subscriptionRepository;
+    // Việc gửi email HTML hóa đơn đã tách sang InvoiceMailDispatcher (chạy nền),
+    // nên lớp này không giữ JavaMailSender nữa.
     private final MedicalRecordRepository medicalRecordRepository;
     private final PrescriptionRepository prescriptionRepository;
     private final LabOrderRepository labOrderRepository;
     private final NotificationService notificationService;
     private final InvoicePdfService invoicePdfService;
+    private final DiscountCampaignService discountCampaignService;
 
     /**
      * Lists every invoice without charge lines for the invoice-history table.
@@ -130,15 +141,19 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     /**
-     * Creates a DRAFT invoice for a completed visit (UC-23 normal flow steps 2-6).
+     * Creates a DRAFT invoice for a completed visit (UC-23 normal flow steps 2-6),
+     * or for a standalone care-session subscription that has been checked out
+     * (UC-21). Exactly one of {@code appointmentId} / {@code subscriptionId} is
+     * expected on the request.
      *
      * Charge lines are bucketed into the three fee components of BR-11, the
-     * discount is clamped, the total is derived server-side and an
-     * INV-yyyyMMdd-XXXX code is generated.
+     * discount is clamped (or derived from a discount campaign when a
+     * {@code discountCode} is supplied — UC-43), the total is derived
+     * server-side and an INV-yyyyMMdd-XXXX code is generated.
      *
-     * @param request charge lines, optional discount and payment method
+     * @param request charge lines, optional discount / discount code and payment method
      * @return the persisted invoice with its lines
-     * @throws ResourceNotFoundException if the appointment does not exist
+     * @throws ResourceNotFoundException if the appointment / subscription does not exist
      * @throws IllegalStateException     if the visit already has a live invoice
      *
      * Validate: UC-23 E1 (no duplicate invoice per visit), BR-11 (total
@@ -147,14 +162,35 @@ public class InvoiceServiceImpl implements InvoiceService {
     @Override
     @Transactional
     public InvoiceResponse createInvoice(InvoiceRequest request) {
-        Appointment appointment = appointmentRepository.findById(request.getAppointmentId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Lịch hẹn không tồn tại: " + request.getAppointmentId()));
+        boolean hasAppointment = request.getAppointmentId() != null;
+        boolean hasSubscription = request.getSubscriptionId() != null;
+        if (hasAppointment == hasSubscription) {
+            throw new IllegalArgumentException("Phải cung cấp đúng một trong hai: appointmentId hoặc subscriptionId");
+        }
 
-        // UC-23 E1: one live invoice per visit. CANCELLED rows are excluded so a
+        // UC-23 E1: one live invoice per visit; CANCELLED rows are excluded so a
         // voided invoice (kept forever under BR-09) does not block a re-issue.
-        if (invoiceRepository.existsByAppointment_IdAndStatusNot(request.getAppointmentId(), "CANCELLED")) {
-            throw new IllegalStateException("Lịch hẹn này đã có hóa đơn");
+        // UC-21: the same rule applies to a care-session subscription.
+        Appointment appointment = null;
+        PatientServiceSubscription subscription = null;
+        Patient patient;
+
+        if (hasAppointment) {
+            appointment = appointmentRepository.findById(request.getAppointmentId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Lịch hẹn không tồn tại: " + request.getAppointmentId()));
+            if (invoiceRepository.existsByAppointment_IdAndStatusNot(request.getAppointmentId(), "CANCELLED")) {
+                throw new IllegalStateException("Lịch hẹn này đã có hóa đơn");
+            }
+            patient = appointment.getPatient();
+        } else {
+            subscription = subscriptionRepository.findById(request.getSubscriptionId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Gói dịch vụ không tồn tại: " + request.getSubscriptionId()));
+            if (invoiceRepository.existsBySubscription_IdAndStatusNot(request.getSubscriptionId(), "CANCELLED")) {
+                throw new IllegalStateException("Gói dịch vụ này đã có hóa đơn");
+            }
+            patient = subscription.getPatient();
         }
 
         List<InvoiceItem> items = new ArrayList<>();
@@ -197,11 +233,19 @@ public class InvoiceServiceImpl implements InvoiceService {
         BigDecimal subTotal = serviceFee.add(labFee).add(medicineFee);
 
         // BR-11: Total = Examination fee + Lab fee + Medicine fee − Discount.
-        // BR-15: a single discount amount, clamped to [0, subTotal] so the
-        // total can never go negative or exceed the charges actually incurred.
-        BigDecimal discount = request.getDiscountAmount() != null
-                ? request.getDiscountAmount()
-                : BigDecimal.ZERO;
+        // UC-43: when a discountCode is present the server validates it and
+        // derives the amount from the discount campaign (this wins over any
+        // hand-entered amount); otherwise the Receptionist's amount is used.
+        // BR-15: a single discount, clamped below to [0, subTotal] so the total
+        // can never go negative or exceed the charges actually incurred.
+        BigDecimal discount;
+        if (request.getDiscountCode() != null && !request.getDiscountCode().isBlank()) {
+            DiscountApplicationResponse applied = discountCampaignService.redeemForOrder(
+                    request.getDiscountCode(), subTotal);
+            discount = applied.getDiscountAmount();
+        } else {
+            discount = request.getDiscountAmount() != null ? request.getDiscountAmount() : BigDecimal.ZERO;
+        }
         if (discount.compareTo(BigDecimal.ZERO) < 0) {
             discount = BigDecimal.ZERO;
         } else if (discount.compareTo(subTotal) > 0) {
@@ -211,7 +255,8 @@ public class InvoiceServiceImpl implements InvoiceService {
 
         Invoice invoice = Invoice.builder()
                 .appointment(appointment)
-                .patient(appointment.getPatient())
+                .subscription(subscription)
+                .patient(patient)
                 .invoiceCode(generateInvoiceCode())
                 .serviceFee(serviceFee)
                 .labFee(labFee)
@@ -228,7 +273,8 @@ public class InvoiceServiceImpl implements InvoiceService {
                 // counter), VietQR starts PENDING_PAYMENT and may only be
                 // settled by the gateway webhook.
                 .paymentStatus("VIET_QR".equals(request.getPaymentMethod())
-                        ? "PENDING_PAYMENT" : "UNPAID")
+                        ? "PENDING_PAYMENT"
+                        : "UNPAID")
                 .notes(request.getNotes())
                 .build();
 
@@ -291,7 +337,8 @@ public class InvoiceServiceImpl implements InvoiceService {
             List<InvoiceRequest.InvoiceItemRequest> restored = new ArrayList<>();
             for (InvoiceItem it : cancelled.get(0).getItems()) {
                 // Bỏ dòng đã bị vô hiệu trong hóa đơn cũ
-                if (it.getStatus() != null && !"ACTIVE".equals(it.getStatus())) continue;
+                if (it.getStatus() != null && !"ACTIVE".equals(it.getStatus()))
+                    continue;
                 InvoiceRequest.InvoiceItemRequest req = new InvoiceRequest.InvoiceItemRequest();
                 req.setItemType(it.getItemType());
                 req.setRefId(it.getRefId());
@@ -300,7 +347,8 @@ public class InvoiceServiceImpl implements InvoiceService {
                 req.setUnitPrice(it.getUnitPrice() != null ? it.getUnitPrice() : BigDecimal.ZERO);
                 restored.add(req);
             }
-            if (!restored.isEmpty()) return restored;
+            if (!restored.isEmpty())
+                return restored;
         }
 
         List<InvoiceRequest.InvoiceItemRequest> suggestions = new ArrayList<>();
@@ -320,16 +368,16 @@ public class InvoiceServiceImpl implements InvoiceService {
         // 2) Xét nghiệm/cận lâm sàng (chụp/đo/soi) đã chỉ định + 3) thuốc bác sĩ đã kê,
         // đều lấy qua bệnh án của lịch hẹn. Gộp theo id để cùng một mục ra MỘT dòng
         // (cộng dồn số lượng) — tránh dòng trùng mô tả khiến modal chặn khi lưu.
-        java.util.LinkedHashMap<Long, InvoiceRequest.InvoiceItemRequest> labByService =
-                new java.util.LinkedHashMap<>();
-        java.util.LinkedHashMap<Long, InvoiceRequest.InvoiceItemRequest> medById =
-                new java.util.LinkedHashMap<>();
+        java.util.LinkedHashMap<Long, InvoiceRequest.InvoiceItemRequest> labByService = new java.util.LinkedHashMap<>();
+        java.util.LinkedHashMap<Long, InvoiceRequest.InvoiceItemRequest> medById = new java.util.LinkedHashMap<>();
         medicalRecordRepository.findByAppointmentId(appointmentId).ifPresent(emr -> {
             // 2) Xét nghiệm: mỗi lab order gắn một dịch vụ CLINICAL (chụp/đo/soi) có giá
             for (LabOrder lo : labOrderRepository.findByMedicalRecordIdOrderByCreatedAt(emr.getId())) {
                 ClinicService svc = lo.getService();
-                if (svc == null) continue; // đơn cũ không gắn dịch vụ thì bỏ qua
-                if (labByService.containsKey(svc.getId())) continue;
+                if (svc == null)
+                    continue; // đơn cũ không gắn dịch vụ thì bỏ qua
+                if (labByService.containsKey(svc.getId()))
+                    continue;
                 InvoiceRequest.InvoiceItemRequest item = new InvoiceRequest.InvoiceItemRequest();
                 item.setItemType("LAB");
                 item.setRefId(svc.getId());
@@ -347,7 +395,8 @@ public class InvoiceServiceImpl implements InvoiceService {
 
                 for (PrescriptionItem it : pres.getItems()) {
                     Medicine med = it.getMedicine();
-                    if (med == null) continue;
+                    if (med == null)
+                        continue;
 
                     int qty = it.getQuantity() != null ? it.getQuantity() : 1;
                     // Prefer the price snapshotted when the drug was prescribed;
@@ -438,7 +487,8 @@ public class InvoiceServiceImpl implements InvoiceService {
         invoice.setPaymentStatus("PAID");
         invoice.setPaidAt(LocalDateTime.now());
 
-        // UC-23 POST-3: khi hóa đơn đã thu tiền, đảm bảo lượt khám ở trạng thái COMPLETED.
+        // UC-23 POST-3: khi hóa đơn đã thu tiền, đảm bảo lượt khám ở trạng thái
+        // COMPLETED.
         markAppointmentCompleted(invoice);
 
         return toResponseWithItems(invoiceRepository.save(invoice));
@@ -456,7 +506,8 @@ public class InvoiceServiceImpl implements InvoiceService {
      */
     private void markAppointmentCompleted(Invoice invoice) {
         Appointment appt = invoice.getAppointment();
-        if (appt == null) return;
+        if (appt == null)
+            return;
         if (appt.getStatus() != AppointmentStatus.CANCELLED
                 && appt.getStatus() != AppointmentStatus.COMPLETED) {
             appt.setStatus(AppointmentStatus.COMPLETED);
@@ -520,12 +571,14 @@ public class InvoiceServiceImpl implements InvoiceService {
      */
     private void notifyPaymentRequested(Invoice invoice) {
         Patient p = invoice.getPatient();
-        if (p == null || p.getUser() == null) return;
+        if (p == null || p.getUser() == null)
+            return;
         try {
             Long apptId = invoice.getAppointment() != null ? invoice.getAppointment().getId() : null;
             notificationService.createForUser(p.getUser().getId(),
                     "Bạn có hóa đơn " + invoice.getInvoiceCode()
-                            + " cần thanh toán. Vào 'Hóa đơn của tôi' để quét mã QR.", apptId);
+                            + " cần thanh toán. Vào 'Hóa đơn của tôi' để quét mã QR.",
+                    apptId);
         } catch (Exception e) {
             // Best-effort: the invoice itself is already persisted.
         }
@@ -540,17 +593,24 @@ public class InvoiceServiceImpl implements InvoiceService {
      */
     private InvoiceResponse toResponse(Invoice i) {
         Appointment appt = i.getAppointment();
+        PatientServiceSubscription sub = i.getSubscription();
+        String serviceName = null;
+        if (appt != null && appt.getClinicService() != null) {
+            serviceName = appt.getClinicService().getServiceName();
+        } else if (sub != null && sub.getService() != null) {
+            serviceName = sub.getService().getServiceName();
+        }
         return InvoiceResponse.builder()
                 .id(i.getId())
                 .invoiceCode(i.getInvoiceCode())
                 .appointmentId(appt != null ? appt.getId() : null)
+                .subscriptionId(sub != null ? sub.getId() : null)
                 .patientName(i.getPatient() != null ? i.getPatient().getFullName() : null)
                 .patientPhone(i.getPatient() != null ? i.getPatient().getPhone() : null)
                 .patientEmail(i.getPatient() != null ? i.getPatient().getEmail() : null)
                 .patientCode(i.getPatient() != null ? i.getPatient().getPatientCode() : null)
                 .doctorName(appt != null && appt.getDoctor() != null ? appt.getDoctor().getFullName() : null)
-                .serviceName(appt != null && appt.getClinicService() != null
-                        ? appt.getClinicService().getServiceName() : null)
+                .serviceName(serviceName)
                 .appointmentTime(appt != null ? appt.getAppointmentTime() : null)
                 .timeSlot(appt != null ? appt.getTimeSlot() : null)
                 .items(List.of())

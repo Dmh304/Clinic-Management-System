@@ -1,4 +1,6 @@
-// DucTKH
+//Author: DucTKH - HE204463
+//Created: 2026-06-22
+//Last Update: 2026-07-01
 // Component form kê đơn thuốc cho bác sĩ
 import React, { useState, useEffect, useRef } from 'react';
 import { Form, Input, Button, Table, InputNumber, message, AutoComplete, Popconfirm, Modal, Tag } from 'antd';
@@ -6,14 +8,15 @@ import { DeleteOutlined } from '@ant-design/icons';
 import { medicineService } from '../../../services/medicineService';
 import { prescriptionService } from '../../../services/prescriptionService';
 
-export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, onPrescriptionSaved }) {
+export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, onPrescriptionSaved, onAutoSaveEMR }) {
     const [form] = Form.useForm();
     const [medicines, setMedicines] = useState([]);
     const [selectedItems, setSelectedItems] = useState([]);
     const [searchKeyword, setSearchKeyword] = useState('');
     const [notes, setNotes] = useState('');
     const [existingPrescriptions, setExistingPrescriptions] = useState([]);
-    
+    const [editPrescriptionId, setEditPrescriptionId] = useState(null);
+
     // Preview Modal state
     const [previewVisible, setPreviewVisible] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -27,10 +30,12 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
         }
     }, [emr?.patientId, emr?.id]);
 
+    // Chức năng: Lấy danh sách các đơn thuốc đã được kê trước đó cho bệnh án hiện tại
     const fetchExistingPrescriptions = async () => {
         try {
             const targetEmrId = activeEmrIdRef.current || emr?.id;
             if (!targetEmrId) return;
+            // Tương tác API: Lấy đơn thuốc theo bệnh nhân
             const res = await prescriptionService.getByPatient(emr.patientId);
             console.log('>>> DEBUG: getByPatient res.data =', res.data);
             console.log('>>> DEBUG: targetEmrId =', targetEmrId);
@@ -51,6 +56,7 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
         return () => clearTimeout(timer);
     }, [searchKeyword]);
 
+    // Chức năng: Tìm kiếm danh sách thuốc từ kho theo từ khóa
     const fetchMedicines = async (keyword) => {
         try {
             const res = await medicineService.getAll(keyword);
@@ -66,7 +72,7 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
             message.warning('Thuốc này đã được thêm vào đơn');
             return;
         }
-        
+
         setSelectedItems([...selectedItems, {
             medicineId: medicine.id,
             medicineName: medicine.name,
@@ -95,7 +101,7 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
 
     const handlePreview = async () => {
         let currentEmrId = emr?.id;
-        
+
         if (!currentEmrId) {
             if (onAutoSaveEMR) {
                 const savedEmr = await onAutoSaveEMR();
@@ -118,10 +124,12 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
         setPreviewVisible(true);
     };
 
+    // Chức năng: Lưu đơn thuốc (gồm cả tạo mới hoặc cập nhật đơn hiện tại)
     const confirmSave = async () => {
         const payload = {
             medicalRecordId: activeEmrIdRef.current || emr?.id,
             notes: notes || '',
+            // Vòng lặp: Duyệt qua các thuốc đã chọn để map thông tin trước khi lưu
             items: selectedItems.map(item => ({
                 medicineId: item.medicineId,
                 quantity: item.quantity,
@@ -134,8 +142,15 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
 
         setSaving(true);
         try {
-            await prescriptionService.create(payload);
-            message.success('Kê đơn thuốc thành công');
+            // Điều kiện: Nếu có ID đơn thuốc thì gọi API update, ngược lại gọi create
+            if (editPrescriptionId) {
+                await prescriptionService.update(editPrescriptionId, payload);
+                message.success('Cập nhật đơn thuốc thành công');
+                setEditPrescriptionId(null);
+            } else {
+                await prescriptionService.create(payload);
+                message.success('Kê đơn thuốc thành công');
+            }
             setPreviewVisible(false);
             setSelectedItems([]);
             setNotes('');
@@ -168,10 +183,10 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
             key: 'quantity',
             width: 100,
             render: (val, record) => (
-                <InputNumber 
-                    min={1} 
-                    value={val} 
-                    onChange={v => updateItem(record.medicineId, 'quantity', v)} 
+                <InputNumber
+                    min={1}
+                    value={val}
+                    onChange={v => updateItem(record.medicineId, 'quantity', v)}
                     disabled={isReadOnly}
                     style={{ width: '100%' }}
                 />
@@ -183,9 +198,9 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
             key: 'duration',
             width: 90,
             render: (val, record) => (
-                <InputNumber 
-                    min={1} 
-                    value={val} 
+                <InputNumber
+                    min={1}
+                    value={val}
                     onChange={v => updateItem(record.medicineId, 'duration', v)}
                     disabled={isReadOnly}
                     style={{ width: '100%' }}
@@ -197,8 +212,8 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
             dataIndex: 'instructions',
             key: 'instructions',
             render: (val, record) => (
-                <Input 
-                    value={val} 
+                <Input
+                    value={val}
                     onChange={e => updateItem(record.medicineId, 'instructions', e.target.value)}
                     disabled={isReadOnly}
                     placeholder="VD: Sáng 1 viên, tối 1 viên sau ăn..."
@@ -209,11 +224,15 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
             title: '',
             key: 'action',
             width: 50,
-            render: (_, record) => !isReadOnly && (
-                <Popconfirm title="Xóa thuốc này?" onConfirm={() => handleRemoveItem(record.medicineId)}>
-                    <Button type="text" danger icon={<DeleteOutlined />} />
-                </Popconfirm>
-            )
+            render: (_, record) => {
+                const hasPendingPrescription = existingPrescriptions.some(p => p.status === 'PENDING');
+                const isFormDisabled = isReadOnly || (hasPendingPrescription && !editPrescriptionId);
+                return !isFormDisabled && (
+                    <Popconfirm title="Xóa thuốc này?" onConfirm={() => handleRemoveItem(record.medicineId)}>
+                        <Button type="text" danger icon={<DeleteOutlined />} />
+                    </Popconfirm>
+                );
+            }
         }
     ];
 
@@ -242,9 +261,12 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
         }
     };
 
+    const hasPendingPrescription = existingPrescriptions.some(p => p.status === 'PENDING');
+    const isFormDisabled = isReadOnly || (hasPendingPrescription && !editPrescriptionId);
+
     return (
         <div style={{ paddingTop: 12 }}>
-            {!isReadOnly && (
+            {!isFormDisabled && (
                 <div style={{ marginBottom: 16 }}>
                     <AutoComplete
                         style={{ width: '100%', maxWidth: 500 }}
@@ -259,7 +281,7 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
                 </div>
             )}
 
-            <Table 
+            <Table
                 dataSource={selectedItems}
                 columns={columns}
                 rowKey="medicineId"
@@ -270,19 +292,28 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
 
             <div style={{ marginBottom: 16 }}>
                 <div style={{ marginBottom: 8, fontWeight: 500 }}>Ghi chú đơn thuốc</div>
-                <Input.TextArea 
-                    rows={2} 
-                    value={notes} 
-                    onChange={e => setNotes(e.target.value)} 
-                    disabled={isReadOnly} 
-                    placeholder="Ghi chú thêm cho dược sĩ hoặc bệnh nhân..." 
+                <Input.TextArea
+                    rows={2}
+                    value={notes}
+                    onChange={e => setNotes(e.target.value)}
+                    disabled={isFormDisabled}
+                    placeholder="Ghi chú thêm cho dược sĩ hoặc bệnh nhân..."
                 />
             </div>
 
-            {!isReadOnly && (
+            {!isFormDisabled && (
                 <div style={{ textAlign: 'right' }}>
+                    {editPrescriptionId && (
+                        <Button style={{ marginRight: 8 }} onClick={() => {
+                            setEditPrescriptionId(null);
+                            setSelectedItems([]);
+                            setNotes('');
+                        }}>
+                            Hủy sửa
+                        </Button>
+                    )}
                     <Button type="primary" onClick={handlePreview} style={{ backgroundColor: '#0d9488', borderColor: '#0d9488' }}>
-                        Lưu đơn thuốc
+                        {editPrescriptionId ? 'Cập nhật đơn thuốc' : 'Lưu đơn thuốc'}
                     </Button>
                 </div>
             )}
@@ -306,7 +337,7 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
                     <p style={{ color: '#4b5563', marginBottom: 12 }}>
                         Vui lòng kiểm tra lại danh sách thuốc trước khi gửi cho bộ phận Dược để phát thuốc:
                     </p>
-                    <Table 
+                    <Table
                         dataSource={selectedItems}
                         rowKey="medicineId"
                         pagination={false}
@@ -333,23 +364,44 @@ export default function DrugPrescriptionForm({ emr, isReadOnly, appointmentId, o
                         <div key={p.id} style={{ marginBottom: 16, padding: 16, backgroundColor: '#f8fafc', borderRadius: 8 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                                 <div style={{ fontWeight: 500 }}>
-                                    Đơn thuốc #{idx + 1} - Ngày kê: {new Date(p.createdAt).toLocaleString('vi-VN')}
+                                    Đơn thuốc #{idx + 1} - Ngày kê: {new Date(p.createdAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
                                     <span style={{ marginLeft: 12 }}>Trạng thái: </span>
                                     <Tag color={p.status === 'PENDING' ? 'blue' : p.status === 'DISPENSED' ? 'green' : 'red'}>
                                         {p.status === 'PENDING' ? 'Chưa phát' : p.status === 'DISPENSED' ? 'Đã phát' : 'Hủy'}
                                     </Tag>
                                 </div>
                                 {p.status === 'PENDING' && !isReadOnly && (
-                                    <Popconfirm title="Bạn có chắc chắn muốn xóa đơn thuốc này không?" onConfirm={() => handleDeletePrescription(p.id)} okText="Có" cancelText="Không">
-                                        <Button type="primary" danger size="small">Xóa đơn thuốc</Button>
-                                    </Popconfirm>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <Button type="primary" size="small" onClick={() => {
+                                            setEditPrescriptionId(p.id);
+                                            setSelectedItems(p.items.map(item => ({
+                                                medicineId: item.medicineId || item.medicine?.id,
+                                                medicineName: item.medicineName,
+                                                unit: item.unit,
+                                                quantity: item.quantity,
+                                                dosage: item.dosage,
+                                                frequency: item.frequency,
+                                                duration: item.duration,
+                                                instructions: item.instructions
+                                            })));
+                                            setNotes(p.notes || '');
+                                            message.info('Đã tải dữ liệu đơn thuốc để chỉnh sửa');
+                                            // Cuộn lên form nếu cần
+                                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                                        }}>
+                                            Sửa
+                                        </Button>
+                                        <Popconfirm title="Bạn có chắc chắn muốn xóa đơn thuốc này không?" onConfirm={() => handleDeletePrescription(p.id)} okText="Có" cancelText="Không">
+                                            <Button type="primary" danger size="small">Xóa đơn thuốc</Button>
+                                        </Popconfirm>
+                                    </div>
                                 )}
                             </div>
                             {p.notes && <div style={{ fontSize: 13, color: '#64748b', marginBottom: 8 }}>Ghi chú: {p.notes}</div>}
-                            <Table 
-                                dataSource={p.items} 
-                                rowKey="id" 
-                                pagination={false} 
+                            <Table
+                                dataSource={p.items}
+                                rowKey="id"
+                                pagination={false}
                                 size="small"
                                 columns={[
                                     { title: 'Tên thuốc', dataIndex: 'medicineName', render: (t, r) => <b>{t} ({r.dosageForm})</b> },

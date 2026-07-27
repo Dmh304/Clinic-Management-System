@@ -54,9 +54,12 @@ public class ClinicService {
     @Column(name = "badge", length = 50)
     private String badge;
 
-    /** Nhãn giá, ví dụ: "Giá chỉ từ", "Giá trọn gói" */
-    @Column(name = "price_label", length = 100)
-    private String priceLabel;
+    /**
+     * Lợi ích của gói — mỗi dòng một lợi ích, hiển thị dạng danh sách khi khách xem
+     * chi tiết dịch vụ
+     */
+    @Column(columnDefinition = "NVARCHAR(MAX)")
+    private String benefits;
 
     // ── Quản lý hiển thị ───────────────────────────────────────────
     /** Số buổi khám bao gồm trong gói dịch vụ */
@@ -68,23 +71,24 @@ public class ClinicService {
     private Integer validityDays;
 
     @Column(name = "service_type", nullable = false)
-    @Builder.Default
-    private String serviceType = "CARE"; // "CLINICAL" hoặc "CARE"
+    @Enumerated(EnumType.STRING)
+    private ServiceType serviceType;
 
     @Column(name = "is_active")
     private Boolean isActive;
+
+    /**
+     * true = dịch vụ xét nghiệm (dùng cho Lab Order, chọn ở UC-30);
+     * false/null = dịch vụ khám thông thường, hợp lệ để chọn khi tạo lịch hẹn.
+     */
+    @Column(name = "is_lab_service")
+    private Boolean isLabService;
 
     @Column(name = "display_order")
     private Integer displayOrder;
 
     @Column(name = "is_popular")
     private Boolean isPopular;
-
-    /**
-     * Đánh dấu dịch vụ thuộc nhóm xét nghiệm.
-     */
-    @Column(name = "is_lab_service", nullable = false, columnDefinition = "bit default 0")
-    private Boolean isLabService;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
@@ -102,8 +106,10 @@ public class ClinicService {
             this.displayOrder = 0;
         if (this.isPopular == null)
             this.isPopular = false;
-        if (isLabService == null) {
+        if (this.isLabService == null)
             this.isLabService = false;
+        if (this.serviceType == null) {
+            this.serviceType = ServiceType.CLINICAL;
         }
     }
 

@@ -19,6 +19,9 @@ export const subscriptionService = {
   cancel: (id) =>
     axiosClient.patch(`/v1/subscriptions/${id}/cancel`),
 
+  renew: (id) =>
+    axiosClient.patch(`/v1/subscriptions/${id}/renew`),
+
   validateDiscount: (code, amount) =>
     axiosClient.get('/v1/subscriptions/validate-discount', { params: { code, amount } }),
 }

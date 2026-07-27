@@ -75,6 +75,7 @@ public class ServiceSubscriptionServiceImpl implements ServiceSubscriptionServic
                 throw new IllegalArgumentException("Giá trị đơn hàng chưa đạt mức tối thiểu để áp dụng mã giảm giá");
             }
 
+            BigDecimal priceBeforeDiscount = finalPrice;
             if ("PERCENTAGE".equals(discount.getType())) {
                 BigDecimal discountAmount = finalPrice.multiply(discount.getValue()).divide(BigDecimal.valueOf(100));
                 finalPrice = finalPrice.subtract(discountAmount);
@@ -83,6 +84,10 @@ public class ServiceSubscriptionServiceImpl implements ServiceSubscriptionServic
             }
 
             discount.setUsedCount(discount.getUsedCount() + 1);
+            // UC-43 ALT-2: luỹ kế số tiền đã giảm để xem hiệu quả campaign
+            BigDecimal granted = discount.getTotalDiscountGranted() != null
+                    ? discount.getTotalDiscountGranted() : BigDecimal.ZERO;
+            discount.setTotalDiscountGranted(granted.add(priceBeforeDiscount.subtract(finalPrice)));
             discountCampaignRepository.save(discount);
         }
 
@@ -111,9 +116,17 @@ public class ServiceSubscriptionServiceImpl implements ServiceSubscriptionServic
     }
 
     @Override
-    public ServiceSubscriptionResponse getById(Long id) {
-        return toResponse(subscriptionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đăng ký")));
+    public ServiceSubscriptionResponse getById(Long id, String currentUserEmail) {
+        PatientServiceSubscription sub = subscriptionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đăng ký"));
+        User currentUser = userRepository.findByEmail(currentUserEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
+        if ("PATIENT".equals(currentUser.getRole().getName())
+                && (sub.getPatient().getUser() == null
+                        || !sub.getPatient().getUser().getId().equals(currentUser.getId()))) {
+            throw new IllegalArgumentException("Không có quyền xem đăng ký này");
+        }
+        return toResponse(sub);
     }
 
     @Override
@@ -143,6 +156,41 @@ public class ServiceSubscriptionServiceImpl implements ServiceSubscriptionServic
 
         sub.setStatus("CANCELLED");
         subscriptionRepository.save(sub);
+    }
+
+    @Override
+    @Transactional
+    public ServiceSubscriptionResponse renewSubscription(Long id, String currentUserEmail) {
+        PatientServiceSubscription sub = subscriptionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đăng ký"));
+
+        Patient patient = patientRepository.findByUser_Email(currentUserEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ bệnh nhân"));
+        if (!sub.getPatient().getId().equals(patient.getId())) {
+            throw new IllegalStateException("Bạn chỉ có thể gia hạn gói dịch vụ của chính mình");
+        }
+
+        // status có thể vẫn là ACTIVE trong DB nếu chưa có lần book() nào kiểm tra lại
+        // (EXPIRED chỉ được set lazy) — nên kiểm luôn expiryDate thay vì chỉ dựa vào status.
+        LocalDate today = LocalDate.now();
+        boolean timeExpired = sub.getExpiryDate() != null && sub.getExpiryDate().isBefore(today);
+        if (!"EXPIRED".equals(sub.getStatus()) && !timeExpired) {
+            throw new IllegalStateException("Chỉ có thể gia hạn gói dịch vụ đã hết hạn");
+        }
+        if (sub.getRemainingSessions() <= 0) {
+            throw new IllegalStateException("Gói dịch vụ đã dùng hết buổi, vui lòng mua gói mới");
+        }
+
+        LocalDate oldExpiry = sub.getExpiryDate();
+        Integer validityDays = sub.getService().getValidityDays();
+        sub.setExpiryDate(validityDays != null ? today.plusDays(validityDays) : null);
+        sub.setStatus("ACTIVE");
+
+        String renewNote = "Gia hạn ngày " + today + (oldExpiry != null ? " (hết hạn cũ: " + oldExpiry + ")" : "");
+        sub.setNotes(sub.getNotes() != null && !sub.getNotes().isBlank()
+                ? sub.getNotes() + " | " + renewNote : renewNote);
+
+        return toResponse(subscriptionRepository.save(sub));
     }
 
     @Override

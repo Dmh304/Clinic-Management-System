@@ -5,7 +5,13 @@ import lombok.*;
 
 import java.math.BigDecimal;
 
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+import com.ecms.entity.ServiceType;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class ServicePackageRequest {
 
     @NotBlank(message = "Tên gói dịch vụ không được trống")
@@ -18,7 +24,8 @@ public class ServicePackageRequest {
     @DecimalMin(value = "0", inclusive = false, message = "Giá phải lớn hơn 0")
     private BigDecimal price;
 
-    private String priceLabel;
+    // Lợi ích của gói — mỗi dòng một lợi ích, hiển thị dạng danh sách khi khách xem chi tiết dịch vụ
+    private String benefits;
 
     @NotNull(message = "Vui lòng nhập thời lượng")
     @Min(value = 1, message = "Thời lượng phải lớn hơn 0")
@@ -33,8 +40,9 @@ public class ServicePackageRequest {
 
     private Long categoryId;
 
-    // "CLINICAL" (dịch vụ khám, đặt lịch hẹn) hoặc "CARE" (gói chăm sóc, đăng ký tư vấn)
-    private String serviceType;
+    // "CLINICAL" (dịch vụ khám, đặt lịch hẹn) hoặc "CARE" (gói chăm sóc, đăng ký tư
+    // vấn)
+    private ServiceType serviceType;
 
     private String slug;
 

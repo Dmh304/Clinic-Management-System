@@ -30,8 +30,10 @@ public class InvoiceResponse {
     /** Human-readable invoice number, format INV-yyyyMMdd-XXXX. */
     private String invoiceCode;
 
-    /** Visit this invoice bills. */
+    /** Visit this invoice bills (null when the invoice is for a subscription). */
     private Long appointmentId;
+    /** UC-21: subscription / care package this invoice bills (null when appointment-based). */
+    private Long subscriptionId;
 
     // ── Patient snapshot: shown on screen and used by the e-invoice mailer ──
     private String patientName;

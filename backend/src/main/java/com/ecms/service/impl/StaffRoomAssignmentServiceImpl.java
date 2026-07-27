@@ -51,30 +51,34 @@ public class StaffRoomAssignmentServiceImpl implements StaffRoomAssignmentServic
     @Transactional
     public StaffRoomAssignmentResponse assignRoom(StaffRoomAssignmentRequest request, Long managerUserId) {
         validateStaffTypeAndId(request.getStaffType(), request.getStaffId());
-
         Room room = roomRepository.findById(request.getRoomId())
                 .orElseThrow(() -> new IllegalArgumentException("Room not found: " + request.getRoomId()));
-
         if (!"ACTIVE".equals(room.getStatus())) {
             throw new IllegalStateException("Cannot assign staff to an inactive room");
         }
-
         validateCategoryMatchesStaffType(request.getStaffType(), room.getCategory());
-
         LocalDate date = request.getDate() != null ? request.getDate() : LocalDate.now();
         boolean isOverride = Boolean.TRUE.equals(request.getOneDayOverride());
-
-        // ── E-2 (ALT-2): cảnh báo nếu phòng đã có người trực trùng ngày ──
-        // Clinical Exam & Care & Recovery room có capacity cố định = 1.
-        if (room.getCapacity() != null && room.getCapacity() <= 1
-                && !Boolean.TRUE.equals(request.getForceOverride())) {
+        // Nếu phòng này chỉ chứa được 1 người (capacity <= 1)
+        if (room.getCapacity() != null && room.getCapacity() <= 1) {
             boolean alreadyOccupied = isRoomOccupied(room.getId(), date, request.getStaffType(), request.getStaffId());
+
             if (alreadyOccupied) {
-                throw new IllegalStateException(
-                        "This room already has staff assigned for today. Confirm again with forceOverride=true to proceed.");
+                // Nếu chưa xác nhận ghi đè -> Ném lỗi để Frontend hiển thị popup hỏi Admin
+                if (!Boolean.TRUE.equals(request.getForceOverride())) {
+                    throw new IllegalStateException(
+                            "This room already has staff assigned for today. Confirm again with forceOverride=true to proceed.");
+                } else {
+                    // Nếu Admin xác nhận ghi đè -> Huỷ/Xoá các bản ghi override cũ của phòng này
+                    // trong hôm nay
+                    // Lưu ý: Nếu muốn an toàn, có thể dùng câu lệnh UPDATE status='INACTIVE' thay
+                    // vì delete
+                    List<StaffRoomAssignment> oldOverrides = assignmentRepository
+                            .findByRoomIdAndWorkDateAndIsOneDayOverrideTrue(room.getId(), date);
+                    assignmentRepository.deleteAll(oldOverrides);
+                }
             }
         }
-
         StaffRoomAssignment assignment = StaffRoomAssignment.builder()
                 .staffType(request.getStaffType())
                 .staffId(request.getStaffId())
@@ -84,13 +88,9 @@ public class StaffRoomAssignmentServiceImpl implements StaffRoomAssignmentServic
                 .isOneDayOverride(isOverride)
                 .assignedBy(managerUserId)
                 .build();
-
-        // Standing assignment bắt buộc có effectiveFrom; nếu override thì effectiveFrom
-        // để null vì không áp dụng khái niệm "hiệu lực từ" cho bản ghi 1-ngày.
         if (!isOverride) {
             assignment.setEffectiveFrom(date);
         }
-
         StaffRoomAssignment saved = assignmentRepository.save(assignment);
         return toResponse(saved);
     }
@@ -159,6 +159,44 @@ public class StaffRoomAssignmentServiceImpl implements StaffRoomAssignmentServic
                 .roomName(resolved.getRoom().getName())
                 .resolved(true)
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public RoomResolutionResponse resolveRoomForUser(Long staffUserId, LocalDate date) {
+        if (staffUserId == null) {
+            return RoomResolutionResponse.builder()
+                    .resolved(false)
+                    .message("Thiếu thông tin nhân sự để resolve phòng.")
+                    .build();
+        }
+
+        // users.id -> (staffType, id bảng chuyên môn). Thứ tự tra: bác sĩ -> điều dưỡng -> KTV.
+        Optional<StaffRoomAssignmentTarget> target = doctorRepository.findByUserId(staffUserId)
+                .map(d -> new StaffRoomAssignmentTarget(StaffType.DOCTOR, d.getId()))
+                .or(() -> staffRepository.findByUserId(staffUserId)
+                        .map(s -> new StaffRoomAssignmentTarget(StaffType.NURSE, s.getId())))
+                .or(() -> labTechnicianRepository.findByUserId(staffUserId)
+                        .map(lt -> new StaffRoomAssignmentTarget(StaffType.LAB_TECHNICIAN, lt.getId())));
+
+        return target
+                .map(t -> resolveRoomForStaff(t.staffType(), t.staffId(), date))
+                .orElseGet(() -> RoomResolutionResponse.builder()
+                        .resolved(false)
+                        .message("Người dùng này không phải bác sĩ/điều dưỡng/kỹ thuật viên nên không có phân trực phòng.")
+                        .build());
+    }
+
+    /** Cặp (loại nhân sự, id bảng chuyên môn) suy ra từ users.id. */
+    private record StaffRoomAssignmentTarget(StaffType staffType, Long staffId) {
+    }
+
+    @Override
+    public List<StaffRoomAssignmentResponse> getAssignmentsByRoom(Long roomId) {
+        return assignmentRepository.findByRoomIdOrderByCreatedAtDesc(roomId)
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
     }
 
     // ── Helpers ──────────────────────────────────────────────────────

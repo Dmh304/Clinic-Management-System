@@ -1,6 +1,5 @@
 package com.ecms.dto.request;
 
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -24,19 +23,26 @@ import java.util.List;
 @Data
 public class InvoiceRequest {
 
-    /** Visit this invoice is billed against. Validate: required — an invoice
-     *  can only exist for an appointment whose EMR is COMPLETED (UC-23 PRE-1). */
-    @NotNull(message = "Lịch hẹn không được để trống")
+    // Đúng một trong hai: appointmentId (khám bác sĩ) hoặc subscriptionId (gói/buổi dịch vụ
+    // chăm sóc — UC-21, thu tại lần check-out đầu tiên của gói). Quy tắc "đúng 1 trong 2"
+    // được kiểm ở service nên appointmentId để nullable, KHÔNG dùng @NotNull.
     private Long appointmentId;
+
+    private Long subscriptionId;
 
     /** Charge lines shown on the invoice. May be empty when the Receptionist
      *  starts from the suggested-items list and removes every row. */
     private List<InvoiceItemRequest> items;
 
     /** Discount applied by the Receptionist, in VND. Null is treated as zero.
+     *  Ignored when {@code discountCode} is supplied — the server then derives
+     *  the amount from the discount campaign (UC-43).
      *  Validate: BR-11 (Total = exam + lab + medicine − discount) and
      *  BR-15 (at most one discount per invoice — a single amount field, not a list). */
     private BigDecimal discountAmount;
+
+    /** UC-43: optional discount campaign (voucher) code to apply to this invoice. */
+    private String discountCode;
 
     /** Payment channel: CASH or VIET_QR (UC-23 ALT-1 / ALT-2). */
     private String paymentMethod;

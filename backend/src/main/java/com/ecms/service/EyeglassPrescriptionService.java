@@ -16,6 +16,10 @@ public interface EyeglassPrescriptionService {
 
     EyeglassPrescriptionResponse createPrescription(EyeglassPrescriptionRequest request, String doctorEmail);
 
+    EyeglassPrescriptionResponse updatePrescription(Long id, EyeglassPrescriptionRequest request, String doctorEmail);
+
+    void deletePrescription(Long id, String doctorEmail);
+
     List<EyeglassPrescriptionResponse> getPatientPrescriptions(Long patientId);
 
     List<EyeglassPrescriptionResponse> getByMedicalRecordId(Long medicalRecordId);
