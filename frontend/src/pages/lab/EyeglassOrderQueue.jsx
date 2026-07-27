@@ -10,7 +10,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import Header from '../../components/layout/Header'
-import { Button, message, Tag, Spin, Input, Result, Pagination, Tooltip } from 'antd'
+import { Button, message, Tag, Spin, Input, Select, Result, Pagination, Tooltip } from 'antd'
+import { ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons'
 import { eyeglassOrderService } from '../../services/eyeglassOrderService'
 import useConfirmAction from '../../hooks/useConfirmAction'
 import { isWithinClinicHours, CLINIC_HOURS_MESSAGE } from '../../utils/clinicHours'
@@ -23,6 +24,19 @@ const ORDER_STATUS_MAP = {
   CANCELLED:     { color: 'error',      label: 'Đã hủy' },
 }
 
+/**
+ * Cấu hình các thẻ thống kê hiển thị phía trên bảng, mỗi thẻ tương ứng một trạng thái đơn kính
+ * (bao gồm cả thẻ "Tất cả" tổng hợp toàn bộ số lượng)
+ */
+const STAT_CARDS = [
+  { key: 'ALL',           label: 'Tất cả',              color: '#6366f1' },
+  { key: 'PENDING_LAB',   label: 'Chờ xưởng cắt kính',   color: '#94a3b8' },
+  { key: 'IN_PRODUCTION', label: 'Đang gia công',        color: '#0d9488' },
+  { key: 'READY',         label: 'Sẵn sàng giao',        color: '#10b981' },
+  { key: 'DISPENSED',     label: 'Đã giao',              color: '#64748b' },
+  { key: 'CANCELLED',     label: 'Đã hủy',               color: '#ef4444' },
+]
+
 const textEllipsisStyle = {
   display: '-webkit-box',
   WebkitLineClamp: 1,
@@ -30,6 +44,26 @@ const textEllipsisStyle = {
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   wordBreak: 'break-all',
+}
+
+/* Thẻ thống kê số lượng đơn kính theo trạng thái - chỉ hiển thị thông tin, không thể bấm để lọc */
+function StatCard({ label, value, color }) {
+  return (
+    <div
+      style={{
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: '16px 20px',
+        borderTop: `3px solid ${color}`,
+        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+        minWidth: 120,
+        flex: 1,
+      }}
+    >
+      <div style={{ fontSize: 26, fontWeight: 700, color }}>{value ?? 0}</div>
+      <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{label}</div>
+    </div>
+  )
 }
 
 export default function EyeglassOrderQueue() {
@@ -41,10 +75,14 @@ export default function EyeglassOrderQueue() {
   const [dispensingId, setDispensingId] = useState(null)
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('PENDING_LAB')
+  // statusFilter: Trạng thái lọc hiện tại, mặc định 'PENDING_LAB' (Chờ xưởng cắt kính); có thể đổi qua dropdown
+  const [statusFilter, setStatusFilter] = useState('PENDING_LAB')
   const [searchText, setSearchText] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const pageSize = 10
+  // sortAsc: Chiều sắp xếp theo thời gian tạo đơn. true = cũ nhất trước (mặc định), false = mới nhất trước.
+  // Bấm cột "Ngày tạo đơn" để đảo chiều.
+  const [sortAsc, setSortAsc] = useState(true)
 
   const [withinHours, setWithinHours] = useState(isWithinClinicHours())
 
@@ -111,20 +149,34 @@ export default function EyeglassOrderQueue() {
     })
   }
 
-  const filteredOrders = orders.filter((o) => {
-    if (activeTab !== 'ALL' && o.status !== activeTab) return false
-    if (!searchText) return true
-    const kw = searchText.toLowerCase()
-    return (
-      o.patientName?.toLowerCase().includes(kw) ||
-      o.doctorName?.toLowerCase().includes(kw) ||
-      o.frameName?.toLowerCase().includes(kw)
-    )
-  })
+  /* ---------------------------------------------------------------- */
+  /* CLIENT-SIDE FILTERING & SORTING                                    */
+  /* ---------------------------------------------------------------- */
+  const filteredOrders = orders
+    .filter((o) => {
+      if (statusFilter !== 'ALL' && o.status !== statusFilter) return false
+      if (!searchText) return true
+      const kw = searchText.toLowerCase()
+      return (
+        o.patientName?.toLowerCase().includes(kw) ||
+        o.doctorName?.toLowerCase().includes(kw) ||
+        o.frameName?.toLowerCase().includes(kw)
+      )
+    })
+    /**
+     * Sắp xếp theo thời gian tạo đơn (createdAt) theo chiều do người dùng chọn qua việc bấm
+     * cột "Ngày tạo đơn" (mặc định cũ nhất trước). Không áp dụng sắp xếp theo mức ưu tiên.
+     */
+    .slice()
+    .sort((a, b) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+      return sortAsc ? timeA - timeB : timeB - timeA
+    })
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [activeTab, searchText])
+  }, [statusFilter, searchText, sortAsc])
 
   const pagedOrders = filteredOrders.slice(
     (currentPage - 1) * pageSize,
@@ -156,15 +208,6 @@ export default function EyeglassOrderQueue() {
     )
   }
 
-  const TABS = [
-    { key: 'PENDING_LAB', label: 'Chờ xưởng cắt kính' },
-    { key: 'IN_PRODUCTION', label: 'Đang gia công' },
-    { key: 'READY', label: 'Sẵn sàng giao' },
-    { key: 'DISPENSED', label: 'Đã giao' },
-    { key: 'CANCELLED', label: 'Đã hủy' },
-    { key: 'ALL', label: 'Tất cả' },
-  ]
-
   return (
     <>
       {contextHolder}
@@ -179,49 +222,48 @@ export default function EyeglassOrderQueue() {
               Đơn đặt kính đã được Lễ tân xác nhận, chờ xưởng cắt kính xử lý
             </p>
           </div>
-          <Button onClick={fetchOrders} loading={loading} size="small" style={{ fontSize: 12 }}>
-            Làm mới
-          </Button>
+
+        </div>
+
+        {/* --- Danh sách các thẻ thống kê số lượng đơn kính theo trạng thái --- */}
+        <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+          {STAT_CARDS.map((card) => (
+            <StatCard
+              key={card.key}
+              label={card.label}
+              value={countByStatus(card.key)}
+              color={card.color}
+            />
+          ))}
         </div>
 
         <div style={{ backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', borderBottom: '1px solid #f1f5f9', padding: '0 16px', gap: 4, overflowX: 'auto' }}>
-            {TABS.map((tab) => {
-              const count = countByStatus(tab.key)
-              const isActive = activeTab === tab.key
-              return (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  style={{
-                    padding: '12px 16px', border: 'none', background: 'none', cursor: 'pointer',
-                    fontSize: 13, fontWeight: isActive ? 600 : 400,
-                    color: isActive ? '#0d9488' : '#64748b',
-                    borderBottom: isActive ? '2px solid #0d9488' : '2px solid transparent',
-                    display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', transition: 'all 0.15s',
-                  }}
-                >
-                  {tab.label}
-                  <span style={{
-                    backgroundColor: isActive ? '#0d9488' : '#e2e8f0',
-                    color: isActive ? '#fff' : '#64748b',
-                    borderRadius: 99, padding: '1px 7px', fontSize: 11, fontWeight: 600, minWidth: 20, textAlign: 'center',
-                  }}>
-                    {count}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-
-          <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9' }}>
+          {/* SEARCH + FILTER */}
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
             <Input.Search
               placeholder="Tìm theo tên bệnh nhân, bác sĩ hoặc gọng kính..."
               allowClear
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              style={{ maxWidth: 440 }}
+              style={{ flex: 1, minWidth: 200 }}
             />
+
+            {/* Dropdown lọc theo trạng thái */}
+            <Select
+              value={statusFilter}
+              onChange={setStatusFilter}
+              style={{ width: 200, flexShrink: 0 }}
+              options={[
+                { label: `Tất cả (${countByStatus('ALL')})`, value: 'ALL' },
+                ...Object.entries(ORDER_STATUS_MAP).map(([value, cfg]) => ({
+                  label: `${cfg.label} (${countByStatus(value)})`,
+                  value,
+                })),
+              ]}
+            />
+            <Button onClick={fetchOrders} loading={loading} size="small" style={{ fontSize: 12 }}>
+              Làm mới
+            </Button>
           </div>
 
           <Spin spinning={loading}>
@@ -234,8 +276,30 @@ export default function EyeglassOrderQueue() {
                 <thead>
                   <tr style={{ borderBottom: '1px solid #f1f5f9', backgroundColor: '#f8fafc' }}>
                     {['STT', 'Ngày tạo đơn', 'Bệnh nhân', 'Bác sĩ kê đơn', 'Gọng kính', 'Tổng tiền', 'Trạng thái', 'Thao tác'].map((h) => (
-                      <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 13, fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>
-                        {h}
+                      <th
+                        key={h}
+                        onClick={h === 'Ngày tạo đơn' ? () => setSortAsc((v) => !v) : undefined}
+                        style={{
+                          padding: '10px 16px',
+                          textAlign: 'left',
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: '#475569',
+                          whiteSpace: 'nowrap',
+                          cursor: h === 'Ngày tạo đơn' ? 'pointer' : 'default',
+                          userSelect: h === 'Ngày tạo đơn' ? 'none' : 'auto',
+                        }}
+                      >
+                        {h === 'Ngày tạo đơn' ? (
+                          <Tooltip title={sortAsc ? 'Đang sắp xếp: Cũ nhất trước — bấm để đổi' : 'Đang sắp xếp: Mới nhất trước — bấm để đổi'}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              {h}
+                              {sortAsc
+                                ? <ArrowUpOutlined style={{ fontSize: 11, color: '#0d9488' }} />
+                                : <ArrowDownOutlined style={{ fontSize: 11, color: '#0d9488' }} />}
+                            </span>
+                          </Tooltip>
+                        ) : h}
                       </th>
                     ))}
                   </tr>
@@ -289,7 +353,7 @@ export default function EyeglassOrderQueue() {
                           )}
                           {o.status === 'IN_PRODUCTION' && (
                             <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
-+                             <Button
+                              <Button
                                 size="small"
                                 disabled={!withinHours}
                                 onClick={() => navigate(`/lab/eyeglass-detail?id=${o.id}`)}
@@ -339,7 +403,7 @@ export default function EyeglassOrderQueue() {
                             >
                               Xem chi tiết
                             </Button>
-                        )}
+                          )}
                         </div>
                       </td>
                     </tr>
