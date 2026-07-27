@@ -5,7 +5,7 @@
  */
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Tag, Space, message, Modal, Typography, Card, Spin, Select, Form, Input, Row, Col, Statistic } from 'antd';
-import { CheckOutlined, PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, ShoppingCartOutlined, DollarOutlined, ToolOutlined } from '@ant-design/icons';
+import { FiCheck as CheckOutlined, FiPlus as PlusOutlined, FiEdit2 as EditOutlined, FiTrash2 as DeleteOutlined, FiSearch as SearchOutlined, FiShoppingCart as ShoppingCartOutlined, FiDollarSign as DollarOutlined, FiTool as ToolOutlined } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import axiosClient from '../../api/axiosClient';
 import { useSelector } from 'react-redux';
@@ -225,9 +225,9 @@ export default function ReceptionistOrderPage() {
     });
 
     return (
-        <div style={{ padding: '24px' }}>
+        <div style={{ padding: 24 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                <Title level={2} style={{ margin: 0 }}>Quản lý Đơn Đặt Kính</Title>
+                <Title level={2} style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Quản lý Đơn Đặt Kính</Title>
                 <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
                     Tạo Đơn Mới (Bệnh nhân tại quầy)
                 </Button>

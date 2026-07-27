@@ -94,8 +94,7 @@ export default function DoctorLayout() {
               </svg>
             </div>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 13, color: '#0d9488', lineHeight: 1.3 }}>Doctor</div>
-              <div style={{ fontWeight: 700, fontSize: 13, color: '#0d9488', lineHeight: 1.3 }}>Portal</div>
+              <div style={{ fontWeight: 700, fontSize: 13, color: '#0d9488', lineHeight: 1.3 }}>Doctor Portal</div>
             </div>
           </div>
           <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>Main Clinic Branch</div>

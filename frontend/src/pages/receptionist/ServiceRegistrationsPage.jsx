@@ -3,7 +3,7 @@
 // để tránh liên hệ trùng và để bệnh nhân thấy trạng thái cập nhật trong "Dịch vụ của tôi".
 import { useEffect, useState } from 'react'
 import { Table, Tag, Button, Input, message, Typography, Space, Modal, DatePicker, Form, Select } from 'antd'
-import { SearchOutlined, PhoneOutlined, MailOutlined, CheckCircleOutlined, CloseCircleOutlined, CalendarOutlined, PlusOutlined, UserAddOutlined } from '@ant-design/icons'
+import { FiSearch as SearchOutlined, FiPhone as PhoneOutlined, FiMail as MailOutlined, FiCheckCircle as CheckCircleOutlined, FiXCircle as CloseCircleOutlined, FiCalendar as CalendarOutlined, FiPlus as PlusOutlined, FiUserPlus as UserAddOutlined } from 'react-icons/fi'
 import dayjs from 'dayjs'
 import { serviceService } from '../../services/serviceService'
 import { patientService } from '../../services/patientService'
@@ -337,11 +337,11 @@ export default function ServiceRegistrationsPage() {
   const pendingCount = registrations.filter(r => r.status === 'PENDING').length
 
   return (
-    <div style={{ padding: 28 }}>
+    <div style={{ padding: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <Title level={3} style={{ margin: 0 }}>Đăng ký dịch vụ</Title>
-          <Text type="secondary">
+          <Title level={3} style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Đăng ký dịch vụ</Title>
+          <Text style={{ display: 'block', marginTop: 4, fontSize: 13, color: '#64748b' }}>
             Bệnh nhân đăng ký gói dịch vụ online (chưa thanh toán) — cần liên hệ tư vấn.
             {pendingCount > 0 && <strong style={{ color: '#d97706' }}> {pendingCount} chờ liên hệ.</strong>}
           </Text>

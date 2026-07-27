@@ -18,9 +18,9 @@ import {
   message, Modal, Form, Statistic, Row, Col, Segmented, Input, DatePicker,
 } from 'antd'
 import {
-  ReloadOutlined, CheckCircleOutlined, LoginOutlined,
-  CloseCircleOutlined, BellOutlined, SwapOutlined,
-} from '@ant-design/icons'
+  FiRefreshCw as ReloadOutlined, FiCheckCircle as CheckCircleOutlined, FiLogIn as LoginOutlined,
+  FiXCircle as CloseCircleOutlined, FiBell as BellOutlined, FiRepeat as SwapOutlined,
+} from 'react-icons/fi'
 import {
   fetchDayAppointments,
   fetchDashboard,
@@ -653,8 +653,8 @@ export default function AppointmentManagementPage() {
     <div style={{ padding: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
         <div>
-          <Typography.Title level={4} style={{ marginBottom: 4 }}>Lịch khám</Typography.Title>
-          <Typography.Text type="secondary">
+          <Typography.Title level={4} style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Lịch khám</Typography.Title>
+          <Typography.Text style={{ display: 'block', marginTop: 4, fontSize: 13, color: '#64748b' }}>
             {viewMode === 'day' ? dayTitle : rangeTitle}
           </Typography.Text>
         </div>

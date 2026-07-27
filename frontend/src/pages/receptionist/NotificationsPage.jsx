@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { List, Button, Segmented, Typography, message, Empty, Card } from 'antd'
-import { CheckOutlined, BellOutlined } from '@ant-design/icons'
+import { FiCheck as CheckOutlined, FiBell as BellOutlined } from 'react-icons/fi'
 import dayjs from 'dayjs'
 import { notificationService } from '../../services/notificationService'
 import { appointmentService } from '../../services/appointmentService'
@@ -73,10 +73,10 @@ export default function NotificationsPage() {
 
   return (
     <div style={{ padding: 24 }}>
-      <Typography.Title level={4} style={{ marginBottom: 4 }}>
+      <Typography.Title level={4} style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>
         <BellOutlined style={{ marginRight: 8 }} />Thông báo
       </Typography.Title>
-      <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
+      <Typography.Text style={{ display: 'block', marginTop: 4, marginBottom: 16, fontSize: 13, color: '#64748b' }}>
         {unreadCount > 0 ? `${unreadCount} thông báo chưa đọc` : 'Tất cả thông báo đã đọc'}
       </Typography.Text>
 
