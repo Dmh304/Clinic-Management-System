@@ -172,11 +172,11 @@ export default function DailySchedulePage() {
   }, [viewMode, anchorDate, range])
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f8fafc', padding: '32px 16px' }}>
+    <div style={{ padding: 24 }}>
       <div style={{ maxWidth: 1280, margin: '0 auto' }}>
         <div style={{ marginBottom: 20 }}>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#1e293b', margin: 0 }}>Lịch khám</h1>
-          <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: 14 }}>Xem lịch hẹn theo ngày, tuần hoặc tháng</p>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Lịch khám</h2>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Xem lịch hẹn theo ngày, tuần hoặc tháng</p>
         </div>
 
         {/* Toolbar: view switch + navigation + filter */}

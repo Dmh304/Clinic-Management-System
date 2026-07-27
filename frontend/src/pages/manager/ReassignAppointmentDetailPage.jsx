@@ -191,13 +191,13 @@ export default function ReassignAppointmentDetailPage() {
   const cannotReassign = CANNOT_REASSIGN_STATUSES.includes(appt.status)
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f8fafc', padding: '32px 16px' }}>
+    <div style={{ padding: 24 }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         <div style={{ fontSize: 13, color: '#94a3b8', marginBottom: 8 }}>
           <span style={{ cursor: 'pointer', color: '#2563eb' }} onClick={() => navigate('/manager/reassign-appointment')}>Quản lý lịch hẹn</span>
           {' › '}Chuyển lịch
         </div>
-        <h1 style={{ fontSize: 24, fontWeight: 700, color: '#1e293b', margin: '0 0 20px' }}>Chuyển lịch hẹn</h1>
+        <h2 style={{ margin: '0 0 20px', fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Chuyển lịch hẹn</h2>
 
         {/* Thẻ thông tin bệnh nhân + lịch hẹn hiện tại */}
         <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '18px 22px', marginBottom: 20, display: 'flex', flexWrap: 'wrap', gap: 20, justifyContent: 'space-between', alignItems: 'center' }}>

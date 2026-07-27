@@ -143,12 +143,12 @@ export default function RevenueReportPage() {
   const topDoc = data?.topDoctor || {}
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f5f6ff' }}>
+    <div style={{ background: '#f5f6ff' }}>
       {/* Breadcrumb + title */}
       <div style={{ background: '#fff', borderBottom: '1px solid #eef0f6', padding: '14px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <div style={{ fontSize: 12, color: '#94a3b8' }}>Reports › <span style={{ color: '#4f46e5' }}>Revenue Report</span></div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#0f172a' }}>Báo cáo Doanh thu</div>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Báo cáo Doanh thu</h2>
         </div>
         <div style={{ color: '#94a3b8', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}><FiEye /> Eyes Clinic Management System</div>
       </div>

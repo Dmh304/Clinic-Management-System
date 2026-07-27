@@ -237,12 +237,12 @@ export default function ManageServicePackagesPage() {
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#6b7280' }}>Đang tải...</div>
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f8fafc', padding: '32px 16px' }}>
+    <div style={{ padding: 24 }}>
       <div style={{ maxWidth: 1180, margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <h1 style={{ fontSize: 24, fontWeight: 700, color: '#1e293b', margin: 0 }}>Quản lý gói dịch vụ</h1>
-            <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: 14 }}>Tạo và cập nhật các gói chăm sóc mắt</p>
+            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Quản lý gói dịch vụ</h2>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Tạo và cập nhật các gói chăm sóc mắt</p>
           </div>
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
             Tạo gói mới
