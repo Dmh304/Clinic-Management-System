@@ -93,10 +93,14 @@ BEGIN
 
     DECLARE @NurseUserId BIGINT = (SELECT TOP 1 user_id FROM @NewNurseId);
 
+    -- EMP007: EMP001..EMP006 đã bị ecms_data_seed.sql dùng hết. File này trước đây
+    -- hardcode EMP005 (trùng lễ tân Ngô Bách Thắng) → vi phạm UQ_staffs_employee_code,
+    -- điều dưỡng thứ 2 có tài khoản nhưng không có hồ sơ nhân viên, và sqlcmd -b dừng
+    -- luôn nên phần lịch hẹn bên dưới không bao giờ chạy.
     INSERT INTO staffs
         (user_id, employee_code, full_name, department, position, phone_number, hire_date, status, created_at)
     VALUES
-        (@NurseUserId, N'EMP005', N'Đặng Thị Thanh Thảo', N'Điều dưỡng', N'Điều dưỡng viên', N'0901000098', '2026-07-22', 'ACTIVE', GETDATE());
+        (@NurseUserId, N'EMP007', N'Đặng Thị Thanh Thảo', N'Điều dưỡng', N'Điều dưỡng viên', N'0901000098', '2026-07-22', 'ACTIVE', GETDATE());
 
     -- staff_room_assignments.staff_id = staffs.id (KHÔNG phải users.id) khi staff_type = NURSE
     DECLARE @NurseStaffId BIGINT = CAST(SCOPE_IDENTITY() AS BIGINT);

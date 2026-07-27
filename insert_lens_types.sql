@@ -1,4 +1,4 @@
-USE [ecms_db_sum_final];
+USE [ecms_db];
 GO
 
 SET IDENTITY_INSERT [dbo].[lens_types] ON;
