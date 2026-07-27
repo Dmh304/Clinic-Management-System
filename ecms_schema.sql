@@ -682,7 +682,7 @@ CREATE TABLE invoices (
     CONSTRAINT FK_invoices_patient FOREIGN KEY (patient_id) REFERENCES patients(id),
     CONSTRAINT FK_invoices_issued_by FOREIGN KEY (issued_by) REFERENCES users(id),
     CONSTRAINT CK_invoices_payment_method CHECK (payment_method IN ('CASH', 'VIET_QR', 'OTHER')),
-    CONSTRAINT CK_invoices_payment_status CHECK (payment_status IN ('UNPAID', 'PENDING_PAYMENT', 'PAID', 'PAYMENT_FAILED')),
+    CONSTRAINT CK_invoices_payment_status CHECK (payment_status IN ('UNPAID', 'PENDING_PAYMENT', 'PARTIALLY_PAID', 'PAID', 'PAYMENT_FAILED')),
     CONSTRAINT CK_invoices_status CHECK (status IN ('DRAFT', 'ISSUED', 'CANCELLED')),
     CONSTRAINT CK_invoices_email_status CHECK (email_status IN ('NOT_SENT', 'SENDING', 'SENT', 'FAILED')),
     CONSTRAINT CK_invoices_source CHECK (
@@ -751,7 +751,7 @@ CREATE TABLE payment_transactions (
     CONSTRAINT UQ_payment_transactions_txn_id UNIQUE (gateway_txn_id),
     CONSTRAINT FK_payment_transactions_invoice FOREIGN KEY (invoice_id) REFERENCES invoices(id),
     CONSTRAINT CK_payment_transactions_status CHECK (status IN
-        ('MATCHED', 'UNMATCHED', 'AMOUNT_MISMATCH', 'DUPLICATE', 'IGNORED'))
+        ('MATCHED', 'PARTIAL', 'OVERPAID', 'UNMATCHED', 'AMOUNT_MISMATCH', 'DUPLICATE', 'IGNORED'))
 );
 GO
 CREATE INDEX IX_payment_transactions_invoice ON payment_transactions (invoice_id);

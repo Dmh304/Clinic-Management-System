@@ -1,0 +1,262 @@
+@startuml UC12_BookAppointmentOnline_ClassDiagram
+
+' ============================================================================
+' UC-12: Book Appointment Online  (Actor: Patient)
+' Perspective: Implementation (Spring Boot) — derived from the real backend/ code
+'   POST /api/v1/appointments/book            -> bookOnlineAppointment()
+'   GET  /api/v1/appointments/available-slots -> getAvailableSlots()
+' Every operation here matches 1:1 a message in the UC-12 Sequence Diagram.
+' ============================================================================
+
+skinparam classAttributeIconSize 0
+skinparam monochrome false
+skinparam backgroundColor white
+skinparam roundcorner 5
+skinparam class {
+    BackgroundColor #f9f9f9
+    ArrowColor #336699
+    BorderColor #336699
+}
+
+' ─────────────────── Presentation layer ───────────────────
+class AppointmentController {
+    - appointmentService: AppointmentService
+    + bookOnlineAppointment(request: BookAppointmentRequest, userDetails: UserDetails): ResponseEntity<ApiResponse<AppointmentResponse>>
+    + getAvailableSlots(doctorId: Long, date: LocalDate): ResponseEntity<ApiResponse<List<SlotAvailabilityResponse>>>
+    + getMyAppointments(userDetails: UserDetails): ResponseEntity<ApiResponse<List<AppointmentResponse>>>
+}
+
+' ─────────────────── Service layer ───────────────────
+interface AppointmentService {
+    + bookOnlineAppointment(request: BookAppointmentRequest, patientEmail: String): AppointmentResponse
+    + getAvailableSlots(doctorId: Long, date: LocalDate): List<SlotAvailabilityResponse>
+    + getMyAppointments(patientId: Long): List<AppointmentResponse>
+}
+
+class AppointmentServiceImpl {
+    - {static} MAX_APPOINTMENTS_PER_DOCTOR_PER_DAY: int = 30
+    - {static} BOOKING_LEAD_TIME_MINUTES: int = 120
+    - {static} MORNING_SLOTS: List<LocalTime>
+    - {static} AFTERNOON_SLOTS: List<LocalTime>
+    + bookOnlineAppointment(request: BookAppointmentRequest, patientEmail: String): AppointmentResponse
+    + getAvailableSlots(doctorId: Long, date: LocalDate): List<SlotAvailabilityResponse>
+    + getMyAppointments(patientId: Long): List<AppointmentResponse>
+    - resolveBookingPatient(request: BookAppointmentRequest, selfPatient: Patient): Patient
+    - validateDoctorCapacity(doctorId: Long, date: LocalDate): void
+    - nextPatientCode(): String
+    - addSlots(out: List<SlotAvailabilityResponse>, times: List<LocalTime>, session: String, date: LocalDate, bookedTimes: Set<LocalTime>, cutoff: LocalDateTime): void
+    - toResponse(a: Appointment): AppointmentResponse
+}
+
+interface EmailService {
+    + sendAppointmentConfirmation(toEmail: String, patientName: String, doctorName: String, appointmentTime: LocalDateTime): void
+}
+
+interface NotificationService {
+    + createForReceptionists(message: String, relatedAppointmentId: Long): void
+}
+
+' ─────────────────── Repository layer ───────────────────
+interface AppointmentRepository {
+    + save(appointment: Appointment): Appointment
+    + existsByDoctor_IdAndAppointmentTimeAndStatusNot(doctorId: Long, time: LocalDateTime, status: AppointmentStatus): boolean
+    + countByDoctorIdAndAppointmentDateAndStatusIn(doctorId: Long, start: LocalDateTime, end: LocalDateTime, statuses: List<AppointmentStatus>): long
+    + findBookedTimesByDoctorAndDate(doctorId: Long, start: LocalDateTime, end: LocalDateTime): List<LocalDateTime>
+    + findMyAppointmentsByUser(userId: Long): List<Appointment>
+}
+
+interface PatientRepository {
+    + findByUser_Email(email: String): Optional<Patient>
+    + save(patient: Patient): Patient
+    + count(): long
+}
+
+interface DoctorRepository {
+    + findById(id: Long): Optional<Doctor>
+    + existsById(id: Long): boolean
+}
+
+interface ClinicServiceRepository {
+    + findById(id: Long): Optional<ClinicService>
+}
+
+interface UserRepository {
+    + findByEmail(email: String): Optional<User>
+}
+
+' ─────────────────── DTO ───────────────────
+class BookAppointmentRequest <<DTO>> {
+    - doctorId: Long
+    - appointmentTime: LocalDateTime
+    - notes: String
+    - serviceId: Long
+    - bookingForOther: boolean
+    - patientName: String
+    - patientGender: String
+    - patientDob: LocalDate
+    - patientPhone: String
+    - patientEmail: String
+    - patientAddress: String
+}
+
+class AppointmentResponse <<DTO>> {
+    - id: Long
+    - patientId: Long
+    - patientName: String
+    - doctorId: Long
+    - doctorName: String
+    - serviceId: Long
+    - serviceName: String
+    - appointmentTime: LocalDateTime
+    - timeSlot: String
+    - status: AppointmentStatus
+    - type: String
+    - notes: String
+    - bookedByName: String
+    - createdAt: LocalDateTime
+}
+
+class SlotAvailabilityResponse <<DTO>> {
+    - time: String
+    - session: String
+    - available: boolean
+}
+
+class ApiResponse<T> <<DTO>> {
+    - success: boolean
+    - message: String
+    - data: T
+    + {static} success(data: T): ApiResponse<T>
+    + {static} error(message: String): ApiResponse<T>
+}
+
+' ─────────────────── Entity (domain) ───────────────────
+class Appointment <<Entity>> {
+    - id: Long
+    - appointmentTime: LocalDateTime
+    - timeSlot: String
+    - status: AppointmentStatus
+    - type: String
+    - notes: String
+    - queueNumber: Integer
+    - bookedBy: Long
+    - reminderSent: Boolean
+    - createdAt: LocalDateTime
+    - updatedAt: LocalDateTime
+    + getAppointmentDate(): LocalDate
+    - prePersist(): void
+    - preUpdate(): void
+}
+
+enum AppointmentStatus {
+    PENDING
+    CONFIRMED
+    WAITING
+    IN_PROGRESS
+    COMPLETED
+    CANCELLED
+}
+
+class Patient <<Entity>> {
+    - id: Long
+    - patientCode: String
+    - fullName: String
+    - dateOfBirth: LocalDate
+    - gender: String
+    - phone: String
+    - email: String
+    - address: String
+    + getFullName(): String
+}
+
+class Doctor <<Entity>> {
+    - id: Long
+    - doctorCode: String
+    - fullName: String
+    - specialization: String
+    - department: String
+    - status: String
+    + getFullName(): String
+}
+
+class User <<Entity>> {
+    - id: Long
+    - email: String
+    - fullName: String
+    - phone: String
+    + getId(): Long
+}
+
+class ClinicService <<Entity>> {
+    - id: Long
+    - serviceName: String
+    - price: BigDecimal
+    - serviceType: String
+    - isActive: Boolean
+}
+
+class ResourceNotFoundException <<Exception>> {
+    + ResourceNotFoundException(message: String)
+}
+
+' ─────────────────── Dependency (dashed line) ───────────────────
+AppointmentController ..> AppointmentService : <<use>>
+AppointmentController ..> BookAppointmentRequest : <<use>>
+AppointmentController ..> ApiResponse : creates
+
+AppointmentService <|.. AppointmentServiceImpl : implements
+
+AppointmentServiceImpl ..> AppointmentRepository : <<use>>
+AppointmentServiceImpl ..> PatientRepository : <<use>>
+AppointmentServiceImpl ..> DoctorRepository : <<use>>
+AppointmentServiceImpl ..> ClinicServiceRepository : <<use>>
+AppointmentServiceImpl ..> UserRepository : <<use>>
+AppointmentServiceImpl ..> EmailService : <<use>>
+AppointmentServiceImpl ..> NotificationService : <<use>>
+AppointmentServiceImpl ..> Appointment : creates
+AppointmentServiceImpl ..> AppointmentResponse : creates
+AppointmentServiceImpl ..> SlotAvailabilityResponse : creates
+AppointmentServiceImpl ..> ResourceNotFoundException : throws
+
+AppointmentRepository ..> Appointment : manages
+PatientRepository ..> Patient : manages
+DoctorRepository ..> Doctor : manages
+ClinicServiceRepository ..> ClinicService : manages
+UserRepository ..> User : manages
+
+' ─────────────────── Association (solid line) ───────────────────
+Patient "1" -- "0..*" Appointment : books >
+Doctor "1" -- "0..*" Appointment : handles >
+ClinicService "0..1" -- "0..*" Appointment : applies to >
+User "1" -- "0..1" Patient : owns profile >
+Appointment "0..*" --> "1" AppointmentStatus : has >
+
+' ─────────────────── Note: business rules not expressible in standard notation ───────────────────
+note right of AppointmentServiceImpl
+  BR-04 (Advance Booking):
+  appointmentTime >= now + 120 minutes
+  BR-03 (Max Appointments/Day):
+  <= 30 appointments per doctor per day
+  (CONFIRMED, WAITING, IN_PROGRESS)
+  Also blocks a duplicate time slot for the
+  same doctor (any status except CANCELLED)
+end note
+
+note bottom of Appointment
+  POST-1: a newly created appointment always has
+  status = PENDING, type = "ONLINE",
+  reminderSent = false (@PrePersist).
+  bookedBy is a raw FK to users (the account that
+  BOOKED on someone else's behalf); it is not mapped
+  as an association to avoid a lazy-loading cycle.
+end note
+
+note bottom of AppointmentResponse
+  POST-2: confirmation email sent via EmailService.
+  POST-3: NotificationService notifies the Receptionist
+  that a new PENDING appointment awaits approval.
+  Both are wrapped in try/catch, so an SMTP failure
+  never rolls back the saved appointment.
+end note
+
+@enduml

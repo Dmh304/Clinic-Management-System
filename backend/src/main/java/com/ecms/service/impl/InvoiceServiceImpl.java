@@ -28,19 +28,33 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * ThangNBHE201024
+ * @author      ThangNB - HE201024
+ * @contributor Đồng Mạnh Hùng - HE200743
+ * @created     2026-07-11
+ * @updated     2026-07-19
  *
- * Triển khai toàn bộ nghiệp vụ hóa đơn của phòng khám:
- * - Tạo hóa đơn nháp (DRAFT) với danh sách khoản phí phân loại theo nhóm
- * - Phát hành hóa đơn (ISSUED) sau khi thu tiền mặt hoặc QR Code
- * - Hủy hóa đơn nháp chưa phát hành
- * - Gửi hóa đơn điện tử qua email (JavaMailSender + HTML template)
- * - Xuất PDF hóa đơn (delegate sang InvoicePdfService)
+ * Billing business logic for UC-23 (Process Payment) and UC-24 (Deliver Invoice):
+ *  - build a DRAFT invoice with charge lines grouped into fee buckets
+ *  - issue it (ISSUED / PAID) once cash or a bank transfer is collected
+ *  - cancel an unissued draft
+ *  - hand the e-invoice to the background mailer and render the PDF
  *
- * Quy tắc nghiệp vụ:
- * - Mỗi lịch hẹn chỉ được tạo một hóa đơn (kiểm tra existsByAppointment_Id)
- * - Chỉ hóa đơn DRAFT mới được phát hành hoặc hủy
- * - Mã hóa đơn tự sinh theo định dạng INV-yyyyMMdd-XXXX (tăng dần trong ngày)
+ * Also bills a standalone care-session subscription (UC-21) in addition to a
+ * doctor appointment: createInvoice accepts exactly one of appointmentId or
+ * subscriptionId.
+ *
+ * Enforced business rules:
+ *  - BR-10 — an invoice only reaches PAID on a confirmed full payment; a
+ *            VietQR invoice can be settled only by the gateway webhook
+ *  - BR-11 — totalAmount = serviceFee + labFee + medicineFee − discount
+ *  - BR-15 — a single discount amount per invoice
+ *  - BR-09 — cancelling is a soft status change; nothing is ever deleted
+ *  - one live invoice per visit; invoice codes run INV-yyyyMMdd-XXXX
+ *
+ * Note on numbering: some older comments in this module cited "UC-22" and
+ * "BR-12" for payment and invoice calculation. Against the current SRS those
+ * are UC-23 and BR-11 (UC-22 is Provide Live Support, BR-12 is Queue
+ * Uniqueness); the references below use the current numbering.
  */
 @Service
 @RequiredArgsConstructor
@@ -58,7 +72,11 @@ public class InvoiceServiceImpl implements InvoiceService {
     private final InvoicePdfService invoicePdfService;
     private final DiscountCampaignService discountCampaignService;
 
-    // Lấy tất cả hóa đơn (không kèm items) — dùng cho bảng lịch sử hóa đơn
+    /**
+     * Lists every invoice without charge lines for the invoice-history table.
+     *
+     * @return all invoices, newest first
+     */
     @Override
     @Transactional(readOnly = true)
     public List<InvoiceResponse> getAllInvoices() {
@@ -68,7 +86,12 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .collect(Collectors.toList());
     }
 
-    // Tìm kiếm hóa đơn theo từ khóa; trả về toàn bộ nếu keyword rỗng
+    /**
+     * Searches invoices by patient name, phone or invoice code.
+     *
+     * @param keyword search term; blank or null falls back to the full list
+     * @return matching invoices
+     */
     @Override
     @Transactional(readOnly = true)
     public List<InvoiceResponse> searchInvoices(String keyword) {
@@ -81,8 +104,14 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .collect(Collectors.toList());
     }
 
-    // Lấy chi tiết hóa đơn kèm danh sách khoản phí — dùng khi mở modal chi tiết
-    // hoặc in/gửi email
+    /**
+     * Loads one invoice with its charge lines, for the detail modal, the PDF
+     * and the e-invoice email.
+     *
+     * @param id invoice primary key
+     * @return the invoice including {@code items}
+     * @throws ResourceNotFoundException if no invoice has that id
+     */
     @Override
     @Transactional(readOnly = true)
     public InvoiceResponse getInvoiceById(Long id) {
@@ -91,8 +120,17 @@ public class InvoiceServiceImpl implements InvoiceService {
         return toResponseWithItems(invoice);
     }
 
-    // Tìm hóa đơn theo lịch hẹn — dùng khi dashboard kiểm tra lịch hẹn đã có HĐ
-    // chưa
+    /**
+     * Finds the live invoice of a visit, so the dashboard can tell whether the
+     * visit has already been billed.
+     *
+     * @param appointmentId visit primary key
+     * @return the invoice with its charge lines
+     * @throws ResourceNotFoundException if the visit has no live invoice
+     *
+     * Validate: UC-23 E1 — callers use this to load the existing invoice
+     * rather than raising a duplicate.
+     */
     @Override
     @Transactional(readOnly = true)
     public InvoiceResponse getInvoiceByAppointmentId(Long appointmentId) {
@@ -103,10 +141,23 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     /**
-     * Tạo hóa đơn nháp (DRAFT) cho một lịch hẹn đã hoàn thành, hoặc cho một buổi
-     * chăm sóc dịch vụ đơn lẻ đã check-out (UC-21, "vãng lai" totalSessions=1).
-     * Tự động tính tổng phí theo từng nhóm dịch vụ (BR-12).
-     * Mã hóa đơn được sinh tự động dạng INV-yyyyMMdd-XXXX.
+     * Creates a DRAFT invoice for a completed visit (UC-23 normal flow steps 2-6),
+     * or for a standalone care-session subscription that has been checked out
+     * (UC-21). Exactly one of {@code appointmentId} / {@code subscriptionId} is
+     * expected on the request.
+     *
+     * Charge lines are bucketed into the three fee components of BR-11, the
+     * discount is clamped (or derived from a discount campaign when a
+     * {@code discountCode} is supplied — UC-43), the total is derived
+     * server-side and an INV-yyyyMMdd-XXXX code is generated.
+     *
+     * @param request charge lines, optional discount / discount code and payment method
+     * @return the persisted invoice with its lines
+     * @throws ResourceNotFoundException if the appointment / subscription does not exist
+     * @throws IllegalStateException     if the visit already has a live invoice
+     *
+     * Validate: UC-23 E1 (no duplicate invoice per visit), BR-11 (total
+     * formula), BR-15 (one discount), BR-10 (starts unpaid).
      */
     @Override
     @Transactional
@@ -117,6 +168,9 @@ public class InvoiceServiceImpl implements InvoiceService {
             throw new IllegalArgumentException("Phải cung cấp đúng một trong hai: appointmentId hoặc subscriptionId");
         }
 
+        // UC-23 E1: one live invoice per visit; CANCELLED rows are excluded so a
+        // voided invoice (kept forever under BR-09) does not block a re-issue.
+        // UC-21: the same rule applies to a care-session subscription.
         Appointment appointment = null;
         PatientServiceSubscription subscription = null;
         Patient patient;
@@ -160,6 +214,9 @@ public class InvoiceServiceImpl implements InvoiceService {
                         .build();
                 items.add(item);
 
+                // BR-11: every line lands in exactly one of the three fee
+                // components (examination / lab / medicine) that make up the
+                // total. Unknown types fall into labFee so no money is lost.
                 String type = item.getItemType();
                 if ("SERVICE".equals(type)) {
                     serviceFee = serviceFee.add(subtotal);
@@ -176,10 +233,11 @@ public class InvoiceServiceImpl implements InvoiceService {
         BigDecimal subTotal = serviceFee.add(labFee).add(medicineFee);
 
         // BR-11: Total = Examination fee + Lab fee + Medicine fee − Discount.
-        // UC-43: nếu có discountCode, hệ thống tự xác thực + tính mức giảm từ chương
-        // trình
-        // giảm giá (ưu tiên hơn số tiền nhập tay); ngược lại giữ hành vi cũ (lễ tân tự
-        // nhập).
+        // UC-43: when a discountCode is present the server validates it and
+        // derives the amount from the discount campaign (this wins over any
+        // hand-entered amount); otherwise the Receptionist's amount is used.
+        // BR-15: a single discount, clamped below to [0, subTotal] so the total
+        // can never go negative or exceed the charges actually incurred.
         BigDecimal discount;
         if (request.getDiscountCode() != null && !request.getDiscountCode().isBlank()) {
             DiscountApplicationResponse applied = discountCampaignService.redeemForOrder(
@@ -188,8 +246,10 @@ public class InvoiceServiceImpl implements InvoiceService {
         } else {
             discount = request.getDiscountAmount() != null ? request.getDiscountAmount() : BigDecimal.ZERO;
         }
-        // Giới hạn discount trong [0, subTotal] để tổng tiền không âm và không vượt quá
-        // phí.
+        // CÓ CHỦ Ý, không phải thiếu validation: giảm giá vượt subTotal bị kẹp im lặng
+        // (total = 0), KHÔNG ném lỗi — chiến dịch khuyến mãi có thể lớn hơn hóa đơn nhỏ,
+        // chặn cứng sẽ hỏng luồng tạo hóa đơn tự động. Đánh đổi đã chấp nhận: gõ nhầm
+        // 500000 thay vì 50000 là miễn phí cả hóa đơn. Test BR-15 phải kỳ vọng total = 0.
         if (discount.compareTo(BigDecimal.ZERO) < 0) {
             discount = BigDecimal.ZERO;
         } else if (discount.compareTo(subTotal) > 0) {
@@ -213,6 +273,9 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .paymentMethod(request.getPaymentMethod())
                 .paymentReference(request.getPaymentReference())
                 .status("DRAFT")
+                // BR-10 / UC-23 step 3: cash starts UNPAID (collected at the
+                // counter), VietQR starts PENDING_PAYMENT and may only be
+                // settled by the gateway webhook.
                 .paymentStatus("VIET_QR".equals(request.getPaymentMethod())
                         ? "PENDING_PAYMENT"
                         : "UNPAID")
@@ -227,9 +290,8 @@ public class InvoiceServiceImpl implements InvoiceService {
 
         Invoice saved = invoiceRepository.save(invoice);
 
-        // Hóa đơn QR (PENDING_PAYMENT) → tự thông báo cho bệnh nhân là có hóa đơn cần
-        // trả.
-        // Hóa đơn tiền mặt (UNPAID → phát hành ngay) không cần vì thu tại quầy.
+        // UC-23 step 3: a VietQR invoice notifies the patient that a payment is
+        // due. A cash invoice does not — the patient is standing at the counter.
         if ("PENDING_PAYMENT".equals(saved.getPaymentStatus())) {
             notifyPaymentRequested(saved);
         }
@@ -238,21 +300,30 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     /**
-     * ThangNBHE201024 — Gợi ý khoản phí cho một lịch hẹn để đổ sẵn vào modal tạo
-     * hóa đơn.
+     * Suggests the charge lines of a visit so the create-invoice modal opens
+     * prefilled (UC-23 normal flow step 2).
      *
-     * Gộp 2 nguồn dữ liệu, giúp lễ tân không phải nhập tay từng khoản:
-     * 1. Dịch vụ khám đã đặt trong lịch hẹn (Appointment.clinicService).
-     * 2. Thuốc bác sĩ đã kê trong bệnh án của lịch hẹn (UC-27): duyệt các đơn thuốc
-     * của MedicalRecord, bỏ qua đơn SKIPPED (thuốc không phát cho bệnh nhân).
+     * Sources, in priority order:
+     *   0. If the visit previously had a CANCELLED invoice, its lines are
+     *      restored verbatim — "cancel then re-create" must reproduce the
+     *      original itemisation, including manual lines that cannot be derived
+     *      from the appointment or the prescription.
+     *   1. The consultation service booked on the appointment.
+     *   2. Lab / imaging orders raised on the visit's EMR, each priced from its
+     *      linked CLINICAL service.
+     *   3. Medicines the Doctor prescribed, skipping SKIPPED prescriptions
+     *      (not dispensed, therefore not billed — UC-39 ALT-1).
      *
-     * Lab order KHÔNG được đưa vào: trong mô hình hiện tại LabOrder không có giá và
-     * không
-     * trỏ tới một xét nghiệm riêng — "dịch vụ" của nó chỉ trùng đúng dịch vụ khám ở
-     * trên.
+     * Lines 2 and 3 are de-duplicated by id so a repeated item appears once
+     * with an accumulated quantity, which also avoids the duplicate-description
+     * error the modal raises on save.
      *
-     * Chỉ TRẢ GỢI Ý, không tạo hóa đơn. Lễ tân vẫn sửa/xóa/thêm được trước khi thu
-     * tiền.
+     * Read-only: nothing is persisted and the Receptionist can still edit,
+     * remove or add lines before taking payment.
+     *
+     * @param appointmentId visit primary key
+     * @return suggested charge lines, possibly empty
+     * @throws ResourceNotFoundException if the appointment does not exist
      */
     @Override
     @Transactional(readOnly = true)
@@ -261,12 +332,9 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Lịch hẹn không tồn tại: " + appointmentId));
 
-        // Ưu tiên: nếu lịch hẹn từng có hóa đơn BỊ HỦY, đổ lại đúng khoản phí của hóa
-        // đơn
-        // đã hủy gần nhất. Nhờ vậy "hủy rồi tạo lại" khôi phục nguyên trạng (gồm cả
-        // dịch vụ
-        // phụ và khoản nhập tay mà không suy ra được từ lịch hẹn/đơn thuốc), thay vì
-        // mất trắng.
+        // Priority path — restore the lines of the most recent CANCELLED
+        // invoice. BR-09 keeps that row around, which is exactly what makes
+        // "cancel then re-create" lossless for manually entered charges.
         List<Invoice> cancelled = invoiceRepository
                 .findByAppointment_IdAndStatusOrderByCreatedAtDesc(appointmentId, "CANCELLED");
         if (!cancelled.isEmpty()) {
@@ -325,9 +393,9 @@ public class InvoiceServiceImpl implements InvoiceService {
 
             // 3) Thuốc đã kê
             for (Prescription pres : prescriptionRepository.findByMedicalRecordId(emr.getId())) {
-                // Bỏ đơn SKIPPED: thuốc không phát cho bệnh nhân thì không tính tiền
-                if (pres.getStatus() == PrescriptionStatus.SKIPPED)
-                    continue;
+                // UC-39 ALT-1: a SKIPPED prescription was never dispensed, so
+                // it must not be billed.
+                if (pres.getStatus() == PrescriptionStatus.SKIPPED) continue;
 
                 for (PrescriptionItem it : pres.getItems()) {
                     Medicine med = it.getMedicine();
@@ -335,7 +403,10 @@ public class InvoiceServiceImpl implements InvoiceService {
                         continue;
 
                     int qty = it.getQuantity() != null ? it.getQuantity() : 1;
-                    // Ưu tiên giá snapshot lúc kê; thiếu thì lấy giá hiện tại của thuốc
+                    // Prefer the price snapshotted when the drug was prescribed;
+                    // fall back to today's catalogue price only if absent. This
+                    // keeps a later catalogue edit from re-pricing an old visit
+                    // (UC-58 assumption on non-retroactive price changes).
                     BigDecimal price = it.getUnitPrice() != null ? it.getUnitPrice()
                             : (med.getUnitPrice() != null ? med.getUnitPrice() : BigDecimal.ZERO);
 
@@ -361,8 +432,19 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     /**
-     * Phát hành hóa đơn sau khi thu tiền (BR-10).
-     * Chuyển trạng thái → ISSUED + paymentStatus → PAID.
+     * Issues an invoice once payment has been collected: DRAFT → ISSUED and
+     * paymentStatus → PAID (UC-23 normal flow step 6, ALT-1 cash).
+     *
+     * @param id               invoice primary key
+     * @param paymentMethod    CASH or VIET_QR; null keeps the stored method
+     * @param paymentReference bank reference, null for cash
+     * @return the issued invoice
+     * @throws ResourceNotFoundException if no such invoice
+     * @throws IllegalStateException     if the invoice is not DRAFT, or if a
+     *         VietQR invoice awaiting the bank is being issued by hand
+     *
+     * Validate: BR-10 — payment must be confirmed before PAID is written, and
+     * for VietQR only the gateway webhook may confirm it.
      */
     @Override
     @Transactional
@@ -370,22 +452,29 @@ public class InvoiceServiceImpl implements InvoiceService {
         Invoice invoice = invoiceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Hóa đơn không tồn tại: " + id));
 
+        // Only an unissued draft can be issued — guards against double issuance.
         if (!"DRAFT".equals(invoice.getStatus())) {
             throw new IllegalStateException("Chỉ hóa đơn ở trạng thái DRAFT mới được phát hành");
         }
 
-        // ThangNBHE201024 — chặn phát hành tay hóa đơn QR đang chờ ngân hàng (UC-22).
-        // Hóa đơn QR nằm ở PENDING_PAYMENT: tiền chỉ được coi là đã thu khi cổng thanh
-        // toán
-        // bắn webhook về (PaymentServiceImpl). Nếu vẫn cho gọi endpoint này với VIET_QR
-        // thì
-        // lễ tân đánh dấu PAID được mà không cần ngân hàng xác nhận — đúng lỗ hổng mà
-        // cả
-        // luồng webhook sinh ra để bịt.
-        // Vẫn cho phép chuyển sang CASH: bệnh nhân bỏ QR quay lại trả tiền mặt là hợp
-        // lệ,
-        // và khi đó có lễ tân cầm tiền chịu trách nhiệm.
-        boolean waitingForBank = "PENDING_PAYMENT".equals(invoice.getPaymentStatus());
+        // BR-10: a VietQR invoice is only settled by the gateway webhook
+        // (PaymentServiceImpl). Allowing this endpoint to mark it PAID would let
+        // a Receptionist confirm money the bank never reported — the exact hole
+        // the webhook flow exists to close.
+        //
+        // PAYMENT_FAILED counts as "still awaiting the bank" just as much as
+        // PENDING_PAYMENT does: it means a transfer arrived but was SHORT, so the
+        // outstanding balance is real and must not be waved through here.
+        // Omitting it would silently reopen the hole for every underpaid invoice.
+        //
+        // Switching to CASH stays legal in both states: the patient may abandon
+        // the transfer and pay at the counter, and then a Receptionist is
+        // accountable for the cash.
+        // PARTIALLY_PAID cũng là "đang chờ ngân hàng": phần còn lại vẫn phải qua webhook.
+        String settlement = invoice.getPaymentStatus();
+        boolean waitingForBank = "PENDING_PAYMENT".equals(settlement)
+                || "PAYMENT_FAILED".equals(settlement)
+                || "PARTIALLY_PAID".equals(settlement);
         String effectiveMethod = paymentMethod != null ? paymentMethod : invoice.getPaymentMethod();
         if (waitingForBank && "VIET_QR".equals(effectiveMethod)) {
             throw new IllegalStateException(
@@ -411,10 +500,16 @@ public class InvoiceServiceImpl implements InvoiceService {
         return toResponseWithItems(invoiceRepository.save(invoice));
     }
 
-    // UC-23 POST-3 — chốt lượt khám sang COMPLETED khi hóa đơn được thanh toán.
-    // Thường lịch hẹn đã COMPLETED từ lúc bác sĩ khóa bệnh án; ở đây chỉ set bù cho
-    // chắc chắn và không đụng vào lịch đã CANCELLED. Lịch hẹn đang nằm trong
-    // persistence context nên thay đổi được flush tự động.
+    /**
+     * Closes the visit out as COMPLETED once its invoice is paid (UC-23 POST-3).
+     *
+     * The appointment is usually already COMPLETED from when the Doctor locked
+     * the EMR; this is a safety net. A CANCELLED appointment is left alone —
+     * a cancelled visit must never be resurrected by a billing action.
+     * The entity is managed here, so the change flushes with the transaction.
+     *
+     * @param invoice the invoice just settled
+     */
     private void markAppointmentCompleted(Invoice invoice) {
         Appointment appt = invoice.getAppointment();
         if (appt == null)
@@ -425,12 +520,25 @@ public class InvoiceServiceImpl implements InvoiceService {
         }
     }
 
+    /**
+     * Voids an unissued invoice.
+     *
+     * @param id invoice primary key
+     * @return the cancelled invoice
+     * @throws ResourceNotFoundException if no such invoice
+     * @throws IllegalStateException     if the invoice was already issued
+     *
+     * Validate: an ISSUED invoice is an accounting document and cannot be
+     * cancelled; BR-09 — the row is only flagged CANCELLED, never deleted, so
+     * its charge lines remain available to restore on a re-issue.
+     */
     @Override
     @Transactional
     public InvoiceResponse cancelInvoice(Long id) {
         Invoice invoice = invoiceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Hóa đơn không tồn tại: " + id));
 
+        // An issued invoice has already been handed to the patient / accounted for.
         if ("ISSUED".equals(invoice.getStatus())) {
             throw new IllegalStateException("Không thể hủy hóa đơn đã phát hành");
         }
@@ -439,17 +547,34 @@ public class InvoiceServiceImpl implements InvoiceService {
             throw new IllegalStateException("Chỉ hóa đơn ở trạng thái DRAFT mới được hủy");
         }
 
+        // BR-09: soft cancel — the record stays in the table for the audit trail.
         invoice.setStatus("CANCELLED");
         return toResponseWithItems(invoiceRepository.save(invoice));
     }
 
-    // Sinh mã hóa đơn INV-yyyyMMdd-XXXX (tăng dần trong ngày)
+    /**
+     * Generates the next invoice code of the day, INV-yyyyMMdd-XXXX.
+     * The sequence restarts each day and is derived from the count of codes
+     * already sharing today's prefix.
+     *
+     * @return the generated invoice code
+     */
     private String generateInvoiceCode() {
         String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         long count = invoiceRepository.countByDatePrefix(dateStr);
         return String.format("INV-%s-%04d", dateStr, count + 1);
     }
 
+    /**
+     * Notifies the patient that a VietQR invoice is waiting to be paid
+     * (UC-23 step 3, "the Patient is notified to pay"; UC-10 in-app notification).
+     *
+     * Silently skipped for a walk-in patient with no linked user account, and
+     * best-effort overall — a notification failure must not roll back an
+     * invoice that was created correctly.
+     *
+     * @param invoice the freshly created PENDING_PAYMENT invoice
+     */
     private void notifyPaymentRequested(Invoice invoice) {
         Patient p = invoice.getPatient();
         if (p == null || p.getUser() == null)
@@ -461,10 +586,17 @@ public class InvoiceServiceImpl implements InvoiceService {
                             + " cần thanh toán. Vào 'Hóa đơn của tôi' để quét mã QR.",
                     apptId);
         } catch (Exception e) {
+            // Best-effort: the invoice itself is already persisted.
         }
     }
 
-    // Chuyển Invoice entity → DTO (không kèm items) — dùng cho danh sách
+    /**
+     * Maps an {@link Invoice} entity to its DTO without charge lines —
+     * the list projection.
+     *
+     * @param i invoice entity
+     * @return DTO with an empty {@code items} list
+     */
     private InvoiceResponse toResponse(Invoice i) {
         Appointment appt = i.getAppointment();
         PatientServiceSubscription sub = i.getSubscription();
@@ -509,11 +641,18 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     /**
-     * Chuẩn bị gửi hóa đơn điện tử (đồng bộ, nhanh).
-     * Kiểm tra bệnh nhân có email và đánh dấu tình trạng gửi = SENDING.
-     * Việc gửi SMTP thực tế do InvoiceMailDispatcher chạy nền để không treo
-     * thread request (nguyên nhân "không nhận response" khi SMTP chậm).
-     * Ném IllegalStateException nếu bệnh nhân chưa có email trong hồ sơ.
+     * Fast synchronous half of the e-invoice email flow (UC-24): verifies the
+     * patient has an email address and flags the invoice SENDING.
+     *
+     * The SMTP send itself is left to {@code InvoiceMailDispatcher} on a
+     * background pool, so a slow mail server cannot hold the HTTP thread open.
+     *
+     * @param id invoice primary key
+     * @throws ResourceNotFoundException if no such invoice
+     * @throws IllegalStateException     if the patient has no email on file
+     *
+     * Validate: UC-24 PRE — an e-invoice cannot be delivered without a
+     * recipient address, so this fails fast instead of queueing a doomed send.
      */
     @Override
     @Transactional
@@ -521,6 +660,7 @@ public class InvoiceServiceImpl implements InvoiceService {
         Invoice invoice = invoiceRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Hóa đơn không tồn tại: " + id));
 
+        // No recipient → nothing to send. Reject before flagging SENDING.
         Patient patient = invoice.getPatient();
         if (patient == null || patient.getEmail() == null || patient.getEmail().isBlank()) {
             throw new IllegalStateException("Bệnh nhân chưa có địa chỉ email");
@@ -531,8 +671,12 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     /**
-     * Cập nhật tình trạng gửi email sau khi worker nền gửi xong.
-     * status = SENT (kèm thời điểm gửi) hoặc FAILED (để lễ tân gửi lại).
+     * Records the delivery outcome reported by the background mail worker.
+     *
+     * @param id     invoice primary key; a vanished invoice is ignored rather
+     *               than throwing, since this runs off the request thread
+     * @param status SENT — stamps {@code emailSentAt}; FAILED — leaves the
+     *               resend action available to the Receptionist (UC-24 E1)
      */
     @Override
     @Transactional
@@ -548,21 +692,37 @@ public class InvoiceServiceImpl implements InvoiceService {
         invoiceRepository.save(invoice);
     }
 
-    // Xuất hóa đơn dạng byte[] PDF theo id — load từ DB rồi delegate
+    /**
+     * Renders the invoice PDF by id (UC-24 ALT-1 print / ALT-2 download).
+     *
+     * @param id invoice primary key
+     * @return PDF bytes
+     */
     @Override
     @Transactional(readOnly = true)
     public byte[] generateInvoicePdf(Long id) {
         return invoicePdfService.generate(getInvoiceById(id));
     }
 
-    // Xuất PDF từ DTO đã load sẵn — dùng khi caller đã có InvoiceResponse để tránh
-    // load DB lần 2
+    /**
+     * Renders the PDF from an already-loaded DTO, sparing a second query when
+     * the caller has just fetched the invoice.
+     *
+     * @param inv invoice with its {@code items} populated
+     * @return PDF bytes
+     */
     @Override
     public byte[] generateInvoicePdf(InvoiceResponse inv) {
         return invoicePdfService.generate(inv);
     }
 
-    // Chuyển Invoice entity → DTO kèm đầy đủ items — dùng cho chi tiết, in, email
+    /**
+     * Maps an {@link Invoice} entity to its DTO including every charge line —
+     * the detail projection used for the modal, the PDF and the email.
+     *
+     * @param i invoice entity with {@code items} loaded
+     * @return fully populated DTO
+     */
     private InvoiceResponse toResponseWithItems(Invoice i) {
         InvoiceResponse resp = toResponse(i);
         List<InvoiceResponse.InvoiceItemResponse> itemResponses = i.getItems().stream()
@@ -580,6 +740,16 @@ public class InvoiceServiceImpl implements InvoiceService {
         return resp;
     }
 
+    /**
+     * Returns one patient's own invoices for the portal list (UC-24 ALT-2).
+     *
+     * @param patientId the authenticated patient's id
+     * @return that patient's invoices, newest first
+     *
+     * Validate: BR-08 — the query is filtered by patientId, and the caller
+     * resolves that id from the JWT principal rather than the request, so no
+     * patient can read another's billing record.
+     */
     @Override
     @Transactional(readOnly = true)
     public List<InvoiceResponse> getMyInvoices(Long patientId) {

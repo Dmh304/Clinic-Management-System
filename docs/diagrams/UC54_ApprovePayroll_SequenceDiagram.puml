@@ -1,0 +1,351 @@
+@startuml UC54_ApprovePayroll_SequenceDiagram
+<style>
+document {
+  ParticipantPadding 10
+  BoxPadding 10
+}
+</style>
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 250
+
+skinparam participant {
+    BackgroundColor #DDEEFF
+    BorderColor     #336699
+    FontStyle       bold
+}
+skinparam actor {
+    BackgroundColor #FFFACD
+    BorderColor     #CC9900
+}
+skinparam note {
+    BackgroundColor #FFFFF0
+    BorderColor     #AAAAAA
+}
+skinparam ArrowColor #336699
+skinparam LifeLineBorderColor #336699
+
+title UC-54: Approve Payroll\n(Detailed Sequence Diagram — consistent with UC54_ApprovePayroll_ClassDiagram)
+
+actor "Clinic Manager" as Mgr
+participant "<<Controller>>\nPayrollController"            as PC
+participant "<<Service>>\nPayrollService"                  as PS
+participant "<<ServiceImpl>>\nPayrollServiceImpl"          as PSImpl
+participant "<<Repository>>\nPayrollPeriodRepository"      as PRepo
+participant "<<Repository>>\nPayrollItemRepository"        as IRepo
+participant "<<Repository>>\nDoctorRepository"             as DRepo
+participant "<<Repository>>\nStaffRepository"              as SRepo
+participant "<<Repository>>\nAppointmentRepository"        as ARepo
+participant "<<Repository>>\nUserRepository"               as URepo
+participant "<<Service>>\nAuditLogService"                 as Audit
+
+note over Mgr
+  PRE-1: Manager is authenticated.
+  PRE-2: the pay period has ended and the activity data is final.
+  BR-17 is enforced in SecurityConfig:
+  /api/v1/payroll/** hasAnyRole("MANAGER", "ADMIN").
+end note
+
+== NF 1 — Open Payroll and pick a pay period ==
+Mgr -> PC : periods()
+activate PC
+PC -> PS : listPeriods()
+activate PS
+PS -> PSImpl : listPeriods()
+activate PSImpl
+PSImpl -> PRepo : findAllByOrderByYearDescMonthDesc()
+activate PRepo
+PRepo --> PSImpl : List<PayrollPeriod>
+deactivate PRepo
+loop [for each period]
+    PSImpl -> PSImpl : toPeriodMap(p: PayrollPeriod, withItems = false)
+    activate PSImpl
+    deactivate PSImpl
+end
+PSImpl --> PS : List<Map<String, Object>>
+deactivate PSImpl
+PS --> PC : List<Map<String, Object>>
+deactivate PS
+PC --> Mgr : ResponseEntity<ApiResponse<List<Map<String, Object>>>>
+deactivate PC
+
+== NF 2 — Generate (or regenerate) the DRAFT payroll ==
+Mgr -> PC : generate(year: Integer, month: Integer)
+activate PC
+note right of PC
+  year/month default to the current month
+  when the query parameters are omitted.
+end note
+PC -> PS : generateDraft(year: int, month: int)
+activate PS
+PS -> PSImpl : generateDraft(year: int, month: int)
+activate PSImpl
+
+break [month < 1 OR month > 12]
+    PSImpl --> PS : IllegalArgumentException("Invalid month")
+end
+
+PSImpl -> PRepo : findByYearAndMonth(year: Integer, month: Integer)
+activate PRepo
+PRepo --> PSImpl : PayrollPeriod or null
+deactivate PRepo
+
+break [period.status == "APPROVED"]
+    note right of PSImpl
+      BR-09 / POST-2: an approved period is frozen —
+      it must never be rebuilt.
+    end note
+    PSImpl --> PS : IllegalStateException("Payroll period already approved")
+end
+
+alt [period == null — first run for this month]
+    create participant "period:PayrollPeriod" as PER
+    PSImpl -> PER : <<create>> PayrollPeriod.builder().year(year).month(month).status("DRAFT").build()
+    PSImpl -> PRepo : save(period: PayrollPeriod)
+    activate PRepo
+    PRepo --> PSImpl : PayrollPeriod
+    deactivate PRepo
+else [an existing DRAFT period is being regenerated]
+    PSImpl -> IRepo : findByPeriod_IdOrderByStaffTypeAscStaffNameAsc(periodId: Long)
+    activate IRepo
+    IRepo --> PSImpl : List<PayrollItem>
+    deactivate IRepo
+    PSImpl -> IRepo : deleteAll(items: List<PayrollItem>)
+    activate IRepo
+    IRepo --> PSImpl : void
+    deactivate IRepo
+    note right of PSImpl
+      Only ever reached for a DRAFT period, so wiping
+      the previous lines does not violate BR-09.
+    end note
+end
+
+PSImpl -> DRepo : findAll()
+activate DRepo
+DRepo --> PSImpl : List<Doctor>
+deactivate DRepo
+
+loop [for each Doctor]
+    opt [isActive(d.status) == true]
+        PSImpl -> ARepo : countByDateAndStatusAndDoctorId(start, end, COMPLETED, d.id)
+        activate ARepo
+        ARepo --> PSImpl : long completed
+        deactivate ARepo
+        create participant "item:PayrollItem" as ITM
+        PSImpl -> ITM : <<create>> PayrollItem.builder().staffType("DOCTOR").baseSalary(baseSalaryDoctor).performanceBonus(rate * completed).locked(false).build()
+    end
+end
+
+note right of PSImpl
+  Doctors: the performance bonus is driven by the number of
+  COMPLETED appointments in the period — the "consultations
+  completed" input named in UC-54 step 2.
+  Inactive doctors are skipped so ex-staff never appear on payroll.
+end note
+
+PSImpl -> SRepo : findAll()
+activate SRepo
+SRepo --> PSImpl : List<Staff>
+deactivate SRepo
+
+loop [for each Staff]
+    opt [isActive(s.status) == true]
+        PSImpl -> ITM : <<create>> PayrollItem.builder().staffType("STAFF").baseSalary(baseSalaryStaff).performanceBonus(0).locked(false).build()
+    end
+end
+
+note right of PSImpl
+  Non-doctor staff: no activity-linked bonus is derivable,
+  so the line is seeded with the role default and left
+  for the Manager to adjust by hand (NF 3).
+end note
+
+PSImpl -> IRepo : saveAll(items: List<PayrollItem>)
+activate IRepo
+IRepo --> PSImpl : List<PayrollItem>
+deactivate IRepo
+
+PSImpl -> PSImpl : getPeriod(periodId: Long)
+activate PSImpl
+PSImpl -> PRepo : findById(periodId: Long)
+activate PRepo
+PRepo --> PSImpl : Optional<PayrollPeriod>
+deactivate PRepo
+PSImpl -> IRepo : findByPeriod_IdOrderByStaffTypeAscStaffNameAsc(periodId: Long)
+activate IRepo
+IRepo --> PSImpl : List<PayrollItem>
+deactivate IRepo
+deactivate PSImpl
+
+PSImpl --> PS : Map<String, Object> (period + items + totalNetPay)
+deactivate PSImpl
+PS --> PC : Map<String, Object>
+deactivate PS
+PC --> Mgr : ResponseEntity<ApiResponse<Map<String, Object>>>
+deactivate PC
+
+== NF 3 — Review and adjust one payroll line ==
+Mgr -> PC : updateItem(id: Long, request: PayrollItemUpdateRequest)
+activate PC
+PC -> PS : updateItem(itemId: Long, request: PayrollItemUpdateRequest)
+activate PS
+PS -> PSImpl : updateItem(itemId: Long, request: PayrollItemUpdateRequest)
+activate PSImpl
+
+PSImpl -> IRepo : findById(itemId: Long)
+activate IRepo
+IRepo --> PSImpl : Optional<PayrollItem>
+deactivate IRepo
+
+break [item.locked == true OR item.period.status == "APPROVED"]
+    note right of PSImpl
+      BR-09 / BR-17: approved payroll is immutable.
+      Both the line flag AND the period status are checked,
+      so a stale reference cannot bypass the lock.
+    end note
+    PSImpl --> PS : IllegalStateException("Payroll period approved, cannot edit")
+end
+
+opt [request.baseSalary / performanceBonus / deduction / note != null]
+    PSImpl -> PSImpl : apply only the fields present in the request
+    activate PSImpl
+    deactivate PSImpl
+end
+
+PSImpl -> PSImpl : netPay = baseSalary + performanceBonus - deduction
+activate PSImpl
+deactivate PSImpl
+note right of PSImpl
+  netPay is ALWAYS derived server-side, never taken from
+  the client, so an adjusted line cannot disagree with
+  its own components.
+  Deviation from SRS E-1: the code enforces no variance
+  threshold, so the justification note stays optional.
+end note
+
+PSImpl -> IRepo : save(item: PayrollItem)
+activate IRepo
+IRepo --> PSImpl : PayrollItem
+deactivate IRepo
+
+PSImpl --> PS : Map<String, Object>
+deactivate PSImpl
+PS --> PC : Map<String, Object>
+deactivate PS
+PC --> Mgr : ResponseEntity<ApiResponse<Map<String, Object>>>
+deactivate PC
+
+== NF 4-7 — Approve the pay period ==
+Mgr -> PC : approve(userDetails: UserDetails, id: Long)
+activate PC
+
+PC -> URepo : findByEmail(email: String)
+activate URepo
+URepo --> PC : Optional<User>
+deactivate URepo
+
+break [user not found]
+    PC --> Mgr : ResourceNotFoundException("User not found")
+end
+
+note right of PC
+  BR-17: the approver is taken from the JWT principal,
+  never from the request body, so the recorded approver
+  cannot be spoofed.
+end note
+
+PC -> PS : approve(periodId: Long, actorUserId: Long)
+activate PS
+PS -> PSImpl : approve(periodId: Long, actorUserId: Long)
+activate PSImpl
+
+PSImpl -> PRepo : findById(periodId: Long)
+activate PRepo
+PRepo --> PSImpl : Optional<PayrollPeriod>
+deactivate PRepo
+
+break [period not found]
+    PSImpl --> PS : ResourceNotFoundException("Payroll period not found")
+end
+
+break [period.status == "APPROVED"]
+    note right of PSImpl
+      Idempotency guard: approving twice would overwrite
+      approvedBy / approvedAt.
+    end note
+    PSImpl --> PS : IllegalStateException("This payroll period is already approved")
+end
+
+critical [single @Transactional — the status change and the line locking must land together]
+    PSImpl -> PSImpl : period.setStatus("APPROVED"), setApprovedBy(actorUserId), setApprovedAt(now)
+    activate PSImpl
+    deactivate PSImpl
+
+    PSImpl -> IRepo : findByPeriod_IdOrderByStaffTypeAscStaffNameAsc(periodId: Long)
+    activate IRepo
+    IRepo --> PSImpl : List<PayrollItem>
+    deactivate IRepo
+
+    loop [for each PayrollItem]
+        PSImpl -> PSImpl : it.setLocked(true); total += nz(it.netPay)
+        activate PSImpl
+        deactivate PSImpl
+    end
+
+    PSImpl -> IRepo : saveAll(items: List<PayrollItem>)
+    activate IRepo
+    IRepo --> PSImpl : List<PayrollItem>
+    deactivate IRepo
+
+    PSImpl -> PRepo : save(period: PayrollPeriod)
+    activate PRepo
+    PRepo --> PSImpl : PayrollPeriod
+    deactivate PRepo
+end
+note right of PSImpl
+  POST-1: PayrollPeriod.status = APPROVED.
+  POST-2 (BR-09): every PayrollItem is locked and can no
+  longer be edited or hard-deleted.
+end note
+
+group try/catch [an audit-log failure must not undo the approval]
+    PSImpl -> Audit : log(actorUserId, "APPROVE_PAYROLL", "PayrollPeriod", periodId, null, summary, null)
+    activate Audit
+    Audit --> PSImpl : void
+    deactivate Audit
+end
+note right of Audit
+  POST-4: records who approved which period, when,
+  the number of lines and the total net pay.
+end note
+
+PSImpl -> PSImpl : toPeriodMap(period: PayrollPeriod, withItems = true)
+activate PSImpl
+deactivate PSImpl
+
+PSImpl --> PS : Map<String, Object>
+deactivate PSImpl
+PS --> PC : Map<String, Object>
+deactivate PS
+PC --> Mgr : ResponseEntity<ApiResponse<Map<String, Object>>>
+deactivate PC
+
+== ALT-1 — Reject and recalculate ==
+note over Mgr, PSImpl
+  The Manager sends the draft back for recalculation
+  (e.g. missing activity data). There is no dedicated
+  endpoint: the Manager simply calls generate() again,
+  which wipes and rebuilds the DRAFT lines (see NF 2).
+  The period stays DRAFT throughout.
+end note
+
+== ALT-2 — Export only (no system disbursement) ==
+note over Mgr, Audit
+  NOT IMPLEMENTED: SRS POST-3 requires the approved payroll
+  to be exported/available for Accounting/Admin, but no export
+  endpoint exists in the current code. ECMS never executes the
+  bank transfer — that stays outside the system either way.
+end note
+
+@enduml

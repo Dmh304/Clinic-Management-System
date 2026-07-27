@@ -51,6 +51,14 @@ public class Patient {
     @Column(name = "cccd", length = 12)
     private String cccd;
 
+    // Giá trị lưu trong DB theo chuẩn: A, B, AB, O, UNKNOWN
+    @Builder.Default
+    @Column(name = "blood_type", nullable = false)
+    private String bloodType = "UNKNOWN";
+
+    @Column(name = "allergy_notes", columnDefinition = "NVARCHAR(MAX)")
+    private String allergyNotes;
+
     @Column(name = "emergency_contact_name")
     private String emergencyContactName;
 

@@ -55,6 +55,7 @@ import AppointmentManagementPage from '../pages/receptionist/AppointmentManageme
 import WalkInRegistrationPage from '../pages/receptionist/WalkInRegistrationPage'
 import WalkInAppointmentPage from '../pages/receptionist/WalkInAppointmentPage'
 import InvoicePage from '../pages/receptionist/InvoicePage'
+import ReconciliationPage from '../pages/receptionist/ReconciliationPage'
 import DailySchedulePage from '../pages/receptionist/DailySchedulePage'
 import CheckoutCareSessionPage from '../pages/receptionist/CheckoutCareSessionPage'
 import ServiceRegistrationsPage from '../pages/receptionist/ServiceRegistrationsPage'
@@ -188,6 +189,7 @@ export default function AppRouter() {
           <Route path="/receptionist/walk-in-appointment" element={<WalkInAppointmentPage />} />
           <Route path="/receptionist/walk-in" element={<WalkInRegistrationPage />} />
           <Route path="/receptionist/invoice" element={<InvoicePage />} />
+          <Route path="/receptionist/reconciliation" element={<ReconciliationPage />} />
           <Route path="/receptionist/notifications" element={<NotificationsPage />} />
           <Route path="/receptionist/checkout-care-sessions" element={<CheckoutCareSessionPage />} />
           <Route path="/receptionist/service-registrations" element={<ServiceRegistrationsPage />} />

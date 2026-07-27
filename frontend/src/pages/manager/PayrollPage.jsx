@@ -1,4 +1,17 @@
-// UC-54: Phê duyệt bảng lương — soạn/điều chỉnh/duyệt theo kỳ.
+/**
+ * @author  ThangNB - HE201024
+ * @created 2026-07-19
+ * @updated 2026-07-20
+ *
+ * Payroll approval screen for the Clinic Manager
+ * (UC-54 Approve Payroll): generate a monthly draft, adjust individual lines,
+ * then approve the period.
+ *
+ * Business rules surfaced here:
+ *  - BR-17 — only a Clinic Manager reaches this screen; the backend re-checks
+ *  - BR-09 — once APPROVED every line is locked, so the inputs and the save
+ *    action are disabled and the approve button disappears
+ */
 import { useEffect, useState } from 'react'
 import { FiRefreshCw, FiDownload, FiCheckCircle, FiUsers, FiAlertTriangle, FiSearch, FiClock, FiSave } from 'react-icons/fi'
 import { FaWallet } from 'react-icons/fa'
@@ -10,7 +23,20 @@ const initials = (name) => (name || '').replace(/^(BS|ĐD|KTV)\.?\s*/i, '').spli
 
 const card = { background: '#fff', border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: '0 2px 4px rgba(0,0,0,0.03)' }
 
-// Trạng thái từng dòng lương suy ra từ dữ liệu
+/** Fallback role label per staffType, used only when the line carries no role
+ *  text of its own (specialty for doctors, position for staff). */
+const STAFF_TYPE_LABEL = { DOCTOR: 'Bác sĩ', LAB_TECHNICIAN: 'Kỹ thuật viên xét nghiệm', STAFF: 'Nhân viên' }
+
+/**
+ * Derives the review badge for one payroll line.
+ *
+ * Validate: UC-54 E-2 — a line with no base salary is flagged "needs review"
+ * so missing data is visible before the Manager approves the period.
+ *
+ * @param {Object} it       the payroll line
+ * @param {boolean} approved whether the period is already approved
+ * @returns {{label:string, bg:string, c:string, note:?string}} badge spec
+ */
 function rowStatus(it, approved) {
   if (approved) return { label: 'Đã duyệt', bg: '#e2e8f0', c: '#334155', note: null }
   if (!Number(it.baseSalary)) return { label: 'Cần kiểm tra', bg: '#fef3c7', c: C.warnInk, note: it.note || 'Thiếu lương cơ bản' }
@@ -35,6 +61,11 @@ const numInput = { width: 110, textAlign: 'right', border: `1px solid ${C.border
 const th = { padding: '12px 16px', fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase', fontWeight: 600, color: C.muted, whiteSpace: 'nowrap' }
 const td = { padding: '12px 16px', fontSize: 14, borderTop: `1px solid ${C.border}` }
 
+/**
+ * Renders the payroll period list, the editable line table and the approve
+ * action.
+ * @returns {JSX.Element} the payroll screen
+ */
 export default function PayrollPage() {
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
@@ -45,22 +76,54 @@ export default function PayrollPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  /** Refreshes the pay-period picker. Failures are ignored — the picker is
+   *  secondary to whichever period is already open. */
   const loadPeriods = async () => { try { const r = await payrollService.listPeriods(); setPeriods(r.data || []) } catch { /* ignore */ } }
   useEffect(() => { loadPeriods() }, [])
 
+  /**
+   * Opens one pay period with its lines (UC-54 step 3).
+   * @param {number} id pay period id
+   */
   const openPeriod = async (id) => {
     setLoading(true); setError('')
     try { const r = await payrollService.getPeriod(id); setPeriod(r.data) }
     catch (e) { setError(e?.response?.data?.message || 'Không tải được kỳ lương') } finally { setLoading(false) }
   }
+  /**
+   * Generates the draft payroll for the selected month (UC-54 step 2).
+   *
+   * Validate: BR-09 — the backend refuses to regenerate an APPROVED period;
+   * that rejection is shown as the error message.
+   */
   const generate = async () => {
     setLoading(true); setError('')
     try { const r = await payrollService.generate(year, month); setPeriod(r.data); await loadPeriods() }
     catch (e) { setError(e?.response?.data?.message || 'Không tạo được bảng lương') } finally { setLoading(false) }
   }
+
+  /** BR-09 gate: drives the read-only state of every input on this screen. */
   const approved = period?.status === 'APPROVED'
 
+  /**
+   * Updates one field of a line in local state, before it is saved.
+   * @param {number} idx   row index
+   * @param {string} field field name
+   * @param {*} value      new value
+   */
   const editItem = (idx, field, value) => setPeriod((p) => ({ ...p, items: p.items.map((it, i) => i === idx ? { ...it, [field]: value } : it) }))
+
+  /**
+   * Persists one adjusted payroll line (UC-54 step 3).
+   *
+   * Empty numeric inputs are coerced to 0 so the server never receives NaN,
+   * which would corrupt the net-pay calculation.
+   *
+   * @param {Object} item the edited line
+   *
+   * Validate: BR-09 — rejected server-side if the period was approved in the
+   * meantime, e.g. by another manager in a second tab.
+   */
   const saveItem = async (item) => {
     try {
       const r = await payrollService.updateItem(item.id, {
@@ -70,12 +133,26 @@ export default function PayrollPage() {
       setPeriod((p) => ({ ...p, items: p.items.map((it) => it.id === item.id ? r.data : it) }))
     } catch (e) { setError(e?.response?.data?.message || 'Không lưu được dòng lương') }
   }
+  /**
+   * Approves the open pay period (UC-54 step 4).
+   *
+   * Validate: BR-09 — approval is irreversible, so an explicit confirmation is
+   * required before the request goes out. BR-17 — the approving manager is
+   * taken from the auth token server-side, never sent from here.
+   */
   const approve = async () => {
     if (!window.confirm('Phê duyệt bảng lương này? Sau khi duyệt sẽ không thể chỉnh sửa.')) return
     setLoading(true); setError('')
     try { const r = await payrollService.approve(period.id); setPeriod(r.data); await loadPeriods() }
     catch (e) { setError(e?.response?.data?.message || 'Không duyệt được bảng lương') } finally { setLoading(false) }
   }
+  /**
+   * Exports the open period as CSV for Accounting (UC-54 POST-3 / ALT-2).
+   *
+   * Built client-side from the loaded rows. A UTF-8 BOM is prepended so Excel
+   * decodes Vietnamese names correctly, and every cell is quoted with inner
+   * quotes doubled so a name containing a comma cannot shift the columns.
+   */
   const exportCsv = () => {
     if (!period) return
     const rows = [['Nhan vien', 'Vai tro', 'Luong co ban', 'Hoat dong', 'Phu cap/Hieu suat', 'Khau tru', 'Tong luong', 'Ghi chu']]
@@ -95,13 +172,13 @@ export default function PayrollPage() {
   const btn = (bg, color, border) => ({ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 18px', borderRadius: 8, border: border || 'none', background: bg, color, cursor: 'pointer', fontWeight: 600, fontSize: 14 })
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f8f9ff', color: C.ink }}>
-      <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div style={{ color: C.ink }}>
+      <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 16 }}>
           <div>
-            <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em' }}>Phê duyệt bảng lương</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4, color: C.muted }}>
+            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Phê duyệt bảng lương</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4, fontSize: 13, color: C.muted }}>
               <span>Kỳ lương tháng {period ? `${String(period.month).padStart(2, '0')}/${period.year}` : `${String(month).padStart(2, '0')}/${year}`}</span>
               {period && <>
                 <span style={{ width: 5, height: 5, borderRadius: 999, background: '#cbd5e1' }} />
@@ -116,7 +193,15 @@ export default function PayrollPage() {
             <input type="number" min={1} max={12} value={month} onChange={(e) => setMonth(Number(e.target.value))} style={{ width: 64, padding: '9px 10px', borderRadius: 8, border: `1px solid ${C.border}` }} />
             <button onClick={generate} disabled={loading} style={btn('#fff', C.error, `1px solid ${C.error}`)}><FiRefreshCw size={16} /> {period ? 'Yêu cầu tính toán lại' : 'Tạo bảng lương'}</button>
             {period && <button onClick={exportCsv} style={btn('#fff', C.primary, `1px solid ${C.primary}`)}><FiDownload size={16} /> Xuất file kế toán</button>}
-            {period && !approved && <button onClick={approve} disabled={loading} style={btn(C.success, '#fff')}><FiCheckCircle size={16} /> Phê duyệt bảng lương</button>}
+            {/* UC-54 E-2. Backend cũng chặn, nhưng chặn luôn ở đây để quản lý thấy lý do
+                trước khi bấm — duyệt là một chiều (BR-09). */}
+            {period && !approved && (
+              <button onClick={approve} disabled={loading || needsCheck > 0}
+                title={needsCheck > 0 ? `Còn ${needsCheck} dòng thiếu lương cơ bản — bổ sung trước khi duyệt` : undefined}
+                style={{ ...btn(needsCheck > 0 ? '#cbd5e1' : C.success, '#fff'), cursor: needsCheck > 0 ? 'not-allowed' : 'pointer' }}>
+                <FiCheckCircle size={16} /> Phê duyệt bảng lương
+              </button>
+            )}
           </div>
         </div>
 
@@ -163,7 +248,7 @@ export default function PayrollPage() {
                     <tr style={{ background: '#fafbff', textAlign: 'left' }}>
                       <th style={th}>Nhân viên</th>
                       <th style={{ ...th, textAlign: 'right' }}>Lương cơ bản</th>
-                      <th style={{ ...th, textAlign: 'center' }}>Hoạt động</th>
+                      <th style={{ ...th, textAlign: 'center' }} title="Bác sĩ: ca khám hoàn thành · Điều dưỡng: buổi chăm sóc đã thực hiện · KTV: xét nghiệm đã trả kết quả">Hoạt động</th>
                       <th style={{ ...th, textAlign: 'right' }}>Phụ cấp/Hiệu suất</th>
                       <th style={{ ...th, textAlign: 'right' }}>Khấu trừ</th>
                       <th style={{ ...th, textAlign: 'right', color: C.ink }}>Tổng lương</th>
@@ -182,7 +267,7 @@ export default function PayrollPage() {
                               <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#f3e8ff', color: C.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>{initials(it.staffName) || 'NV'}</div>
                               <div>
                                 <div style={{ fontWeight: 600 }}>{it.staffName}</div>
-                                <div style={{ fontSize: 12, color: C.muted }}>{it.role || (it.staffType === 'DOCTOR' ? 'Bác sĩ' : 'Nhân viên')}</div>
+                                <div style={{ fontSize: 12, color: C.muted }}>{it.role || STAFF_TYPE_LABEL[it.staffType] || 'Nhân viên'}</div>
                               </div>
                             </div>
                           </td>
@@ -196,7 +281,16 @@ export default function PayrollPage() {
                           <td style={{ ...td, textAlign: 'right', color: C.error }}>
                             {approved ? `-${vnd(it.deduction)}` : <input style={numInput} type="number" value={it.deduction} onChange={(e) => editItem(idx, 'deduction', e.target.value)} onBlur={() => saveItem(items[idx])} />}
                           </td>
-                          <td style={{ ...td, textAlign: 'right', fontWeight: 800 }}>{vnd(it.netPay)}</td>
+                          <td style={{ ...td, textAlign: 'right', fontWeight: 800 }}>
+                            {vnd(it.netPay)}
+                            {/* UC-54 E-1: cho thấy đang lệch bao nhiêu TRƯỚC khi backend từ
+                                chối vì vượt ngưỡng mà chưa ghi lý do. */}
+                            {it.systemNetPay != null && Number(it.systemNetPay) !== Number(it.netPay) && (
+                              <div style={{ fontSize: 11, fontWeight: 400, color: C.muted }}>
+                                hệ thống tính: {vnd(it.systemNetPay)}
+                              </div>
+                            )}
+                          </td>
                           <td style={td}>
                             <span style={{ display: 'inline-block', background: st.bg, color: st.c, padding: '2px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600 }}>{st.label}</span>
                             {!approved && <input value={it.note || ''} onChange={(e) => editItem(idx, 'note', e.target.value)} onBlur={() => saveItem(items[idx])} placeholder="Ghi chú…" style={{ display: 'block', marginTop: 6, width: 180, border: 'none', borderBottom: `1px solid ${C.border}`, outline: 'none', fontSize: 12, fontStyle: 'italic', color: C.muted, background: 'transparent' }} />}
@@ -213,7 +307,7 @@ export default function PayrollPage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderTop: `1px solid ${C.border}`, background: '#fafbff', flexWrap: 'wrap', gap: 12 }}>
                 <span style={{ fontWeight: 600, color: C.muted }}>Tổng cộng ({items.length} NV)</span>
                 <div style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
-                  <div style={{ textAlign: 'right' }}><div style={{ fontSize: 11, color: C.muted }}>Tổng phụ cấp</div><div style={{ color: C.success, fontWeight: 700 }}>+{vnd(totalBonus)}</div></div>
+                  <div style={{ textAlign: 'right' }}><div style={{ fontSize: 11, color: C.muted }}>Tổng thưởng hiệu suất</div><div style={{ color: C.success, fontWeight: 700 }}>+{vnd(totalBonus)}</div></div>
                   <div style={{ textAlign: 'right' }}><div style={{ fontSize: 11, color: C.muted }}>Tổng khấu trừ</div><div style={{ color: C.error, fontWeight: 700 }}>-{vnd(totalDeduct)}</div></div>
                   <div style={{ textAlign: 'right', paddingLeft: 16, borderLeft: `1px solid ${C.border}` }}><div style={{ fontSize: 11, color: C.muted, textTransform: 'uppercase' }}>Tổng quỹ lương</div><div style={{ color: C.primary, fontWeight: 800, fontSize: 18 }}>{vnd(period.totalNetPay)} đ</div></div>
                 </div>

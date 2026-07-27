@@ -1,27 +1,35 @@
 /**
- * InvoicePage — Trang thu phí & phát hành hóa đơn cho Lễ tân
- * ThangNBHE201024 - HE187030
+ * @author      ThangNB - HE201024
+ * @contributor Đồng Mạnh Hùng - HE200743
+ * @created     2026-07-11
+ * @updated     2026-07-19
  *
- * Luồng nghiệp vụ:
- *  1. Lễ tân chọn lịch hẹn COMPLETED chưa có hóa đơn từ tab "Tạo hóa đơn"
- *  2. Nhập các khoản phí (dịch vụ, xét nghiệm, thuốc, kính...)
- *  3. Chọn phương thức thanh toán: Tiền mặt hoặc QR Code (VietQR)
- *     - Tiền mặt: lễ tân cầm tiền → tạo hóa đơn (DRAFT) và phát hành ngay (ISSUED)
- *     - QR Code: tạo hóa đơn nháp trước để có mã INV-yyyyMMdd-XXXX → sinh mã QR mang
- *       chính mã đó làm nội dung chuyển khoản → chờ ngân hàng xác nhận. Hóa đơn CHỈ
- *       chuyển sang PAID khi cổng thanh toán bắn webhook báo tiền đã vào tài khoản,
- *       lễ tân không tự xác nhận thay ngân hàng.
- *  4. Tab "Lịch sử hóa đơn": xem chi tiết, in hoặc gửi email hóa đơn
+ * Receptionist billing screen — UC-23 (Process Payment) and UC-24 (Deliver
+ * Invoice).
  *
- * State quản lý qua Redux (invoiceSlice):
- *  - list: danh sách hóa đơn, loading: trạng thái tải
+ * Flow:
+ *  1. Pick a COMPLETED visit that has no invoice yet, from the "create" tab
+ *  2. Enter the charge lines (service, lab, medicine, eyeglasses...)
+ *  3. Choose the payment method — cash or VietQR:
+ *     - Cash (UC-23 ALT-1): the Receptionist takes the money, so the invoice is
+ *       created DRAFT and issued immediately
+ *     - VietQR (UC-23 ALT-2): the draft is created first to obtain its
+ *       INV-yyyyMMdd-XXXX code, the QR carries that code as the transfer memo,
+ *       and the invoice only becomes PAID when the gateway webhook confirms
+ *       the funds. Per BR-10 the Receptionist cannot confirm on the bank's
+ *       behalf.
+ *  4. The "history" tab shows detail, printing and emailing
  *
- * Tích hợp:
- *  - VietQR Image API: sinh mã QR chuyển khoản theo thông tin ngân hàng từ .env
- *  - Payment webhook (backend, UC-22): cổng thanh toán báo tiền về → tự gạch nợ;
- *    trang này polling GET /payments/invoice/{id}/status mỗi 3 giây để cập nhật UI
- *  - JavaMailSender (backend): gửi email HTML hóa đơn đến bệnh nhân
- *  - window.print(): in hóa đơn trực tiếp từ trình duyệt
+ * State lives in Redux (invoiceSlice): `list` and `loading`.
+ *
+ * Integrations:
+ *  - VietQR Image API — renders the transfer QR from the bank details in .env
+ *  - Payment webhook (backend, UC-23 ALT-2) — this page polls
+ *    GET /payments/invoice/{id}/status every 3 seconds to reflect settlement
+ *  - JavaMailSender (backend) — HTML e-invoice email
+ *  - window.print() — direct browser printing (UC-24 ALT-1)
+ *
+ * Business rules: BR-10, BR-11, BR-15, BR-09.
  */
 
 import { useEffect, useState, useCallback } from 'react'
@@ -33,10 +41,11 @@ import {
   Descriptions, Popconfirm, Row, Col, Statistic, Spin, Tooltip, AutoComplete,
 } from 'antd'
 import {
-  PlusOutlined, DeleteOutlined, ReloadOutlined,
-  CheckCircleOutlined, SearchOutlined, FileTextOutlined,
-  DollarOutlined, PrinterOutlined, MailOutlined, QrcodeOutlined,
-} from '@ant-design/icons'
+  FiPlus as PlusOutlined, FiTrash2 as DeleteOutlined, FiRefreshCw as ReloadOutlined,
+  FiCheckCircle as CheckCircleOutlined, FiSearch as SearchOutlined, FiFileText as FileTextOutlined,
+  FiDollarSign as DollarOutlined, FiPrinter as PrinterOutlined, FiMail as MailOutlined,
+} from 'react-icons/fi'
+import { BsQrCode as QrcodeOutlined } from 'react-icons/bs'
 import {
   fetchAllInvoices, createInvoice, issueInvoice, cancelInvoice,
 } from '../../store/slices/invoiceSlice'
@@ -47,14 +56,19 @@ import { paymentService } from '../../services/paymentService'
 import { clinicServiceService } from '../../services/clinicServiceService'
 import { discountService } from '../../services/discountService'
 import { medicineService } from '../../services/medicineService'
+import ReconciliationPage from './ReconciliationPage'
 
 const { Title, Text } = Typography
 
 // ─── Cấu hình ngân hàng phòng khám (ThangNBHE201024) ─────────────────────────
 // Giá trị lấy từ biến môi trường .env; fallback về Vietcombank mẫu nếu chưa cấu hình
-const BANK_ID      = import.meta.env.VITE_BANK_ID      || '970436'   // Vietcombank
-const BANK_ACCOUNT = import.meta.env.VITE_BANK_ACCOUNT || '1234567890'
-const BANK_NAME    = import.meta.env.VITE_BANK_NAME    || 'PHONG KHAM MAT'
+// frontend/.env là nguồn chính; giá trị dưới đây chỉ dùng khi thiếu .env (file này bị
+// .gitignore bỏ qua nên máy mới clone repo về sẽ không có). Phải giữ khớp với
+// payment.bank.* trong application.properties, nếu không QR trên web và số tài khoản
+// trong email nhắc thanh toán sẽ trỏ hai nơi khác nhau.
+const BANK_ID      = import.meta.env.VITE_BANK_ID      || '970415'   // VietinBank
+const BANK_ACCOUNT = import.meta.env.VITE_BANK_ACCOUNT || '0000000001'
+const BANK_NAME    = import.meta.env.VITE_BANK_NAME    || 'PHONG KHAM MAT ANH SAO'
 
 // Chu kỳ hỏi backend xem tiền đã về chưa, tính bằng ms
 const POLL_INTERVAL_MS = 3000
@@ -63,11 +77,15 @@ const POLL_INTERVAL_MS = 3000
 // Dài hơn polling mã QR vì đây là tải cả danh sách, không cần realtime tới từng giây.
 const HISTORY_POLL_MS = 5000
 
-// Ngưỡng dừng polling nếu bệnh nhân không chuyển khoản (10 phút).
+// Mốc chờ giữa các lần nạp lại danh sách lịch hẹn khi lần đầu thất bại: đủ vượt khoảng
+// backend khởi động lại, hỏng hẳn thì sau ~4,5 giây là báo lỗi.
+const APPT_RETRY_DELAYS_MS = [1500, 3000]
+
+// Ngưỡng dừng polling nếu bệnh nhân không chuyển khoản — 5 phút theo SRS §2.3 ALT-2.
 // Đây CHỈ là giới hạn phía giao diện để trình duyệt không hỏi backend vô hạn —
 // không phải hạn thanh toán. Bệnh nhân chuyển tiền muộn hơn thì webhook vẫn gạch nợ
 // bình thường, lễ tân mở lại hóa đơn sẽ thấy đã thanh toán.
-const POLL_TIMEOUT_MS = 10 * 60 * 1000
+const POLL_TIMEOUT_MS = 5 * 60 * 1000
 
 // Nội dung chuyển khoản BẮT BUỘC bắt đầu bằng "SEVQR" (SePay + VietinBank mới nhận được
 // biến động số dư) và chứa mã hóa đơn để webhook dò ra tiền vào là của hóa đơn nào.
@@ -110,7 +128,11 @@ const PAYMENT_STATUS_CFG = {
   // Đã sinh mã QR, đang chờ cổng thanh toán báo tiền về (ThangNBHE201024)
   PENDING_PAYMENT: { color: 'blue',   label: 'Chờ chuyển khoản' },
   PAID:            { color: 'green',  label: 'Đã thanh toán' },
-  PAYMENT_FAILED:  { color: 'red',    label: 'Thất bại' },
+  // Đã nhận một phần tiền, lũy kế chưa đủ tổng hóa đơn (UC-23 E2) — lễ tân cần biết
+  // đây là công nợ còn lại, không phải lỗi hệ thống.
+  PARTIALLY_PAID:  { color: 'orange', label: 'Đã trả một phần' },
+  // Dữ liệu cũ trước khi có cộng dồn thanh toán từng phần.
+  PAYMENT_FAILED:  { color: 'red',    label: 'Chuyển thiếu tiền' },
 }
 
 // Tình trạng gửi email hóa đơn — khớp Invoice.emailStatus ở backend
@@ -128,6 +150,10 @@ const fmt = (amount) =>
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+/**
+ * Renders the two-tab billing screen: create invoice and invoice history.
+ * @returns {JSX.Element} the billing screen
+ */
 export default function InvoicePage() {
   const dispatch = useDispatch()
   const location = useLocation()
@@ -178,6 +204,8 @@ export default function InvoicePage() {
   const [detailModal, setDetailModal] = useState({ open: false, invoice: null })
   const [emailSending, setEmailSending] = useState(false)
   const [printLoading, setPrintLoading] = useState(false)
+  // Số khoản còn phải hoàn cho bệnh nhân, do tab Đối soát báo lên để hiện trên nhãn tab
+  const [pendingRefunds, setPendingRefunds] = useState(0)
 
   // ─── Load ────────────────────────────────────────────────────────────────────
 
@@ -263,12 +291,31 @@ export default function InvoicePage() {
 
       if (!isMounted) return
 
-      let appointments = []
+      // Danh sách này chỉ nạp MỘT lần lúc mount (khác danh sách hóa đơn vốn có polling
+      // nên tự hồi phục), nên một cú hỏng thoáng qua — hay gặp nhất là backend đang khởi
+      // động lại — sẽ để tab trống vĩnh viễn kèm toast lỗi treo.
+      const retryAppointments = async () => {
+        for (const delay of APPT_RETRY_DELAYS_MS) {
+          await new Promise((resolve) => setTimeout(resolve, delay))
+          if (!isMounted) return []
+          try {
+            const res = await appointmentService.getAllAppointments()
+            const data = res?.data ?? []
+            setAllAppointments(data)
+            return data
+          } catch { /* còn lượt thì thử tiếp */ }
+        }
+        // Hết lượt vẫn hỏng: lúc này mới báo, và nói rõ cách tự thử lại.
+        if (isMounted) message.error('Không thể tải danh sách lịch hẹn. Bấm "Làm mới" để thử lại.')
+        return []
+      }
+
+      let appointments
       if (appointmentsResult.status === 'fulfilled') {
         appointments = appointmentsResult.value?.data ?? []
         setAllAppointments(appointments)
       } else {
-        message.error('Không thể tải danh sách lịch hẹn')
+        appointments = await retryAppointments()
       }
 
       let careSessions = []
@@ -389,9 +436,15 @@ export default function InvoicePage() {
 
   // Còn hóa đơn nào đang chờ tiền về không? Chỉ những hóa đơn này mới có thể tự đổi
   // trạng thái khi cổng thanh toán báo về, nên chỉ polling khi thực sự có việc để chờ.
+  //
+  // PAYMENT_FAILED (bệnh nhân chuyển thiếu) vẫn phải nằm trong nhóm này: số tiền còn
+  // thiếu là thật, bệnh nhân hoàn toàn có thể chuyển lại đủ và webhook sẽ gạch nợ.
+  // Bỏ nó ra là danh sách ngừng tự cập nhật đúng lúc cần theo dõi nhất.
   const hasPendingPayment = invoices.some(
     (inv) => inv.status !== 'CANCELLED'
-      && (inv.paymentStatus === 'UNPAID' || inv.paymentStatus === 'PENDING_PAYMENT')
+      && (inv.paymentStatus === 'UNPAID'
+        || inv.paymentStatus === 'PENDING_PAYMENT'
+        || inv.paymentStatus === 'PAYMENT_FAILED')
   )
 
   // Tự cập nhật tab "Hóa đơn chờ thanh toán": khi đang mở tab này và còn hóa đơn chưa
@@ -497,6 +550,23 @@ export default function InvoicePage() {
 
   // Kiểm tra hợp lệ dùng chung cho cả hai luồng tiền mặt và QR.
   // Trả về values của form nếu hợp lệ, null nếu có lỗi (đã hiện cảnh báo).
+  /**
+   * Validates the create-invoice form before any request is sent
+   * (UC-23 normal flow step 4).
+   *
+   * Checks, in order:
+   *  - the Ant Design form rules (payment method, etc.)
+   *  - at least one charge line exists — an empty invoice is meaningless
+   *  - every line has a description, so the printed invoice is readable
+   *  - no two lines share a description, which would make the invoice
+   *    ambiguous and is rejected by the backend as a duplicate row
+   *  - every unit price is greater than 0
+   *  - BR-11 / BR-15 — the discount sits within [0, subtotal], so the total
+   *    can never go negative or exceed the charges actually incurred; the
+   *    backend clamps this too, this check is only for immediate feedback
+   *
+   * @returns {Promise<Object|null>} the form values, or null when invalid
+   */
   const validateInvoiceForm = async () => {
     let values
     try { values = await form.validateFields() } catch { return null }
@@ -506,6 +576,8 @@ export default function InvoicePage() {
       message.warning('Vui lòng nhập mô tả cho tất cả các khoản phí')
       return null
     }
+    // Duplicate descriptions make the invoice ambiguous to read and are
+    // rejected server-side, so catch them before the round trip.
     const descs = items.map((it) => it.description.trim().toLowerCase())
     if (descs.length !== new Set(descs).size) {
       message.warning('Có khoản phí bị trùng nhau, vui lòng kiểm tra lại')
@@ -515,6 +587,7 @@ export default function InvoicePage() {
       message.warning('Đơn giá phải lớn hơn 0 cho tất cả các khoản phí')
       return null
     }
+    // BR-11 / BR-15: keep the discount inside [0, subtotal].
     if ((discount || 0) < 0 || (discount || 0) > totalAmount) {
       message.warning('Số tiền giảm giá phải từ 0 đến tổng tạm tính')
       return null
@@ -522,6 +595,15 @@ export default function InvoicePage() {
     return values
   }
 
+  /**
+   * Shapes the validated form state into the create-invoice request body.
+   *
+   * Note it sends no total: BR-11 requires the server to derive it from the
+   * lines, so a tampered client cannot dictate the amount owed.
+   *
+   * @param {Object} values validated form values
+   * @returns {Object} the request payload
+   */
   const buildInvoicePayload = (values) => ({
     appointmentId: createModal.sourceType === 'appointment' ? createModal.appointment.id : null,
     subscriptionId: createModal.sourceType === 'subscription' ? createModal.appointment.id : null,
@@ -538,26 +620,49 @@ export default function InvoicePage() {
     })),
   })
 
-  // UC-22/UC-23 (BP-4): thu tiền xong thì gửi hóa đơn điện tử vào email bệnh nhân.
-  // Lỗi gửi email (bệnh nhân chưa có email, SMTP timeout...) chỉ cảnh báo,
-  // không làm hỏng luồng thu phí đã hoàn tất.
-  const sendInvoiceEmailQuietly = async (invoiceId) => {
+  /**
+   * Triggers the billing email for an invoice (UC-24).
+   *
+   * The backend picks which of the two emails to send from the invoice's
+   * payment state — a payment reminder while unsettled, or the receipt with the
+   * PDF attached once paid. This only decides the wording of the toast.
+   *
+   * Deliberately quiet: a mail failure (no address on file, SMTP timeout) only
+   * warns. Whatever billing step just happened must not be invalidated by a
+   * delivery problem — UC-24 E1 leaves a manual resend.
+   *
+   * @param {number} invoiceId invoice to send
+   * @param {boolean} paid true when the invoice is settled, so the patient
+   *   receives the invoice PDF rather than a payment request
+   */
+  const sendInvoiceEmailQuietly = async (invoiceId, paid) => {
     try {
       await invoiceService.sendEmail(invoiceId)
-      message.success('Đã gửi hóa đơn vào email bệnh nhân')
+      message.success(paid
+        ? 'Đã gửi hóa đơn (kèm PDF) vào email bệnh nhân'
+        : 'Đã gửi thông báo thanh toán vào email bệnh nhân')
     } catch (err) {
       const isTimeout = err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')
       const serverMsg = err?.response?.data?.message
+      const what = paid ? 'hóa đơn' : 'thông báo thanh toán'
       message.warning(
         serverMsg
-          || (isTimeout ? 'Hóa đơn đã phát hành nhưng gửi email bị quá thời gian chờ' : 'Hóa đơn đã phát hành nhưng chưa gửi được email cho bệnh nhân')
+          || (isTimeout
+                ? `Quá thời gian chờ khi gửi ${what} — có thể gửi lại ở tab Lịch sử`
+                : `Chưa gửi được ${what} cho bệnh nhân — có thể gửi lại ở tab Lịch sử`)
       )
     }
   }
 
-  // Luồng TIỀN MẶT: tạo hóa đơn ở trạng thái "Chờ nhận tiền" (chưa phát hành), KHÔNG đánh dấu
-  // đã thanh toán ngay. Bệnh nhân xem được và có thể yêu cầu hủy trước khi trả tiền. Lễ tân
-  // bấm "Đã nhận tiền" (bảng lịch sử) để chốt khi thực nhận đủ tiền mặt.
+  /**
+   * Cash flow (UC-23 ALT-1): creates the invoice as "awaiting cash", i.e. a
+   * DRAFT that is not yet issued.
+   *
+   * Validate: BR-10 — creation alone does not mark the invoice paid. The
+   * patient can see it and request cancellation before handing over money;
+   * the Receptionist confirms with "cash received" in the history tab only
+   * once the full amount is actually in hand.
+   */
   const handleSubmit = async () => {
     const values = await validateInvoiceForm()
     if (!values) return
@@ -569,18 +674,10 @@ export default function InvoicePage() {
       const created = await dispatch(createInvoice(buildInvoicePayload(values))).unwrap()
       message.success(`Đã tạo hóa đơn ${created.invoiceCode} (chờ nhận tiền).`)
 
-      // UC-22/UC-23 (BP-4): tạo & phát hành xong thì gửi hóa đơn điện tử vào email
-      // bệnh nhân. Việc gửi chạy nền; tình trạng gửi hiển thị ở cột "Gửi email".
-      // Lỗi (bệnh nhân chưa có email) chỉ cảnh báo, không làm hỏng luồng thu phí.
-      try {
-        await invoiceService.sendEmail(created.id)
-        message.success('Đang gửi hóa đơn vào email bệnh nhân…')
-      } catch (err) {
-        const serverMsg = err?.response?.data?.message
-        message.warning(
-          serverMsg || 'Hóa đơn đã phát hành nhưng chưa gửi được email cho bệnh nhân'
-        )
-      }
+      // UC-23 step 3: the invoice is still awaiting cash, so what goes out is a
+      // payment reminder (no PDF) — the receipt is sent later from
+      // handleConfirmCash once the money is in hand.
+      await sendInvoiceEmailQuietly(created.id, false)
 
       handleCloseCreate()
       dispatch(fetchAllInvoices())
@@ -593,10 +690,16 @@ export default function InvoicePage() {
     }
   }
 
-  // Luồng QR (ThangNBHE201024): KHÔNG phát hành ngay.
-  // Chỉ tạo hóa đơn nháp để có mã hóa đơn, rồi sinh mã QR mang đúng mã đó làm nội dung
-  // chuyển khoản. Hóa đơn chỉ chuyển sang PAID khi cổng thanh toán bắn webhook báo
-  // tiền đã thực sự vào tài khoản phòng khám — lễ tân không tự xác nhận thay ngân hàng.
+  /**
+   * VietQR flow (UC-23 ALT-2): deliberately does NOT issue the invoice.
+   *
+   * It creates the draft purely to obtain an invoice code, then renders a QR
+   * whose transfer memo is that code.
+   *
+   * Validate: BR-10 — the invoice only reaches PAID when the gateway webhook
+   * confirms the funds actually landed. The Receptionist cannot confirm on the
+   * bank's behalf, which is why no issue call happens here.
+   */
   const handleCreateQrInvoice = async () => {
     const values = await validateInvoiceForm()
     if (!values) return
@@ -609,9 +712,10 @@ export default function InvoicePage() {
       setQrLoading(true)
       dispatch(fetchAllInvoices())
       message.success(`Đã tạo hóa đơn ${created.invoiceCode}. Mời bệnh nhân quét mã QR.`)
-      // Tự gửi email kèm mã QR + thông tin chuyển khoản cho bệnh nhân (nếu có email).
-      // Lỗi SMTP chỉ cảnh báo, không làm hỏng luồng tạo hóa đơn.
-      await sendInvoiceEmailQuietly(created.id)
+      // UC-23 step 3: send the payment reminder carrying the bank details and
+      // the transfer memo (= invoice code). No PDF yet — under BR-10 nothing is
+      // settled until the gateway webhook confirms.
+      await sendInvoiceEmailQuietly(created.id, false)
     } catch (err) {
       message.error(typeof err === 'string' ? err : 'Không thể tạo hóa đơn, vui lòng thử lại')
     } finally {
@@ -623,7 +727,8 @@ export default function InvoicePage() {
   // lẫn nút "Kiểm tra lại" thủ công.
   const onPaymentConfirmed = async (invoice) => {
     message.success(`Đã nhận thanh toán cho hóa đơn ${invoice.invoiceCode}`)
-    await sendInvoiceEmailQuietly(invoice.id)
+    // Now settled → the receipt email with the invoice PDF attached (UC-24 POST-1)
+    await sendInvoiceEmailQuietly(invoice.id, true)
     handleCloseCreate()
     dispatch(fetchAllInvoices())
     void refreshAppointments()
@@ -659,7 +764,12 @@ export default function InvoicePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingInvoice, pollTimedOut, dispatch, refreshAppointments])
 
-  // Kiểm tra thủ công sau khi đã hết giờ chờ tự động
+  /**
+   * Manual "check now" after the automatic polling window has timed out.
+   *
+   * Validate: BR-10 — this still only reads the gateway-confirmed state; it is
+   * not a way for the Receptionist to force the invoice paid.
+   */
   const handleCheckPaymentNow = async () => {
     if (!pendingInvoice) return
     setCheckingNow(true)
@@ -679,6 +789,13 @@ export default function InvoicePage() {
 
   // ─── Cancel invoice ───────────────────────────────────────────────────────────
 
+  /**
+   * Cancels a draft invoice.
+   * @param {number} id invoice id
+   *
+   * Validate: BR-09 — a soft cancel; the backend keeps the row so its charge
+   * lines can be restored if the invoice is re-created for the same visit.
+   */
   const handleCancelInvoice = async (id) => {
     try {
       await dispatch(cancelInvoice(id)).unwrap()
@@ -690,22 +807,41 @@ export default function InvoicePage() {
     }
   }
 
-  // Lễ tân xác nhận đã nhận đủ tiền mặt → phát hành hóa đơn (Chờ nhận tiền → Đã thanh toán)
+  /**
+   * Confirms the full cash amount was received, issuing the invoice
+   * (awaiting cash → ISSUED / PAID) — UC-23 ALT-1 step 2.
+   *
+   * @param {number} id invoice id
+   *
+   * Validate: BR-10 — this is the cash counterpart of the gateway webhook; the
+   * Receptionist is accountable for the money, which is what makes a manual
+   * confirmation acceptable here but not for VietQR.
+   */
   const handleConfirmCash = async (id) => {
     try {
       await dispatch(issueInvoice({ id, paymentMethod: 'CASH', paymentReference: null })).unwrap()
       message.success('Đã nhận tiền mặt — xác nhận thanh toán thành công')
       dispatch(fetchAllInvoices())
       void refreshAppointments()
-      await sendInvoiceEmailQuietly(id)   // gửi biên nhận cho bệnh nhân
+      // Cash is now in hand → receipt email with the invoice PDF (UC-24 POST-1)
+      await sendInvoiceEmailQuietly(id, true)
     } catch (err) {
       message.error(typeof err === 'string' ? err : 'Không thể xác nhận')
     }
   }
 
-  // ─── In hóa đơn PDF (ThangNBHE201024) ───────────────────────────────────────
-  // Gọi API GET /{id}/pdf để lấy file PDF từ backend, tạo Blob URL rồi mở tab mới.
-  // Trình duyệt tự hiển thị PDF viewer và cho phép người dùng in hoặc tải về.
+  // ─── Print the invoice PDF (UC-24 ALT-1) ────────────────────────────────────
+
+  /**
+   * Fetches the invoice PDF and opens it in a new tab, letting the browser's
+   * viewer handle printing or saving.
+   *
+   * The error branch unwraps a Blob error body, because the endpoint responds
+   * with a PDF stream on success and JSON on failure — without this the user
+   * would only ever see a generic message.
+   *
+   * @param {Object} inv the invoice to print
+   */
   const handlePrint = async (inv) => {
     setPrintLoading(true)
     try {
@@ -738,9 +874,18 @@ export default function InvoicePage() {
     }
   }
 
-  // ─── Gửi hóa đơn điện tử qua email (ThangNBHE201024) ────────────────────────
-  // Gọi API POST /{id}/send-email, backend dùng JavaMailSender gửi HTML email đến bệnh nhân.
-  // Kiểm tra patientEmail trước khi gọi — nếu không có email thì hiện cảnh báo.
+  // ─── Send the e-invoice by email (UC-24) ────────────────────────────────────
+
+  /**
+   * Emails the HTML e-invoice to the patient, on request or as a resend after
+   * a failed automatic send (UC-24 E1).
+   *
+   * @param {Object} inv the invoice to send
+   *
+   * Validate: patientEmail is checked before the call so the Receptionist gets
+   * an immediate, specific warning instead of a generic server error; the
+   * backend re-checks and rejects a send with no recipient.
+   */
   const handleSendEmail = async (inv) => {
     if (!inv.patientEmail) {
       message.warning('Bệnh nhân chưa có địa chỉ email trong hồ sơ')
@@ -751,7 +896,11 @@ export default function InvoicePage() {
       // Backend nhận yêu cầu và trả về ngay; email được gửi nền, tình trạng
       // gửi (Đang gửi → Đã gửi / Gửi lỗi) cập nhật trong bảng sau vài giây.
       await invoiceService.sendEmail(inv.id)
-      message.success(`Đang gửi hóa đơn đến ${inv.patientEmail}…`)
+      // Which of the two emails goes out is decided server-side from the
+      // payment state; mirror that here so the toast tells the truth.
+      message.success(inv.paymentStatus === 'PAID'
+        ? `Đang gửi hóa đơn (kèm PDF) đến ${inv.patientEmail}…`
+        : `Đang gửi thông báo thanh toán đến ${inv.patientEmail}…`)
       dispatch(fetchAllInvoices())
       // Làm mới lại sau ít giây để cập nhật kết quả gửi cuối cùng (SENT/FAILED)
       setTimeout(() => dispatch(fetchAllInvoices()), 4000)
@@ -875,7 +1024,11 @@ export default function InvoicePage() {
             }}>
             Chi tiết
           </Button>
-          {record.status === 'DRAFT' && record.paymentMethod === 'CASH' && record.paymentStatus === 'UNPAID' && (
+          {/* PAYMENT_FAILED cũng cho xác nhận tiền mặt: bệnh nhân chuyển thiếu rồi
+              bỏ luôn, quay lại trả tiền mặt là tình huống thật. Backend chỉ chặn
+              phát hành bằng VIET_QR, còn CASH thì có lễ tân cầm tiền chịu trách nhiệm. */}
+          {record.status === 'DRAFT'
+            && (record.paymentStatus === 'UNPAID' || record.paymentStatus === 'PAYMENT_FAILED') && (
             <Popconfirm title="Xác nhận đã nhận đủ tiền mặt?"
               onConfirm={() => handleConfirmCash(record.id)} okText="Xác nhận" cancelText="Không">
               <Button size="small" type="primary"
@@ -885,7 +1038,10 @@ export default function InvoicePage() {
             </Popconfirm>
           )}
           {record.status === 'ISSUED' && (
-            <Tooltip title={record.emailStatus === 'SENT' ? 'Gửi lại email hóa đơn' : 'Gửi email hóa đơn'}>
+            <Tooltip title={`${record.emailStatus === 'SENT' ? 'Gửi lại' : 'Gửi'} ${
+              record.paymentStatus === 'PAID'
+                ? 'email hóa đơn (kèm PDF)'
+                : 'email thông báo thanh toán'}`}>
               <Button size="small" icon={<MailOutlined />} loading={emailSending}
                 onClick={() => handleSendEmail(record)}>
                 {record.emailStatus === 'FAILED' ? 'Gửi lại' : 'Gửi'}
@@ -907,34 +1063,32 @@ export default function InvoicePage() {
 
   return (
     <div style={{ padding: 24 }}>
-      <Title level={4} style={{ marginBottom: 4 }}>Thu phí & Hóa đơn</Title>
-      <Text type="secondary" style={{ display: 'block', marginBottom: 20 }}>
+      <Title level={4} style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Thu phí & Hóa đơn</Title>
+      <Text style={{ display: 'block', marginTop: 4, marginBottom: 20, fontSize: 13, color: '#64748b' }}>
         Quản lý thu phí khám bệnh và phát hành hóa đơn điện tử
       </Text>
 
       {/* Stats */}
       <Row gutter={12} style={{ marginBottom: 20 }}>
+        {/* Cả 4 thẻ đi qua cùng một nhánh render để không lệch cỡ chữ; `formatter` là
+            chỗ duy nhất khác nhau (thẻ tiền cần định dạng tiền tệ). */}
         {[
           { label: 'Chờ thu phí', value: completedUnbilled.length, color: '#f59e0b' },
           { label: 'HĐ đã phát hành', value: invoices.filter((i) => i.status === 'ISSUED').length, color: '#10b981' },
           { label: 'Tổng hóa đơn', value: invoices.length, color: '#6366f1' },
-        ].map(({ label, value, color }) => (
+          { label: 'Doanh thu tích lũy', value: totalRevenue, color: '#3b82f6', formatter: fmt },
+        ].map(({ label, value, color, formatter }) => (
           <Col key={label} span={6}>
             <Card size="small" style={{ textAlign: 'center', borderTop: `3px solid ${color}` }}>
               <Statistic
                 title={<span style={{ fontSize: 11 }}>{label}</span>}
                 value={value}
+                formatter={formatter}
                 styles={{ value: { fontSize: 20, color } }}
               />
             </Card>
           </Col>
         ))}
-        <Col span={6}>
-          <Card size="small" style={{ textAlign: 'center', borderTop: '3px solid #3b82f6' }}>
-            <div style={{ fontSize: 11, color: '#64748b', marginBottom: 4 }}>Doanh thu tích lũy</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#3b82f6' }}>{fmt(totalRevenue)}</div>
-          </Card>
-        </Col>
       </Row>
 
       <Tabs
@@ -1041,6 +1195,18 @@ export default function InvoicePage() {
                   locale={{ emptyText: 'Chưa có hóa đơn đã thanh toán' }}
                   scroll={{ x: 1200 }}
                 />
+              </Card>
+            ),
+          },
+          {
+            key: 'reconciliation',
+            // Chỉ hiện số khi còn khoản phải hoàn — "(0)" như các tab kia sẽ khiến việc
+            // "không nợ ai đồng nào" trông y hệt "chưa tải xong".
+            label: `Đối soát & hoàn tiền${pendingRefunds > 0 ? `  (${pendingRefunds})` : ''}`,
+            children: (
+              <Card>
+                {/* Trang độc lập /receptionist/reconciliation vẫn dùng được như cũ. */}
+                <ReconciliationPage embedded onPendingCountChange={setPendingRefunds} />
               </Card>
             ),
           },
@@ -1406,7 +1572,7 @@ export default function InvoicePage() {
                       Quét mã để thanh toán
                     </Text>
                     <div style={{ fontSize: 13, color: '#374151', lineHeight: 2 }}>
-                      <div><Text type="secondary">Ngân hàng:</Text> <Text strong>{BANK_NAME}</Text></div>
+                      <div><Text type="secondary">Chủ tài khoản:</Text> <Text strong>{BANK_NAME}</Text></div>
                       <div><Text type="secondary">STK:</Text> <Text strong>{BANK_ACCOUNT}</Text></div>
                       <div><Text type="secondary">Số tiền:</Text> <Text strong style={{ color: '#10b981' }}>{fmt(pendingInvoice.totalAmount ?? grandTotal)}</Text></div>
                       <div>
@@ -1647,7 +1813,7 @@ export default function InvoicePage() {
                     Quét mã để thanh toán
                   </Text>
                   <div style={{ fontSize: 13, color: '#374151', lineHeight: 2 }}>
-                    <div><Text type="secondary">Ngân hàng:</Text> <Text strong>{BANK_NAME}</Text></div>
+                    <div><Text type="secondary">Chủ tài khoản:</Text> <Text strong>{BANK_NAME}</Text></div>
                     <div><Text type="secondary">STK:</Text> <Text strong copyable>{BANK_ACCOUNT}</Text></div>
                     <div><Text type="secondary">Số tiền:</Text> <Text strong style={{ color: '#10b981' }}>{fmt(detailModal.invoice.totalAmount)}</Text></div>
                     <div>

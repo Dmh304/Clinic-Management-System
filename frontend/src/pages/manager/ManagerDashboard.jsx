@@ -1,7 +1,21 @@
-// UC-49: Dashboard vận hành thời gian thực cho Quản lý (auto-refresh 60s).
+/**
+ * @author      ThangNB - HE201024
+ * @contributor Đồng Mạnh Hùng - HE200743
+ * @created     2026-07-19
+ * @updated     2026-07-20
+ *
+ * Real-time operational dashboard for the Clinic Manager
+ * (UC-49 View Real-time Operational Analytics Dashboard).
+ *
+ * Shows today's appointment progress, per-doctor queue lengths, prescriptions
+ * awaiting dispensing, outstanding invoices and lab orders in progress, and
+ * auto-refreshes every 60 seconds per UC-49 normal flow step 3.
+ *
+ * Read-only screen — no business rule is applied here.
+ */
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { FiSearch, FiBell, FiChevronDown, FiMoreHorizontal, FiRefreshCw, FiCalendar, FiCheckCircle, FiDollarSign } from 'react-icons/fi'
+import { FiMoreHorizontal, FiRefreshCw, FiCalendar, FiCheckCircle, FiDollarSign } from 'react-icons/fi'
 import { FaPills, FaFlask } from 'react-icons/fa'
 import { reportService } from '../../services/reportService'
 
@@ -29,6 +43,7 @@ const STAT_ICONS = {
   lab: { bg: '#e0e7ff', Icon: FaFlask },
 }
 
+/** One headline metric tile of the dashboard. */
 function StatCard({ type, label, value, sub }) {
   const cfg = STAT_ICONS[type]
   const Icon = cfg.Icon
@@ -49,11 +64,16 @@ function StatCard({ type, label, value, sub }) {
   )
 }
 
+/**
+ * Renders the operational dashboard and keeps it current.
+ * @returns {JSX.Element} the dashboard screen
+ */
 export default function ManagerDashboard() {
   const [data, setData] = useState(null)
   const [updatedAt, setUpdatedAt] = useState(null)
   const [error, setError] = useState('')
 
+  /** Fetches the current dashboard snapshot; also the 60s refresh callback. */
   const load = async () => {
     try {
       const res = await reportService.operationalDashboard()
@@ -75,25 +95,14 @@ export default function ManagerDashboard() {
   const pending = data?.pendingPrescriptionList || []
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f5f6ff' }}>
-      {/* Top bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 28px', background: '#fff', borderBottom: '1px solid #eef0f6' }}>
-        <div style={{ flex: 1, maxWidth: 420, display: 'flex', alignItems: 'center', gap: 8, background: '#f1f5f9', borderRadius: 999, padding: '9px 16px' }}>
-          <FiSearch color="#94a3b8" />
-          <input placeholder="Tìm bệnh nhân, bác sĩ…" style={{ border: 'none', background: 'transparent', outline: 'none', flex: 1, fontSize: 14 }} />
-        </div>
-        <div style={{ flex: 1 }} />
-        <div style={{ width: 40, height: 40, borderRadius: '50%', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FiBell color="#475569" /></div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#1e293b', color: '#fff', borderRadius: 999, padding: '9px 18px', fontWeight: 600, fontSize: 14 }}>Hôm nay <FiChevronDown /></div>
-      </div>
-
-      <div style={{ padding: '24px 28px' }}>
+    <div>
+      <div style={{ padding: 24 }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
           <div>
             <div style={{ color: '#4f46e5', fontSize: 12, letterSpacing: 2, fontWeight: 600 }}>PHÒNG ĐIỀU HÀNH · TRỰC TIẾP</div>
-            <div style={{ fontSize: 34, fontWeight: 800, fontFamily: 'Georgia, serif', color: '#0f172a', marginTop: 6 }}>Tổng quan vận hành</div>
-            <div style={{ color: '#64748b', marginTop: 4 }}>Nhịp hoạt động tại phòng khám trong hôm nay.</div>
+            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Tổng quan vận hành</h1>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Nhịp hoạt động tại phòng khám trong hôm nay.</p>
           </div>
           <button onClick={load} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 999, padding: '8px 16px', cursor: 'pointer', color: '#475569' }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />

@@ -20,7 +20,7 @@ import {
   Tag,
   message,
 } from 'antd'
-import { UserAddOutlined, CheckCircleOutlined, SearchOutlined } from '@ant-design/icons'
+import { FiUserPlus as UserAddOutlined, FiCheckCircle as CheckCircleOutlined, FiSearch as SearchOutlined } from 'react-icons/fi'
 import dayjs from 'dayjs'
 import { patientService } from '../../services/patientService'
 
@@ -185,10 +185,10 @@ export default function WalkInRegistrationPage() {
       <Space align="center" style={{ marginBottom: 24 }}>
         <UserAddOutlined style={{ fontSize: 24, color: '#1677ff' }} />
         <div>
-          <Title level={4} style={{ margin: 0 }}>
+          <Title level={4} style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>
             Tạo tài khoản bệnh nhân
           </Title>
-          <Text type="secondary">Tạo hồ sơ cho bệnh nhân chưa có tài khoản</Text>
+          <Text style={{ display: 'block', marginTop: 4, fontSize: 13, color: '#64748b' }}>Tạo hồ sơ cho bệnh nhân chưa có tài khoản</Text>
         </div>
       </Space>
 

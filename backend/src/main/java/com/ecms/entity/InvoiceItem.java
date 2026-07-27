@@ -1,12 +1,3 @@
-//Author: DucTKH - HE204463
-//Created: 2026-06-01
-//Last Update: 2026-07-02
-// Entity đại diện cho bảng invoice_details trong cơ sở dữ liệu.
-// Dùng để lưu trữ chi tiết từng mục trong hóa đơn (thuốc, dịch vụ, v.v.).
-// ThangNBHE201024
-// Entity ánh xạ bảng "invoice_details" — lưu từng dòng chi tiết của hóa đơn.
-// Mỗi InvoiceItem tương ứng một khoản phí: dịch vụ khám, xét nghiệm, thuốc hoặc kính.
-// @PrePersist đảm bảo quantity, unitPrice, subtotal không bao giờ NULL khi INSERT.
 package com.ecms.entity;
 
 import jakarta.persistence.*;
@@ -16,6 +7,19 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 
+/**
+ * @author      ThangNB - HE201024
+ * @contributor Thái Khắc Hữu Đức - HE204463, Đồng Mạnh Hùng - HE200743
+ * @created     2026-07-11
+ * @updated     2026-07-11
+ *
+ * Maps the {@code invoice_details} table — one row per charge line of an
+ * invoice: consultation service, lab test, medicine or eyeglasses (UC-23).
+ *
+ * Each line stores its own unit price rather than joining back to the
+ * catalogue, so a later price change never alters an already-issued invoice
+ * (UC-58 assumption: "price changes do not retroactively affect PAID invoices").
+ */
 @Entity
 @Table(name = "invoice_details")
 @Getter
@@ -64,7 +68,14 @@ public class InvoiceItem {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
-    // Gán giá trị mặc định trước khi INSERT để tránh lỗi NOT NULL từ DB
+    /**
+     * Fills defaults before INSERT so the NOT NULL constraints on
+     * quantity / unit_price / sub_total can never be violated by a caller
+     * that omitted an optional field.
+     *
+     * Validate: BR-11 — a missing amount must default to 0 (never NULL),
+     * otherwise the invoice total would evaluate to NULL instead of a number.
+     */
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

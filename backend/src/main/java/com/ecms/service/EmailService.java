@@ -37,6 +37,21 @@ public interface EmailService {
             LocalDateTime appointmentTime);
 
     /**
+     * UC-48 (normal flow bước 1): Mời bệnh nhân đánh giá sau khi buổi khám hoàn tất.
+     *
+     * Đây là email giao dịch, KHÔNG phải email quảng cáo — không lọc theo
+     * users.marketing_opt_out.
+     *
+     * @param toEmail         email bệnh nhân
+     * @param patientName     tên bệnh nhân
+     * @param doctorName      tên bác sĩ phụ trách (có thể null)
+     * @param appointmentTime thời gian buổi khám đã hoàn thành
+     * @param feedbackLink    đường dẫn tới trang đánh giá trên Portal
+     */
+    void sendFeedbackRequest(String toEmail, String patientName, String doctorName,
+            LocalDateTime appointmentTime, String feedbackLink);
+
+    /**
      * UC-12 (POST-2): Gửi email xác nhận đã tiếp nhận yêu cầu đặt lịch online.
      * Lịch đang ở trạng thái PENDING, chờ lễ tân duyệt.
      *

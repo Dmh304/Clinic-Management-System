@@ -1,4 +1,14 @@
-// UC-51: Thống kê bệnh nhân — lượt khám, mới/cũ, trạng thái lịch, theo bác sĩ, top chẩn đoán.
+/**
+ * @author  ThangNB - HE201024
+ * @created 2026-07-19
+ * @updated 2026-07-20
+ *
+ * Patient statistics for the Clinic Manager (UC-51 View Patient Statistics):
+ * total visits, new vs returning patients, appointment status distribution,
+ * appointments per doctor and the top diagnoses.
+ *
+ * Read-only screen — no business rule is applied here.
+ */
 import { useEffect, useState } from 'react'
 import { FiRefreshCw, FiDownload, FiCalendar, FiUsers, FiUserPlus, FiTrendingUp, FiTrendingDown, FiMinus, FiMoreHorizontal, FiActivity } from 'react-icons/fi'
 import { FaNotesMedical, FaHistory } from 'react-icons/fa'
@@ -46,6 +56,10 @@ function Metric({ label, value, color, Icon, iconBg, delta }) {
 function firstOfMonth() { const d = new Date(); return iso(new Date(d.getFullYear(), d.getMonth(), 1)) }
 function todayStr() { return iso(new Date()) }
 
+/**
+ * Renders the patient statistics screen and its export action.
+ * @returns {JSX.Element} the statistics screen
+ */
 export default function PatientStatisticsPage() {
   const [from, setFrom] = useState(firstOfMonth())
   const [to, setTo] = useState(todayStr())
@@ -54,6 +68,7 @@ export default function PatientStatisticsPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  /** Loads the statistics for the selected period (UC-51 step 3). */
   const load = async () => {
     setLoading(true); setError('')
     try {
@@ -91,12 +106,12 @@ export default function PatientStatisticsPage() {
   )
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f8f9ff', color: C.ink }}>
+    <div style={{ color: C.ink }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16, padding: '20px 32px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16, padding: '20px 24px' }}>
         <div>
-          <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em' }}>Thống kê bệnh nhân</div>
-          <div style={{ color: C.muted, fontSize: 14 }}>Phân tích dữ liệu bệnh nhân thực tế theo thời gian</div>
+          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Thống kê bệnh nhân</h1>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Phân tích dữ liệu bệnh nhân thực tế theo thời gian</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#eff4ff', border: `1px solid ${C.border}`, borderRadius: 12, padding: '8px 16px' }}>
@@ -107,14 +122,14 @@ export default function PatientStatisticsPage() {
           <button onClick={load} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: 8, background: C.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '10px 20px', fontWeight: 600, cursor: 'pointer' }}>
             <FiRefreshCw size={16} /> {loading ? 'Đang tải…' : 'Tải lại'}
           </button>
-          <button onClick={async () => { const blob = await reportService.exportPatientStatistics(from, to); downloadBlob(blob, 'thong-ke-benh-nhan.csv') }}
+          <button onClick={async () => { const blob = await reportService.exportPatientStatistics(from, to); downloadBlob(blob, 'thong-ke-benh-nhan.xlsx') }}
             style={{ display: 'flex', alignItems: 'center', gap: 8, background: C.success, color: '#fff', border: 'none', borderRadius: 12, padding: '10px 20px', fontWeight: 600, cursor: 'pointer' }}>
             <FiDownload size={16} /> Xuất Excel
           </button>
         </div>
       </div>
 
-      <div style={{ padding: '0 32px 32px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div style={{ padding: '0 24px 24px', display: 'flex', flexDirection: 'column', gap: 24 }}>
         {error && <div style={{ color: C.error }}>{error}</div>}
 
         {data && (

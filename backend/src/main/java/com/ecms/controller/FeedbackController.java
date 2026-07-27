@@ -20,8 +20,20 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * UC-48: Bệnh nhân gửi và xem đánh giá của mình.
+ * @author  ThangNB - HE201024
+ * @created 2026-07-19
+ * @updated 2026-07-20
+ *
+ * Patient feedback API (UC-48 Submit Feedback).
  * Base URL: /api/v1/feedbacks
+ *
+ *   POST /                                          submit feedback for a visit
+ *   GET  /appointment/{id}/participants             who took part, for the form
+ *   GET  /my                                        the patient's own feedback
+ *
+ * Validate: every endpoint resolves the patient from the JWT principal via
+ * {@link #resolvePatientId}, never from the request, so one patient cannot act
+ * on another's visits. BR-21 is enforced in the service.
  */
 @RestController
 @RequestMapping("/api/v1/feedbacks")
@@ -32,7 +44,18 @@ public class FeedbackController {
     private final UserRepository userRepository;
     private final PatientRepository patientRepository;
 
-    // Gửi đánh giá cho một lịch hẹn đã hoàn thành của chính bệnh nhân
+    /**
+     * Submits feedback for one of the patient's own completed visits
+     * (UC-48 normal flow steps 2-5).
+     *
+     * @param userDetails authenticated principal
+     * @param request     rating, optional comment, per-participant scores
+     * @return the stored feedback (status PENDING)
+     *
+     * Validate: {@code @Valid} applies the mandatory 1..5 rating (UC-48 E1);
+     * the service then checks UC-48 PRE-2 (visit COMPLETED) and BR-21
+     * (no existing feedback for that appointment).
+     */
     @PostMapping
     public ResponseEntity<ApiResponse<FeedbackResponse>> submit(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -42,7 +65,16 @@ public class FeedbackController {
                 feedbackService.submitFeedback(patientId, request)));
     }
 
-    // Thông tin buổi khám + người tham gia (bác sĩ, lễ tân, KTV) để hiển thị khi đánh giá
+    /**
+     * Returns the visit summary and the staff who took part, so the feedback
+     * form can offer a rating per person.
+     *
+     * @param userDetails   authenticated principal
+     * @param appointmentId the visit being rated
+     * @return visit details plus participant list
+     *
+     * Validate: the service checks the appointment belongs to this patient.
+     */
     @GetMapping("/appointment/{appointmentId}/participants")
     public ResponseEntity<ApiResponse<Map<String, Object>>> participants(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -52,7 +84,12 @@ public class FeedbackController {
                 feedbackService.getVisitParticipants(patientId, appointmentId)));
     }
 
-    // Danh sách đánh giá đã gửi của bệnh nhân đang đăng nhập
+    /**
+     * Lists the signed-in patient's own submitted feedback.
+     *
+     * @param userDetails authenticated principal
+     * @return that patient's feedback only
+     */
     @GetMapping("/my")
     public ResponseEntity<ApiResponse<List<FeedbackResponse>>> myFeedbacks(
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -60,6 +97,17 @@ public class FeedbackController {
         return ResponseEntity.ok(ApiResponse.success(feedbackService.getMyFeedbacks(patientId)));
     }
 
+    /**
+     * Resolves the authenticated principal to their patient profile id.
+     *
+     * @param userDetails principal injected by Spring Security
+     * @return the caller's own patient id
+     * @throws ResourceNotFoundException if the account has no patient profile
+     *
+     * Validate: this is the single choke point that ties every feedback action
+     * to the caller's own identity, so no patient id can ever be supplied by
+     * the client.
+     */
     private Long resolvePatientId(UserDetails userDetails) {
         User user = userRepository.findByEmail(userDetails.getUsername())
                 .orElseThrow(() -> new ResourceNotFoundException("Người dùng không tồn tại"));

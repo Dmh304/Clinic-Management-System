@@ -158,11 +158,11 @@ export default function ManageDoctorsPage() {
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#6b7280' }}>Đang tải...</div>
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f8fafc', padding: '32px 16px' }}>
+    <div style={{ padding: 24 }}>
       <div style={{ maxWidth: 1180, margin: '0 auto' }}>
         <div style={{ marginBottom: 24 }}>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#1e293b', margin: 0 }}>Quản lý bác sĩ</h1>
-          <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: 14 }}>
+          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Quản lý bác sĩ</h1>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
             Cập nhật hồ sơ bác sĩ và chọn bác sĩ hiển thị ở khối "Bác sĩ - Chuyên gia" trên trang chủ
           </p>
         </div>

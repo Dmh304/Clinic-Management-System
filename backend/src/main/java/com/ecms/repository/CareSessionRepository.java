@@ -48,6 +48,31 @@ public interface CareSessionRepository extends JpaRepository<CareSession, Long> 
     long countByNurseOnDateExcluding(@Param("nurseId") Long nurseId, @Param("excludeId") Long excludeId,
             @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
+    /** UC-54: số buổi chăm sóc một điều dưỡng đã thực hiện xong trong kỳ lương — đầu vào
+     *  tính thưởng hiệu suất cho điều dưỡng, tương ứng với "ca đã hoàn thành" của bác sĩ.
+     *  Tính cả CHECKED_OUT vì buổi đã thanh toán ra về thì công chăm sóc cũng đã làm xong;
+     *  chỉ đếm COMPLETED sẽ ăn bớt công của điều dưỡng ngay khi lễ tân check-out.
+     *  nurseUserId là users.id (CareSession.nurse là User), không phải staffs.id. */
+    @Query("""
+            SELECT COUNT(cs) FROM CareSession cs
+            WHERE cs.nurse.id = :nurseUserId
+              AND cs.status IN ('COMPLETED', 'CHECKED_OUT')
+              AND cs.scheduledDateTime >= :start
+              AND cs.scheduledDateTime <= :end
+            """)
+    long countCompletedByNurseBetween(@Param("nurseUserId") Long nurseUserId,
+            @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    /** UC-53: tổng số buổi chăm sóc đã thực hiện xong trong kỳ — mẫu số tỉ lệ phản hồi,
+     *  vì bệnh nhân cũng đánh giá được buổi dịch vụ chứ không chỉ lịch khám. */
+    @Query("""
+            SELECT COUNT(cs) FROM CareSession cs
+            WHERE cs.status IN ('COMPLETED', 'CHECKED_OUT')
+              AND cs.scheduledDateTime >= :start
+              AND cs.scheduledDateTime <= :end
+            """)
+    long countCompletedBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
     /** UC-19 ALT-1: các buổi BOOKED chưa có điều dưỡng trong 1 ngày, sắp theo giờ — nguồn cho Auto-Assign. */
     @Query("""
             SELECT cs FROM CareSession cs

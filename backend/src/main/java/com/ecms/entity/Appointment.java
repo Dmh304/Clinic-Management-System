@@ -129,6 +129,14 @@ public class Appointment {
     @Column(name = "reminder_sent")
     private Boolean reminderSent;
 
+    /**
+     * UC-48 bước 1: đã gửi lời mời đánh giá sau khi khám xong hay chưa — cờ chặn
+     * scheduler gửi lặp. Để nullable vì NOT NULL sẽ khiến ddl-auto=update không thêm
+     * được cột vào bảng đang có dữ liệu.
+     */
+    @Column(name = "feedback_request_sent")
+    private Boolean feedbackRequestSent;
+
      /**
      * Lý do hủy lịch hẹn.
      */
@@ -177,6 +185,10 @@ public class Appointment {
 
         if (reminderSent == null) {
             reminderSent = false;
+        }
+
+        if (feedbackRequestSent == null) {
+            feedbackRequestSent = false;
         }
 
         if (createdAt == null) {

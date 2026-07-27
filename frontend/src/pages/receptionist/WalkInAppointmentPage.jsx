@@ -4,7 +4,7 @@ import {
   Form, Select, DatePicker, Button, Card, Typography, Space,
   Result, Descriptions, Input, Tag, message, Modal, Alert,
 } from 'antd'
-import { ThunderboltOutlined, CheckCircleOutlined, UserAddOutlined } from '@ant-design/icons'
+import { FiZap as ThunderboltOutlined, FiCheckCircle as CheckCircleOutlined, FiUserPlus as UserAddOutlined } from 'react-icons/fi'
 import dayjs from 'dayjs'
 import { patientService } from '../../services/patientService'
 import { doctorService } from '../../services/doctorService'
@@ -183,10 +183,10 @@ export default function WalkInAppointmentPage() {
       <Space align="center" style={{ marginBottom: 24 }}>
         <ThunderboltOutlined style={{ fontSize: 24, color: '#1677ff' }} />
         <div>
-          <Title level={4} style={{ margin: 0 }}>
+          <Title level={4} style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>
             Tạo lịch khám vãng lai
           </Title>
-          <Text type="secondary">
+          <Text style={{ display: 'block', marginTop: 4, fontSize: 13, color: '#64748b' }}>
             Bệnh nhân vãng lai sẽ được thêm vào hàng đợi ngay lập tức
           </Text>
         </div>
