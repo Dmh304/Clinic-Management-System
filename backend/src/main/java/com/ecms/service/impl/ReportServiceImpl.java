@@ -334,21 +334,31 @@ public class ReportServiceImpl implements ReportService {
                 returningPatients++;
         }
 
-        // UC-51: top 5 diagnoses across EMRs created in the period
-        Map<String, Long> diagnosisCount = new LinkedHashMap<>();
-        for (MedicalRecord mr : medicalRecordRepository.findByCreatedAtBetween(start, end)) {
-            String dx = mr.getDiagnosis();
-            if (dx != null && !dx.isBlank()) {
-                diagnosisCount.merge(dx.trim(), 1L, Long::sum);
-            }
+        // UC-51: top 5 dịch vụ được đặt nhiều nhất trong kỳ.
+        //
+        // Thay cho bảng xếp hạng chẩn đoán trước đây: medical_records.diagnosis là text
+        // bác sĩ gõ tay, không có mã ICD, nên "Viêm kết mạc cấp" và "Viêm kết mạc cấp do
+        // vi khuẩn" bị đếm thành hai bệnh khác nhau — bảng xếp hạng gần như luôn ra toàn
+        // "1 ca" và không dùng được. Dịch vụ thì có danh mục và id nên gom nhóm chính xác.
+        //
+        // Bỏ lịch đã hủy: đặt rồi hủy không phản ánh dịch vụ nào đang được dùng nhiều.
+        Map<Long, long[]> serviceCount = new LinkedHashMap<>();
+        Map<Long, String> serviceName = new LinkedHashMap<>();
+        for (Appointment a : appts) {
+            if (a.getStatus() == AppointmentStatus.CANCELLED) continue;
+            ClinicService svc = a.getClinicService();
+            if (svc == null) continue;
+            serviceName.putIfAbsent(svc.getId(), svc.getServiceName());
+            serviceCount.computeIfAbsent(svc.getId(), k -> new long[1])[0]++;
         }
-        List<Map<String, Object>> topDiagnoses = diagnosisCount.entrySet().stream()
-                .sorted((a, b) -> Long.compare(b.getValue(), a.getValue()))
+        List<Map<String, Object>> topServices = serviceCount.entrySet().stream()
+                .sorted((a, b) -> Long.compare(b.getValue()[0], a.getValue()[0]))
                 .limit(5)
                 .map(e -> {
                     Map<String, Object> m = new LinkedHashMap<>();
-                    m.put("diagnosis", e.getKey());
-                    m.put("count", e.getValue());
+                    m.put("serviceId", e.getKey());
+                    m.put("serviceName", serviceName.get(e.getKey()));
+                    m.put("count", e.getValue()[0]);
                     return m;
                 })
                 .toList();
@@ -362,7 +372,7 @@ public class ReportServiceImpl implements ReportService {
         result.put("returningPatients", returningPatients);
         result.put("appointmentsByStatus", byStatus);
         result.put("appointmentsByDoctor", perDoctor);
-        result.put("topDiagnoses", topDiagnoses);
+        result.put("topServices", topServices);
         return result;
     }
 
@@ -682,9 +692,9 @@ public class ReportServiceImpl implements ReportService {
         ((Map<String, Object>) r.get("appointmentsByDoctor"))
                 .forEach((k, v) -> rows.add(new String[] { k, String.valueOf(v) }));
         rows.add(new String[] {});
-        rows.add(new String[] { "Chẩn đoán phổ biến", "Số ca" });
-        for (Map<String, Object> d : (List<Map<String, Object>>) r.get("topDiagnoses")) {
-            rows.add(new String[] { String.valueOf(d.get("diagnosis")), String.valueOf(d.get("count")) });
+        rows.add(new String[] { "Dịch vụ phổ biến", "Lượt đặt" });
+        for (Map<String, Object> d : (List<Map<String, Object>>) r.get("topServices")) {
+            rows.add(new String[] { String.valueOf(d.get("serviceName")), String.valueOf(d.get("count")) });
         }
         writeXlsx(response, "thong-ke-benh-nhan.xlsx", "Bệnh nhân", rows);
     }

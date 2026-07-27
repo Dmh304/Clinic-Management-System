@@ -185,10 +185,10 @@ export default function StaffPerformancePage() {
           <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Theo dõi KPI và năng suất của đội ngũ bác sĩ</p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
-          <select value={rangeKey} onChange={(e) => setRangeKey(e.target.value)} style={{ padding: '10px 16px', borderRadius: 12, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+          <select value={rangeKey} onChange={(e) => setRangeKey(e.target.value)} style={{ padding: '10px 16px', borderRadius: 12, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.04)', fontSize: 14, fontWeight: 600, color: '#0f172a' }}>
             {Object.entries(RANGES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
-          <select value={staff} onChange={(e) => setStaff(e.target.value)} style={{ padding: '10px 16px', borderRadius: 12, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
+          <select value={staff} onChange={(e) => setStaff(e.target.value)} style={{ padding: '10px 16px', borderRadius: 12, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.04)', fontSize: 14, fontWeight: 600, color: '#0f172a' }}>
             <option value="ALL">Tất cả nhân viên</option>
             {rows.map((r) => <option key={r.doctorId} value={String(r.doctorId)}>BS. {r.doctorName}</option>)}
           </select>

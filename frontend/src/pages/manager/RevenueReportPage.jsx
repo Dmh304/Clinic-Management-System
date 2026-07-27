@@ -127,6 +127,9 @@ const RANGES = [
  */
 export default function RevenueReportPage() {
   const today = new Date()
+  // Không cho vượt hôm nay kể cả khi gõ tay — thuộc tính max chỉ chặn bộ chọn lịch.
+  // Bỏ qua giá trị gõ dở (năm 0002…) để không phá đầu ngày còn lại.
+  const capDate = (v) => (v && v >= '2000-01-01' && v > iso(new Date()) ? iso(new Date()) : v)
   const [range, setRange] = useState('month')
   const [from, setFrom] = useState(iso(new Date(today.getFullYear(), today.getMonth(), 1)))
   const [to, setTo] = useState(iso(today))
@@ -192,9 +195,9 @@ export default function RevenueReportPage() {
             </div>
           </div>
           <label style={{ fontSize: 12, color: '#64748b' }}>Từ ngày<br />
-            <input type="date" value={from} onChange={(e) => { setRange('custom'); setFrom(e.target.value) }} style={{ padding: 8, borderRadius: 8, border: '1px solid #e2e8f0', marginTop: 4 }} /></label>
+            <input type="date" value={from} max={to || iso(today)} onChange={(e) => { const v = capDate(e.target.value); setRange('custom'); setFrom(v); if (v && to && v > to) setTo(v) }} style={{ padding: 8, borderRadius: 8, border: '1px solid #e2e8f0', marginTop: 4 }} /></label>
           <label style={{ fontSize: 12, color: '#64748b' }}>Đến ngày<br />
-            <input type="date" value={to} onChange={(e) => { setRange('custom'); setTo(e.target.value) }} style={{ padding: 8, borderRadius: 8, border: '1px solid #e2e8f0', marginTop: 4 }} /></label>
+            <input type="date" value={to} min={from} max={iso(today)} onChange={(e) => { const v = capDate(e.target.value); setRange('custom'); setTo(v); if (v && from && v < from) setFrom(v) }} style={{ padding: 8, borderRadius: 8, border: '1px solid #e2e8f0', marginTop: 4 }} /></label>
           <div style={{ flex: 1 }} />
           <button onClick={load} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', borderRadius: 8, border: '1px solid #c7d2fe', background: '#eef2ff', color: '#4f46e5', cursor: 'pointer', fontWeight: 600 }}><FiRefreshCw /> {loading ? 'Đang tải…' : 'Tải lại'}</button>
           <button onClick={async () => { const blob = await reportService.exportRevenue(from, to); downloadBlob(blob, 'bao-cao-doanh-thu.xlsx') }}

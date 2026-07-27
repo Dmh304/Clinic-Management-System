@@ -118,6 +118,14 @@ public class ReportController {
         LocalDate today = LocalDate.now();
         LocalDate f = from != null ? from : today.withDayOfMonth(1);
         LocalDate t = to != null ? to : today;
+
+        // Khoảng ngày ngược (từ ngày > đến ngày) phải báo lỗi, không được im lặng chạy
+        // tiếp: mọi truy vấn BETWEEN sẽ khớp 0 dòng nên báo cáo hiện toàn số 0, người
+        // dùng tưởng kỳ đó không có dữ liệu chứ không biết mình chọn sai ngày.
+        if (f.isAfter(t)) {
+            throw new IllegalArgumentException(
+                    "Khoảng thời gian không hợp lệ: từ ngày (" + f + ") phải trước hoặc bằng đến ngày (" + t + ")");
+        }
         return new LocalDate[] { f, t };
     }
 }

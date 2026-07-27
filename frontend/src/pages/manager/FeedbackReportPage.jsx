@@ -20,7 +20,7 @@
  */
 import { useEffect, useState } from 'react'
 import { FaStar, FaStarHalfAlt, FaRegStar } from 'react-icons/fa'
-import { FiRefreshCw, FiDownload, FiMessageSquare, FiCheckCircle, FiPercent, FiSearch } from 'react-icons/fi'
+import { FiRefreshCw, FiDownload, FiMessageSquare, FiCheckCircle, FiPercent, FiSearch, FiCalendar } from 'react-icons/fi'
 import { reportService, downloadBlob } from '../../services/reportService'
 
 const C = { primary: '#7c3aed', secondary: '#00687a', success: '#059669', star: '#f59e0b', ink: '#121c2a', muted: '#4a4455', border: '#e5e7eb' }
@@ -149,6 +149,46 @@ export default function FeedbackReportPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  /** Ô chọn ngày trong hộp kỳ báo cáo — giữ giống hệt PatientStatisticsPage. */
+  // Giữ khoảng ngày luôn hợp lệ: đổi một đầu mà làm khoảng bị ngược thì kéo đầu kia
+  // theo. min/max trên input chỉ chặn bộ chọn — người dùng vẫn gõ tay được, và khoảng
+  // ngược khiến mọi truy vấn BETWEEN khớp 0 dòng nên báo cáo hiện toàn số 0 mà không
+  // báo lỗi gì.
+  // Chỉ chỉnh khi ngày đã "ra hình": gõ năm 2026 đi qua 0002 → 0020 → 0202, chỉnh ngay
+  // từng nhịp thì đầu ngày còn lại bị kéo về năm 0002.
+  const SANE_FROM = '2000-01-01'
+  const capToday = (v) => (v && v > today() ? today() : v)
+  const onFromChange = (raw) => {
+    if (!raw || raw < SANE_FROM) { setFrom(raw); return }
+    const v = capToday(raw)
+    setFrom(v)
+    if (to && v > to) setTo(v)
+  }
+  const onToChange = (raw) => {
+    if (!raw || raw < SANE_FROM) { setTo(raw); return }
+    const v = capToday(raw)
+    setTo(v)
+    if (from && v < from) setFrom(v)
+  }
+
+  // Bọc bằng <label> + gọi showPicker(): bấm vào nhãn hay icon lịch là mở bộ chọn ngày.
+  // Mặc định input type="date" chỉ mở khi bấm đúng icon nhỏ của trình duyệt, mà icon đó
+  // gần như vô hình vì input để nền trong suốt. Bấm thẳng vào con số vẫn đặt được con
+  // trỏ để gõ tay — nên giữ nguyên cả hai cách nhập.
+  const dateBox = (label, value, onChange, limits = {}) => (
+    <label
+      style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer' }}
+      onClick={(e) => { if (e.target.tagName !== 'INPUT') e.currentTarget.querySelector('input')?.showPicker?.() }}>
+      <span style={{ fontSize: 10, textTransform: 'uppercase', fontWeight: 700, color: C.muted }}>{label}</span>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+        <FiCalendar size={14} color={C.primary} />
+        <input type="date" value={value} min={limits.min} max={limits.max} onChange={(e) => onChange(e.target.value)}
+          onBlur={(e) => onChange(e.target.value)}
+          style={{ border: 'none', background: 'transparent', outline: 'none', cursor: 'pointer', fontWeight: 700, color: C.ink, fontSize: 13 }} />
+      </span>
+    </label>
+  )
+
   /** Loads the aggregated feedback for the selected period (UC-53 steps 3-4). */
   const load = async () => {
     setLoading(true); setError('')
@@ -164,7 +204,6 @@ export default function FeedbackReportPage() {
   const byNurse = (data?.byNurse || []).filter((r) => match(r.nurseName))
   const byStaff = (data?.byStaff || []).filter((r) => match(r.staffName))
   const byRole = data?.byRole || []
-  const btn = (bg, color, border) => ({ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 18px', borderRadius: 8, border: border || 'none', background: bg, color, cursor: 'pointer', fontWeight: 600, fontSize: 14 })
 
   return (
     <div style={{ color: C.ink }}>
@@ -175,11 +214,22 @@ export default function FeedbackReportPage() {
             <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Báo cáo đánh giá</h1>
             <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Mức độ hài lòng của bệnh nhân theo kỳ & theo bác sĩ</p>
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
-            <label style={{ fontSize: 12, color: C.muted }}>Từ ngày<br /><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: `1px solid ${C.border}` }} /></label>
-            <label style={{ fontSize: 12, color: C.muted }}>Đến ngày<br /><input type="date" value={to} onChange={(e) => setTo(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: `1px solid ${C.border}` }} /></label>
-            <button onClick={load} disabled={loading} style={btn('#fff', C.primary, `1px solid ${C.primary}`)}><FiRefreshCw size={16} /> {loading ? 'Đang tải…' : 'Tải lại'}</button>
-            <button onClick={async () => { const blob = await reportService.exportFeedback(from, to); downloadBlob(blob, 'bao-cao-danh-gia.xlsx') }} style={btn(C.success, '#fff')}><FiDownload size={16} /> Xuất Excel</button>
+          {/* Thanh chọn kỳ + hành động: giữ y hệt trang Thống kê bệnh nhân — hai trang này
+              là cặp báo cáo cùng cấp, lệch kiểu nút khiến người dùng tưởng hai chỗ khác
+              chức năng. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#eff4ff', border: `1px solid ${C.border}`, borderRadius: 12, padding: '8px 16px' }}>
+              {dateBox('Từ ngày', from, onFromChange, { max: to || today() })}
+              <div style={{ width: 1, height: 32, background: C.border }} />
+              {dateBox('Đến ngày', to, onToChange, { min: from, max: today() })}
+            </div>
+            <button onClick={load} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: 8, background: C.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '10px 20px', fontWeight: 600, cursor: 'pointer' }}>
+              <FiRefreshCw size={16} /> {loading ? 'Đang tải…' : 'Tải lại'}
+            </button>
+            <button onClick={async () => { const blob = await reportService.exportFeedback(from, to); downloadBlob(blob, 'bao-cao-danh-gia.xlsx') }}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, background: C.success, color: '#fff', border: 'none', borderRadius: 12, padding: '10px 20px', fontWeight: 600, cursor: 'pointer' }}>
+              <FiDownload size={16} /> Xuất Excel
+            </button>
           </div>
         </div>
 

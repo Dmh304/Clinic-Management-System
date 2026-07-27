@@ -1,0 +1,291 @@
+@startuml UC46_GenerateFeedback_ClassDiagram
+
+' ============================================================================
+' UC-46: Generate Feedback  (Actor: Patient)   [SRS reference: UC-48 Generate Feedback]
+' Perspective: Implementation (Spring Boot) — derived from the real backend/ code
+'   POST /api/v1/feedbacks                                    -> submitFeedback()
+'   GET  /api/v1/feedbacks/appointment/{id}/participants      -> getVisitParticipants()
+'   GET  /api/v1/feedbacks/my                                 -> getMyFeedbacks()
+' The stored records feed the Clinic Manager's report (UC-53 Generate Feedback Report).
+' Every operation here matches 1:1 a message in the UC-46 Sequence Diagram.
+' ============================================================================
+
+' ── Layout tuning: keeps the graph compact instead of sprawling sideways ─────
+skinparam linetype ortho
+skinparam nodesep 25
+skinparam ranksep 45
+skinparam wrapWidth 260
+skinparam padding 2
+
+skinparam classAttributeIconSize 0
+skinparam monochrome false
+skinparam backgroundColor white
+skinparam roundcorner 5
+skinparam class {
+    BackgroundColor #f9f9f9
+    ArrowColor #336699
+    BorderColor #336699
+}
+skinparam package {
+    BackgroundColor #FCFCFC
+    BorderColor #BBBBBB
+    FontColor #555555
+}
+skinparam note {
+    BackgroundColor #FFFFF0
+    BorderColor #AAAAAA
+}
+
+package "Presentation" {
+    class FeedbackController {
+        - feedbackService: FeedbackService
+        - userRepository: UserRepository
+        - patientRepository: PatientRepository
+        + submit(userDetails: UserDetails, request: FeedbackRequest): ResponseEntity<ApiResponse<FeedbackResponse>>
+        + participants(userDetails: UserDetails, appointmentId: Long): ResponseEntity<ApiResponse<Map<String, Object>>>
+        + myFeedbacks(userDetails: UserDetails): ResponseEntity<ApiResponse<List<FeedbackResponse>>>
+        - resolvePatientId(userDetails: UserDetails): Long
+    }
+}
+
+package "Service" {
+    interface FeedbackService {
+        + submitFeedback(patientId: Long, request: FeedbackRequest): FeedbackResponse
+        + getMyFeedbacks(patientId: Long): List<FeedbackResponse>
+        + getVisitParticipants(patientId: Long, appointmentId: Long): Map<String, Object>
+    }
+
+    class FeedbackServiceImpl {
+        + submitFeedback(patientId: Long, request: FeedbackRequest): FeedbackResponse
+        + getMyFeedbacks(patientId: Long): List<FeedbackResponse>
+        + getVisitParticipants(patientId: Long, appointmentId: Long): Map<String, Object>
+        - submitAppointmentFeedback(patientId: Long, request: FeedbackRequest): Feedback
+        - submitCareSessionFeedback(patientId: Long, request: FeedbackRequest): Feedback
+        - attachParticipantRatings(feedback: Feedback, request: FeedbackRequest): void
+        - person(role: String, label: String, name: String, extra: String): Map<String, Object>
+        - toResponse(f: Feedback): FeedbackResponse
+    }
+
+    interface NotificationService {
+        + createForManagers(message: String, relatedEntityId: Long, relatedEntityType: String): void
+    }
+}
+
+package "Repository" {
+    interface FeedbackRepository {
+        + save(feedback: Feedback): Feedback
+        + existsByAppointment_Id(appointmentId: Long): boolean
+        + existsByCareSession_Id(careSessionId: Long): boolean
+        + findByPatient_IdOrderByCreatedAtDesc(patientId: Long): List<Feedback>
+    }
+    interface AppointmentRepository {
+        + findById(id: Long): Optional<Appointment>
+    }
+    interface CareSessionRepository {
+        + findById(id: Long): Optional<CareSession>
+    }
+    interface MedicalRecordRepository {
+        + findByAppointmentId(appointmentId: Long): Optional<MedicalRecord>
+    }
+    interface LabOrderRepository {
+        + findByMedicalRecordIdOrderByCreatedAt(medicalRecordId: Long): List<LabOrder>
+    }
+    interface UserRepository {
+        + findByEmail(email: String): Optional<User>
+        + findById(id: Long): Optional<User>
+    }
+    interface PatientRepository {
+        + findByUserId(userId: Long): Optional<Patient>
+    }
+}
+
+package "DTO" {
+    class FeedbackRequest <<DTO>> {
+        - appointmentId: Long
+        - careSessionId: Long
+        - rating: Integer
+        - content: String
+        - isAnonymous: Boolean
+        - participantRatings: List<ParticipantRating>
+    }
+    class ParticipantRating <<DTO>> {
+        - role: String
+        - name: String
+        - rating: Integer
+    }
+    class FeedbackResponse <<DTO>> {
+        - id: Long
+        - appointmentId: Long
+        - careSessionId: Long
+        - patientId: Long
+        - patientName: String
+        - doctorId: Long
+        - doctorName: String
+        - nurseId: Long
+        - nurseName: String
+        - rating: Integer
+        - content: String
+        - isAnonymous: Boolean
+        - status: String
+        - createdAt: LocalDateTime
+    }
+    class ApiResponse<T> <<DTO>> {
+        - success: boolean
+        - message: String
+        - data: T
+        + {static} success(data: T): ApiResponse<T>
+    }
+}
+
+package "Domain" {
+    class Feedback <<Entity>> {
+        - id: Long
+        - rating: Integer
+        - content: String
+        - isAnonymous: Boolean
+        - status: String
+        - createdAt: LocalDateTime
+    }
+    class FeedbackParticipantRating <<Entity>> {
+        - id: Long
+        - participantRole: String
+        - participantName: String
+        - rating: Integer
+    }
+    class Patient <<Entity>> {
+        - id: Long
+        - fullName: String
+        + getId(): Long
+    }
+    class Appointment <<Entity>> {
+        - id: Long
+        - appointmentTime: LocalDateTime
+        - timeSlot: String
+        - status: AppointmentStatus
+        - checkInBy: Long
+    }
+    class CareSession <<Entity>> {
+        - id: Long
+        - sessionNumber: Integer
+        - scheduledDateTime: LocalDateTime
+        - status: String
+    }
+    class Doctor <<Entity>> {
+        - id: Long
+        - fullName: String
+        - specialization: String
+    }
+    class User <<Entity>> {
+        - id: Long
+        - email: String
+        - fullName: String
+        - role: Role
+    }
+    class ResourceNotFoundException <<Exception>> {
+        + ResourceNotFoundException(message: String)
+    }
+}
+
+' ─────────────────── Dependency (dashed line) ───────────────────
+FeedbackController ..> FeedbackService : <<use>>
+FeedbackController ..> UserRepository : <<use>>
+FeedbackController ..> PatientRepository : <<use>>
+FeedbackController ..> FeedbackRequest : <<use>>
+FeedbackController ..> ApiResponse : creates
+
+FeedbackService <|.. FeedbackServiceImpl : implements
+
+FeedbackServiceImpl ..> FeedbackRepository : <<use>>
+FeedbackServiceImpl ..> AppointmentRepository : <<use>>
+FeedbackServiceImpl ..> CareSessionRepository : <<use>>
+FeedbackServiceImpl ..> MedicalRecordRepository : <<use>>
+FeedbackServiceImpl ..> LabOrderRepository : <<use>>
+FeedbackServiceImpl ..> UserRepository : <<use>>
+FeedbackServiceImpl ..> NotificationService : <<use>>
+FeedbackServiceImpl ..> Feedback : creates
+FeedbackServiceImpl ..> FeedbackParticipantRating : creates
+FeedbackServiceImpl ..> FeedbackResponse : creates
+FeedbackServiceImpl ..> ResourceNotFoundException : throws
+
+FeedbackRepository ..> Feedback : manages
+AppointmentRepository ..> Appointment : manages
+CareSessionRepository ..> CareSession : manages
+PatientRepository ..> Patient : manages
+UserRepository ..> User : manages
+
+' ─────────────────── Composition / Association (solid line) ───────────────────
+Feedback "1" *-- "0..*" FeedbackParticipantRating : contains >
+Patient "1" -- "0..*" Feedback : submits >
+Appointment "1" -- "0..1" Feedback : is rated by >
+CareSession "1" -- "0..1" Feedback : is rated by >
+Doctor "1" -- "0..*" Feedback : is rated in >
+User "1" -- "0..*" Feedback : rated as nurse in >
+FeedbackRequest +-- ParticipantRating
+
+' ── Hidden edges: stack the repository interfaces vertically instead of
+'    letting Graphviz spread them across one very wide row ──────────────────
+FeedbackRepository -[hidden]down- AppointmentRepository
+AppointmentRepository -[hidden]down- CareSessionRepository
+CareSessionRepository -[hidden]down- MedicalRecordRepository
+MedicalRecordRepository -[hidden]down- LabOrderRepository
+LabOrderRepository -[hidden]down- UserRepository
+UserRepository -[hidden]down- PatientRepository
+
+' ─────────────────── Note ───────────────────
+note top of Feedback
+  {xor} — exactly one of appointment / careSession must be set.
+  Enforced twice: submitFeedback() rejects a request carrying
+  both or neither id, and the database repeats the rule as
+  CK_feedbacks_subject (appointment_id + care_session_id = 1).
+end note
+
+note right of FeedbackServiceImpl
+  Validation order inside submitAppointmentFeedback():
+  1. ownership — appointment.patient.id == patientId
+  2. UC-46 PRE-2 — appointment.status == COMPLETED
+  3. BR-21 — existsByAppointment_Id(...) == false
+  submitCareSessionFeedback() applies the same three
+  checks against CareSession.status == "COMPLETED".
+end note
+
+note bottom of FeedbackParticipantRating
+  Composition (filled diamond): @OneToMany with
+  cascade = ALL + orphanRemoval = true — a per-person
+  score cannot exist outside its Feedback.
+  Rows with a null rating are skipped, so the list may
+  be empty (0..*) even when the form offered participants.
+end note
+
+note bottom of Feedback
+  status is a String, always created as "PENDING" (POST-1).
+  The database allows {PENDING, APPROVED, HIDDEN}
+  (CK_feedbacks_status), but the code never writes the other
+  two — no approve/hide transition is implemented yet.
+  rating is checked twice: @Valid 1..5 on the request
+  (UC-46 E1) and CK_feedbacks_rating in the database.
+end note
+
+note right of FeedbackController
+  patientId is resolved from the JWT principal via
+  resolvePatientId(), never from a request parameter,
+  so a patient cannot rate or read someone else's visit.
+end note
+
+' A legend does not take part in the graph layout, so the long
+' deviation list no longer stretches the diagram sideways.
+legend bottom
+  **Deviations from the SRS — need a decision**
+  1. BR-21 (one feedback per appointment) is enforced ONLY in the service layer via
+     existsByAppointment_Id / existsByCareSession_Id. ecms_schema.sql declares no UNIQUE
+     index on appointment_id or care_session_id, so two concurrent submissions can still
+     race past the check — unlike the {xor} and rating rules, which the database guards.
+  2. Normal Flow step 1 says the system automatically sends a feedback request "via Portal
+     and email" once the visit is COMPLETED — no such trigger or email exists in the code;
+     the Patient must open the form themselves.
+  3. The SRS covers appointments only; the code also accepts feedback on a CareSession
+     (rating the Nurse instead of the Doctor). The SRS should be extended to match.
+  4. getVisitParticipants() returns Map<String,Object> rather than a DTO, so there is no
+     explicit data contract for the frontend.
+endlegend
+
+@enduml

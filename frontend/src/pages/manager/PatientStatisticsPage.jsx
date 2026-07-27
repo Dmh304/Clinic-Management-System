@@ -5,7 +5,7 @@
  *
  * Patient statistics for the Clinic Manager (UC-51 View Patient Statistics):
  * total visits, new vs returning patients, appointment status distribution,
- * appointments per doctor and the top diagnoses.
+ * appointments per doctor and the most-booked services.
  *
  * Read-only screen — no business rule is applied here.
  */
@@ -91,18 +91,50 @@ export default function PatientStatisticsPage() {
   const totalAppt = data?.totalAppointments || statusEntries.reduce((s, [, v]) => s + v, 0) || 1
   const docEntries = Object.entries(data?.appointmentsByDoctor || {})
   const maxDoc = Math.max(1, ...docEntries.map(([, v]) => v))
-  const diagnoses = data?.topDiagnoses || []
-  const maxDx = Math.max(1, ...diagnoses.map((d) => d.count))
+  const topServices = data?.topServices || []
+  const maxSvc = Math.max(1, ...topServices.map((d) => d.count))
   const newPct = data && data.distinctPatients ? Math.round((data.newPatients / data.distinctPatients) * 100) : 0
 
-  const dateBox = (label, value, onChange) => (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
+  // Giữ khoảng ngày luôn hợp lệ. min/max trên input CHỈ chặn bộ chọn lịch — gõ tay vẫn
+  // nhập được ngày tương lai hoặc khoảng ngược, mà khoảng ngược khiến mọi truy vấn
+  // BETWEEN khớp 0 dòng nên báo cáo hiện toàn số 0 chứ không báo lỗi gì.
+  //
+  // Chỉ chỉnh khi ngày đã "ra hình": gõ năm 2026 đi qua các trạng thái 0002 → 0020 →
+  // 0202, nếu chỉnh ngay từng nhịp thì đầu ngày còn lại bị kéo về năm 0002.
+  const SANE_FROM = '2000-01-01'
+  const capToday = (v) => (v && v > todayStr() ? todayStr() : v)
+  const onFromChange = (raw) => {
+    if (!raw || raw < SANE_FROM) { setFrom(raw); return }
+    const v = capToday(raw)
+    setFrom(v)
+    if (to && v > to) setTo(v)
+  }
+  const onToChange = (raw) => {
+    if (!raw || raw < SANE_FROM) { setTo(raw); return }
+    const v = capToday(raw)
+    setTo(v)
+    if (from && v < from) setFrom(v)
+  }
+
+  // Bọc bằng <label> + gọi showPicker(): bấm vào nhãn hay icon lịch là mở bộ chọn ngày.
+  // Mặc định input type="date" chỉ mở khi bấm đúng icon nhỏ của trình duyệt, mà icon đó
+  // gần như vô hình vì input để nền trong suốt. Bấm thẳng vào con số vẫn đặt được con
+  // trỏ để gõ tay — nên giữ nguyên cả hai cách nhập.
+  const dateBox = (label, value, onChange, limits = {}) => (
+    <label
+      style={{ display: 'flex', flexDirection: 'column', cursor: 'pointer' }}
+      onClick={(e) => { if (e.target.tagName !== 'INPUT') e.currentTarget.querySelector('input')?.showPicker?.() }}>
       <span style={{ fontSize: 10, textTransform: 'uppercase', fontWeight: 700, color: C.muted }}>{label}</span>
       <span style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
         <FiCalendar size={14} color={C.primary} />
-        <input type="date" value={value} onChange={(e) => onChange(e.target.value)} style={{ border: 'none', background: 'transparent', outline: 'none', fontWeight: 700, color: C.ink, fontSize: 13 }} />
+        {/* onBlur chạy lại chính hàm xử lý: giá trị gõ dở còn sót (năm 0202…) được
+            chuẩn hóa khi rời ô, thay vì đi thẳng vào truy vấn báo cáo. */}
+        <input type="date" value={value} min={limits.min} max={limits.max}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={(e) => onChange(e.target.value)}
+          style={{ border: 'none', background: 'transparent', outline: 'none', cursor: 'pointer', fontWeight: 700, color: C.ink, fontSize: 13 }} />
       </span>
-    </div>
+    </label>
   )
 
   return (
@@ -115,9 +147,9 @@ export default function PatientStatisticsPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#eff4ff', border: `1px solid ${C.border}`, borderRadius: 12, padding: '8px 16px' }}>
-            {dateBox('Từ ngày', from, setFrom)}
+            {dateBox('Từ ngày', from, onFromChange, { max: to || todayStr() })}
             <div style={{ width: 1, height: 32, background: C.border }} />
-            {dateBox('Đến ngày', to, setTo)}
+            {dateBox('Đến ngày', to, onToChange, { min: from, max: todayStr() })}
           </div>
           <button onClick={load} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: 8, background: C.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '10px 20px', fontWeight: 600, cursor: 'pointer' }}>
             <FiRefreshCw size={16} /> {loading ? 'Đang tải…' : 'Tải lại'}
@@ -188,22 +220,22 @@ export default function PatientStatisticsPage() {
               </div>
             </div>
 
-            {/* Top chẩn đoán + ghi chú */}
+            {/* Top dịch vụ + ghi chú */}
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,2fr) minmax(0,1fr)', gap: 24 }}>
               <div style={{ ...card, padding: 24 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
                   <div style={{ padding: 8, background: '#fff7ed', color: C.tertiary, borderRadius: 10, display: 'flex' }}><FiActivity size={18} /></div>
-                  <div style={{ fontSize: 18, fontWeight: 700 }}>Top 5 chẩn đoán phổ biến nhất</div>
+                  <div style={{ fontSize: 18, fontWeight: 700 }}>Top 5 dịch vụ phổ biến nhất</div>
                 </div>
-                {diagnoses.length === 0 ? <div style={{ color: '#94a3b8' }}>Không có dữ liệu</div> : (
+                {topServices.length === 0 ? <div style={{ color: '#94a3b8' }}>Không có dữ liệu</div> : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
-                    {diagnoses.map((d, i) => (
+                    {topServices.map((d, i) => (
                       <div key={i} style={{ borderLeft: `4px solid ${DX_COLORS[i % DX_COLORS.length]}`, paddingLeft: 16 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, gap: 8 }}>
-                          <span style={{ fontWeight: 700, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={d.diagnosis}>{d.diagnosis}</span>
-                          <span style={{ background: `${DX_COLORS[i % DX_COLORS.length]}22`, color: DX_COLORS[i % DX_COLORS.length], fontSize: 12, fontWeight: 600, padding: '2px 10px', borderRadius: 999, whiteSpace: 'nowrap' }}>{d.count} ca</span>
+                          <span style={{ fontWeight: 700, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={d.serviceName}>{d.serviceName}</span>
+                          <span style={{ background: `${DX_COLORS[i % DX_COLORS.length]}22`, color: DX_COLORS[i % DX_COLORS.length], fontSize: 12, fontWeight: 600, padding: '2px 10px', borderRadius: 999, whiteSpace: 'nowrap' }}>{d.count} lượt</span>
                         </div>
-                        {bar(DX_COLORS[i % DX_COLORS.length], (d.count / maxDx) * 100)}
+                        {bar(DX_COLORS[i % DX_COLORS.length], (d.count / maxSvc) * 100)}
                       </div>
                     ))}
                   </div>
