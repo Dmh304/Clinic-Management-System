@@ -16,10 +16,12 @@
 package com.ecms.service.impl;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.springframework.cglib.core.Local;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
@@ -162,9 +164,11 @@ public class LabOrderServiceImpl implements LabOrderService {
     @Override
     @Transactional
     public LabOrderResponse submitLabResult(Long labOrderId, LabResultRequest request, Long labTechnicianId) {
-        ClinicHoursUtil.requireWithinClinicHours();
         LabOrder labOrder = labOrderRepository.findById(labOrderId)
                 .orElseThrow(() -> new RuntimeException("LabOrder not found: " + labOrderId));
+
+        ClinicHoursUtil.requireOperableToday(resolveAppointmentDate(labOrder));
+
         if (labOrder.getLabTechnician() == null || !labOrder.getLabTechnician().getId().equals(labTechnicianId)) {
             throw new AccessDeniedException("You are not authorized");
         }
@@ -483,6 +487,9 @@ public class LabOrderServiceImpl implements LabOrderService {
                 .serviceName(labOrder.getService() != null
                         ? labOrder.getService().getServiceName()
                         : null)
+                .appointmentTime(labOrder.getMedicalRecord().getAppointment() != null
+                        ? labOrder.getMedicalRecord().getAppointment().getAppointmentTime()
+                        : null)
                 .notes(labOrder.getNotes())
                 .priority(labOrder.getPriority())
                 .status(labOrder.getStatus())
@@ -534,6 +541,8 @@ public class LabOrderServiceImpl implements LabOrderService {
         LabOrder labOrder = labOrderRepository.findById(labOrderId)
                 .orElseThrow(() -> new RuntimeException("LabOrder not found: " + labOrderId));
 
+        ClinicHoursUtil.requireOperableToday(resolveAppointmentDate(labOrder));
+
         if (labOrder.getStatus() != LabOrderStatus.PENDING) {
             throw new IllegalStateException("Only PENDING lab orders can be started");
         }
@@ -582,9 +591,10 @@ public class LabOrderServiceImpl implements LabOrderService {
     @Override
     @Transactional
     public LabOrderResponse saveDraft(Long labOrderId, LabResultRequest request, Long labTechnicianId) {
-        ClinicHoursUtil.requireWithinClinicHours();
         LabOrder labOrder = labOrderRepository.findById(labOrderId)
                 .orElseThrow(() -> new RuntimeException("LabOrder not found: " + labOrderId));
+
+        ClinicHoursUtil.requireOperableToday(resolveAppointmentDate(labOrder));
 
         if (labOrder.getLabTechnician() == null || !labOrder.getLabTechnician().getId().equals(labTechnicianId)) {
             throw new AccessDeniedException("You are not authorized");
@@ -623,6 +633,11 @@ public class LabOrderServiceImpl implements LabOrderService {
 
         // Status LabOrder giữ nguyên IN_PROGRESS
         return toOrderResponse(labOrder);
+    }
+
+    private LocalDate resolveAppointmentDate(LabOrder labOrder) {
+        var appt = labOrder.getMedicalRecord() != null ? labOrder.getMedicalRecord().getAppointment() : null;
+        return appt != null ? appt.getAppointmentDate() : null;
     }
 
     /**

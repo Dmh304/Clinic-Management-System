@@ -17,7 +17,7 @@ import EyeglassPrescriptionForm from './components/EyeglassPrescriptionForm'
 import useConfirmAction from '../../hooks/useConfirmAction'
 import { appointmentService } from '../../services/appointmentService'
 import { clinicServiceService } from '../../services/clinicServiceService'
-import { isWithinClinicHours, CLINIC_HOURS_MESSAGE } from '../../utils/clinicHours'
+import { isWithinClinicHours, isSameDayAsToday, CLINIC_HOURS_MESSAGE } from '../../utils/clinicHours'
 
 const { TextArea } = Input
 const { Panel } = Collapse
@@ -152,6 +152,7 @@ export default function EMRPage() {
   const patientId = searchParams.get('patientId')                                          // id của bệnh nhân
   const originalAppointmentId = searchParams.get('originalAppointmentId') || null          // hỗ trợ lưu vết ca khám chính khi bác sĩ nhấn sang xem lịch sử
   const from = searchParams.get('from')                                                    // nguồn điều hướng ('list' từ danh sách tổng, trống từ dashboard) 
+
   
   /* Khai báo state quản lí dữ liệu */
   const [emr, setEmr] = useState(null)                             // lưu dữ liệu chi tiết của hồ sơ bệnh án đang xem / chỉnh sửa 
@@ -177,6 +178,10 @@ export default function EMRPage() {
   const [loadingLabTechs,  setLoadingLabTechs]  = useState(false)
   const [creatingOrder,  setCreatingOrder]  = useState(false)
   const [withinHours, setWithinHours] = useState(isWithinClinicHours())
+
+  const isAppointmentToday = emr?.appointmentTime ? isSameDayAsToday(emr.appointmentTime) : true
+  const canOperate = withinHours && isAppointmentToday
+  const notTodayMessage = 'Chỉ có thể thao tác với lịch hẹn của ngày hôm nay.'
 
   useEffect(() => {
     const timer = setInterval(() => setWithinHours(isWithinClinicHours()), 60_000)
@@ -721,12 +726,12 @@ export default function EMRPage() {
       <Spin spinning={loading}>
         {!loading && (
           <div>
-            {!isReadOnly && !withinHours && (
+            {!isReadOnly && !canOperate && (
             <div style={{
               backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 10,
               padding: '10px 16px', marginBottom: 16, fontSize: 13, color: '#92400e',
             }}>
-              Ngoài giờ làm việc của phòng khám (07:30–17:00, trừ Chủ nhật) — hồ sơ tạm khóa, không thể chỉnh sửa lúc này.
+              {!isAppointmentToday ? notTodayMessage : 'Ngoài giờ làm việc của phòng khám (07:30–17:00, trừ Chủ nhật) — hồ sơ tạm khóa, không thể chỉnh sửa lúc này.'}
             </div>
           )}
           {/* ================= THẺ THÔNG TIN CHI TIẾT BỆNH NHÂN ================= */}
@@ -774,7 +779,7 @@ export default function EMRPage() {
           
           {/* form nhập liệu bệnh án hiện tại */}
           <div style={{ backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
-            <Form form={form} layout="vertical" disabled={isReadOnly || !withinHours} style={{ padding: '20px 24px' }}>
+            <Form form={form} layout="vertical" disabled={isReadOnly || !canOperate} style={{ padding: '20px 24px' }}>
               <Tabs
                 size="small"
                 items={[
@@ -858,7 +863,7 @@ export default function EMRPage() {
                     label: 'Kê đơn thuốc',
                     forceRender: true,
                     children: (
-                      <DrugPrescriptionForm emr={emr} isReadOnly={isReadOnly || !withinHours} onAutoSaveEMR={handleAutoSave} />
+                      <DrugPrescriptionForm emr={emr} isReadOnly={isReadOnly || !canOperate} onAutoSaveEMR={handleAutoSave} />
                     ),
                   },
                   {
@@ -866,7 +871,7 @@ export default function EMRPage() {
                     label: 'Kê đơn kính',
                     forceRender: true,
                     children: (
-                      <EyeglassPrescriptionForm emr={emr} isReadOnly={isReadOnly || !withinHours} onAutoSaveEMR={handleAutoSave} />
+                      <EyeglassPrescriptionForm emr={emr} isReadOnly={isReadOnly || !canOperate} onAutoSaveEMR={handleAutoSave} />
                     ),
                   },
                 ]}
@@ -880,12 +885,8 @@ export default function EMRPage() {
                 display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'center',
               }}>
                 {emr?.status === 'IN_PROGRESS' ? (
-                  <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
-                    <Button
-                      onClick={openLabModal}
-                      disabled={!withinHours}
-                      style={{ fontSize: 13, borderColor: '#7c3aed', color: '#7c3aed' }}
-                    >
+                  <Tooltip title={!canOperate ? (!isAppointmentToday ? notTodayMessage : CLINIC_HOURS_MESSAGE) : ''}>
+                    <Button onClick={openLabModal} disabled={!canOperate} style={{ fontSize: 13, borderColor: '#7c3aed', color: '#7c3aed' }}>
                       Yêu cầu đo mắt chuyên sâu
                     </Button>
                   </Tooltip>
@@ -894,30 +895,18 @@ export default function EMRPage() {
                 )}
 
                 <div style={{ display: 'flex', gap: 10 }}>
-                  <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
-                    <Button
-                      danger
-                      onClick={handleAbandonExamInEMR}
-                      loading={abandoning}
-                      disabled={!withinHours}
-                      style={{ fontSize: 13 }}
-                    >
+                  <Tooltip title={!canOperate ? (!isAppointmentToday ? notTodayMessage : CLINIC_HOURS_MESSAGE) : ''}>
+                    <Button danger onClick={handleAbandonExamInEMR} loading={abandoning} disabled={!canOperate} style={{ fontSize: 13 }}>
                       Dừng khám
                     </Button>
                   </Tooltip>
-                  <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
-                    <Button onClick={handleSaveDraft} loading={saving} disabled={!withinHours} style={{ fontSize: 13 }}>
+                  <Tooltip title={!canOperate ? (!isAppointmentToday ? notTodayMessage : CLINIC_HOURS_MESSAGE) : ''}>
+                    <Button onClick={handleSaveDraft} loading={saving} disabled={!canOperate} style={{ fontSize: 13 }}>
                       Lưu nháp
                     </Button>
                   </Tooltip>
-                  <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
-                    <Button
-                      type="primary"
-                      onClick={handleComplete}
-                      loading={saving}
-                      disabled={!withinHours}
-                      style={{ backgroundColor: '#0d9488', borderColor: '#0d9488', fontSize: 13 }}
-                    >
+                  <Tooltip title={!canOperate ? (!isAppointmentToday ? notTodayMessage : CLINIC_HOURS_MESSAGE) : ''}>
+                    <Button type="primary" onClick={handleComplete} loading={saving} disabled={!canOperate} style={{ backgroundColor: '#0d9488', borderColor: '#0d9488', fontSize: 13 }}>
                       Hoàn thành khám
                     </Button>
                   </Tooltip>

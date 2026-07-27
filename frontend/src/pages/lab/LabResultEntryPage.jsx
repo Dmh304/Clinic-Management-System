@@ -16,7 +16,7 @@ import { Form, Input, InputNumber, Button, message, Tag, Spin, Row, Col, Divider
 import { labService } from '../../services/labService'
 import { uploadImageToCloudinary } from '../../utils/uploadImage'
 import useConfirmAction from '../../hooks/useConfirmAction'
-import { isWithinClinicHours, CLINIC_HOURS_MESSAGE } from '../../utils/clinicHours'
+import { isWithinClinicHours, isSameDayAsToday, CLINIC_HOURS_MESSAGE } from '../../utils/clinicHours'
 
 const { TextArea } = Input
 
@@ -211,6 +211,10 @@ export default function LabResultEntryPage() {
   const [imageUrls, setImageUrls] = useState([]) 
   const [withinHours, setWithinHours] = useState(isWithinClinicHours())
   
+  const isAppointmentToday = orderInfo?.appointmentTime ? isSameDayAsToday(orderInfo.appointmentTime) : true
+  const canOperate = withinHours && isAppointmentToday
+  const notTodayMessage = 'Chỉ có thể thao tác với lịch hẹn của ngày hôm nay.'
+
   useEffect(() => {
     const timer = setInterval(() => setWithinHours(isWithinClinicHours()), 60_000)
     return () => clearInterval(timer)
@@ -460,15 +464,15 @@ export default function LabResultEntryPage() {
           )}
 
           {/* --- Form Nhập Kết Quả Khúc Xạ Chi Tiết --- */}
-          {!readonly && !withinHours && (
+          {!readonly && !canOperate && (
             <div style={{
               backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: 10,
               padding: '10px 16px', marginBottom: 16, fontSize: 13, color: '#92400e',
             }}>
-              Ngoài giờ làm việc của phòng khám (07:30–17:00, trừ Chủ nhật) — không thể nhập/lưu kết quả lúc này.
+              {!isAppointmentToday ? notTodayMessage : 'Ngoài giờ làm việc của phòng khám (07:30–17:00, trừ Chủ nhật) — không thể nhập/lưu kết quả lúc này.'}
             </div>
           )}
-          <Form form={form} layout="vertical" disabled={readonly || !withinHours} onFinish={handleSubmit}>
+          <Form form={form} layout="vertical" disabled={readonly || !canOperate} onFinish={handleSubmit}>
             <div style={{ backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: 24, marginBottom: 20 }}>
               
               {/* Layout hai cột phân chia rõ ràng: Mắt phải và Mắt trái */}
@@ -561,7 +565,7 @@ export default function LabResultEntryPage() {
                   <LabMultiImageUploader
                     values={imageUrls}
                     onChange={setImageUrls}
-                    disabled={readonly || !withinHours}
+                    disabled={readonly || !canOperate}
                   />
                 </Col>
                 <Col span={24}>
@@ -578,24 +582,13 @@ export default function LabResultEntryPage() {
                 <Button onClick={() => navigate('/lab/queue')} style={{ fontSize: 13 }}>
                   Hủy bỏ
                 </Button>
-                <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
-                  <Button
-                    onClick={handleSaveDraft}
-                    loading={savingDraft}
-                    disabled={!withinHours}
-                    style={{ fontSize: 13, borderColor: '#f59e0b', color: '#f59e0b' }}
-                  >
+                <Tooltip title={!canOperate ? (!isAppointmentToday ? notTodayMessage : CLINIC_HOURS_MESSAGE) : ''}>
+                  <Button onClick={handleSaveDraft} loading={savingDraft} disabled={!canOperate} style={{ fontSize: 13, borderColor: '#f59e0b', color: '#f59e0b' }}>
                     Lưu nháp
                   </Button>
                 </Tooltip>
-                <Tooltip title={!withinHours ? CLINIC_HOURS_MESSAGE : ''}>
-                  <Button
-                    type="primary"
-                    htmlType="submit"
-                    loading={submitting}
-                    disabled={!withinHours}
-                    style={{ backgroundColor: '#0d9488', borderColor: '#0d9488', fontSize: 13 }}
-                  >
+                <Tooltip title={!canOperate ? (!isAppointmentToday ? notTodayMessage : CLINIC_HOURS_MESSAGE) : ''}>
+                  <Button type="primary" htmlType="submit" loading={submitting} disabled={!canOperate} style={{ backgroundColor: '#0d9488', borderColor: '#0d9488', fontSize: 13 }}>
                     Hoàn thành và Gửi kết quả
                   </Button>
                 </Tooltip>
