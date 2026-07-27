@@ -103,7 +103,7 @@ export default function ManagerDashboard() {
           <div>
             <div style={{ color: '#4f46e5', fontSize: 12, letterSpacing: 2, fontWeight: 600 }}>PHÒNG ĐIỀU HÀNH · TRỰC TIẾP</div>
             <h1 style={pageTitle}>Tổng quan vận hành</h1>
-            <div style={{ color: '#64748b', marginTop: 4 }}>Nhịp hoạt động tại phòng khám trong hôm nay.</div>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Nhịp hoạt động tại phòng khám trong hôm nay.</p>
           </div>
           <button onClick={load} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 999, padding: '8px 16px', cursor: 'pointer', color: '#475569' }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />

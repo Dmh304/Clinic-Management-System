@@ -5,7 +5,7 @@
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { Layout, Menu, Input, Button, List, Typography, Badge, Avatar, Tag, Tabs } from 'antd';
-import { SendOutlined, UserOutlined } from '@ant-design/icons';
+import { FiSend as SendOutlined, FiUser as UserOutlined } from 'react-icons/fi';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { useSelector } from 'react-redux';

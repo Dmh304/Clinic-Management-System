@@ -173,13 +173,13 @@ export default function PayrollPage() {
   const btn = (bg, color, border) => ({ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 18px', borderRadius: 8, border: border || 'none', background: bg, color, cursor: 'pointer', fontWeight: 600, fontSize: 14 })
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f8f9ff', color: C.ink }}>
+    <div style={{ background: '#f8f9ff', color: C.ink }}>
       <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 24 }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 16 }}>
           <div>
             <h1 style={pageTitle}>Phê duyệt bảng lương</h1>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4, color: C.muted }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4, fontSize: 13, color: C.muted }}>
               <span>Kỳ lương tháng {period ? `${String(period.month).padStart(2, '0')}/${period.year}` : `${String(month).padStart(2, '0')}/${year}`}</span>
               {period && <>
                 <span style={{ width: 5, height: 5, borderRadius: 999, background: '#cbd5e1' }} />

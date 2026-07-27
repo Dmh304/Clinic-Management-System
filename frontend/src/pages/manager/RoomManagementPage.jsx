@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { roomService } from '../../services/roomService'
 import { serviceService } from '../../services/serviceService'
-import Header from '../../components/layout/Header'
 import { pageTitle } from './managerTypography'
 
 const CATEGORY_LABELS = {
@@ -110,14 +109,12 @@ export default function RoomManagementPage() {
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#6b7280' }}>Đang tải...</div>
 
   return (
-    <>
-    <Header/>
-    <div style={{ minHeight: '100vh', background: '#f8fafc', padding: '32px 16px' }}>
+    <div style={{ padding: 24 }}>
       <div style={{ maxWidth: 1000, margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
           <div>
             <h1 style={pageTitle}>Quản lý phòng</h1>
-            <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: 14 }}>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
               Danh mục phòng vật lý và ánh xạ dịch vụ — dùng làm nguồn tham chiếu cho phân trực
             </p>
           </div>
@@ -293,7 +290,6 @@ export default function RoomManagementPage() {
         )}
       </div>
     </div>
-    </>
   )
 }
 

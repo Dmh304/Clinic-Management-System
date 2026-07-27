@@ -118,12 +118,12 @@ export default function StaffPerformancePage() {
   const td = { padding: '18px 8px', borderTop: '1px solid #f8fafc' }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f5f6ff' }}>
+    <div style={{ background: '#f5f6ff' }}>
       {/* Header */}
       <div style={{ padding: '24px 32px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={pageTitle}>Hiệu suất nhân viên</h1>
-          <div style={{ color: '#64748b', marginTop: 2 }}>Theo dõi KPI và năng suất của đội ngũ bác sĩ</div>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Theo dõi KPI và năng suất của đội ngũ bác sĩ</p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <select value={rangeKey} onChange={(e) => setRangeKey(e.target.value)} style={{ padding: '10px 16px', borderRadius: 12, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>

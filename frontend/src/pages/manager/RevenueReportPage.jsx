@@ -167,7 +167,7 @@ export default function RevenueReportPage() {
   const topDoc = data?.topDoctor || {}
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f5f6ff' }}>
+    <div style={{ background: '#f5f6ff' }}>
       {/* Breadcrumb + title */}
       <div style={{ background: '#fff', borderBottom: '1px solid #eef0f6', padding: '14px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>

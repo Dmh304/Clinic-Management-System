@@ -9,7 +9,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import Header from '../../components/layout/Header'
-import { Button, Input, Tag, Spin, Result, Modal, Row, Col, Card, message, Pagination } from 'antd'
+import { Button, Input, Select, Tag, Spin, Result, Modal, Row, Col, Card, message, Pagination, Tooltip } from 'antd'
+import { ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons'
 import { labService } from '../../services/labService'
 import useConfirmAction from '../../hooks/useConfirmAction'
 
@@ -40,15 +41,26 @@ const PRIORITY_MAP = {
 }
 
 /**
- * Danh sách các Tab trạng thái hiển thị trên thanh Bộ lọc
+ * Thứ tự ưu tiên xử lý (số càng nhỏ càng được xếp lên trước) - dùng làm tiêu chí sort chính,
+ * đảm bảo ca Khẩn cấp luôn được xếp lên đầu bất kể được tạo trước hay sau các ca khác (nguyên tắc triage)
  */
-const TABS = [
-  { key: 'SUBMITTED',   label: 'Chờ duyệt' },
-  { key: 'PENDING',     label: 'Chờ thực hiện' },
-  { key: 'IN_PROGRESS', label: 'Đang thực hiện' },
-  { key: 'APPROVED',    label: 'Đã duyệt' },
-  { key: 'REJECTED',    label: 'Từ chối' },
-  { key: 'ALL',         label: 'Tất cả' },
+const PRIORITY_ORDER = {
+  EMERGENCY: 0,
+  WARNING: 1,
+  PRIMARY: 2,
+}
+
+/**
+ * Cấu hình các thẻ thống kê hiển thị phía trên bảng, mỗi thẻ tương ứng một trạng thái phiếu xét nghiệm
+ * (bao gồm cả thẻ "Tất cả" tổng hợp toàn bộ số lượng)
+ */
+const STAT_CARDS = [
+  { key: 'ALL',         label: 'Tất cả',        color: '#6366f1' },
+  { key: 'SUBMITTED',   label: 'Chờ duyệt',     color: '#d97706' },
+  { key: 'PENDING',     label: 'Chờ thực hiện', color: '#94a3b8' },
+  { key: 'IN_PROGRESS', label: 'Đang thực hiện', color: '#3b82f6' },
+  { key: 'APPROVED',    label: 'Đã duyệt',      color: '#10b981' },
+  { key: 'REJECTED',    label: 'Từ chối',       color: '#ef4444' },
 ]
 
 const textEllipsisStyle = {
@@ -58,6 +70,28 @@ const textEllipsisStyle = {
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   wordBreak: 'break-all',
+}
+
+/* ================================================================== */
+/* SUB-COMPONENT: StatCard                                              */
+/* ================================================================== */
+function StatCard({ label, value, color }) {
+  return (
+    <div
+      style={{
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: '16px 20px',
+        borderTop: `3px solid ${color}`,
+        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+        minWidth: 120,
+        flex: 1,
+      }}
+    >
+      <div style={{ fontSize: 26, fontWeight: 700, color }}>{value ?? 0}</div>
+      <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{label}</div>
+    </div>
+  )
 }
 
 /* ================================================================== */
@@ -97,8 +131,12 @@ export default function LabOrderPage() {
   /* ---------------------------------------------------------------- */
   const [orders, setOrders]         = useState([])
   const [loading, setLoading]       = useState(true)
-  const [activeTab, setActiveTab]   = useState('SUBMITTED')
+  // statusFilter: Trạng thái lọc hiện tại, mặc định 'PENDING' (Chờ thực hiện); có thể đổi qua dropdown
+  const [statusFilter, setStatusFilter] = useState('PENDING')
   const [searchText, setSearchText] = useState('')
+  // sortAsc: Chiều sắp xếp theo thời gian tạo trong cùng một mức ưu tiên.
+  // true = cũ nhất trước (mặc định), false = mới nhất trước. Bấm cột "Ngày tạo" để đảo chiều.
+  const [sortAsc, setSortAsc] = useState(true)
 
   const [reviewModal, setReviewModal]   = useState(false)
   const [selectedOrder, setSelectedOrder] = useState(null)
@@ -231,22 +269,36 @@ export default function LabOrderPage() {
   }
 
   /* ---------------------------------------------------------------- */
-  /* CLIENT-SIDE FILTERING                                             */
+  /* CLIENT-SIDE FILTERING & SORTING                                    */
   /* ---------------------------------------------------------------- */
-  const filteredOrders = orders.filter((o) => {
-    if (activeTab !== 'ALL' && o.status !== activeTab) return false
-    if (!searchText) return true
-    const kw = searchText.toLowerCase()
-    return (
-      o.patientFullName?.toLowerCase().includes(kw) ||
-      o.patientPhone?.toLowerCase().includes(kw)    ||
-      o.serviceName?.toLowerCase().includes(kw)
-    )
-  })
+  const filteredOrders = orders
+    .filter((o) => {
+      if (statusFilter !== 'ALL' && o.status !== statusFilter) return false
+      if (!searchText) return true
+      const kw = searchText.toLowerCase()
+      return (
+        o.patientFullName?.toLowerCase().includes(kw) ||
+        o.patientPhone?.toLowerCase().includes(kw)    ||
+        o.serviceName?.toLowerCase().includes(kw)
+      )
+    })
+    /**
+     * Sắp xếp: ưu tiên mức độ khẩn cấp (EMERGENCY > WARNING > PRIMARY) lên trước bất kể thời gian tạo,
+     * đúng nguyên tắc triage lâm sàng. Trong cùng một mức ưu tiên, sắp xếp theo thời gian tạo
+     * (createdAt) theo chiều do người dùng chọn qua việc bấm cột "Ngày tạo" (mặc định cũ nhất trước).
+     */
+    .slice()
+    .sort((a, b) => {
+      const prioDiff = (PRIORITY_ORDER[a.priority] ?? 99) - (PRIORITY_ORDER[b.priority] ?? 99)
+      if (prioDiff !== 0) return prioDiff
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+      return sortAsc ? timeA - timeB : timeB - timeA
+    })
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [activeTab, searchText])
+  }, [statusFilter, searchText, sortAsc])
 
   const pagedOrders = filteredOrders.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
@@ -289,56 +341,52 @@ export default function LabOrderPage() {
               Phiếu chỉ định xét nghiệm
             </h2>
             <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
-              Danh sách phiếu xét nghiệm bạn đã tạo — duyệt kết quả tại tab "Chờ duyệt"
+              Danh sách phiếu xét nghiệm bạn đã tạo — duyệt kết quả tại mục "Chờ duyệt"
             </p>
           </div>
-          <Button onClick={fetchOrders} loading={loading} size="small" style={{ fontSize: 12 }}>
-            Làm mới
-          </Button>
+
+        </div>
+
+        {/* --- Danh sách các thẻ thống kê số lượng phiếu xét nghiệm theo trạng thái --- */}
+        <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+          {STAT_CARDS.map((card) => (
+            <StatCard
+              key={card.key}
+              label={card.label}
+              value={countByStatus(card.key)}
+              color={card.color}
+            />
+          ))}
         </div>
 
         <div style={{ backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
 
-          {/* TABS */}
-          <div style={{ display: 'flex', borderBottom: '1px solid #f1f5f9', padding: '0 16px', gap: 4, overflowX: 'auto' }}>
-            {TABS.map((tab) => {
-              const count    = countByStatus(tab.key)
-              const isActive = activeTab === tab.key
-              return (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  style={{
-                    padding: '12px 16px', border: 'none', background: 'none', cursor: 'pointer',
-                    fontSize: 13, fontWeight: isActive ? 600 : 400,
-                    color: isActive ? '#2563eb' : '#64748b',
-                    borderBottom: isActive ? '2px solid #2563eb' : '2px solid transparent',
-                    display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', transition: 'all 0.15s',
-                  }}
-                >
-                  {tab.label}
-                  <span style={{
-                    backgroundColor: isActive ? '#2563eb' : '#e2e8f0',
-                    color: isActive ? '#fff' : '#64748b',
-                    borderRadius: 99, padding: '1px 7px', fontSize: 11,
-                    fontWeight: 600, minWidth: 20, textAlign: 'center',
-                  }}>
-                    {count}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-
-          {/* SEARCH */}
-          <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9' }}>
+          {/* SEARCH + FILTER */}
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
             <Input.Search
               placeholder="Tìm theo tên bệnh nhân, SĐT hoặc dịch vụ..."
               allowClear 
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              style={{ maxWidth: 440 }}
+              style={{ flex: 1, minWidth: 200 }}
             />
+
+            {/* Dropdown lọc theo trạng thái */}
+            <Select
+              value={statusFilter}
+              onChange={setStatusFilter}
+              style={{ width: 200, flexShrink: 0 }}
+              options={[
+                { label: `Tất cả (${countByStatus('ALL')})`, value: 'ALL' },
+                ...Object.entries(LAB_ORDER_STATUS_MAP).map(([value, cfg]) => ({
+                  label: `${cfg.label} (${countByStatus(value)})`,
+                  value,
+                })),
+              ]}
+            />
+            <Button onClick={fetchOrders} loading={loading} size="small" style={{ fontSize: 12 }}>
+              Làm mới
+            </Button>
           </div>
 
           {/* TABLE */}
@@ -346,7 +394,7 @@ export default function LabOrderPage() {
             {!loading && filteredOrders.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '48px 0', color: '#94a3b8', fontSize: 14 }}>
                 {searchText ? 'Không tìm thấy kết quả phù hợp'
-                  : activeTab === 'SUBMITTED' ? 'Không có kết quả nào đang chờ duyệt'
+                  : statusFilter === 'SUBMITTED' ? 'Không có kết quả nào đang chờ duyệt'
                   : 'Không có dữ liệu'}
               </div>
             ) : (
@@ -354,8 +402,30 @@ export default function LabOrderPage() {
                 <thead>
                   <tr style={{ borderBottom: '1px solid #f1f5f9', backgroundColor: '#f8fafc' }}>
                     {['STT', 'Ngày tạo', 'Bệnh nhân', 'SĐT', 'Ưu tiên', 'Trạng thái', ''].map((h) => (
-                      <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 13, fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>
-                        {h}
+                      <th
+                        key={h}
+                        onClick={h === 'Ngày tạo' ? () => setSortAsc((v) => !v) : undefined}
+                        style={{
+                          padding: '10px 16px',
+                          textAlign: 'left',
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: '#475569',
+                          whiteSpace: 'nowrap',
+                          cursor: h === 'Ngày tạo' ? 'pointer' : 'default',
+                          userSelect: h === 'Ngày tạo' ? 'none' : 'auto',
+                        }}
+                      >
+                        {h === 'Ngày tạo' ? (
+                          <Tooltip title={sortAsc ? 'Đang sắp xếp: Cũ nhất trước — bấm để đổi' : 'Đang sắp xếp: Mới nhất trước — bấm để đổi'}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              {h}
+                              {sortAsc
+                                ? <ArrowUpOutlined style={{ fontSize: 11, color: '#2563eb' }} />
+                                : <ArrowDownOutlined style={{ fontSize: 11, color: '#2563eb' }} />}
+                            </span>
+                          </Tooltip>
+                        ) : h}
                       </th>
                     ))}
                   </tr>

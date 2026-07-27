@@ -1,106 +1,23 @@
 import { useDispatch, useSelector } from 'react-redux'
 import { NavLink, Outlet, Link } from 'react-router-dom'
+import { FiCalendar, FiZap, FiUserPlus, FiBell, FiCheckSquare, FiFileText, FiCreditCard, FiMessageCircle, FiEye, FiHome, FiLogOut } from 'react-icons/fi'
+import { FaGlasses } from 'react-icons/fa'
 import { logout } from '../../store/slices/authSlice'
-import NotificationBell from './NotificationBell'
+import Header from './Header'
 import logoImg from '../../assets/ECMS_Logo.png'
 
 const NAV_ITEMS = [
-  {
-    label: 'Dashboard',
-    to: '/receptionist/appointments',
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-        <line x1="16" y1="2" x2="16" y2="6" />
-        <line x1="8" y1="2" x2="8" y2="6" />
-        <line x1="3" y1="10" x2="21" y2="10" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Lịch khám vãng lai',
-    to: '/receptionist/walk-in-appointment',
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Tạo tài khoản bệnh nhân',
-    to: '/receptionist/walk-in',
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-        <circle cx="12" cy="7" r="4" />
-        <line x1="19" y1="8" x2="19" y2="14" />
-        <line x1="22" y1="11" x2="16" y2="11" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Thông báo',
-    to: '/receptionist/notifications',
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Check-out dịch vụ',
-    to: '/receptionist/checkout-care-sessions',
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Đăng ký dịch vụ',
-    to: '/receptionist/service-registrations',
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-        <polyline points="14 2 14 8 20 8" />
-        <line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Hóa đơn & Thu phí',
-    to: '/receptionist/invoice',
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" />
-      </svg>
-    ),
-  },
-  // "Đối soát & Hoàn tiền" nay là một tab trong "Hóa đơn & Thu phí". Route
+  // Đối soát & Hoàn tiền nằm trong tab của "Hóa đơn & Thu phí"; route
   // /receptionist/reconciliation vẫn giữ để link cũ không gãy.
-  {
-    label: 'Quản lý Đơn Kính',
-    to: '/receptionist/eyeglass-orders',
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="10" cy="14" r="4" />
-        <circle cx="22" cy="14" r="4" />
-        <path d="M14 14h4" />
-        <path d="M12.5 10.5 10 10l-2.5.5" />
-        <path d="M21.5 10.5 24 10l2.5.5" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Hỗ trợ trực tuyến',
-    to: '/receptionist/support',
-    icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-      </svg>
-    ),
-  },
+  { label: 'Dashboard', to: '/receptionist/appointments', icon: <FiCalendar size={16} /> },
+  { label: 'Lịch khám vãng lai', to: '/receptionist/walk-in-appointment', icon: <FiZap size={16} /> },
+  { label: 'Tạo tài khoản bệnh nhân', to: '/receptionist/walk-in', icon: <FiUserPlus size={16} /> },
+  { label: 'Thông báo', to: '/receptionist/notifications', icon: <FiBell size={16} /> },
+  { label: 'Check-out dịch vụ', to: '/receptionist/checkout-care-sessions', icon: <FiCheckSquare size={16} /> },
+  { label: 'Đăng ký dịch vụ', to: '/receptionist/service-registrations', icon: <FiFileText size={16} /> },
+  { label: 'Hóa đơn & Thu phí', to: '/receptionist/invoice', icon: <FiCreditCard size={16} /> },
+  { label: 'Quản lý Đơn Kính', to: '/receptionist/eyeglass-orders', icon: <FaGlasses size={16} /> },
+  { label: 'Hỗ trợ trực tuyến', to: '/receptionist/support', icon: <FiMessageCircle size={16} /> },
 ]
 
 export default function ReceptionistLayout() {
@@ -118,35 +35,28 @@ export default function ReceptionistLayout() {
       <aside style={{
         width: 220,
         flexShrink: 0,
-        backgroundColor: '#fff',
-        borderRight: '1px solid #e8eef4',
+        backgroundColor: '#1c1b1f',
+        borderRight: '1px solid rgba(255,255,255,0.08)',
         display: 'flex',
         flexDirection: 'column',
         boxShadow: '2px 0 8px rgba(0,0,0,0.04)',
       }}>
         {/* Brand */}
-        <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid #f1f5f9' }}>
+        <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
             <div style={{
               width: 36, height: 36, borderRadius: 10, flexShrink: 0,
               backgroundColor: '#1d4ed8',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
+              <FiEye size={20} color="#fff" />
             </div>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 13, color: '#1d4ed8', lineHeight: 1.3 }}>Reception</div>
-              <div style={{ fontWeight: 700, fontSize: 13, color: '#1d4ed8', lineHeight: 1.3 }}>Desk</div>
+              <div style={{ fontWeight: 700, fontSize: 13, color: '#ffffffff', lineHeight: 1.3 }}>Reception Desk</div>
+
             </div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-             <div style={{ fontSize: 11, color: '#94a3b8' }}>Main Clinic Branch</div>
-             {/* UC-13: chuông thông báo đưa lên trên cao */}
-             <NotificationBell viewAllPath="/receptionist/notifications" align="left" />
-          </div>
+          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>Main Clinic Branch</div>
         </div>
 
         {/* Nav */}
@@ -158,10 +68,10 @@ export default function ReceptionistLayout() {
               style={({ isActive }) => ({
                 display: 'flex', alignItems: 'center', gap: 10,
                 padding: '9px 12px', borderRadius: 8, marginBottom: 2,
-                textDecoration: 'none', fontSize: 13,
-                fontWeight: isActive ? 600 : 400,
-                color: isActive ? '#1d4ed8' : '#64748b',
-                backgroundColor: isActive ? '#eff6ff' : 'transparent',
+                textDecoration: 'none', fontSize: 14,
+                fontWeight: 500,
+                color: isActive ? '#fff' : 'rgba(255,255,255,0.6)',
+                backgroundColor: isActive ? '#2ebe79ff' : 'transparent',
                 transition: 'background-color 0.15s, color 0.15s',
               })}
             >
@@ -172,19 +82,16 @@ export default function ReceptionistLayout() {
         </nav>
 
         {/* Bottom */}
-        <div style={{ padding: '12px 16px', borderTop: '1px solid #f1f5f9' }}>
+        <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
           <Link
             to="/"
             style={{
               display: 'flex', alignItems: 'center', gap: 8,
               padding: '7px 10px', borderRadius: 8, marginBottom: 6,
-              fontSize: 12, color: '#64748b', textDecoration: 'none',
+              fontSize: 12, color: 'rgba(255,255,255,0.6)', textDecoration: 'none',
             }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-              <polyline points="9 22 9 12 15 12 15 22" />
-            </svg>
+            <FiHome size={14} />
             Về trang chủ
           </Link>
 
@@ -200,7 +107,7 @@ export default function ReceptionistLayout() {
             }}>
               {user?.fullName?.[0]?.toUpperCase() ?? 'U'}
             </div>
-            <span style={{ flex: 1, fontSize: 12, color: '#374151', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <span style={{ flex: 1, fontSize: 12, color: '#fff', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {user?.fullName ?? user?.email}
             </span>
 
@@ -209,24 +116,22 @@ export default function ReceptionistLayout() {
           <button
             onClick={handleLogout}
             style={{
-              width: '100%', background: 'none', border: '1px solid #e2e8f0',
-              cursor: 'pointer', color: '#64748b', padding: '6px 0',
+              width: '100%', background: 'none', border: '1px solid rgba(255,255,255,0.15)',
+              cursor: 'pointer', color: 'rgba(255,255,255,0.6)', padding: '6px 0',
               borderRadius: 8, fontSize: 12, display: 'flex', alignItems: 'center',
               justifyContent: 'center', gap: 6,
             }}
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
-            </svg>
+            <FiLogOut size={13} />
             Đăng xuất
           </button>
         </div>
       </aside>
 
       {/* ── Main content ── */}
-      <main style={{ flex: 1, overflow: 'auto' }}>
+      {/* scrollbarGutter: 'stable' để header (canh giữa theo main) không bị lệch vài px giữa các trang có/không có thanh cuộn dọc */}
+      <main style={{ flex: 1, overflow: 'auto', scrollbarGutter: 'stable' }}>
+        <Header />
         <Outlet />
       </main>
     </div>

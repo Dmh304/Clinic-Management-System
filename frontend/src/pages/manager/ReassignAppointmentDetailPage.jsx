@@ -192,7 +192,7 @@ export default function ReassignAppointmentDetailPage() {
   const cannotReassign = CANNOT_REASSIGN_STATUSES.includes(appt.status)
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f8fafc', padding: '32px 16px' }}>
+    <div style={{ padding: 24 }}>
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         <div style={{ fontSize: 13, color: '#94a3b8', marginBottom: 8 }}>
           <span style={{ cursor: 'pointer', color: '#2563eb' }} onClick={() => navigate('/manager/reassign-appointment')}>Quản lý lịch hẹn</span>

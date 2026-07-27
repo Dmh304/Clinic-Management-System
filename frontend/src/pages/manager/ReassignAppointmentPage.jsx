@@ -83,11 +83,11 @@ export default function ReassignAppointmentPage() {
   }), [appointments])
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f8fafc', padding: '32px 16px' }}>
+    <div style={{ padding: 24 }}>
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
         <div style={{ marginBottom: 20 }}>
           <h1 style={pageTitle}>Chuyển lịch hẹn</h1>
-          <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: 14 }}>Đổi bác sĩ hoặc thời gian cho các lịch hẹn đang hoạt động</p>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Đổi bác sĩ hoặc thời gian cho các lịch hẹn đang hoạt động</p>
         </div>
 
         {/* Toolbar: điều hướng ngày + tìm kiếm + bộ lọc trạng thái */}

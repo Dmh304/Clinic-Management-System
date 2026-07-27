@@ -8,18 +8,19 @@
  * KHÔNG khai báo fontFamily: để chữ kế thừa biến --sans ở index.css.
  */
 
-/** Tiêu đề chính của một trang manager. Dùng cho đúng MỘT phần tử trên mỗi trang. */
+/** Tiêu đề chính của một trang manager. Dùng cho đúng MỘT phần tử trên mỗi trang.
+ *  Giá trị lấy theo bản restyle của nhánh test-branch (20px/700/#0f172a) để giao diện
+ *  khớp với phần còn lại của hệ thống sau merge. */
 export const pageTitle = {
-  fontSize: 24,
+  fontSize: 20,
   fontWeight: 700,
-  color: '#1e293b',
-  letterSpacing: '-0.01em',
+  color: '#0f172a',
   margin: 0,
 }
 
 /** Dòng mô tả ngay dưới tiêu đề trang. */
 export const pageSubtitle = {
-  fontSize: 14,
+  fontSize: 13,
   color: '#64748b',
-  marginTop: 4,
+  margin: '4px 0 0',
 }
