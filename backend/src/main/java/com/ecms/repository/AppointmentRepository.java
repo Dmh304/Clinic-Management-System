@@ -341,4 +341,29 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
 
         // UC-51/52/53: lấy lịch hẹn theo khoảng thời gian để tổng hợp báo cáo
         List<Appointment> findByAppointmentTimeBetween(LocalDateTime from, LocalDateTime to);
+
+        /**
+         * UC-48 bước 1: các lịch đã khám xong, đến hạn mời đánh giá nhưng chưa gửi.
+         *
+         * Phải kiểm IS NULL bên cạnh = false: cột feedback_request_sent thêm sau bằng
+         * ddl-auto nên lịch hẹn cũ đang mang NULL, derived query ...SentFalse sẽ bỏ sót
+         * toàn bộ dữ liệu cũ.
+         *
+         * cutoffNewest: khám xong ít nhất N giờ mới mời. cutoffOldest: không đào lại
+         * lịch quá cũ khi mới bật tính năng.
+         */
+        @Query("""
+                        SELECT a
+                        FROM Appointment a
+                        LEFT JOIN FETCH a.patient
+                        LEFT JOIN FETCH a.doctor
+                        WHERE a.status = :status
+                          AND a.appointmentTime <= :cutoffNewest
+                          AND a.appointmentTime >= :cutoffOldest
+                          AND (a.feedbackRequestSent IS NULL OR a.feedbackRequestSent = false)
+                        """)
+        List<Appointment> findDueForFeedbackRequest(
+                        @Param("status") AppointmentStatus status,
+                        @Param("cutoffNewest") LocalDateTime cutoffNewest,
+                        @Param("cutoffOldest") LocalDateTime cutoffOldest);
 }

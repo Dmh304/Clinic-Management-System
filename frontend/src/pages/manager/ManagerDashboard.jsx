@@ -15,9 +15,10 @@
  */
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { FiSearch, FiBell, FiChevronDown, FiMoreHorizontal, FiRefreshCw, FiCalendar, FiCheckCircle, FiDollarSign } from 'react-icons/fi'
+import { FiMoreHorizontal, FiRefreshCw, FiCalendar, FiCheckCircle, FiDollarSign } from 'react-icons/fi'
 import { FaPills, FaFlask } from 'react-icons/fa'
 import { reportService } from '../../services/reportService'
+import { pageTitle } from './managerTypography'
 
 const pad2 = (n) => (n == null ? '—' : String(n).padStart(2, '0'))
 const fmtAmount = (v) => {
@@ -96,23 +97,12 @@ export default function ManagerDashboard() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#f5f6ff' }}>
-      {/* Top bar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 28px', background: '#fff', borderBottom: '1px solid #eef0f6' }}>
-        <div style={{ flex: 1, maxWidth: 420, display: 'flex', alignItems: 'center', gap: 8, background: '#f1f5f9', borderRadius: 999, padding: '9px 16px' }}>
-          <FiSearch color="#94a3b8" />
-          <input placeholder="Tìm bệnh nhân, bác sĩ…" style={{ border: 'none', background: 'transparent', outline: 'none', flex: 1, fontSize: 14 }} />
-        </div>
-        <div style={{ flex: 1 }} />
-        <div style={{ width: 40, height: 40, borderRadius: '50%', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><FiBell color="#475569" /></div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#1e293b', color: '#fff', borderRadius: 999, padding: '9px 18px', fontWeight: 600, fontSize: 14 }}>Hôm nay <FiChevronDown /></div>
-      </div>
-
       <div style={{ padding: '24px 28px' }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
           <div>
             <div style={{ color: '#4f46e5', fontSize: 12, letterSpacing: 2, fontWeight: 600 }}>PHÒNG ĐIỀU HÀNH · TRỰC TIẾP</div>
-            <div style={{ fontSize: 34, fontWeight: 800, fontFamily: 'Georgia, serif', color: '#0f172a', marginTop: 6 }}>Tổng quan vận hành</div>
+            <h1 style={pageTitle}>Tổng quan vận hành</h1>
             <div style={{ color: '#64748b', marginTop: 4 }}>Nhịp hoạt động tại phòng khám trong hôm nay.</div>
           </div>
           <button onClick={load} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 999, padding: '8px 16px', cursor: 'pointer', color: '#475569' }}>

@@ -89,7 +89,7 @@ public interface ReportService {
      * @param response servlet response the CSV is streamed to
      * @throws IOException if the response stream fails
      */
-    void exportRevenueCsv(LocalDate from, LocalDate to, HttpServletResponse response) throws IOException;
+    void exportRevenueXlsx(LocalDate from, LocalDate to, HttpServletResponse response) throws IOException;
 
     /**
      * UC-51 step 4: exports the patient statistics.
@@ -99,7 +99,7 @@ public interface ReportService {
      * @param response servlet response the CSV is streamed to
      * @throws IOException if the response stream fails
      */
-    void exportPatientStatisticsCsv(LocalDate from, LocalDate to, HttpServletResponse response) throws IOException;
+    void exportPatientStatisticsXlsx(LocalDate from, LocalDate to, HttpServletResponse response) throws IOException;
 
     /**
      * UC-53 step 5: exports the detailed feedback list.
@@ -109,5 +109,5 @@ public interface ReportService {
      * @param response servlet response the CSV is streamed to
      * @throws IOException if the response stream fails
      */
-    void exportFeedbackCsv(LocalDate from, LocalDate to, HttpServletResponse response) throws IOException;
+    void exportFeedbackXlsx(LocalDate from, LocalDate to, HttpServletResponse response) throws IOException;
 }

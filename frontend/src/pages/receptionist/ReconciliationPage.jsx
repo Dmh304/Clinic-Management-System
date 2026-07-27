@@ -14,7 +14,7 @@
  * refund is a bank transfer or cash hand-back done outside the system, and what
  * is recorded here is the audit trail — amount, who confirmed, when, and how.
  */
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Table, Tag, Button, Modal, Form, InputNumber, Input, message, Tooltip } from 'antd'
 import { paymentService } from '../../services/paymentService'
 
@@ -44,28 +44,54 @@ const REFUND = {
 
 /**
  * Renders the reconciliation worklist and the refund-confirmation dialog.
+ *
+ * Dùng ở hai nơi: trang độc lập /receptionist/reconciliation, và một tab trong màn
+ * hình "Thu phí & Hóa đơn".
+ *
+ * @param {Object}   props
+ * @param {boolean}  props.embedded            bỏ padding và tiêu đề trang khi nhúng làm tab
+ * @param {Function} props.onPendingCountChange báo số khoản còn phải hoàn lên nhãn tab
  * @returns {JSX.Element} the reconciliation screen
  */
-export default function ReconciliationPage() {
+export default function ReconciliationPage({ embedded = false, onPendingCountChange }) {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [refundTarget, setRefundTarget] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [form] = Form.useForm()
 
-  /** Loads the worklist. */
-  const load = async () => {
+  /** Chỉ gọi API và trả dữ liệu, không đụng state — để lần nạp đầu và nút "Làm mới"
+   *  dùng chung mà mỗi bên tự quyết định cập nhật state lúc nào. */
+  const fetchRows = useCallback(async () => {
+    const res = await paymentService.getReconciliation()
+    return res.data || []
+  }, [])
+
+  // Không gọi setLoading(true) ở đây: `loading` đã khởi tạo là true, set lại trong thân
+  // effect chỉ thêm một vòng render thừa (react-hooks/set-state-in-effect).
+  // `cancelled` chặn setState sau khi component đã unmount.
+  useEffect(() => {
+    let cancelled = false
+    fetchRows()
+      .then((data) => { if (!cancelled) setRows(data) })
+      .catch((e) => {
+        if (!cancelled) message.error(e?.response?.data?.message || 'Không tải được danh sách đối soát')
+      })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [fetchRows])
+
+  /** Nạp lại theo thao tác người dùng — bật spinner vì họ vừa bấm và cần thấy phản hồi. */
+  const reload = async () => {
     setLoading(true)
     try {
-      const res = await paymentService.getReconciliation()
-      setRows(res.data || [])
+      setRows(await fetchRows())
     } catch (e) {
       message.error(e?.response?.data?.message || 'Không tải được danh sách đối soát')
     } finally {
       setLoading(false)
     }
   }
-  useEffect(() => { load() }, [])
 
   /**
    * Opens the refund dialog, prefilling the amount that is actually owed:
@@ -94,7 +120,7 @@ export default function ReconciliationPage() {
       await paymentService.confirmRefund(refundTarget.id, values)
       message.success('Đã ghi nhận hoàn tiền')
       setRefundTarget(null)
-      await load()
+      await reload()
     } catch (e) {
       message.error(e?.response?.data?.message || 'Không ghi nhận được hoàn tiền')
     } finally {
@@ -103,6 +129,11 @@ export default function ReconciliationPage() {
   }
 
   const needRefund = rows.filter((r) => r.refundStatus === 'REQUIRED').length
+
+  // Đẩy con số lên màn hình cha để hiện trên nhãn tab.
+  useEffect(() => {
+    onPendingCountChange?.(needRefund)
+  }, [needRefund, onPendingCountChange])
 
   const columns = [
     {
@@ -178,9 +209,11 @@ export default function ReconciliationPage() {
   ]
 
   return (
-    <div style={{ padding: 24 }}>
+    <div style={{ padding: embedded ? 0 : 24 }}>
+      {/* Nhúng làm tab thì bỏ tiêu đề (nhãn tab đã nói rõ), nhưng giữ chip đếm khoản
+          cần hoàn ở cả hai chế độ vì đó là việc phải làm. */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 16, marginBottom: 4 }}>
-        <h2 style={{ margin: 0 }}>Đối soát giao dịch chuyển khoản</h2>
+        {!embedded && <h2 style={{ margin: 0 }}>Đối soát giao dịch chuyển khoản</h2>}
         {needRefund > 0 && (
           <Tag color="red">{needRefund} khoản cần hoàn tiền</Tag>
         )}
@@ -192,7 +225,7 @@ export default function ReconciliationPage() {
       </p>
 
       <div style={{ marginBottom: 12 }}>
-        <Button onClick={load} loading={loading}>Làm mới</Button>
+        <Button onClick={reload} loading={loading}>Làm mới</Button>
       </div>
 
       <Table

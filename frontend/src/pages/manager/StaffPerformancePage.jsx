@@ -16,6 +16,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { FiClock } from 'react-icons/fi'
 import { reportService } from '../../services/reportService'
+import { pageTitle } from './managerTypography'
 
 const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 const shortName = (name) => (name || '').split(' ').filter(Boolean).slice(-1)[0] || name
@@ -121,7 +122,7 @@ export default function StaffPerformancePage() {
       {/* Header */}
       <div style={{ padding: '24px 32px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: '#0f172a' }}>Hiệu suất nhân viên</div>
+          <h1 style={pageTitle}>Hiệu suất nhân viên</h1>
           <div style={{ color: '#64748b', marginTop: 2 }}>Theo dõi KPI và năng suất của đội ngũ bác sĩ</div>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
@@ -205,6 +206,14 @@ export default function StaffPerformancePage() {
                               <div style={{ width: 100, height: 6, background: '#f1f5f9', borderRadius: 999 }}>
                                 <div style={{ width: `${ot}%`, height: '100%', background: otc, borderRadius: 999 }} />
                               </div>
+                              {/* Ca thiếu check-in bị tính là trễ — nói rõ để không quy kết
+                                  nhầm cho bác sĩ khi thực ra là lỗi quy trình tiếp đón. */}
+                              {r.appointmentsWithoutCheckIn > 0 && (
+                                <span style={{ color: '#b45309', fontSize: 11 }}
+                                  title="Ca đã hoàn thành nhưng không có mốc check-in nên không chứng minh được đúng giờ">
+                                  {r.appointmentsWithoutCheckIn} ca thiếu check-in
+                                </span>
+                              )}
                             </div>
                           )}
                         </td>

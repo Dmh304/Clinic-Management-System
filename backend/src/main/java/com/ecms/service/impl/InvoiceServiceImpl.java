@@ -246,6 +246,10 @@ public class InvoiceServiceImpl implements InvoiceService {
         } else {
             discount = request.getDiscountAmount() != null ? request.getDiscountAmount() : BigDecimal.ZERO;
         }
+        // CÓ CHỦ Ý, không phải thiếu validation: giảm giá vượt subTotal bị kẹp im lặng
+        // (total = 0), KHÔNG ném lỗi — chiến dịch khuyến mãi có thể lớn hơn hóa đơn nhỏ,
+        // chặn cứng sẽ hỏng luồng tạo hóa đơn tự động. Đánh đổi đã chấp nhận: gõ nhầm
+        // 500000 thay vì 50000 là miễn phí cả hóa đơn. Test BR-15 phải kỳ vọng total = 0.
         if (discount.compareTo(BigDecimal.ZERO) < 0) {
             discount = BigDecimal.ZERO;
         } else if (discount.compareTo(subTotal) > 0) {
@@ -466,9 +470,11 @@ public class InvoiceServiceImpl implements InvoiceService {
         // Switching to CASH stays legal in both states: the patient may abandon
         // the transfer and pay at the counter, and then a Receptionist is
         // accountable for the cash.
+        // PARTIALLY_PAID cũng là "đang chờ ngân hàng": phần còn lại vẫn phải qua webhook.
         String settlement = invoice.getPaymentStatus();
         boolean waitingForBank = "PENDING_PAYMENT".equals(settlement)
-                || "PAYMENT_FAILED".equals(settlement);
+                || "PAYMENT_FAILED".equals(settlement)
+                || "PARTIALLY_PAID".equals(settlement);
         String effectiveMethod = paymentMethod != null ? paymentMethod : invoice.getPaymentMethod();
         if (waitingForBank && "VIET_QR".equals(effectiveMethod)) {
             throw new IllegalStateException(

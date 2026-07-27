@@ -15,6 +15,7 @@
 import { useEffect, useState } from 'react'
 import { FiEye, FiDownload, FiRefreshCw } from 'react-icons/fi'
 import { reportService, downloadBlob } from '../../services/reportService'
+import { pageTitle } from './managerTypography'
 
 const vnd = (v) => `${Number(v || 0).toLocaleString('vi-VN')}đ`
 const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -171,7 +172,7 @@ export default function RevenueReportPage() {
       <div style={{ background: '#fff', borderBottom: '1px solid #eef0f6', padding: '14px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <div style={{ fontSize: 12, color: '#94a3b8' }}>Reports › <span style={{ color: '#4f46e5' }}>Revenue Report</span></div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#0f172a' }}>Báo cáo Doanh thu</div>
+          <h1 style={pageTitle}>Báo cáo Doanh thu</h1>
         </div>
         <div style={{ color: '#94a3b8', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}><FiEye /> Eyes Clinic Management System</div>
       </div>
@@ -197,7 +198,7 @@ export default function RevenueReportPage() {
             <input type="date" value={to} onChange={(e) => { setRange('custom'); setTo(e.target.value) }} style={{ padding: 8, borderRadius: 8, border: '1px solid #e2e8f0', marginTop: 4 }} /></label>
           <div style={{ flex: 1 }} />
           <button onClick={load} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', borderRadius: 8, border: '1px solid #c7d2fe', background: '#eef2ff', color: '#4f46e5', cursor: 'pointer', fontWeight: 600 }}><FiRefreshCw /> {loading ? 'Đang tải…' : 'Tải lại'}</button>
-          <button onClick={async () => { const blob = await reportService.exportRevenue(from, to); downloadBlob(blob, 'bao-cao-doanh-thu.csv') }}
+          <button onClick={async () => { const blob = await reportService.exportRevenue(from, to); downloadBlob(blob, 'bao-cao-doanh-thu.xlsx') }}
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', borderRadius: 8, border: 'none', background: '#10b981', color: '#fff', cursor: 'pointer', fontWeight: 600 }}><FiDownload /> Xuất Excel</button>
         </div>
 

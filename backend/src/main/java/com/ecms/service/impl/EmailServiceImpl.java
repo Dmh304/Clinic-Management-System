@@ -162,6 +162,30 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
+    public void sendFeedbackRequest(String toEmail, String patientName, String doctorName,
+            LocalDateTime appointmentTime, String feedbackLink) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("Bỏ qua mời đánh giá: bệnh nhân {} không có email", patientName);
+            return;
+        }
+
+        String doctorPart = (doctorName != null && !doctorName.isBlank())
+                ? "Bác sĩ phụ trách: " + doctorName + "\n"
+                : "";
+
+        String body = "Xin chào " + safe(patientName) + ",\n\n"
+                + "Cảm ơn bạn đã đến khám tại Phòng khám Mắt ECMS lúc "
+                + appointmentTime.format(TIME_FORMAT) + ".\n"
+                + doctorPart
+                + "\nBạn vui lòng dành một phút đánh giá chất lượng buổi khám để chúng tôi phục vụ tốt hơn:\n"
+                + feedbackLink + "\n\n"
+                + "Bạn có thể chọn gửi đánh giá ẩn danh nếu muốn.\n\n"
+                + "Trân trọng,\nPhòng khám Mắt ECMS";
+
+        sendText(toEmail, "[ECMS] Mời bạn đánh giá buổi khám", body);
+    }
+
+    @Override
     public void sendAppointmentConfirmation(String toEmail, String patientName, String doctorName,
             LocalDateTime appointmentTime) {
         if (toEmail == null || toEmail.isBlank()) {

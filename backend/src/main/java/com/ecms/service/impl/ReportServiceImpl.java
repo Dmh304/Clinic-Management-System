@@ -27,9 +27,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import jakarta.servlet.http.HttpServletResponse;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -57,7 +62,9 @@ import java.util.Map;
  * On UC-52 metrics: average consultation time is derived from
  * {@code lockedAt − createdAt} on completed EMRs (the doctor locking the
  * record is the closest thing to a visit end timestamp), and the on-time rate
- * from check-in time versus scheduled time. Both are approximations of the
+ * from check-in time versus scheduled time — a COMPLETED visit with no check-in
+ * counts as not-on-time, with the count of such visits reported alongside so the
+ * figure can be read in context. Both are approximations of the
  * "average consultation time" and "on-time start rate" KPIs in UC-52, since
  * the system records no explicit consultation start/end.
  *
@@ -383,22 +390,26 @@ public class ReportServiceImpl implements ReportService {
         List<MedicalRecord> records = medicalRecordRepository.findByCreatedAtBetween(start, end);
 
         // Patients seen (COMPLETED appointments) and on-time rate per doctor.
-        // On time = the patient checked in and did so no later than the
-        // scheduled time. Appointments with no check-in are excluded from the
-        // denominator rather than counted as late, so walk-in flows that skip
-        // check-in do not distort the KPI.
+        // On time = the patient checked in no later than the scheduled time.
+        // UC52-01: ca COMPLETED không có check-in vẫn nằm trong mẫu số và tính là KHÔNG
+        // đúng giờ — không có mốc check-in thì không chứng minh được đúng giờ. Số ca
+        // thiếu check-in trả riêng để biết tỉ lệ dựa trên dữ liệu nào.
         Map<Long, Long> seenByDoctor = new LinkedHashMap<>();
-        Map<Long, long[]> onTimeByDoctor = new LinkedHashMap<>(); // [đúng giờ, tổng có check-in]
+        Map<Long, long[]> onTimeByDoctor = new LinkedHashMap<>(); // [đúng giờ, tổng ca COMPLETED]
+        Map<Long, Long> noCheckInByDoctor = new LinkedHashMap<>();
         for (Appointment a : appts) {
             if (a.getStatus() != AppointmentStatus.COMPLETED || a.getDoctor() == null)
                 continue;
             Long did = a.getDoctor().getId();
             seenByDoctor.merge(did, 1L, Long::sum);
+
+            long[] agg = onTimeByDoctor.computeIfAbsent(did, k -> new long[2]);
+            agg[1] += 1;
             if (a.getCheckInTime() != null && a.getAppointmentTime() != null) {
-                long[] agg = onTimeByDoctor.computeIfAbsent(did, k -> new long[2]);
-                agg[1] += 1;
                 if (!a.getCheckInTime().isAfter(a.getAppointmentTime()))
                     agg[0] += 1;
+            } else {
+                noCheckInByDoctor.merge(did, 1L, Long::sum);
             }
         }
 
@@ -446,6 +457,9 @@ public class ReportServiceImpl implements ReportService {
             row.put("onTimeRate", ot != null && ot[1] > 0
                     ? (double) ot[0] / ot[1]
                     : null);
+            // Con số này lớn nghĩa là tỉ lệ đúng giờ phản ánh quy trình check-in, không
+            // phải bác sĩ.
+            row.put("appointmentsWithoutCheckIn", noCheckInByDoctor.getOrDefault(d.getId(), 0L));
 
             result.add(row);
         }
@@ -602,170 +616,197 @@ public class ReportServiceImpl implements ReportService {
         return v != null ? v : BigDecimal.ZERO;
     }
 
-    // ─────────────────────────── Exports (UTF-8 CSV) ───────────────────────────
-    // Note: UC-50 step 6 specifies a real .xlsx download; these endpoints emit
-    // CSV that Excel opens natively, which is a deviation from the SRS.
+    // ────────────────────────── Exports (.xlsx — UC-50 bước 6) ──────────────────────────
 
     /**
-     * Streams the revenue report as CSV (UC-50 steps 5-6).
+     * Streams the revenue report as an .xlsx workbook (UC-50 steps 5-6).
      * Re-runs {@link #revenueReport} so the export always matches the figures
      * currently on screen for the same date range.
      *
      * @param from     period start, inclusive
      * @param to       period end, inclusive
-     * @param response servlet response the CSV is written to
+     * @param response servlet response the workbook is written to
      * @throws IOException if the response stream fails
      */
     @Override
     @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
-    public void exportRevenueCsv(LocalDate from, LocalDate to, HttpServletResponse response) throws IOException {
+    public void exportRevenueXlsx(LocalDate from, LocalDate to, HttpServletResponse response) throws IOException {
         Map<String, Object> r = revenueReport(from, to);
         List<String[]> rows = new ArrayList<>();
-        rows.add(new String[] { "Bao cao doanh thu", from + " -> " + to });
-        rows.add(new String[] { "Tong doanh thu", String.valueOf(r.get("totalRevenue")) });
-        rows.add(new String[] { "So hoa don", String.valueOf(r.get("invoiceCount")) });
+        rows.add(new String[] { "Báo cáo doanh thu", from + " → " + to });
         rows.add(new String[] {});
-        rows.add(new String[] { "Theo nhom dich vu", "Doanh thu" });
+        rows.add(new String[] { "Tổng doanh thu", String.valueOf(r.get("totalRevenue")) });
+        rows.add(new String[] { "Số hóa đơn", String.valueOf(r.get("invoiceCount")) });
+        rows.add(new String[] {});
+        rows.add(new String[] { "Theo nhóm dịch vụ", "Doanh thu" });
         ((Map<String, Object>) r.get("byServiceCategory"))
                 .forEach((k, v) -> rows.add(new String[] { k, String.valueOf(v) }));
         rows.add(new String[] {});
-        rows.add(new String[] { "Theo bac si", "Doanh thu" });
+        rows.add(new String[] { "Theo bác sĩ", "Doanh thu" });
         ((Map<String, Object>) r.get("byDoctor"))
                 .forEach((k, v) -> rows.add(new String[] { k, String.valueOf(v) }));
         rows.add(new String[] {});
-        rows.add(new String[] { "Theo phuong thuc thanh toan", "Doanh thu" });
+        rows.add(new String[] { "Theo phương thức thanh toán", "Doanh thu" });
         ((Map<String, Object>) r.get("byPaymentMethod"))
                 .forEach((k, v) -> rows.add(new String[] { k, String.valueOf(v) }));
-        writeCsv(response, "revenue-report.csv", rows);
+        writeXlsx(response, "bao-cao-doanh-thu.xlsx", "Doanh thu", rows);
     }
 
     @Override
     @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
     /**
-     * Streams the patient statistics as CSV (UC-51 step 4).
+     * Streams the patient statistics as an .xlsx workbook (UC-51 step 4).
      *
      * @param from     period start, inclusive
      * @param to       period end, inclusive
-     * @param response servlet response the CSV is written to
+     * @param response servlet response the workbook is written to
      * @throws IOException if the response stream fails
      */
-    public void exportPatientStatisticsCsv(LocalDate from, LocalDate to, HttpServletResponse response) throws IOException {
+    public void exportPatientStatisticsXlsx(LocalDate from, LocalDate to, HttpServletResponse response) throws IOException {
         Map<String, Object> r = patientStatistics(from, to);
         List<String[]> rows = new ArrayList<>();
-        rows.add(new String[] { "Thong ke benh nhan", from + " -> " + to });
-        rows.add(new String[] { "Tong luot kham", String.valueOf(r.get("totalAppointments")) });
-        rows.add(new String[] { "So benh nhan", String.valueOf(r.get("distinctPatients")) });
-        rows.add(new String[] { "Benh nhan moi", String.valueOf(r.get("newPatients")) });
-        rows.add(new String[] { "Benh nhan cu", String.valueOf(r.get("returningPatients")) });
+        rows.add(new String[] { "Thống kê bệnh nhân", from + " → " + to });
         rows.add(new String[] {});
-        rows.add(new String[] { "Lich hen theo trang thai", "So luong" });
+        rows.add(new String[] { "Tổng lượt khám", String.valueOf(r.get("totalAppointments")) });
+        rows.add(new String[] { "Số bệnh nhân", String.valueOf(r.get("distinctPatients")) });
+        rows.add(new String[] { "Bệnh nhân mới", String.valueOf(r.get("newPatients")) });
+        rows.add(new String[] { "Bệnh nhân cũ", String.valueOf(r.get("returningPatients")) });
+        rows.add(new String[] {});
+        rows.add(new String[] { "Lịch hẹn theo trạng thái", "Số lượng" });
         ((Map<String, Object>) r.get("appointmentsByStatus"))
                 .forEach((k, v) -> rows.add(new String[] { k, String.valueOf(v) }));
         rows.add(new String[] {});
-        rows.add(new String[] { "Lich hen theo bac si", "So luong" });
+        rows.add(new String[] { "Lịch hẹn theo bác sĩ", "Số lượng" });
         ((Map<String, Object>) r.get("appointmentsByDoctor"))
                 .forEach((k, v) -> rows.add(new String[] { k, String.valueOf(v) }));
         rows.add(new String[] {});
-        rows.add(new String[] { "Top chan doan", "So ca" });
+        rows.add(new String[] { "Chẩn đoán phổ biến", "Số ca" });
         for (Map<String, Object> d : (List<Map<String, Object>>) r.get("topDiagnoses")) {
             rows.add(new String[] { String.valueOf(d.get("diagnosis")), String.valueOf(d.get("count")) });
         }
-        writeCsv(response, "patient-statistics.csv", rows);
+        writeXlsx(response, "thong-ke-benh-nhan.xlsx", "Bệnh nhân", rows);
     }
 
     @Override
     @Transactional(readOnly = true)
     @SuppressWarnings("unchecked")
     /**
-     * Streams the feedback report as CSV (UC-53 step 5).
+     * Streams the feedback report as an .xlsx workbook (UC-53 step 5).
      *
      * @param from     period start, inclusive
      * @param to       period end, inclusive
-     * @param response servlet response the CSV is written to
+     * @param response servlet response the workbook is written to
      * @throws IOException if the response stream fails
      */
-    public void exportFeedbackCsv(LocalDate from, LocalDate to, HttpServletResponse response) throws IOException {
+    public void exportFeedbackXlsx(LocalDate from, LocalDate to, HttpServletResponse response) throws IOException {
         Map<String, Object> r = feedbackReport(from, to);
         List<String[]> rows = new ArrayList<>();
-        rows.add(new String[] { "Bao cao danh gia", from + " -> " + to });
-        rows.add(new String[] { "Diem trung binh", String.valueOf(r.get("averageRating")) });
-        rows.add(new String[] { "So phan hoi", String.valueOf(r.get("totalResponses")) });
-        rows.add(new String[] { "Ti le phan hoi", String.valueOf(r.get("responseRate")) });
+        rows.add(new String[] { "Báo cáo đánh giá", from + " → " + to });
         rows.add(new String[] {});
-        rows.add(new String[] { "Bac si", "So phan hoi", "Diem TB" });
+        rows.add(new String[] { "Điểm trung bình", String.valueOf(r.get("averageRating")) });
+        rows.add(new String[] { "Số phản hồi", String.valueOf(r.get("totalResponses")) });
+        rows.add(new String[] { "Tỉ lệ phản hồi", String.valueOf(r.get("responseRate")) });
+        rows.add(new String[] {});
+        rows.add(new String[] { "Bác sĩ", "Số phản hồi", "Điểm TB" });
         for (Map<String, Object> row : (List<Map<String, Object>>) r.get("byDoctor")) {
             rows.add(new String[] { String.valueOf(row.get("doctorName")),
                     String.valueOf(row.get("responses")), String.valueOf(row.get("averageRating")) });
         }
         rows.add(new String[] {});
-        rows.add(new String[] { "Dieu duong", "So phan hoi", "Diem TB" });
+        rows.add(new String[] { "Điều dưỡng", "Số phản hồi", "Điểm TB" });
         for (Map<String, Object> row : (List<Map<String, Object>>) r.get("byNurse")) {
             rows.add(new String[] { String.valueOf(row.get("nurseName")),
                     String.valueOf(row.get("responses")), String.valueOf(row.get("averageRating")) });
         }
         rows.add(new String[] {});
-        rows.add(new String[] { "Theo vai tro", "So luot cham", "Diem TB" });
+        rows.add(new String[] { "Theo vai trò", "Số lượt chấm", "Điểm TB" });
         for (Map<String, Object> row : (List<Map<String, Object>>) r.get("byRole")) {
             rows.add(new String[] { String.valueOf(row.get("role")),
                     String.valueOf(row.get("responses")), String.valueOf(row.get("averageRating")) });
         }
         rows.add(new String[] {});
-        rows.add(new String[] { "Nhan su", "Vai tro", "So luot cham", "Diem TB" });
+        rows.add(new String[] { "Nhân sự", "Vai trò", "Số lượt chấm", "Điểm TB" });
         for (Map<String, Object> row : (List<Map<String, Object>>) r.get("byStaff")) {
             rows.add(new String[] { String.valueOf(row.get("staffName")), String.valueOf(row.get("role")),
                     String.valueOf(row.get("responses")), String.valueOf(row.get("averageRating")) });
         }
-        writeCsv(response, "feedback-report.csv", rows);
+        writeXlsx(response, "bao-cao-danh-gia.xlsx", "Đánh giá", rows);
     }
 
     /**
-     * Writes rows to the response as UTF-8 CSV.
+     * Writes rows to the response as a real .xlsx workbook (UC-50 step 6).
      *
-     * A UTF-8 BOM is prepended deliberately: without it Excel decodes the file
-     * as the local ANSI codepage and every Vietnamese character is mangled.
+     * Quy ước dựng bảng: dòng rỗng = ngắt khối, dòng đầu mỗi khối in đậm. Ô parse được
+     * thành số thì ghi kiểu numeric để Excel SUM/sort được.
      *
      * @param response servlet response to stream into
      * @param filename download filename offered to the browser
-     * @param rows     CSV rows, one String[] per line
+     * @param sheetName tên sheet trong workbook
+     * @param rows     bảng dữ liệu, mỗi String[] là một dòng
      * @throws IOException if the response stream fails
      */
-    private void writeCsv(HttpServletResponse response, String filename, List<String[]> rows) throws IOException {
-        response.setContentType("text/csv; charset=UTF-8");
-        response.setHeader("Content-Disposition", "attachment; filename=" + filename);
-        PrintWriter w = response.getWriter();
-        w.write('﻿'); // BOM để Excel nhận UTF-8
-        for (String[] row : rows) {
-            StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < row.length; i++) {
-                if (i > 0)
-                    sb.append(',');
-                sb.append(csvCell(row[i]));
+    private void writeXlsx(HttpServletResponse response, String filename, String sheetName,
+            List<String[]> rows) throws IOException {
+        try (XSSFWorkbook wb = new XSSFWorkbook()) {
+            Sheet sheet = wb.createSheet(sheetName);
+
+            CellStyle boldStyle = wb.createCellStyle();
+            Font boldFont = wb.createFont();
+            boldFont.setBold(true);
+            boldStyle.setFont(boldFont);
+
+            int maxCols = 1;
+            boolean previousRowWasBlank = true; // dòng đầu tiên cũng tính là mở khối
+            for (int r = 0; r < rows.size(); r++) {
+                String[] data = rows.get(r);
+                Row row = sheet.createRow(r);
+                maxCols = Math.max(maxCols, data.length);
+
+                boolean isHeading = data.length > 0 && previousRowWasBlank;
+                previousRowWasBlank = data.length == 0;
+
+                for (int c = 0; c < data.length; c++) {
+                    Cell cell = row.createCell(c);
+                    String v = data[c];
+                    Double num = asNumber(v);
+                    if (num != null) {
+                        cell.setCellValue(num);
+                    } else {
+                        cell.setCellValue(v != null ? v : "");
+                    }
+                    if (isHeading) cell.setCellStyle(boldStyle);
+                }
             }
-            sb.append("\r\n");
-            w.write(sb.toString());
+            for (int c = 0; c < maxCols; c++) {
+                sheet.autoSizeColumn(c);
+            }
+
+            response.setContentType(
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            response.setHeader("Content-Disposition", "attachment; filename=" + filename);
+            wb.write(response.getOutputStream());
+            response.getOutputStream().flush();
         }
-        w.flush();
     }
 
     /**
-     * Escapes one CSV cell per RFC 4180.
+     * Ô có phải số thuần không, để ghi thành numeric cell.
      *
-     * Validate: a value containing a comma, quote or newline must be quoted
-     * and its inner quotes doubled — otherwise a patient name or a free-text
-     * feedback comment would shift every following column.
+     * Chỉ nhận số đơn thuần: "2026-07-01" hay "INV-001" ép thành số sẽ hiển thị sai.
      *
-     * @param v raw cell value, may be null
-     * @return the escaped cell, empty string for null
+     * @param v giá trị ô, có thể null
+     * @return giá trị số, hoặc null nếu không phải số
      */
-    private String csvCell(String v) {
-        if (v == null)
-            return "";
-        String s = v.replace("\"", "\"\"");
-        if (s.contains(",") || s.contains("\"") || s.contains("\n") || s.contains("\r")) {
-            s = "\"" + s + "\"";
+    private static Double asNumber(String v) {
+        if (v == null || v.isBlank()) return null;
+        String s = v.trim();
+        if (!s.matches("-?\\d+(\\.\\d+)?")) return null;
+        try {
+            return Double.valueOf(s);
+        } catch (NumberFormatException e) {
+            return null;
         }
-        return s;
     }
 }

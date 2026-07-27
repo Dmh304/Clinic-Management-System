@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -84,6 +85,10 @@ public class PayrollServiceImpl implements PayrollService {
     private BigDecimal baseSalaryStaff;
     @Value("${payroll.base-salary.lab-technician:9000000}")
     private BigDecimal baseSalaryLabTechnician;
+
+    /** UC-54 E-1: lệch quá bao nhiêu phần trăm so với số hệ thống tính thì bắt buộc ghi lý do. */
+    @Value("${payroll.variance-threshold-percent:20}")
+    private BigDecimal varianceThresholdPercent;
 
     /** Role name on the linked user account that marks a {@link Staff} row as a
      *  nurse. Nurses share the staffs table with receptionists and pharmacists,
@@ -157,6 +162,7 @@ public class PayrollServiceImpl implements PayrollService {
                     .performanceBonus(bonus)
                     .deduction(BigDecimal.ZERO)
                     .netPay(base.add(bonus))
+                    .systemNetPay(base.add(bonus))
                     .locked(false)
                     .build());
         }
@@ -190,6 +196,7 @@ public class PayrollServiceImpl implements PayrollService {
                     .performanceBonus(nurseBonus)
                     .deduction(BigDecimal.ZERO)
                     .netPay(baseStaff.add(nurseBonus))
+                    .systemNetPay(baseStaff.add(nurseBonus))
                     .locked(false)
                     .build());
         }
@@ -214,6 +221,7 @@ public class PayrollServiceImpl implements PayrollService {
                     .performanceBonus(labBonus)
                     .deduction(BigDecimal.ZERO)
                     .netPay(baseLab.add(labBonus))
+                    .systemNetPay(baseLab.add(labBonus))
                     .locked(false)
                     .build());
         }
@@ -292,6 +300,10 @@ public class PayrollServiceImpl implements PayrollService {
                 .add(nz(item.getPerformanceBonus()))
                 .subtract(nz(item.getDeduction())));
 
+        // UC-54 E-1. Chặn ở service chứ không chỉ ở UI: duyệt xong là khóa vĩnh viễn
+        // (BR-09), không còn cơ hội hỏi "vì sao sửa".
+        requireJustificationIfBeyondThreshold(item);
+
         itemRepository.save(item);
         return toItemMap(item);
     }
@@ -307,11 +319,13 @@ public class PayrollServiceImpl implements PayrollService {
      *                    Audit Log
      * @return the approved period
      * @throws ResourceNotFoundException if no such period
-     * @throws IllegalStateException     if already approved
+     * @throws IllegalStateException     if already approved, has no lines, or
+     *         still contains a line with no base salary
      *
      * Validate: BR-17 — approval is attributed to the acting Clinic Manager
      * and written to the Audit Log (UC-54 POST-4); BR-09 — every line is
-     * locked and can no longer be edited or removed (UC-54 POST-2).
+     * locked and can no longer be edited or removed (UC-54 POST-2);
+     * UC-54 E-2 — a period with incomplete pay data cannot be approved.
      */
     @Override
     @Transactional
@@ -323,13 +337,31 @@ public class PayrollServiceImpl implements PayrollService {
             throw new IllegalStateException("Kỳ lương này đã được duyệt");
         }
 
+        List<PayrollItem> items = itemRepository.findByPeriod_IdOrderByStaffTypeAscStaffNameAsc(periodId);
+
+        // UC-54 E-2: dữ liệu thiếu phải chặn TRƯỚC khi khóa, vì approve là một chiều
+        // (BR-09) — duyệt nhầm là khóa vĩnh viễn dòng lương 0đ.
+        if (items.isEmpty()) {
+            throw new IllegalStateException("Kỳ lương chưa có dòng nào, không thể duyệt");
+        }
+        List<String> missingBase = new ArrayList<>();
+        for (PayrollItem it : items) {
+            if (nz(it.getBaseSalary()).compareTo(BigDecimal.ZERO) <= 0) {
+                missingBase.add(it.getStaffName());
+            }
+        }
+        if (!missingBase.isEmpty()) {
+            throw new IllegalStateException("Không thể duyệt: còn " + missingBase.size()
+                    + " dòng chưa có lương cơ bản (" + String.join(", ", missingBase)
+                    + "). Vui lòng bổ sung trước khi duyệt.");
+        }
+
         period.setStatus("APPROVED");
         period.setApprovedBy(actorUserId);
         period.setApprovedAt(LocalDateTime.now());
 
         // BR-09 / UC-54 POST-2: lock every line as part of the same transaction
         // as the status change, so no line can stay editable after approval.
-        List<PayrollItem> items = itemRepository.findByPeriod_IdOrderByStaffTypeAscStaffNameAsc(periodId);
         BigDecimal total = BigDecimal.ZERO;
         for (PayrollItem it : items) {
             it.setLocked(true);
@@ -363,6 +395,46 @@ public class PayrollServiceImpl implements PayrollService {
      */
     private boolean isActive(String status) {
         return status == null || "ACTIVE".equalsIgnoreCase(status);
+    }
+
+    /**
+     * Enforces UC-54 E-1: an override beyond the configured variance threshold cannot
+     * be saved without a justification note.
+     *
+     * The baseline is {@code systemNetPay} (frozen at draft generation), not the
+     * previous value, so ten 5% edits still add up to a 50% variance and get caught.
+     *
+     * @param item the payroll line, already updated and with net pay recomputed
+     * @throws IllegalStateException when the variance is exceeded and no note is present
+     */
+    private void requireJustificationIfBeyondThreshold(PayrollItem item) {
+        BigDecimal baseline = item.getSystemNetPay();
+        // Dòng cũ chưa có baseline: bỏ qua thay vì chặn oan mọi chỉnh sửa.
+        if (baseline == null) return;
+
+        boolean hasNote = item.getNote() != null && !item.getNote().isBlank();
+        if (hasNote) return;
+
+        BigDecimal actual = nz(item.getNetPay());
+        if (baseline.compareTo(BigDecimal.ZERO) == 0) {
+            // Không chia được cho 0. Hệ thống tính ra 0 mà giờ trả tiền thì luôn phải giải thích.
+            if (actual.compareTo(BigDecimal.ZERO) != 0) {
+                throw new IllegalStateException("Hệ thống tính lương thực nhận là 0 cho "
+                        + item.getStaffName() + ". Vui lòng ghi lý do điều chỉnh.");
+            }
+            return;
+        }
+
+        BigDecimal variancePercent = actual.subtract(baseline).abs()
+                .multiply(BigDecimal.valueOf(100))
+                .divide(baseline.abs(), 2, RoundingMode.HALF_UP);
+
+        if (variancePercent.compareTo(nz(varianceThresholdPercent)) > 0) {
+            throw new IllegalStateException("Điều chỉnh lệch " + variancePercent + "% so với mức hệ thống tính ("
+                    + baseline.toPlainString() + ") cho " + item.getStaffName()
+                    + ", vượt ngưỡng " + varianceThresholdPercent
+                    + "%. Vui lòng ghi lý do điều chỉnh trước khi lưu.");
+        }
     }
 
     /**
@@ -431,6 +503,7 @@ public class PayrollServiceImpl implements PayrollService {
         m.put("performanceBonus", it.getPerformanceBonus());
         m.put("deduction", it.getDeduction());
         m.put("netPay", it.getNetPay());
+        m.put("systemNetPay", it.getSystemNetPay());
         m.put("note", it.getNote());
         m.put("locked", it.getLocked());
         return m;

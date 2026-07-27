@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react'
 import { FiRefreshCw, FiDownload, FiCalendar, FiUsers, FiUserPlus, FiTrendingUp, FiTrendingDown, FiMinus, FiMoreHorizontal, FiActivity } from 'react-icons/fi'
 import { FaNotesMedical, FaHistory } from 'react-icons/fa'
 import { reportService, downloadBlob } from '../../services/reportService'
+import { pageTitle } from './managerTypography'
 
 // Bảng màu theo DESIGN.md
 const C = { primary: '#7c3aed', secondary: '#00687a', tertiary: '#b45309', error: '#ba1a1a', success: '#10b981', ink: '#121c2a', muted: '#4a4455', border: '#e5e7eb', track: '#f1f5f9' }
@@ -110,7 +111,7 @@ export default function PatientStatisticsPage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16, padding: '20px 32px' }}>
         <div>
-          <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em' }}>Thống kê bệnh nhân</div>
+          <h1 style={pageTitle}>Thống kê bệnh nhân</h1>
           <div style={{ color: C.muted, fontSize: 14 }}>Phân tích dữ liệu bệnh nhân thực tế theo thời gian</div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -122,7 +123,7 @@ export default function PatientStatisticsPage() {
           <button onClick={load} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: 8, background: C.primary, color: '#fff', border: 'none', borderRadius: 12, padding: '10px 20px', fontWeight: 600, cursor: 'pointer' }}>
             <FiRefreshCw size={16} /> {loading ? 'Đang tải…' : 'Tải lại'}
           </button>
-          <button onClick={async () => { const blob = await reportService.exportPatientStatistics(from, to); downloadBlob(blob, 'thong-ke-benh-nhan.csv') }}
+          <button onClick={async () => { const blob = await reportService.exportPatientStatistics(from, to); downloadBlob(blob, 'thong-ke-benh-nhan.xlsx') }}
             style={{ display: 'flex', alignItems: 'center', gap: 8, background: C.success, color: '#fff', border: 'none', borderRadius: 12, padding: '10px 20px', fontWeight: 600, cursor: 'pointer' }}>
             <FiDownload size={16} /> Xuất Excel
           </button>

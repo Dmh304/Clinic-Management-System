@@ -16,6 +16,7 @@ import { useEffect, useState } from 'react'
 import { FiRefreshCw, FiDownload, FiCheckCircle, FiUsers, FiAlertTriangle, FiSearch, FiClock, FiSave } from 'react-icons/fi'
 import { FaWallet } from 'react-icons/fa'
 import { payrollService } from '../../services/payrollService'
+import { pageTitle } from './managerTypography'
 
 const C = { primary: '#7c3aed', secondary: '#00687a', success: '#059669', error: '#ba1a1a', warn: '#d97706', warnInk: '#92400e', ink: '#121c2a', muted: '#4a4455', border: '#e5e7eb', track: '#f1f5f9' }
 const vnd = (v) => Number(v || 0).toLocaleString('vi-VN')
@@ -177,7 +178,7 @@ export default function PayrollPage() {
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 16 }}>
           <div>
-            <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em' }}>Phê duyệt bảng lương</div>
+            <h1 style={pageTitle}>Phê duyệt bảng lương</h1>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4, color: C.muted }}>
               <span>Kỳ lương tháng {period ? `${String(period.month).padStart(2, '0')}/${period.year}` : `${String(month).padStart(2, '0')}/${year}`}</span>
               {period && <>
@@ -193,7 +194,15 @@ export default function PayrollPage() {
             <input type="number" min={1} max={12} value={month} onChange={(e) => setMonth(Number(e.target.value))} style={{ width: 64, padding: '9px 10px', borderRadius: 8, border: `1px solid ${C.border}` }} />
             <button onClick={generate} disabled={loading} style={btn('#fff', C.error, `1px solid ${C.error}`)}><FiRefreshCw size={16} /> {period ? 'Yêu cầu tính toán lại' : 'Tạo bảng lương'}</button>
             {period && <button onClick={exportCsv} style={btn('#fff', C.primary, `1px solid ${C.primary}`)}><FiDownload size={16} /> Xuất file kế toán</button>}
-            {period && !approved && <button onClick={approve} disabled={loading} style={btn(C.success, '#fff')}><FiCheckCircle size={16} /> Phê duyệt bảng lương</button>}
+            {/* UC-54 E-2. Backend cũng chặn, nhưng chặn luôn ở đây để quản lý thấy lý do
+                trước khi bấm — duyệt là một chiều (BR-09). */}
+            {period && !approved && (
+              <button onClick={approve} disabled={loading || needsCheck > 0}
+                title={needsCheck > 0 ? `Còn ${needsCheck} dòng thiếu lương cơ bản — bổ sung trước khi duyệt` : undefined}
+                style={{ ...btn(needsCheck > 0 ? '#cbd5e1' : C.success, '#fff'), cursor: needsCheck > 0 ? 'not-allowed' : 'pointer' }}>
+                <FiCheckCircle size={16} /> Phê duyệt bảng lương
+              </button>
+            )}
           </div>
         </div>
 
@@ -273,7 +282,16 @@ export default function PayrollPage() {
                           <td style={{ ...td, textAlign: 'right', color: C.error }}>
                             {approved ? `-${vnd(it.deduction)}` : <input style={numInput} type="number" value={it.deduction} onChange={(e) => editItem(idx, 'deduction', e.target.value)} onBlur={() => saveItem(items[idx])} />}
                           </td>
-                          <td style={{ ...td, textAlign: 'right', fontWeight: 800 }}>{vnd(it.netPay)}</td>
+                          <td style={{ ...td, textAlign: 'right', fontWeight: 800 }}>
+                            {vnd(it.netPay)}
+                            {/* UC-54 E-1: cho thấy đang lệch bao nhiêu TRƯỚC khi backend từ
+                                chối vì vượt ngưỡng mà chưa ghi lý do. */}
+                            {it.systemNetPay != null && Number(it.systemNetPay) !== Number(it.netPay) && (
+                              <div style={{ fontSize: 11, fontWeight: 400, color: C.muted }}>
+                                hệ thống tính: {vnd(it.systemNetPay)}
+                              </div>
+                            )}
+                          </td>
                           <td style={td}>
                             <span style={{ display: 'inline-block', background: st.bg, color: st.c, padding: '2px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600 }}>{st.label}</span>
                             {!approved && <input value={it.note || ''} onChange={(e) => editItem(idx, 'note', e.target.value)} onBlur={() => saveItem(items[idx])} placeholder="Ghi chú…" style={{ display: 'block', marginTop: 6, width: 180, border: 'none', borderBottom: `1px solid ${C.border}`, outline: 'none', fontSize: 12, fontStyle: 'italic', color: C.muted, background: 'transparent' }} />}

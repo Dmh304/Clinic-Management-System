@@ -3,6 +3,7 @@ import { roomService } from '../../services/roomService'
 import { staffDirectoryService } from '../../services/staffDirectoryService'
 import { doctorService } from '../../services/doctorService'
 import Header from '../../components/layout/Header'
+import { pageTitle } from './managerTypography'
 
 // Map loại nhân sự -> category phòng tương ứng, đúng validateCategoryMatchesStaffType ở backend
 const STAFF_TYPE_CONFIG = {
@@ -226,7 +227,7 @@ export default function RoomRosterPage() {
       <div style={{ maxWidth: 1100, margin: '0 auto' }}>
         <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <h1 style={{ fontSize: 24, fontWeight: 700, color: '#1e293b', margin: 0 }}>Phân trực phòng</h1>
+            <h1 style={pageTitle}>Phân trực phòng</h1>
             <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: 14 }}>
               Gán phòng cho nhân sự
             </p>

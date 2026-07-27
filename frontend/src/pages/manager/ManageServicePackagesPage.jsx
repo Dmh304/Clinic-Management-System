@@ -3,6 +3,7 @@ import dayjs from 'dayjs'
 import { Table, Tag, Button, Tooltip, Empty } from 'antd'
 import { EditOutlined, StopOutlined, PlayCircleOutlined, DownloadOutlined, PlusOutlined } from '@ant-design/icons'
 import { serviceService } from '../../services/serviceService'
+import { pageTitle } from './managerTypography'
 
 const INITIAL_FORM = {
   serviceName: '', description: '', price: '', benefits: '', sessionsIncluded: '', validityDays: '',
@@ -241,7 +242,7 @@ export default function ManageServicePackagesPage() {
       <div style={{ maxWidth: 1180, margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <h1 style={{ fontSize: 24, fontWeight: 700, color: '#1e293b', margin: 0 }}>Quản lý gói dịch vụ</h1>
+            <h1 style={pageTitle}>Quản lý gói dịch vụ</h1>
             <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: 14 }}>Tạo và cập nhật các gói chăm sóc mắt</p>
           </div>
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>

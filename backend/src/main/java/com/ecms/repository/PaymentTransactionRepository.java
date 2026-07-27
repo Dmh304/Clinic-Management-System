@@ -82,4 +82,22 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
             ORDER BY t.receivedAt DESC
             """)
     List<PaymentTransaction> findNeedingAttention();
+
+    /**
+     * UC-23 E2: tổng tiền đã thực sự về tài khoản cho một hóa đơn — nền tảng của
+     * thanh toán từng phần.
+     *
+     * AMOUNT_MISMATCH nằm trong nhóm được cộng vì đó là dữ liệu cũ: tiền vẫn vào tài
+     * khoản thật, chỉ là lúc đó hệ thống chưa biết cộng dồn. Không tính DUPLICATE
+     * (phải hoàn), UNMATCHED (chưa gắn hóa đơn) và IGNORED (tiền ra).
+     *
+     * @param invoiceId khóa chính hóa đơn
+     * @return tổng tiền đã nhận, 0 nếu chưa có giao dịch nào
+     */
+    @Query("""
+            SELECT COALESCE(SUM(t.amount), 0) FROM PaymentTransaction t
+            WHERE t.invoice.id = :invoiceId
+              AND t.status IN ('MATCHED', 'PARTIAL', 'OVERPAID', 'AMOUNT_MISMATCH')
+            """)
+    java.math.BigDecimal sumReceivedForInvoice(@Param("invoiceId") Long invoiceId);
 }

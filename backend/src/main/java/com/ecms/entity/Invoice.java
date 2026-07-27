@@ -98,14 +98,16 @@ public class Invoice {
     @Column(name = "payment_reference", length = 100)
     private String paymentReference;
 
-    /** UNPAID | PENDING_PAYMENT | PAID | PAYMENT_FAILED.
+    /** UNPAID | PENDING_PAYMENT | PARTIALLY_PAID | PAID | PAYMENT_FAILED.
      *  PENDING_PAYMENT — the VietQR code has been shown and the system is
      *  waiting for the gateway webhook (UC-23 ALT-2 step 3).
-     *  PAYMENT_FAILED — a transfer arrived but was SHORT of the total; the
-     *  balance is still outstanding, it is simply no longer indistinguishable
-     *  from "nothing received".
+     *  PARTIALLY_PAID — tiền đã về nhưng tổng lũy kế qua các lần chuyển vẫn chưa
+     *  đủ; phần còn thiếu vẫn là công nợ (UC-23 E2).
+     *  PAYMENT_FAILED — giữ lại cho dữ liệu cũ tạo trước khi có cộng dồn thanh
+     *  toán từng phần; ý nghĩa tương đương PARTIALLY_PAID.
      *  Validate: BR-10 — only a payment covering the full total may move this to
-     *  PAID; a short transfer never does (UC-23 E2). */
+     *  PAID; a short transfer never does (UC-23 E2). Với thanh toán từng phần,
+     *  "đủ" được tính trên TỔNG các lần chuyển của cùng hóa đơn. */
     @Column(name = "payment_status", nullable = false, length = 20)
     private String paymentStatus;
 

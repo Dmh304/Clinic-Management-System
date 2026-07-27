@@ -55,6 +55,7 @@ import { paymentService } from '../../services/paymentService'
 import { clinicServiceService } from '../../services/clinicServiceService'
 import { discountService } from '../../services/discountService'
 import { medicineService } from '../../services/medicineService'
+import ReconciliationPage from './ReconciliationPage'
 
 const { Title, Text } = Typography
 
@@ -71,11 +72,15 @@ const POLL_INTERVAL_MS = 3000
 // Dài hơn polling mã QR vì đây là tải cả danh sách, không cần realtime tới từng giây.
 const HISTORY_POLL_MS = 5000
 
-// Ngưỡng dừng polling nếu bệnh nhân không chuyển khoản (10 phút).
+// Mốc chờ giữa các lần nạp lại danh sách lịch hẹn khi lần đầu thất bại: đủ vượt khoảng
+// backend khởi động lại, hỏng hẳn thì sau ~4,5 giây là báo lỗi.
+const APPT_RETRY_DELAYS_MS = [1500, 3000]
+
+// Ngưỡng dừng polling nếu bệnh nhân không chuyển khoản — 5 phút theo SRS §2.3 ALT-2.
 // Đây CHỈ là giới hạn phía giao diện để trình duyệt không hỏi backend vô hạn —
 // không phải hạn thanh toán. Bệnh nhân chuyển tiền muộn hơn thì webhook vẫn gạch nợ
 // bình thường, lễ tân mở lại hóa đơn sẽ thấy đã thanh toán.
-const POLL_TIMEOUT_MS = 10 * 60 * 1000
+const POLL_TIMEOUT_MS = 5 * 60 * 1000
 
 // Nội dung chuyển khoản BẮT BUỘC bắt đầu bằng "SEVQR" (SePay + VietinBank mới nhận được
 // biến động số dư) và chứa mã hóa đơn để webhook dò ra tiền vào là của hóa đơn nào.
@@ -118,8 +123,10 @@ const PAYMENT_STATUS_CFG = {
   // Đã sinh mã QR, đang chờ cổng thanh toán báo tiền về (ThangNBHE201024)
   PENDING_PAYMENT: { color: 'blue',   label: 'Chờ chuyển khoản' },
   PAID:            { color: 'green',  label: 'Đã thanh toán' },
-  // Chỉ webhook AMOUNT_MISMATCH set trạng thái này, nên gọi đúng nguyên nhân
-  // thay vì "Thất bại" chung chung — lễ tân cần biết là thiếu tiền, không phải lỗi hệ thống.
+  // Đã nhận một phần tiền, lũy kế chưa đủ tổng hóa đơn (UC-23 E2) — lễ tân cần biết
+  // đây là công nợ còn lại, không phải lỗi hệ thống.
+  PARTIALLY_PAID:  { color: 'orange', label: 'Đã trả một phần' },
+  // Dữ liệu cũ trước khi có cộng dồn thanh toán từng phần.
   PAYMENT_FAILED:  { color: 'red',    label: 'Chuyển thiếu tiền' },
 }
 
@@ -192,6 +199,8 @@ export default function InvoicePage() {
   const [detailModal, setDetailModal] = useState({ open: false, invoice: null })
   const [emailSending, setEmailSending] = useState(false)
   const [printLoading, setPrintLoading] = useState(false)
+  // Số khoản còn phải hoàn cho bệnh nhân, do tab Đối soát báo lên để hiện trên nhãn tab
+  const [pendingRefunds, setPendingRefunds] = useState(0)
 
   // ─── Load ────────────────────────────────────────────────────────────────────
 
@@ -277,12 +286,31 @@ export default function InvoicePage() {
 
       if (!isMounted) return
 
-      let appointments = []
+      // Danh sách này chỉ nạp MỘT lần lúc mount (khác danh sách hóa đơn vốn có polling
+      // nên tự hồi phục), nên một cú hỏng thoáng qua — hay gặp nhất là backend đang khởi
+      // động lại — sẽ để tab trống vĩnh viễn kèm toast lỗi treo.
+      const retryAppointments = async () => {
+        for (const delay of APPT_RETRY_DELAYS_MS) {
+          await new Promise((resolve) => setTimeout(resolve, delay))
+          if (!isMounted) return []
+          try {
+            const res = await appointmentService.getAllAppointments()
+            const data = res?.data ?? []
+            setAllAppointments(data)
+            return data
+          } catch { /* còn lượt thì thử tiếp */ }
+        }
+        // Hết lượt vẫn hỏng: lúc này mới báo, và nói rõ cách tự thử lại.
+        if (isMounted) message.error('Không thể tải danh sách lịch hẹn. Bấm "Làm mới" để thử lại.')
+        return []
+      }
+
+      let appointments
       if (appointmentsResult.status === 'fulfilled') {
         appointments = appointmentsResult.value?.data ?? []
         setAllAppointments(appointments)
       } else {
-        message.error('Không thể tải danh sách lịch hẹn')
+        appointments = await retryAppointments()
       }
 
       let careSessions = []
@@ -1037,27 +1065,25 @@ export default function InvoicePage() {
 
       {/* Stats */}
       <Row gutter={12} style={{ marginBottom: 20 }}>
+        {/* Cả 4 thẻ đi qua cùng một nhánh render để không lệch cỡ chữ; `formatter` là
+            chỗ duy nhất khác nhau (thẻ tiền cần định dạng tiền tệ). */}
         {[
           { label: 'Chờ thu phí', value: completedUnbilled.length, color: '#f59e0b' },
           { label: 'HĐ đã phát hành', value: invoices.filter((i) => i.status === 'ISSUED').length, color: '#10b981' },
           { label: 'Tổng hóa đơn', value: invoices.length, color: '#6366f1' },
-        ].map(({ label, value, color }) => (
+          { label: 'Doanh thu tích lũy', value: totalRevenue, color: '#3b82f6', formatter: fmt },
+        ].map(({ label, value, color, formatter }) => (
           <Col key={label} span={6}>
             <Card size="small" style={{ textAlign: 'center', borderTop: `3px solid ${color}` }}>
               <Statistic
                 title={<span style={{ fontSize: 11 }}>{label}</span>}
                 value={value}
+                formatter={formatter}
                 styles={{ value: { fontSize: 20, color } }}
               />
             </Card>
           </Col>
         ))}
-        <Col span={6}>
-          <Card size="small" style={{ textAlign: 'center', borderTop: '3px solid #3b82f6' }}>
-            <div style={{ fontSize: 11, color: '#64748b', marginBottom: 4 }}>Doanh thu tích lũy</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#3b82f6' }}>{fmt(totalRevenue)}</div>
-          </Card>
-        </Col>
       </Row>
 
       <Tabs
@@ -1164,6 +1190,18 @@ export default function InvoicePage() {
                   locale={{ emptyText: 'Chưa có hóa đơn đã thanh toán' }}
                   scroll={{ x: 1200 }}
                 />
+              </Card>
+            ),
+          },
+          {
+            key: 'reconciliation',
+            // Chỉ hiện số khi còn khoản phải hoàn — "(0)" như các tab kia sẽ khiến việc
+            // "không nợ ai đồng nào" trông y hệt "chưa tải xong".
+            label: `Đối soát & hoàn tiền${pendingRefunds > 0 ? `  (${pendingRefunds})` : ''}`,
+            children: (
+              <Card>
+                {/* Trang độc lập /receptionist/reconciliation vẫn dùng được như cũ. */}
+                <ReconciliationPage embedded onPendingCountChange={setPendingRefunds} />
               </Card>
             ),
           },

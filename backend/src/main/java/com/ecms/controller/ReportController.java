@@ -92,7 +92,7 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             HttpServletResponse response) throws IOException {
         LocalDate[] range = defaultRange(from, to);
-        reportService.exportRevenueCsv(range[0], range[1], response);
+        reportService.exportRevenueXlsx(range[0], range[1], response);
     }
 
     @GetMapping("/patient-statistics/export")
@@ -101,7 +101,7 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             HttpServletResponse response) throws IOException {
         LocalDate[] range = defaultRange(from, to);
-        reportService.exportPatientStatisticsCsv(range[0], range[1], response);
+        reportService.exportPatientStatisticsXlsx(range[0], range[1], response);
     }
 
     @GetMapping("/feedback/export")
@@ -110,7 +110,7 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             HttpServletResponse response) throws IOException {
         LocalDate[] range = defaultRange(from, to);
-        reportService.exportFeedbackCsv(range[0], range[1], response);
+        reportService.exportFeedbackXlsx(range[0], range[1], response);
     }
 
     // Mặc định: từ đầu tháng hiện tại tới hôm nay

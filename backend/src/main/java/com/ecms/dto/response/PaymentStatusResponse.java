@@ -30,7 +30,7 @@ public class PaymentStatusResponse {
     /** Document lifecycle: DRAFT | ISSUED | CANCELLED. */
     private String status;
 
-    /** Settlement: UNPAID | PENDING_PAYMENT | PAID | PAYMENT_FAILED. */
+    /** Settlement: UNPAID | PENDING_PAYMENT | PARTIALLY_PAID | PAID | PAYMENT_FAILED. */
     private String paymentStatus;
 
     /** Convenience flag, true when paymentStatus is PAID — the single value the
@@ -40,8 +40,14 @@ public class PaymentStatusResponse {
 
     private BigDecimal totalAmount;
 
-    /** Amount the gateway actually reported; null while no transfer has arrived. */
+    /** Tổng tiền đã về cho hóa đơn này, cộng dồn qua mọi lần chuyển (UC-23 E2).
+     *  0 khi chưa có giao dịch nào. */
     private BigDecimal paidAmount;
+
+    /** Số còn phải trả = totalAmount − paidAmount, không bao giờ âm.
+     *  Có trường này thì màn hình QR mới nói được "còn thiếu bao nhiêu" thay vì bắt
+     *  bệnh nhân tự trừ, và tránh việc họ chuyển lại nguyên tổng hóa đơn lần nữa. */
+    private BigDecimal remainingAmount;
 
     /** Bank transaction reference of the transfer matched to this invoice. */
     private String paymentReference;

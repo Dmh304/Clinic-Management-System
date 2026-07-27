@@ -202,6 +202,12 @@ export default function NotificationBell({ viewAllPath, iconColor = '#64748b', p
         return
       }
 
+      // Lời mời đánh giá sau khi khám xong (UC-48 bước 1) — sang thẳng trang đánh giá.
+      if (type === 'FEEDBACK_REQUEST') {
+        if (role === 'PATIENT') navigate('/patient/feedback')
+        return
+      }
+
       // Mặc định (type null hoặc "APPOINTMENT"): hành vi cũ — bệnh nhân điều hướng tới trang
       // lịch hẹn của mình, nhân viên mở modal chi tiết lịch hẹn.
       if (entityId) {

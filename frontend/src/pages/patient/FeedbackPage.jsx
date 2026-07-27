@@ -72,6 +72,7 @@ export default function FeedbackPage() {
   const [visit, setVisit] = useState(null)
   const [rating, setRating] = useState(0)
   const [content, setContent] = useState('')
+  const [isAnonymous, setIsAnonymous] = useState(false)
   const [partRatings, setPartRatings] = useState({}) // key idx -> rating
   const [submitting, setSubmitting] = useState(false)
   const [msg, setMsg] = useState('')
@@ -136,7 +137,7 @@ export default function FeedbackPage() {
    * @param {Object} v the selected visit (type APPOINTMENT) or service session
    */
   const openForm = async (v) => {
-    setSelected(v); setVisit(null); setRating(0); setContent(''); setPartRatings({}); setError(''); setMsg('')
+    setSelected(v); setVisit(null); setRating(0); setContent(''); setIsAnonymous(false); setPartRatings({}); setError(''); setMsg('')
     if (v.type === 'APPOINTMENT') {
       try {
         const res = await feedbackService.getParticipants(v.id)
@@ -177,7 +178,7 @@ export default function FeedbackPage() {
     setSubmitting(true); setError('')
     try {
       const payload = {
-        rating, content: content || null, isAnonymous: false, participantRatings,
+        rating, content: content || null, isAnonymous, participantRatings,
         ...(selected.type === 'APPOINTMENT' ? { appointmentId: selected.id } : { careSessionId: selected.id }),
       }
       await feedbackService.submit(payload)
@@ -255,6 +256,14 @@ export default function FeedbackPage() {
                 placeholder="Chia sẻ trải nghiệm của bạn về bác sĩ, nhân viên hoặc phòng khám…"
                 style={{ width: '100%', minHeight: 110, padding: 12, border: '1px solid #cbd5e1', borderRadius: 8, resize: 'vertical', background: '#f8fafc', boxSizing: 'border-box', color: '#0f172a' }} />
               <div style={{ textAlign: 'right', color: '#94a3b8', fontSize: 12 }}>{content.length}/{MAX_LEN}</div>
+
+              {/* UC-48: gửi ẩn danh. Backend bỏ hẳn tên bệnh nhân khỏi DTO khi cờ này bật,
+                  nên báo cáo UC-53 của Quản lý cũng không truy ngược được — không chỉ ẩn trên UI. */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14, cursor: 'pointer' }}>
+                <input type="checkbox" checked={isAnonymous} onChange={(e) => setIsAnonymous(e.target.checked)}
+                  style={{ width: 16, height: 16, cursor: 'pointer' }} />
+                <span style={{ fontSize: 14 }}>Gửi ẩn danh <span style={{ color: '#94a3b8' }}>— không hiển thị tên tôi với phòng khám</span></span>
+              </label>
 
               <div style={{ color: '#64748b', fontSize: 13, marginTop: 6 }}>
                 Đánh giá của bạn sẽ được Quản lý phòng khám xem xét trước khi xử lý. Nội dung không được chia sẻ công khai nếu không có sự đồng ý của bạn.

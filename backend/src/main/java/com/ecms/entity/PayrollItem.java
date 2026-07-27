@@ -69,6 +69,14 @@ public class PayrollItem {
     @Column(name = "net_pay", precision = 14, scale = 2)
     private BigDecimal netPay;
 
+    /** Net pay as the system computed it at draft generation — the baseline for the
+     *  UC-54 E-1 variance check, so a series of small edits cannot drift arbitrarily
+     *  far without ever tripping the threshold.
+     *  Nullable on purpose: a NOT NULL column would make ddl-auto=update fail to add
+     *  it to an existing table. */
+    @Column(name = "system_net_pay", precision = 14, scale = 2)
+    private BigDecimal systemNetPay;
+
     /** Justification for any manual adjustment (UC-54 E-1). */
     @Column(name = "note", columnDefinition = "NVARCHAR(MAX)")
     private String note;

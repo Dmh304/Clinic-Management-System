@@ -452,6 +452,13 @@ public class SecurityConfig {
                                                 .hasRole("PATIENT")
                                                 .requestMatchers("/api/v1/reports/**")
                                                 .hasAnyRole("MANAGER", "ADMIN")
+                                                // BR-17 (Payroll Authority): CHỈ Clinic Manager được
+                                                // duyệt bảng lương. Rule này phải đứng TRƯỚC rule
+                                                // /payroll/** bên dưới, nếu không ADMIN vẫn lọt qua —
+                                                // Spring Security lấy matcher khớp đầu tiên.
+                                                .requestMatchers(HttpMethod.POST, "/api/v1/payroll/periods/*/approve")
+                                                .hasRole("MANAGER")
+                                                // Xem/soạn nháp thì ADMIN vẫn được (không cam kết chi tiền).
                                                 .requestMatchers("/api/v1/payroll/**")
                                                 .hasAnyRole("MANAGER", "ADMIN")
                                                 .requestMatchers("/api/v1/admin/**")

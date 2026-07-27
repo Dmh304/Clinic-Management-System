@@ -29,6 +29,11 @@ const BANK_NAME    = import.meta.env.VITE_BANK_NAME    || 'PHONG KHAM MAT'
 // Nội dung chuyển khoản bắt đầu bằng "SEVQR" (SePay + VietinBank) + chứa mã hóa đơn để
 // webhook tự đối soát (UC-22)
 const buildTransferContent = (code) => `SEVQR ${code}`
+
+// Chu kỳ hỏi backend và ngưỡng dừng hỏi (SRS §2.3 ALT-2: 5 phút).
+// Giữ khớp với InvoicePage.jsx của lễ tân — cùng một luồng UC-23.
+const POLL_INTERVAL_MS = 3000
+const POLL_TIMEOUT_MS = 5 * 60 * 1000
 const buildVietQrUrl = (amount, code) =>
   `https://img.vietqr.io/image/${BANK_ID}-${BANK_ACCOUNT}-compact2.png` +
   `?amount=${Math.round(amount || 0)}` +
@@ -45,7 +50,9 @@ const PAYMENT_STATUS = {
   UNPAID:          { label: 'Chưa thanh toán', color: '#d97706', bg: '#fef3c7' },
   PENDING_PAYMENT: { label: 'Chờ chuyển khoản', color: '#2563eb', bg: '#dbeafe' },
   PAID:            { label: 'Đã thanh toán',   color: '#16a34a', bg: '#dcfce7' },
-  // Đặt bởi webhook khi bệnh nhân chuyển thiếu so với tổng hóa đơn (BR-10).
+  // Đã chuyển một phần, lũy kế chưa đủ (UC-23 E2).
+  PARTIALLY_PAID:  { label: 'Đã trả một phần', color: '#d97706', bg: '#fef3c7' },
+  // Dữ liệu cũ trước khi có cộng dồn từng phần — ý nghĩa như trên.
   PAYMENT_FAILED:  { label: 'Chuyển thiếu tiền', color: '#dc2626', bg: '#fee2e2' },
 }
 
@@ -90,6 +97,11 @@ export default function MyInvoicesPage() {
   const [emailSending, setEmailSending] = useState(null)
   // Hóa đơn đang thanh toán bằng QR (mở modal QR + polling trạng thái)
   const [payModal, setPayModal] = useState(null)
+  // Hết thời gian chờ polling → dừng hỏi backend, đổi sang nút bấm tay
+  const [pollTimedOut, setPollTimedOut] = useState(false)
+  const [checkingNow, setCheckingNow] = useState(false)
+  // Tiến độ thanh toán từng phần trả về từ /payments/status (paidAmount, remainingAmount)
+  const [payProgress, setPayProgress] = useState(null)
 
   /** Reloads the patient's own invoices (BR-08: scoped server-side). */
   const reloadInvoices = () =>
@@ -105,24 +117,60 @@ export default function MyInvoicesPage() {
   // whether the gateway has reported the transfer (UC-23 ALT-2 step 4).
   // On success the modal closes itself and the list refreshes.
   //
+  // Tự dừng sau POLL_TIMEOUT_MS (SRS §2.3 ALT-2) để không hỏi vô hạn khi bệnh nhân bỏ
+  // đi. Hết giờ chỉ DỪNG HỎI: hóa đơn vẫn PENDING_PAYMENT và webhook vẫn gạch nợ nếu
+  // tiền về muộn.
+  //
   // Validate: BR-10 — this only *reads* `paid`, which the backend sets solely
   // from a confirmed full payment. Transient network errors are swallowed so
   // one failed poll does not abort the loop.
   useEffect(() => {
-    if (!payModal) return
+    if (!payModal || pollTimedOut) return
     let cancelled = false
+    const deadline = Date.now() + POLL_TIMEOUT_MS
     const check = async () => {
+      if (Date.now() > deadline) {
+        if (!cancelled) setPollTimedOut(true)
+        return
+      }
       try {
         const res = await paymentService.getStatus(payModal.id)
-        if (cancelled || !res?.data?.paid) return
+        if (cancelled) return
+        setPayProgress(res?.data ?? null)
+        if (!res?.data?.paid) return
         message.success(`Đã thanh toán hóa đơn ${payModal.invoiceCode}`)
         setPayModal(null)
         void reloadInvoices()
       } catch { /* lỗi mạng tạm thời: vòng sau thử lại */ }
     }
-    const timer = setInterval(check, 3000)
+    const timer = setInterval(check, POLL_INTERVAL_MS)
     return () => { cancelled = true; clearInterval(timer) }
-  }, [payModal])
+  }, [payModal, pollTimedOut])
+
+  /**
+   * Bấm "Kiểm tra lại" sau khi hết thời gian chờ tự động.
+   *
+   * Validate: BR-10 — vẫn chỉ ĐỌC trạng thái do cổng thanh toán xác nhận, không phải
+   * cách để bệnh nhân tự đánh dấu hóa đơn đã trả.
+   */
+  const handleCheckPaymentNow = async () => {
+    if (!payModal) return
+    setCheckingNow(true)
+    try {
+      const res = await paymentService.getStatus(payModal.id)
+      if (res?.data?.paid) {
+        message.success(`Đã thanh toán hóa đơn ${payModal.invoiceCode}`)
+        setPayModal(null)
+        void reloadInvoices()
+      } else {
+        message.info('Chưa nhận được tiền. Nếu bạn vừa chuyển khoản, vui lòng đợi thêm và thử lại.')
+      }
+    } catch {
+      message.error('Không kiểm tra được trạng thái thanh toán')
+    } finally {
+      setCheckingNow(false)
+    }
+  }
 
   /**
    * Cancels an unpaid draft invoice at the patient's request.
@@ -346,7 +394,7 @@ export default function MyInvoicesPage() {
                     )}
                     <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 10, flexWrap: 'wrap' }}>
                       {inv.paymentStatus !== 'PAID' && inv.status !== 'CANCELLED' && (
-                        <ActionBtn onClick={() => setPayModal(inv)} color="#10b981">
+                        <ActionBtn onClick={() => { setPollTimedOut(false); setPayProgress(null); setPayModal(inv) }} color="#10b981">
                           Thanh toán QR
                         </ActionBtn>
                       )}
@@ -530,17 +578,48 @@ export default function MyInvoicesPage() {
                 <div><span style={{ color: '#64748b' }}>Số tiền:</span> <strong style={{ color: '#10b981' }}>{fmt(payModal.totalAmount)}</strong></div>
                 <div><span style={{ color: '#64748b' }}>Nội dung:</span> <strong>{buildTransferContent(payModal.invoiceCode)}</strong></div>
               </div>
-              <div style={{
-                marginTop: 12, display: 'flex', alignItems: 'center', gap: 8,
-                color: '#15803d', fontSize: 13,
-              }}>
-                <Spin size="small" />
-                Đang chờ xác nhận thanh toán...
-              </div>
-              <p style={{ marginTop: 8, fontSize: 12, color: '#94a3b8' }}>
-                Quét mã bằng app ngân hàng và giữ nguyên nội dung chuyển khoản. Hóa đơn sẽ tự
-                chuyển sang "Đã thanh toán" ngay khi tiền vào tài khoản.
-              </p>
+
+              {/* UC-23 E2: thiếu dòng này bệnh nhân dễ chuyển lại nguyên tổng lần nữa
+                  rồi phải đòi hoàn. */}
+              {payProgress?.paidAmount > 0 && payProgress?.remainingAmount > 0 && (
+                <div style={{
+                  marginTop: 10, background: '#fffbeb', border: '1px solid #fde68a',
+                  borderRadius: 8, padding: '10px 14px', fontSize: 13, color: '#92400e',
+                }}>
+                  Đã nhận <strong>{fmt(payProgress.paidAmount)}</strong> — bạn chỉ cần chuyển thêm{' '}
+                  <strong>{fmt(payProgress.remainingAmount)}</strong>, không phải chuyển lại toàn bộ.
+                </div>
+              )}
+              {pollTimedOut ? (
+                // Nói rõ hóa đơn CHƯA bị hủy để bệnh nhân không tưởng mất tiền.
+                <div style={{ marginTop: 12 }}>
+                  <div style={{ color: '#b45309', fontSize: 13 }}>
+                    Đã dừng chờ tự động sau {POLL_TIMEOUT_MS / 60000} phút. Hóa đơn vẫn còn hiệu lực —
+                    nếu bạn đã chuyển khoản, tiền về sẽ được ghi nhận bình thường.
+                  </div>
+                  <button onClick={handleCheckPaymentNow} disabled={checkingNow} style={{
+                    marginTop: 10, padding: '7px 16px', borderRadius: 6, border: '1px solid #10b981',
+                    background: '#fff', color: '#10b981', fontWeight: 600, fontSize: 13,
+                    cursor: checkingNow ? 'not-allowed' : 'pointer',
+                  }}>
+                    {checkingNow ? 'Đang kiểm tra…' : 'Kiểm tra lại ngay'}
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div style={{
+                    marginTop: 12, display: 'flex', alignItems: 'center', gap: 8,
+                    color: '#15803d', fontSize: 13,
+                  }}>
+                    <Spin size="small" />
+                    Đang chờ xác nhận thanh toán...
+                  </div>
+                  <p style={{ marginTop: 8, fontSize: 12, color: '#94a3b8' }}>
+                    Quét mã bằng app ngân hàng và giữ nguyên nội dung chuyển khoản. Hóa đơn sẽ tự
+                    chuyển sang "Đã thanh toán" ngay khi tiền vào tài khoản.
+                  </p>
+                </>
+              )}
             </div>
           </div>
         )}

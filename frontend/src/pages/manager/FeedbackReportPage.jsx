@@ -22,6 +22,7 @@ import { useEffect, useState } from 'react'
 import { FaStar, FaStarHalfAlt, FaRegStar } from 'react-icons/fa'
 import { FiRefreshCw, FiDownload, FiMessageSquare, FiCheckCircle, FiPercent, FiSearch } from 'react-icons/fi'
 import { reportService, downloadBlob } from '../../services/reportService'
+import { pageTitle } from './managerTypography'
 
 const C = { primary: '#7c3aed', secondary: '#00687a', success: '#059669', star: '#f59e0b', ink: '#121c2a', muted: '#4a4455', border: '#e5e7eb' }
 const card = { background: '#fff', border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: '0 2px 4px rgba(0,0,0,0.03)' }
@@ -172,14 +173,14 @@ export default function FeedbackReportPage() {
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 16 }}>
           <div>
-            <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em' }}>Báo cáo đánh giá</div>
+            <h1 style={pageTitle}>Báo cáo đánh giá</h1>
             <div style={{ marginTop: 4, color: C.muted }}>Mức độ hài lòng của bệnh nhân theo kỳ & theo bác sĩ</div>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
             <label style={{ fontSize: 12, color: C.muted }}>Từ ngày<br /><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: `1px solid ${C.border}` }} /></label>
             <label style={{ fontSize: 12, color: C.muted }}>Đến ngày<br /><input type="date" value={to} onChange={(e) => setTo(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: `1px solid ${C.border}` }} /></label>
             <button onClick={load} disabled={loading} style={btn('#fff', C.primary, `1px solid ${C.primary}`)}><FiRefreshCw size={16} /> {loading ? 'Đang tải…' : 'Tải lại'}</button>
-            <button onClick={async () => { const blob = await reportService.exportFeedback(from, to); downloadBlob(blob, 'bao-cao-danh-gia.csv') }} style={btn(C.success, '#fff')}><FiDownload size={16} /> Xuất Excel</button>
+            <button onClick={async () => { const blob = await reportService.exportFeedback(from, to); downloadBlob(blob, 'bao-cao-danh-gia.xlsx') }} style={btn(C.success, '#fff')}><FiDownload size={16} /> Xuất Excel</button>
           </div>
         </div>
 

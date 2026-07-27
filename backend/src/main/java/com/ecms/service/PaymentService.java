@@ -33,13 +33,13 @@ public interface PaymentService {
      *
      * @param request    parsed webhook payload
      * @param rawPayload the untouched JSON body, stored for audit
-     * @return reconciliation outcome — MATCHED | UNMATCHED | AMOUNT_MISMATCH
+     * @return reconciliation outcome — MATCHED | PARTIAL | OVERPAID | UNMATCHED
      *         | DUPLICATE | IGNORED
      *
-     * Validate: BR-10 — only a MATCHED transfer whose amount covers the
-     * invoice total may settle it. AMOUNT_MISMATCH deliberately leaves the
-     * invoice unpaid, flagging it PAYMENT_FAILED so an underpayment is
-     * distinguishable from a transfer that never arrived.
+     * Validate: BR-10 — hóa đơn chỉ tất toán khi TỔNG tiền đã nhận qua các lần
+     * chuyển phủ được tổng hóa đơn (UC-23 E2 thanh toán từng phần). Chưa đủ thì
+     * ghi PARTIAL và hóa đơn ở PARTIALLY_PAID — phần còn thiếu vẫn là công nợ,
+     * và phân biệt được với hóa đơn chưa nhận đồng nào.
      */
     String handleWebhook(PaymentWebhookRequest request, String rawPayload);
 

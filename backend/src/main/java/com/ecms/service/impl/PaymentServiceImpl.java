@@ -46,10 +46,11 @@ import java.util.regex.Pattern;
  *    cannot settle the same invoice twice.
  *  - Money is never lost track of: an unmatched transfer is still journalled
  *    as UNMATCHED for manual reconciliation rather than silently 200-ed away.
- *  - BR-10: the invoice is only marked PAID when the received amount covers
- *    the total; anything short is journalled AMOUNT_MISMATCH and the invoice is
- *    flagged PAYMENT_FAILED so an underpayment is distinguishable from a
- *    transfer that never arrived (UC-23 E2 partial payment).
+ *  - BR-10: the invoice is only marked PAID when the money received COVERS the
+ *    total. Số tiền được cộng dồn qua mọi lần chuyển của cùng hóa đơn (UC-23 E2),
+ *    nên bệnh nhân trả làm nhiều lần vẫn tất toán được; khi tổng lũy kế chưa đủ,
+ *    giao dịch ghi PARTIAL và hóa đơn mang trạng thái PARTIALLY_PAID để phân biệt
+ *    với "chưa chuyển gì".
  */
 @Slf4j
 @Service
@@ -112,7 +113,7 @@ public class PaymentServiceImpl implements PaymentService {
      *
      * @param request    parsed gateway payload
      * @param rawPayload verbatim JSON, stored on the journal row for audit
-     * @return MATCHED | UNMATCHED | AMOUNT_MISMATCH | DUPLICATE | IGNORED
+     * @return MATCHED | PARTIAL | OVERPAID | UNMATCHED | DUPLICATE | IGNORED
      * @throws IllegalArgumentException if the payload carries no transaction id
      *
      * Validate, in order:
@@ -122,8 +123,9 @@ public class PaymentServiceImpl implements PaymentService {
      *   4. UNMATCHED — no invoice code in the memo, or no such invoice,
      *      or the invoice was cancelled (needs a manual refund)
      *   5. DUPLICATE — the invoice was already PAID
-     *   6. BR-10 — received amount must cover the invoice total, else
-     *      AMOUNT_MISMATCH and the invoice is flagged PAYMENT_FAILED (never PAID)
+     *   6. BR-10 — TỔNG tiền đã nhận (cộng dồn các lần chuyển trước + lần này) phải
+     *      phủ được tổng hóa đơn, nếu chưa thì ghi PARTIAL và hóa đơn chuyển
+     *      PARTIALLY_PAID (không bao giờ PAID)
      */
     @Override
     @Transactional
@@ -219,36 +221,37 @@ public class PaymentServiceImpl implements PaymentService {
         BigDecimal expected = invoice.getTotalAmount() == null
                 ? BigDecimal.ZERO : invoice.getTotalAmount();
 
-        // BR-10 / UC-23 E2: a short transfer does NOT settle the invoice.
-        //
-        // It is journalled as AMOUNT_MISMATCH and the invoice is flagged
-        // PAYMENT_FAILED. That flag exists so a short payment is visibly
-        // different from "nothing has arrived yet" — both states used to read as
-        // PENDING_PAYMENT, which left the Receptionist unable to tell a patient
-        // who underpaid from one who never transferred at all.
-        //
-        // Note this is not partial-payment accounting: the amount is compared
-        // against the full total on every webhook, so a follow-up transfer of
-        // only the shortfall is ALSO short and stays AMOUNT_MISMATCH. Under
-        // BR-10 the patient must transfer the full total in one go.
-        if (received.compareTo(expected) < 0) {
-            BigDecimal shortfall = expected.subtract(received);
+        // UC-23 E2 — thanh toán từng phần: cộng dồn với các lần chuyển trước của chính
+        // hóa đơn này. BR-10 giữ nguyên tinh thần (chỉ PAID khi ngân hàng xác nhận đủ
+        // tiền), chỉ khác ở chỗ "đủ" nay tính trên nhiều lần chuyển.
+        BigDecimal previouslyReceived = paymentTransactionRepository
+                .sumReceivedForInvoice(invoice.getId());
+        if (previouslyReceived == null) previouslyReceived = BigDecimal.ZERO;
+        BigDecimal totalReceived = previouslyReceived.add(received);
 
-            txn.setStatus("AMOUNT_MISMATCH");
-            txn.setNote("Số tiền nhận " + received + " nhỏ hơn tổng hóa đơn " + expected);
+        // Chưa đủ: PARTIALLY_PAID phân biệt "đã trả một phần" với "chưa chuyển gì"
+        // (PENDING_PAYMENT) và "đã trả đủ" (PAID).
+        if (totalReceived.compareTo(expected) < 0) {
+            BigDecimal shortfall = expected.subtract(totalReceived);
+
+            txn.setStatus("PARTIAL");
+            txn.setNote("Nhận " + received + ", lũy kế " + totalReceived
+                    + "/" + expected + ", còn thiếu " + shortfall);
             paymentTransactionRepository.save(txn);
 
             // Only the settlement flag moves — never to PAID. The invoice stays
             // outstanding in UC-49/UC-50 reporting, and the VietQR manual-issue
             // guard in issueInvoice still treats it as awaiting the bank.
-            invoice.setPaymentStatus("PAYMENT_FAILED");
+            invoice.setPaymentStatus("PARTIALLY_PAID");
             invoiceRepository.save(invoice);
 
+            // Báo phần còn thiếu SAU khi cộng dồn, nếu không bệnh nhân bị yêu cầu
+            // chuyển thừa.
             notifyShortPayment(invoice, shortfall);
 
-            log.warn("Chuyển thiếu tiền. invoiceCode={} nhan={} can={} thieu={}",
-                    invoiceCode, received, expected, shortfall);
-            return "AMOUNT_MISMATCH";
+            log.warn("Chuyển thiếu tiền. invoiceCode={} lan_nay={} luy_ke={} can={} thieu={}",
+                    invoiceCode, received, totalReceived, expected, shortfall);
+            return "PARTIAL";
         }
 
         // ── Step 6: settle the invoice ─────────────────────────────────────────
@@ -294,18 +297,23 @@ public class PaymentServiceImpl implements PaymentService {
         // MATCHED is what makes it findable at all: the reconciliation query
         // excludes MATCHED, so an overpayment lumped in there would be invisible
         // to everyone, including accounting.
-        BigDecimal excess = received.subtract(expected);
+        //
+        // Phần thừa tính trên LŨY KẾ: trả 300k rồi 200k cho hóa đơn 400k là thừa 100k,
+        // chứ lần chuyển 200k tự nó không thừa đồng nào.
+        BigDecimal excess = totalReceived.subtract(expected);
         if (excess.compareTo(BigDecimal.ZERO) > 0) {
             txn.setStatus("OVERPAID");
             txn.setOverpaidAmount(excess);
-            txn.setNote("Đã gạch nợ hóa đơn " + invoiceCode
-                    + " — bệnh nhân chuyển thừa, cần hoàn lại");
+            txn.setNote("Đã gạch nợ hóa đơn " + invoiceCode + " (lũy kế " + totalReceived
+                    + "/" + expected + ") — bệnh nhân chuyển thừa, cần hoàn lại");
             markRefundRequired(txn);
-            log.warn("Chuyển thừa tiền. invoiceCode={} nhan={} can={} thua={}",
-                    invoiceCode, received, expected, excess);
+            log.warn("Chuyển thừa tiền. invoiceCode={} lan_nay={} luy_ke={} can={} thua={}",
+                    invoiceCode, received, totalReceived, expected, excess);
         } else {
             txn.setStatus("MATCHED");
-            txn.setNote("Đã tự động gạch nợ hóa đơn " + invoiceCode);
+            txn.setNote("Đã tự động gạch nợ hóa đơn " + invoiceCode
+                    + (previouslyReceived.compareTo(BigDecimal.ZERO) > 0
+                            ? " (lũy kế " + totalReceived + "/" + expected + ")" : ""));
         }
         paymentTransactionRepository.save(txn);
 
@@ -327,7 +335,9 @@ public class PaymentServiceImpl implements PaymentService {
 
         log.info("Tự động xác nhận thanh toán. invoiceCode={} amount={} gatewayTxnId={}",
                 invoiceCode, received, gatewayTxnId);
-        return "MATCHED";
+        // Trả đúng trạng thái đã ghi sổ: ca chuyển thừa tuy tất toán được hóa đơn nhưng
+        // vẫn còn nợ tiền hoàn, bên gọi cần phân biệt.
+        return txn.getStatus();
     }
 
     /**
@@ -347,14 +357,15 @@ public class PaymentServiceImpl implements PaymentService {
         Invoice invoice = invoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Hóa đơn không tồn tại: " + invoiceId));
 
-        BigDecimal paidAmount = paymentTransactionRepository
-                .findByInvoiceIdOrderByReceivedAtDesc(invoiceId)
-                .stream()
-                .filter(t -> "MATCHED".equals(t.getStatus()))
-                .map(PaymentTransaction::getAmount)
-                .filter(java.util.Objects::nonNull)
-                .findFirst()
-                .orElse(null);
+        // Tổng qua MỌI lần chuyển: con số của một lần chuyển không nói lên được bệnh
+        // nhân đã trả tới đâu.
+        BigDecimal paidAmount = paymentTransactionRepository.sumReceivedForInvoice(invoiceId);
+        if (paidAmount == null) paidAmount = BigDecimal.ZERO;
+
+        BigDecimal total = invoice.getTotalAmount() != null
+                ? invoice.getTotalAmount() : BigDecimal.ZERO;
+        BigDecimal remaining = total.subtract(paidAmount);
+        if (remaining.compareTo(BigDecimal.ZERO) < 0) remaining = BigDecimal.ZERO;
 
         return PaymentStatusResponse.builder()
                 .invoiceId(invoice.getId())
@@ -364,6 +375,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .paid("PAID".equals(invoice.getPaymentStatus()))
                 .totalAmount(invoice.getTotalAmount())
                 .paidAmount(paidAmount)
+                .remainingAmount(remaining)
                 .paymentReference(invoice.getPaymentReference())
                 .paidAt(invoice.getPaidAt())
                 .build();
