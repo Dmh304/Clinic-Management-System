@@ -4,8 +4,9 @@
  * Last Update: 2026-07-22
  */
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Tag, Space, message, Modal, Typography, Card, Spin, Select, Form, Input, Row, Col, Statistic } from 'antd';
-import { FiCheck as CheckOutlined, FiPlus as PlusOutlined, FiEdit2 as EditOutlined, FiTrash2 as DeleteOutlined, FiSearch as SearchOutlined, FiShoppingCart as ShoppingCartOutlined, FiDollarSign as DollarOutlined, FiTool as ToolOutlined } from 'react-icons/fi';
+import { Table, Button, Tag, Space, message, Modal, Typography, Card, Spin, Select, Form, Input, Row, Col, Statistic, DatePicker } from 'antd';
+import { CheckOutlined, PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined, ShoppingCartOutlined, DollarOutlined, ToolOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
 import axiosClient from '../../api/axiosClient';
 import { useSelector } from 'react-redux';
@@ -27,6 +28,8 @@ export default function ReceptionistOrderPage() {
     const [loading, setLoading] = useState(false);
     const [searchText, setSearchText] = useState('');
     const [statusFilter, setStatusFilter] = useState('ALL');
+    const [dateFilter, setDateFilter] = useState(null);
+    const [sortOrder, setSortOrder] = useState('DESC');
 
     // Modals visibility
     const [detailModalVisible, setDetailModalVisible] = useState(false);
@@ -221,7 +224,17 @@ export default function ReceptionistOrderPage() {
         const matchSearch = order.patientName?.toLowerCase().includes(searchText.toLowerCase()) ||
             order.id?.toString().includes(searchText);
         const matchStatus = statusFilter === 'ALL' || order.status === statusFilter;
-        return matchSearch && matchStatus;
+        let matchDate = true;
+        if (dateFilter) {
+            const recordDate = new Date(order.createdAt).setHours(0, 0, 0, 0);
+            const filterDate = dateFilter.toDate().setHours(0, 0, 0, 0);
+            matchDate = recordDate === filterDate;
+        }
+        return matchSearch && matchStatus && matchDate;
+    }).sort((a, b) => {
+        const dateA = new Date(a.createdAt).getTime();
+        const dateB = new Date(b.createdAt).getTime();
+        return sortOrder === 'DESC' ? dateB - dateA : dateA - dateB;
     });
 
     return (
@@ -264,7 +277,7 @@ export default function ReceptionistOrderPage() {
                         prefix={<SearchOutlined />}
                         value={searchText}
                         onChange={e => setSearchText(e.target.value)}
-                        style={{ width: 300 }}
+                        style={{ width: 350 }}
                         allowClear
                     />
                     <Select value={statusFilter} onChange={setStatusFilter} style={{ width: 200 }}>
@@ -272,6 +285,18 @@ export default function ReceptionistOrderPage() {
                         {Object.entries(STATUS_MAP).map(([key, { label }]) => (
                             <Select.Option key={key} value={key}>{label}</Select.Option>
                         ))}
+                    </Select>
+                    <DatePicker 
+                        placeholder="Chọn ngày tạo" 
+                        format="DD/MM/YYYY" 
+                        value={dateFilter} 
+                        onChange={setDateFilter} 
+                        style={{ width: 150 }} 
+                        allowClear
+                    />
+                    <Select value={sortOrder} onChange={setSortOrder} style={{ width: 150 }}>
+                        <Select.Option value="DESC">Mới nhất trước</Select.Option>
+                        <Select.Option value="ASC">Cũ nhất trước</Select.Option>
                     </Select>
                 </div>
             </Card>

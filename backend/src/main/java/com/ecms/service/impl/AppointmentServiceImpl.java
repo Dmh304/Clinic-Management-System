@@ -228,7 +228,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                                 .orElseThrow(() -> new ResourceNotFoundException("Lịch hẹn không tồn tại: " + id));
 
                 if (status == AppointmentStatus.IN_PROGRESS) {
-                        ClinicHoursUtil.requireWithinClinicHours();
+                        ClinicHoursUtil.requireOperableToday(appointment.getAppointmentDate());
                 }
 
                 appointment.setStatus(status);
@@ -236,7 +236,8 @@ public class AppointmentServiceImpl implements AppointmentService {
                 return toResponse(appointmentRepository.save(appointment));
         }
 
-        // Chức năng: Lễ tân xác nhận lịch hẹn (chuyển trạng thái từ PENDING sang CONFIRMED)
+        // Chức năng: Lễ tân xác nhận lịch hẹn (chuyển trạng thái từ PENDING sang
+        // CONFIRMED)
         @Override
         @Transactional
         public AppointmentResponse confirmAppointment(Long id, Long doctorId) {
@@ -310,7 +311,8 @@ public class AppointmentServiceImpl implements AppointmentService {
                 return toResponse(saved);
         }
 
-        // Chức năng: Check-in bệnh nhân (UC-15) - Lễ tân đánh dấu bệnh nhân đã đến phòng khám và lấy số thứ tự
+        // Chức năng: Check-in bệnh nhân (UC-15) - Lễ tân đánh dấu bệnh nhân đã đến
+        // phòng khám và lấy số thứ tự
         @Override
         @Transactional
         public AppointmentResponse checkInAppointment(Long id, Long checkInByUserId) {
@@ -387,6 +389,22 @@ public class AppointmentServiceImpl implements AppointmentService {
 
                 // UC-11: xác định bệnh nhân thực sự được khám.
                 Patient targetPatient = resolveBookingPatient(request, selfPatient);
+
+                // Le Thi Bich Ngan - HE204710 | Tạo: 27/07/2026
+                // Chức năng: chặn CÙNG một bệnh nhân đặt 2 lịch hẹn khám bác sĩ trùng đúng
+                // ngày + khung giờ (kể cả với 2 bác sĩ KHÁC nhau) — trước đây chỉ có check
+                // slotTaken ở trên (khoá theo doctor+time) nên bệnh nhân vẫn có thể vô tình
+                // (hoặc người nhà đặt hộ trùng lúc) đặt cùng lúc với bác sĩ khác, dẫn tới 1
+                // bệnh nhân bị "phân thân" ở 2 phòng khám cùng giờ.
+                // Business rule: BR-25 (new) — Patient Single-Slot Booking: một bệnh nhân
+                // chỉ được có tối đa 1 lịch hẹn còn hiệu lực (khác CANCELLED) tại mỗi
+                // appointmentTime, bất kể bác sĩ nào.
+                boolean patientAlreadyBooked = appointmentRepository.existsByPatient_IdAndAppointmentTimeAndStatusNot(
+                                targetPatient.getId(), appointmentTime, AppointmentStatus.CANCELLED);
+                if (patientAlreadyBooked) {
+                        throw new IllegalStateException(
+                                        "Bệnh nhân đã có lịch hẹn khác vào đúng khung giờ này, vui lòng chọn khung giờ khác");
+                }
 
                 Appointment appointment = Appointment.builder()
                                 .patient(targetPatient)
@@ -570,6 +588,20 @@ public class AppointmentServiceImpl implements AppointmentService {
 
                 validateDoctorCapacity(request.getDoctorId(), walkInTime.toLocalDate());
 
+                // Le Thi Bich Ngan - HE204710 | Tạo: 27/07/2026
+                // Chức năng: áp cùng ràng buộc "1 bệnh nhân — 1 khung giờ" cho luồng lễ tân
+                // tạo lịch vãng lai — trước đây createWalkInAppointment() không có bất kỳ
+                // check trùng giờ nào (kể cả theo bác sĩ), nên lễ tân có thể vô tình tạo
+                // lịch vãng lai cho một bệnh nhân đang có lịch hẹn khác (kể cả với bác sĩ
+                // khác) đúng giờ đó.
+                // Business rule: BR-25 (new) — Patient Single-Slot Booking (xem
+                // AppointmentRepository.existsByPatient_IdAndAppointmentTimeAndStatusNot).
+                if (appointmentRepository.existsByPatient_IdAndAppointmentTimeAndStatusNot(
+                                patient.getId(), walkInTime, AppointmentStatus.CANCELLED)) {
+                        throw new IllegalStateException(
+                                        "Bệnh nhân đã có lịch hẹn khác vào đúng khung giờ này, vui lòng chọn khung giờ khác");
+                }
+
                 ClinicService clinicService = null;
                 if (request.getServiceId() != null) {
                         clinicService = clinicServiceRepository.findById(request.getServiceId())
@@ -661,6 +693,21 @@ public class AppointmentServiceImpl implements AppointmentService {
                                                         targetDoctorId, targetTime, AppointmentStatus.CANCELLED, id)) {
                                 throw new IllegalStateException(
                                                 "Bác sĩ đã có lịch hẹn khác vào khung giờ này, vui lòng chọn giờ khác");
+                        }
+
+                        // Le Thi Bich Ngan - HE204710 | Tạo: 27/07/2026
+                        // Chức năng: khi lễ tân/manager reassign đổi giờ (hasTime), chặn luôn
+                        // trường hợp giờ đích trùng với một lịch hẹn KHÁC còn hiệu lực của
+                        // CHÍNH bệnh nhân này (dù là bác sĩ khác) — trước đây chỉ kiểm tra
+                        // trùng theo (bác sĩ, giờ) nên có thể vô tình dời bệnh nhân vào đúng
+                        // khung giờ họ đã có lịch với một bác sĩ khác.
+                        // Business rule: BR-25 (new) — Patient Single-Slot Booking.
+                        Patient targetPatient = appointment.getPatient();
+                        if (hasTime && targetPatient != null && appointmentRepository
+                                        .existsByPatient_IdAndAppointmentTimeAndStatusNotAndIdNot(
+                                                        targetPatient.getId(), targetTime, AppointmentStatus.CANCELLED, id)) {
+                                throw new IllegalStateException(
+                                                "Bệnh nhân đã có lịch hẹn khác vào đúng khung giờ này, vui lòng chọn giờ khác");
                         }
                 }
 
@@ -1019,6 +1066,23 @@ public class AppointmentServiceImpl implements AppointmentService {
                                         "Khung giờ này đã có lịch hẹn khác, vui lòng chọn khung giờ khác");
                 }
 
+                // Le Thi Bich Ngan - HE204710 | Tạo: 27/07/2026
+                // Chức năng: chặn đổi giờ sang đúng khung giờ mà BỆNH NHÂN ĐƯỢC KHÁM
+                // (appointment.getPatient() — có thể khác "patient" đang thao tác ở trên,
+                // vì UC-11 cho phép người thân/booker đổi giờ hộ) đã có một lịch hẹn KHÁC
+                // còn hiệu lực (với bác sĩ khác) — trước đây check phía trên chỉ khoá theo
+                // (bác sĩ, giờ) nên vẫn có thể dời lịch trùng giờ với chính lịch hẹn khác
+                // của bệnh nhân đó.
+                // Business rule: BR-25 (new) — Patient Single-Slot Booking.
+                Long examinedPatientId = appointment.getPatient() != null ? appointment.getPatient().getId() : null;
+                if (examinedPatientId != null
+                                && !newTime.equals(appointment.getAppointmentTime())
+                                && appointmentRepository.existsByPatient_IdAndAppointmentTimeAndStatusNotAndIdNot(
+                                                examinedPatientId, newTime, AppointmentStatus.CANCELLED, id)) {
+                        throw new IllegalStateException(
+                                        "Bệnh nhân đã có lịch hẹn khác vào đúng khung giờ này, vui lòng chọn khung giờ khác");
+                }
+
                 if (appointment.getDoctor() != null
                                 && !newTime.toLocalDate().equals(appointment.getAppointmentDate())) {
                         validateDoctorCapacity(appointment.getDoctor().getId(), newTime.toLocalDate());
@@ -1140,7 +1204,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                                                         "Trạng thái hiện tại: " + appointment.getStatus());
                 }
 
-                ClinicHoursUtil.requireWithinClinicHours();
+                ClinicHoursUtil.requireOperableToday(appointment.getAppointmentDate());
 
                 // Chuyển appointment về CANCELLED
                 appointment.setStatus(AppointmentStatus.CANCELLED);
@@ -1173,9 +1237,12 @@ public class AppointmentServiceImpl implements AppointmentService {
                                                 AppointmentStatus.WAITING, AppointmentStatus.IN_PROGRESS));
         }
 
-        // Le Thi Bich Ngan - HE204710 | Tạo: 18/07/2026, sửa 2026-07-25 (huỷ ngay khi trễ giờ)
-        // Chức năng: dùng chung logic huỷ với autoCancelNoShowAppointments() (00:05) qua
-        // cancelStaleAppointments() được tách ra bên dưới, chỉ khác cutoff (thời điểm hiện
+        // Le Thi Bich Ngan - HE204710 | Tạo: 18/07/2026, sửa 2026-07-25 (huỷ ngay khi
+        // trễ giờ)
+        // Chức năng: dùng chung logic huỷ với autoCancelNoShowAppointments() (00:05)
+        // qua
+        // cancelStaleAppointments() được tách ra bên dưới, chỉ khác cutoff (thời điểm
+        // hiện
         // tại) và statuses (không đụng WAITING/IN_PROGRESS). Không gắn BR số cụ thể.
         @Override
         @Transactional

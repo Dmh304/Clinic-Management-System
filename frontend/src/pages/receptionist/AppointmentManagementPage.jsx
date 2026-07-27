@@ -259,11 +259,20 @@ export default function AppointmentManagementPage() {
     [list, careSessions],
   )
 
+  // Le Thi Bich Ngan - HE204710 | Tạo: 27/07/2026
+  // Chức năng: lọc danh sách lịch hẹn của chế độ Ngày theo bác sĩ (dùng chung
+  // state filterDoctor với chế độ Tuần/Tháng) — trước đây chế độ Ngày chỉ lọc
+  // được theo trạng thái + tìm kiếm, lễ tân không thể thu hẹp danh sách theo
+  // một bác sĩ cụ thể khi phòng khám có nhiều bác sĩ khám cùng ngày.
+  // Business rule: không gắn BR cụ thể — đây là tiện ích tra cứu/hiển thị cho
+  // lễ tân, không ảnh hưởng tới việc đặt/xác nhận lịch hẹn.
   const filtered = (
     filterStatus === 'ALL' ? combinedList
       : filterStatus === 'CARE_SESSION' ? combinedList.filter((a) => a.isCareSession)
         : combinedList.filter((a) => getStatusBucket(a) === filterStatus)
-  ).filter((a) => matchesSearch(a, searchText))
+  )
+    .filter((a) => !filterDoctor || String(a.doctorId) === filterDoctor)
+    .filter((a) => matchesSearch(a, searchText))
 
   // Thống kê hợp nhất cả lịch hẹn khám bác sĩ lẫn buổi khám dịch vụ, theo cùng "nhóm trạng thái"
   // ở trên — thay cho dashboard.* (chỉ tính riêng lịch hẹn, khiến số liệu lệch với bảng hiển thị).
@@ -735,6 +744,22 @@ export default function AppointmentManagementPage() {
                 value: v,
               })),
               { label: 'Đến khám dịch vụ', value: 'CARE_SESSION' },
+            ]}
+          />
+          {/* Le Thi Bich Ngan - HE204710 | Tạo: 27/07/2026
+              Chức năng: lọc lịch hẹn trong ngày theo bác sĩ — dùng chung state
+              filterDoctor với bộ lọc bác sĩ ở chế độ Tuần/Tháng (lựa chọn được
+              giữ nguyên khi lễ tân đổi qua lại giữa các chế độ xem). Nguồn dữ
+              liệu là danh sách bác sĩ đầy đủ (doctors, tải 1 lần khi mount) chứ
+              không chỉ những bác sĩ xuất hiện trong ngày đang xem.
+              Business rule: không gắn BR cụ thể — hỗ trợ tra cứu cho lễ tân. */}
+          <Select
+            value={filterDoctor || 'ALL'}
+            onChange={(v) => setFilterDoctor(v === 'ALL' ? '' : v)}
+            style={{ width: 220 }}
+            options={[
+              { label: '👥 Tất cả bác sĩ', value: 'ALL' },
+              ...doctors.map((d) => ({ label: d.fullName, value: String(d.id) })),
             ]}
           />
           <Button icon={<ReloadOutlined />} onClick={reload} loading={loading}>

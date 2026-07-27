@@ -9,5 +9,14 @@ export function isWithinClinicHours(date = new Date()) {
   return minutes >= open && minutes <= close
 }
 
+export function isSameDayAsToday(dateInput) {
+  if (!dateInput) return false
+  const d = new Date(dateInput)
+  const today = new Date()
+  return d.getFullYear() === today.getFullYear()
+      && d.getMonth() === today.getMonth()
+      && d.getDate() === today.getDate()
+}
+
 export const CLINIC_HOURS_MESSAGE =
   'Thao tác này chỉ được thực hiện trong giờ làm việc của phòng khám (07:30–17:00, trừ Chủ nhật).'
