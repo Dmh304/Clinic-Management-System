@@ -22,9 +22,13 @@ import { invoiceService } from '../../services/invoiceService'
 import { paymentService } from '../../services/paymentService'
 
 // ── Cấu hình tài khoản nhận tiền của phòng khám (khớp backend payment.bank.* + .env) ──
-const BANK_ID      = import.meta.env.VITE_BANK_ID      || '970436'
-const BANK_ACCOUNT = import.meta.env.VITE_BANK_ACCOUNT || '1234567890'
-const BANK_NAME    = import.meta.env.VITE_BANK_NAME    || 'PHONG KHAM MAT'
+// frontend/.env là nguồn chính; giá trị dưới đây chỉ dùng khi thiếu .env (file này bị
+// .gitignore bỏ qua nên máy mới clone repo về sẽ không có). Phải giữ khớp với
+// payment.bank.* trong application.properties, nếu không QR trên web và số tài khoản
+// trong email nhắc thanh toán sẽ trỏ hai nơi khác nhau.
+const BANK_ID      = import.meta.env.VITE_BANK_ID      || '970415'
+const BANK_ACCOUNT = import.meta.env.VITE_BANK_ACCOUNT || '0000000001'
+const BANK_NAME    = import.meta.env.VITE_BANK_NAME    || 'PHONG KHAM MAT ANH SAO'
 
 // Nội dung chuyển khoản bắt đầu bằng "SEVQR" (SePay + VietinBank) + chứa mã hóa đơn để
 // webhook tự đối soát (UC-22)

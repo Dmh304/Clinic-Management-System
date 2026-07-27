@@ -62,9 +62,13 @@ const { Title, Text } = Typography
 
 // ─── Cấu hình ngân hàng phòng khám (ThangNBHE201024) ─────────────────────────
 // Giá trị lấy từ biến môi trường .env; fallback về Vietcombank mẫu nếu chưa cấu hình
-const BANK_ID      = import.meta.env.VITE_BANK_ID      || '970436'   // Vietcombank
-const BANK_ACCOUNT = import.meta.env.VITE_BANK_ACCOUNT || '1234567890'
-const BANK_NAME    = import.meta.env.VITE_BANK_NAME    || 'PHONG KHAM MAT'
+// frontend/.env là nguồn chính; giá trị dưới đây chỉ dùng khi thiếu .env (file này bị
+// .gitignore bỏ qua nên máy mới clone repo về sẽ không có). Phải giữ khớp với
+// payment.bank.* trong application.properties, nếu không QR trên web và số tài khoản
+// trong email nhắc thanh toán sẽ trỏ hai nơi khác nhau.
+const BANK_ID      = import.meta.env.VITE_BANK_ID      || '970415'   // VietinBank
+const BANK_ACCOUNT = import.meta.env.VITE_BANK_ACCOUNT || '0000000001'
+const BANK_NAME    = import.meta.env.VITE_BANK_NAME    || 'PHONG KHAM MAT ANH SAO'
 
 // Chu kỳ hỏi backend xem tiền đã về chưa, tính bằng ms
 const POLL_INTERVAL_MS = 3000
@@ -1568,7 +1572,7 @@ export default function InvoicePage() {
                       Quét mã để thanh toán
                     </Text>
                     <div style={{ fontSize: 13, color: '#374151', lineHeight: 2 }}>
-                      <div><Text type="secondary">Ngân hàng:</Text> <Text strong>{BANK_NAME}</Text></div>
+                      <div><Text type="secondary">Chủ tài khoản:</Text> <Text strong>{BANK_NAME}</Text></div>
                       <div><Text type="secondary">STK:</Text> <Text strong>{BANK_ACCOUNT}</Text></div>
                       <div><Text type="secondary">Số tiền:</Text> <Text strong style={{ color: '#10b981' }}>{fmt(pendingInvoice.totalAmount ?? grandTotal)}</Text></div>
                       <div>
@@ -1809,7 +1813,7 @@ export default function InvoicePage() {
                     Quét mã để thanh toán
                   </Text>
                   <div style={{ fontSize: 13, color: '#374151', lineHeight: 2 }}>
-                    <div><Text type="secondary">Ngân hàng:</Text> <Text strong>{BANK_NAME}</Text></div>
+                    <div><Text type="secondary">Chủ tài khoản:</Text> <Text strong>{BANK_NAME}</Text></div>
                     <div><Text type="secondary">STK:</Text> <Text strong copyable>{BANK_ACCOUNT}</Text></div>
                     <div><Text type="secondary">Số tiền:</Text> <Text strong style={{ color: '#10b981' }}>{fmt(detailModal.invoice.totalAmount)}</Text></div>
                     <div>
