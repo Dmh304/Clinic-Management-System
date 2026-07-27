@@ -1,4 +1,4 @@
-﻿@startuml UC27d_CancelClinicalSession_SequenceDiagram
+@startuml UC27d_CancelClinicalSession_SequenceDiagram
 <style>
 document {
   ParticipantPadding 10
@@ -28,65 +28,75 @@ skinparam LifeLineBorderColor #336699
 
 title UC-27d: Cancel Clinical Session\n(Simplified Sequence Diagram)
 
-actor       "Doctor"                                    as Doctor
-participant "<<Controller>>\nEMRController"                 as EMRC
-participant "<<Service>>\nEMRService"                       as EMRS
-participant "<<ServiceImpl>>\nEMRServiceImpl"               as EMRSImpl
-participant "<<Repository>>\nMedicalRecordRepository"       as MRRepo
-participant "<<Repository>>\nAppointmentRepository"         as ARepo
+actor       "Doctor"                                            as Doctor
+participant ":AppointmentController"                            as AC
+participant ":AppointmentService"                               as AS
+participant ":AppointmentServiceImpl"                           as ASImpl
+participant ":AppointmentRepository"                            as ARepo
+participant ":MedicalRecordRepository"                          as MRRepo
 
 note over Doctor
-  PRE: MedicalRecord is IN_PROGRESS or DRAFT.
+  PRE: Appointment status is IN_PROGRESS.
   Doctor decides to cancel the current examination session.
 end note
 
-== Step 1: Doctor Cancels Session via EMR ==
-Doctor -> EMRC : cancelEMR(medicalRecordId: Long)
-activate EMRC
-EMRC -> EMRS : cancelEMR(medicalRecordId: Long)
-activate EMRS
-EMRS -> EMRSImpl : cancelEMR(medicalRecordId: Long)
-activate EMRSImpl
+== Step 1: Doctor Cancels Session via UI ==
+Doctor -> AC : abandonExam(appointmentId)
+activate AC
 
-EMRSImpl -> MRRepo : findById(id: Long)
-activate MRRepo
-MRRepo --> EMRSImpl : MedicalRecord
-deactivate MRRepo
+AC -> AS : abandonExam(appointmentId)
+activate AS
+AS -> ASImpl : abandonExam(appointmentId)
+activate ASImpl
 
-note right of EMRSImpl
-  BR-09 Updated: Session is fully cancelled.
-  MedicalRecord status is updated to CANCELLED.
-  Appointment is updated to CANCELLED.
-  Patient is removed from the queue entirely.
-end note
-
-EMRSImpl -> MRRepo : save(record: MedicalRecord)
-activate MRRepo
-note right of MRRepo
-  status = CANCELLED
-end note
-MRRepo --> EMRSImpl : MedicalRecord
-deactivate MRRepo
-
-EMRSImpl -> ARepo : findById(appointmentId: Long)
+ASImpl -> ARepo : findById(appointmentId)
 activate ARepo
-ARepo --> EMRSImpl : Appointment
+ARepo --> ASImpl : Appointment (status = IN_PROGRESS)
 deactivate ARepo
 
-EMRSImpl -> ARepo : save(appointment: Appointment)
+opt [appointment.status != IN_PROGRESS]
+    ASImpl --> AS : IllegalStateException
+    AS --> AC : IllegalStateException
+    AC --> Doctor : HTTP 400 Bad Request
+end
+
+ASImpl -> ARepo : save(appointment)
 activate ARepo
 note right of ARepo
-  status = CANCELLED
+  appointment.status = CANCELLED
+  appointment.cancelReason = "Bác sĩ dừng khám giữa chừng"
 end note
-ARepo --> EMRSImpl : Appointment
+ARepo --> ASImpl : Appointment
 deactivate ARepo
 
-EMRSImpl --> EMRS : EMRResponse
-deactivate EMRSImpl
-EMRS --> EMRC : EMRResponse
-deactivate EMRS
+ASImpl -> MRRepo : findByAppointmentId(appointmentId)
+activate MRRepo
+MRRepo --> ASImpl : Optional<MedicalRecord>
+deactivate MRRepo
 
-EMRC --> Doctor : ResponseEntity<ApiResponse<EMRResponse>>
-deactivate EMRC
+opt [MedicalRecord exists AND status != COMPLETED]
+    ASImpl -> MRRepo : save(record)
+    activate MRRepo
+    note right of MRRepo
+      record.status = DRAFT
+      (reverts IN_PROGRESS back to DRAFT,
+      does NOT set to CANCELLED per code logic)
+    end note
+    MRRepo --> ASImpl : MedicalRecord
+    deactivate MRRepo
+end
+
+ASImpl --> AS : AppointmentResponse
+deactivate ASImpl
+AS --> AC : AppointmentResponse
+deactivate AS
+
+AC --> Doctor : HTTP 200 OK\nApiResponse<AppointmentResponse>
+deactivate AC
+
+note over Doctor
+  POST: Patient is removed from the active queue.
+  The MedicalRecord is reverted to DRAFT (not deleted - BR-09).
+end note
 
 @enduml

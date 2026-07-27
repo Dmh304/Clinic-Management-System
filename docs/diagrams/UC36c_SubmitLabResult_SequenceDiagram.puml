@@ -37,10 +37,11 @@ participant ":LabResultRepository"              as LRRepo
 participant ":NotificationService"              as Notif
 
 note over LabTech
-  PRE: Result data is fully entered.
+  PRE: LabOrder.status = IN_PROGRESS.
+  Technician has completed all measurements.
 end note
 
-== Step 1 & 2: Technician Submits Result ==
+== Step 1 & 2: Technician Submits Final Result ==
 LabTech -> LC : submitResult(id, request, userDetails)
 activate LC
 LC -> LC : resolveLabTechnicianId(userDetails)
@@ -54,22 +55,28 @@ activate LORepo
 LORepo --> LSImpl : LabOrder
 deactivate LORepo
 
-LSImpl -> LRRepo : findByLabOrderId(id)
-activate LRRepo
-LRRepo --> LSImpl : LabResult
-deactivate LRRepo
-
-opt [Validation Fails]
-  LSImpl --> LS : IllegalArgumentException
-  LS --> LC : IllegalArgumentException
+opt [labOrder.status != IN_PROGRESS]
+  LSImpl --> LS : IllegalStateException("Can only submit results for an IN_PROGRESS LabOrder")
+  LS --> LC : IllegalStateException
   LC --> LabTech : HTTP 400 Bad Request
 end
 
-LSImpl -> LRRepo : save(result)
+LSImpl -> LRRepo : findTopByLabOrderIdOrderByIdDesc(id)
+activate LRRepo
+LRRepo --> LSImpl : Optional<LabResult>
+deactivate LRRepo
+
+note right of LSImpl
+  If LabResult not found, create new LabResult.
+  If found, update the existing one.
+end note
+
+LSImpl -> LRRepo : save(labResult)
 activate LRRepo
 note right of LRRepo
-  Updates measuredValues and attachedImages.
-  Updates status to SUBMITTED.
+  Sets all measurement fields:
+  vaL, vaR, sphL, cylL, axisL, iopL,
+  sphR, cylR, axisR, iopR, imageUrls, doctorNotes.
 end note
 LRRepo --> LSImpl : LabResult
 deactivate LRRepo
@@ -77,7 +84,8 @@ deactivate LRRepo
 LSImpl -> LORepo : save(labOrder)
 activate LORepo
 note right of LORepo
-  Updates LabOrder status to SUBMITTED.
+  labOrder.status = SUBMITTED
+  labOrder.completedAt = now()
 end note
 LORepo --> LSImpl : LabOrder
 deactivate LORepo
@@ -100,8 +108,8 @@ LC --> LabTech : HTTP 200 OK\nApiResponse<LabOrderResponse>
 deactivate LC
 
 note over LabTech
-  POST: Order moves out of Technician's active queue.
-  It moves to Doctor's queue (UC-37).
+  POST: LabOrder.status = SUBMITTED.
+  Waiting for Doctor to review (UC-37).
 end note
 
 @enduml

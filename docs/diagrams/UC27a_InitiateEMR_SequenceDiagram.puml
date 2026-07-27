@@ -1,4 +1,4 @@
-﻿@startuml UC27a_InitiateEMR_SequenceDiagram
+@startuml UC27a_InitiateEMR_SequenceDiagram
 <style>
 document {
   ParticipantPadding 10
@@ -29,11 +29,11 @@ skinparam LifeLineBorderColor #336699
 title UC-27a: Initiate Electronic Medical Record (EMR)\n(Simplified Sequence Diagram)
 
 actor       "Doctor"                                    as Doctor
-participant "<<Controller>>\nEMRController"             as EMRC
-participant "<<Service>>\nEMRService"                   as EMRS
-participant "<<ServiceImpl>>\nEMRServiceImpl"           as EMRSImpl
-participant "<<Repository>>\nMedicalRecordRepository"   as MRRepo
-participant "<<Repository>>\nAppointmentRepository"     as ARepo
+participant ":EMRController"             as EMRC
+participant ":EMRService"                   as EMRS
+participant ":EMRServiceImpl"           as EMRSImpl
+participant ":MedicalRecordRepository"   as MRRepo
+participant ":AppointmentRepository"     as ARepo
 
 note over Doctor
   PRE-1: Doctor is logged in.
@@ -44,11 +44,12 @@ end note
 Doctor -> EMRC : [UI] Selects "Waiting" patient to start assessment
 
 == Step 3, 4 & 5: Start Examination (Status -> IN_PROGRESS) ==
-Doctor -> EMRC : getOrCreateByAppointmentId(appointmentId: Long, doctorId: Long)
+Doctor -> EMRC : getByAppointment(appointmentId, userDetails)
 activate EMRC
-EMRC -> EMRS : getOrCreateByAppointmentId(appointmentId: Long, doctorId: Long)
+EMRC -> EMRC : resolveDoctorId(userDetails)
+EMRC -> EMRS : getOrCreateByAppointmentId(appointmentId, doctorId)
 activate EMRS
-EMRS -> EMRSImpl : getOrCreateByAppointmentId(appointmentId: Long, doctorId: Long)
+EMRS -> EMRSImpl : getOrCreateByAppointmentId(appointmentId, doctorId)
 activate EMRSImpl
 
 EMRSImpl -> ARepo : findById(id: Long)
@@ -86,7 +87,8 @@ deactivate EMRSImpl
 EMRS --> EMRC : EMRResponse
 deactivate EMRS
 
-EMRC --> Doctor : ResponseEntity<ApiResponse<EMRResponse>>
+EMRC --> Doctor : HTTP 200 OK
+ApiResponse<EMRResponse>
 deactivate EMRC
 
 @enduml

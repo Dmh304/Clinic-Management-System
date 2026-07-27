@@ -29,11 +29,11 @@ skinparam LifeLineBorderColor #336699
 title UC-32: View Lab Results\n(Simplified Sequence Diagram)
 
 actor       "Doctor / Patient"                                  as Actor
-participant "<<Controller>>\nLabOrderController"           as LC
-participant "<<Service>>\nLabOrderService"               as LS
-participant "<<ServiceImpl>>\nLabOrderServiceImpl"       as LSImpl
-participant "<<Repository>>\nLabOrderRepository"                as LORepo
-participant "<<Repository>>\nLabResultRepository"               as LRRepo
+participant ":LabOrderController"           as LC
+participant ":LabOrderService"               as LS
+participant ":LabOrderServiceImpl"       as LSImpl
+participant ":LabOrderRepository"                as LORepo
+participant ":LabResultRepository"               as LRRepo
 participant "<<Log>>\nAuditLog"                                 as Audit
 
 note over Actor

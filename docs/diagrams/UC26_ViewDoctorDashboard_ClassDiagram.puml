@@ -11,39 +11,40 @@ skinparam class {
 }
 
 class AppointmentController {
-    + getDashboard(userDetails: UserDetails): ResponseEntity<ApiResponse<AppointmentDashboardResponse>>
-    + getDoctorQueue(userDetails: UserDetails): ResponseEntity<ApiResponse<List<AppointmentResponse>>>
-    + searchAppointments(keyword: String, userDetails: UserDetails): ResponseEntity<ApiResponse<List<AppointmentResponse>>>
+    + getDashboard(date: LocalDate, userDetails: UserDetails): ResponseEntity<ApiResponse<AppointmentDashboardResponse>>
+    + getDoctorQueue(date: LocalDate, userDetails: UserDetails): ResponseEntity<ApiResponse<List<AppointmentResponse>>>
+    + searchAppointments(keyword: String): ResponseEntity<ApiResponse<List<AppointmentResponse>>>
     - resolveDoctorId(userDetails: UserDetails): Long
 }
 
 interface AppointmentService {
-    + getDashboard(doctorId: Long): AppointmentDashboardResponse
-    + getDoctorQueue(doctorId: Long): List<AppointmentResponse>
-    + searchAppointments(keyword: String, doctorId: Long): List<AppointmentResponse>
+    + getDashboard(date: LocalDate, doctorId: Long): AppointmentDashboardResponse
+    + getDoctorQueue(date: LocalDate, doctorId: Long): List<AppointmentResponse>
+    + searchAppointments(keyword: String): List<AppointmentResponse>
 }
 
 class AppointmentServiceImpl {
-    + getDashboard(doctorId: Long): AppointmentDashboardResponse
-    + getDoctorQueue(doctorId: Long): List<AppointmentResponse>
-    + searchAppointments(keyword: String, doctorId: Long): List<AppointmentResponse>
+    + getDashboard(date: LocalDate, doctorId: Long): AppointmentDashboardResponse
+    + getDoctorQueue(date: LocalDate, doctorId: Long): List<AppointmentResponse>
+    + searchAppointments(keyword: String): List<AppointmentResponse>
 }
 
 class AppointmentRepository {
-    + countByAppointmentDateAndDoctorId(date: LocalDate, doctorId: Long): Long
-    + findByAppointmentDateAndDoctorIdOrderByAppointmentTimeAsc(date: LocalDate, doctorId: Long): List<Appointment>
-    + findByDoctorIdAndPatientFullNameContainingIgnoreCase(doctorId: Long, keyword: String): List<Appointment>
+    + countByDateAndDoctorId(start: LocalDateTime, end: LocalDateTime, doctorId: Long): Long
+    + countByDateAndStatusAndDoctorId(start: LocalDateTime, end: LocalDateTime, status: AppointmentStatus, doctorId: Long): Long
+    + findByAppointmentDateAndDoctorIdOrderByAppointmentTimeAsc(start: LocalDateTime, end: LocalDateTime, doctorId: Long): List<Appointment>
+    + searchAppointments(keyword: String): List<Appointment>
 }
 
 class Appointment {
-    - appointmentId: Long
+    - id: Long
     - appointmentDate: LocalDate
-    - appointmentTime: LocalTime
     - status: AppointmentStatus
-    - roomNumber: String
 }
 
 enum AppointmentStatus {
+    PENDING
+    CONFIRMED
     WAITING
     IN_PROGRESS
     COMPLETED
@@ -51,7 +52,9 @@ enum AppointmentStatus {
 }
 
 class AppointmentDashboardResponse {
-    - totalToday: Long
+    - total: Long
+    - pending: Long
+    - confirmed: Long
     - waiting: Long
     - inProgress: Long
     - completed: Long
@@ -59,11 +62,9 @@ class AppointmentDashboardResponse {
 }
 
 class AppointmentResponse {
-    - appointmentId: Long
+    - id: Long
     - patientName: String
-    - appointmentTime: LocalTime
     - status: String
-    - roomNumber: String
 }
 
 class ApiResponse<T> {

@@ -29,11 +29,11 @@ skinparam LifeLineBorderColor #336699
 title UC-27c: Finalize EMR\n(Simplified Sequence Diagram)
 
 actor       "Doctor"                                    as Doctor
-participant "<<Controller>>\nEMRController"             as EMRC
-participant "<<Service>>\nEMRService"                   as EMRS
-participant "<<ServiceImpl>>\nEMRServiceImpl"           as EMRSImpl
-participant "<<Repository>>\nMedicalRecordRepository"   as MRRepo
-participant "<<Repository>>\nAppointmentRepository"     as ARepo
+participant ":EMRController"             as EMRC
+participant ":EMRService"                   as EMRS
+participant ":EMRServiceImpl"           as EMRSImpl
+participant ":MedicalRecordRepository"   as MRRepo
+participant ":AppointmentRepository"     as ARepo
 
 note over Doctor
   PRE: MedicalRecord is IN_PROGRESS or DRAFT.

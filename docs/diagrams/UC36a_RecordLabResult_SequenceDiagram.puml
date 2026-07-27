@@ -33,10 +33,11 @@ participant ":LabOrderController"           as LC
 participant ":LabOrderService"               as LS
 participant ":LabOrderServiceImpl"       as LSImpl
 participant ":LabOrderRepository"               as LORepo
-participant ":LabResultRepository"              as LRRepo
+participant ":LabTechnicianRepository"          as LTRepo
 
 note over LabTech
-  PRE: Lab Technician is assigned or claims a PENDING order.
+  PRE: LabOrder is in PENDING status.
+  Lab Technician is assigned to this order (or self-assigns).
 end note
 
 == Step 1 & 2: Start Lab Test ==
@@ -59,22 +60,25 @@ opt [order.status != PENDING]
   LC --> LabTech : HTTP 400 Bad Request
 end
 
+opt [labOrder.labTechnician == null]
+  LSImpl -> LTRepo : getReferenceById(labTechnicianId)
+  activate LTRepo
+  LTRepo --> LSImpl : LabTechnician
+  deactivate LTRepo
+  note right of LSImpl
+    Assign technician to this order.
+  end note
+end
+
 LSImpl -> LORepo : save(labOrder)
 activate LORepo
 note right of LORepo
-  Status updated to IN_PROGRESS.
+  labOrder.status = IN_PROGRESS
+  (No LabResult is created at this step.
+  LabResult is created/updated in saveDraft.)
 end note
 LORepo --> LSImpl : LabOrder
 deactivate LORepo
-
-LSImpl -> LRRepo : save(labResult)
-activate LRRepo
-note right of LRRepo
-  Initializes a new LabResult
-  with IN_PROGRESS status.
-end note
-LRRepo --> LSImpl : LabResult
-deactivate LRRepo
 
 LSImpl --> LS : LabOrderResponse
 deactivate LSImpl
@@ -86,6 +90,7 @@ deactivate LC
 
 note over LabTech
   UI allows data entry for the result.
+  Technician proceeds to saveDraft (UC-36b).
 end note
 
 @enduml

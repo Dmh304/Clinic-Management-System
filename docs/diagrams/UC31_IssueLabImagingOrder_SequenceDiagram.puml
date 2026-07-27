@@ -29,13 +29,13 @@ skinparam LifeLineBorderColor #336699
 title UC-31: Issue Lab/Imaging Order\n(Simplified Sequence Diagram)
 
 actor       "Doctor"                                            as Doctor
-participant "<<Controller>>\nLabOrderController"           as LC
-participant "<<Service>>\nLabOrderService"               as LS
-participant "<<ServiceImpl>>\nLabOrderServiceImpl"       as LSImpl
-participant "<<Repository>>\nAppointmentRepository"             as ApptRepo
-participant "<<Repository>>\nPatientRepository"                 as PatRepo
-participant "<<Repository>>\nDoctorRepository"                  as DocRepo
-participant "<<Repository>>\nLabOrderRepository"                as LORepo
+participant ":LabOrderController"           as LC
+participant ":LabOrderService"               as LS
+participant ":LabOrderServiceImpl"       as LSImpl
+participant ":AppointmentRepository"             as ApptRepo
+participant ":PatientRepository"                 as PatRepo
+participant ":DoctorRepository"                  as DocRepo
+participant ":LabOrderRepository"                as LORepo
 
 note over Doctor
   PRE: Doctor is authenticated.

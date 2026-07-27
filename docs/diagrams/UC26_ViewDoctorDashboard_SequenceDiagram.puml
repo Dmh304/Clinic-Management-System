@@ -39,18 +39,33 @@ note over Doctor
 end note
 
 == Step 1 & 2: Doctor Opens Dashboard ==
-Doctor -> AC : getDashboard(userDetails)
+Doctor -> AC : getDashboard(date, userDetails)
 activate AC
 AC -> AC : resolveDoctorId(userDetails)
-AC -> AS : getDashboard(doctorId)
+AC -> AS : getDashboard(date, doctorId)
 activate AS
-AS -> ASImpl : getDashboard(doctorId)
+AS -> ASImpl : getDashboard(date, doctorId)
 activate ASImpl
 
-ASImpl -> Repo : countByAppointmentDateAndDoctorId(today, doctorId)
+ASImpl -> Repo : countByDateAndDoctorId(start, end, doctorId)
 activate Repo
-Repo --> ASImpl : counts by status
+Repo --> ASImpl : Long (total)
 deactivate Repo
+
+ASImpl -> Repo : countByDateAndStatusAndDoctorId(start, end, WAITING, doctorId)
+activate Repo
+Repo --> ASImpl : Long (waiting)
+deactivate Repo
+
+ASImpl -> Repo : countByDateAndStatusAndDoctorId(start, end, IN_PROGRESS, doctorId)
+activate Repo
+Repo --> ASImpl : Long (inProgress)
+deactivate Repo
+
+note right of ASImpl
+  Also counts: PENDING, CONFIRMED,
+  COMPLETED, CANCELLED by status.
+end note
 
 ASImpl --> AS : AppointmentDashboardResponse
 deactivate ASImpl
@@ -60,15 +75,15 @@ AC --> Doctor : HTTP 200 OK\nApiResponse<AppointmentDashboardResponse>
 deactivate AC
 
 == Step 3: Load Today's Queue ==
-Doctor -> AC : getDoctorQueue(userDetails)
+Doctor -> AC : getDoctorQueue(date, userDetails)
 activate AC
 AC -> AC : resolveDoctorId(userDetails)
-AC -> AS : getDoctorQueue(doctorId)
+AC -> AS : getDoctorQueue(date, doctorId)
 activate AS
-AS -> ASImpl : getDoctorQueue(doctorId)
+AS -> ASImpl : getDoctorQueue(date, doctorId)
 activate ASImpl
 
-ASImpl -> Repo : findByAppointmentDateAndDoctorIdOrderByAppointmentTimeAsc(today, doctorId)
+ASImpl -> Repo : findByAppointmentDateAndDoctorIdOrderByAppointmentTimeAsc(start, end, doctorId)
 activate Repo
 Repo --> ASImpl : List<Appointment>
 deactivate Repo
@@ -82,13 +97,13 @@ deactivate AC
 
 == Step 4 (Optional): Search Patient ==
 opt Doctor searches for a patient
-    Doctor -> AC : searchAppointments(keyword, userDetails)
+    Doctor -> AC : searchAppointments(keyword)
     activate AC
-    AC -> AS : searchAppointments(keyword, doctorId)
+    AC -> AS : searchAppointments(keyword)
     activate AS
-    AS -> ASImpl : searchAppointments(keyword, doctorId)
+    AS -> ASImpl : searchAppointments(keyword)
     activate ASImpl
-    ASImpl -> Repo : findByDoctorIdAndPatientFullNameContainingIgnoreCase(doctorId, keyword)
+    ASImpl -> Repo : searchAppointments(keyword)
     activate Repo
     Repo --> ASImpl : List<Appointment>
     deactivate Repo

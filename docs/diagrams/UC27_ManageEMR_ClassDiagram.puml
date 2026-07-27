@@ -1,4 +1,4 @@
-﻿@startuml UC27_ManageEMR_ClassDiagram
+@startuml UC27_ManageEMR_ClassDiagram
 
 skinparam classAttributeIconSize 0
 skinparam monochrome false
@@ -11,43 +11,44 @@ skinparam class {
 }
 
 class EMRController {
-    + getOrCreateByAppointmentId(appointmentId: Long, doctorId: Long): ResponseEntity<ApiResponse<EMRResponse>>
+    + getByAppointment(appointmentId: Long, userDetails: UserDetails): ResponseEntity<ApiResponse<EMRResponse>>
     + saveEMR(request: EMRRequest): ResponseEntity<ApiResponse<EMRResponse>>
-    + getById(medicalRecordId: Long): ResponseEntity<ApiResponse<EMRResponse>>
-    + cancelEMR(medicalRecordId: Long): ResponseEntity<ApiResponse<EMRResponse>>
+    + getEMRById(id: Long, userDetails: UserDetails): ResponseEntity<ApiResponse<EMRResponse>>
+    - resolveDoctorId(userDetails: UserDetails): Long
 }
 
 class AppointmentController {
+    + abandonExam(appointmentId: Long): ResponseEntity<ApiResponse<AppointmentResponse>>
 }
 
 interface EMRService {
     + getOrCreateByAppointmentId(appointmentId: Long, doctorId: Long): EMRResponse
     + saveEMR(request: EMRRequest): EMRResponse
-    + getById(medicalRecordId: Long): EMRResponse
-    + cancelEMR(medicalRecordId: Long): EMRResponse
+    + getById(id: Long): EMRResponse
 }
 
 interface AppointmentService {
+    + abandonExam(appointmentId: Long): AppointmentResponse
 }
 
 class EMRServiceImpl {
     + getOrCreateByAppointmentId(appointmentId: Long, doctorId: Long): EMRResponse
     + saveEMR(request: EMRRequest): EMRResponse
-    + getById(medicalRecordId: Long): EMRResponse
-    + cancelEMR(medicalRecordId: Long): EMRResponse
+    + getById(id: Long): EMRResponse
 }
 
 class AppointmentServiceImpl {
+    + abandonExam(appointmentId: Long): AppointmentResponse
 }
 
 class MedicalRecordRepository {
-    + findById(id: Long): MedicalRecord
-    + findByAppointmentId(appointmentId: Long): MedicalRecord
+    + findById(id: Long): Optional<MedicalRecord>
+    + findByAppointmentId(appointmentId: Long): Optional<MedicalRecord>
     + save(record: MedicalRecord): MedicalRecord
 }
 
 class AppointmentRepository {
-    + findById(id: Long): Appointment
+    + findById(id: Long): Optional<Appointment>
     + save(appointment: Appointment): Appointment
 }
 
@@ -69,11 +70,14 @@ class Appointment {
 
 enum MedicalRecordStatus {
     DRAFT
+    IN_PROGRESS
     COMPLETED
     CANCELLED
 }
 
 enum AppointmentStatus {
+    PENDING
+    CONFIRMED
     WAITING
     IN_PROGRESS
     COMPLETED

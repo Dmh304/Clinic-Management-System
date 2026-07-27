@@ -1,10 +1,12 @@
-# Sequence Diagrams Descriptions
+﻿# Sequence Diagrams Descriptions
 
 ## UC-26: View Doctor Dashboard
-**Process:** The Doctor accesses the dashboard to view statistics and today's appointment queue via `AppointmentController.getDashboard()` and `AppointmentController.getDoctorQueue()`.
-**Validation:** The system resolves the `doctorId` from the authenticated `UserDetails` (JWT token) to ensure doctors can only view their own queues.
-**Action:** `AppointmentService` fetches today's appointments from `AppointmentRepository`. It calculates statistics by grouping appointments by status and sorts the daily queue by scheduled time.
+
+**Process:** The Doctor accesses the dashboard to view statistics and today's appointment queue via `AppointmentController.getDashboard(date, userDetails)` and `AppointmentController.getDoctorQueue(date, userDetails)`.
+**Validation:** The system resolves the `doctorId` from the authenticated `UserDetails` (JWT token) to ensure doctors can only view their own queues. Statistics are calculated using `countByDateAndDoctorId` and `countByDateAndStatusAndDoctorId`.
+**Action:** `AppointmentService` fetches today's appointments from `AppointmentRepository` via `findByAppointmentDateAndDoctorIdOrderByAppointmentTimeAsc`. It counts appointments per status (PENDING, CONFIRMED, WAITING, IN_PROGRESS, COMPLETED, CANCELLED).
 **Result:** The controller returns `200 OK` with an `ApiResponse` containing the `AppointmentDashboardResponse`.
+**Optional:** Doctor can search patients via `AppointmentController.searchAppointments(keyword)` â€” no doctorId param, searches globally by keyword.
 
 ## UC-27a: Initiate EMR
 **Process:** The Doctor selects a "Waiting" patient from the queue to start an examination, triggering `EMRController.getOrCreateByAppointmentId()`.
@@ -26,9 +28,9 @@
 **Result:** The controller returns `200 OK` with an `ApiResponse<EMRResponse>`.
 
 ## UC-27d: Cancel Clinical Session
-**Process:** The Doctor decides to cancel the current in-progress examination session via the EMR interface, triggering `AppointmentController.abandonExam()`.
-**Business Rule (BR-09 Updated):** The draft `MedicalRecord` is fully cancelled. Both the `MedicalRecord` and the associated `Appointment` are updated to `CANCELLED` status. The patient is removed from the queue entirely and must create a new appointment to be seen again.
-**Action:** `AppointmentService` fetches the `Appointment` and updates its status to `CANCELLED`, then fetches the associated `MedicalRecord` and also sets its status to `CANCELLED`.
+
+**Process:** The Doctor decides to cancel the current in-progress examination session via the EMR interface, triggering `AppointmentController.abandonExam(appointmentId)` â€” this method does NOT receive `userDetails`.
+**Logic:** `AppointmentService.abandonExam()` verifies the `Appointment.status == IN_PROGRESS`, then sets it to `CANCELLED` with a reason. It then calls `MedicalRecordRepository.findByAppointmentId()` and if a MedicalRecord exists and is not yet COMPLETED, reverts it back to `DRAFT` status (not CANCELLED â€” consistent with BR-09 soft-delete principle).
 **Result:** The controller returns `200 OK` with an `ApiResponse<AppointmentResponse>`.
 
 ## UC-28: View Patient Medical History
@@ -53,23 +55,25 @@
 **Process (Patient Flow):** Patient views PDF results via `LabOrderController.getLabResultsAsPdf()`.
 
 ## UC-35: View Lab Queue
-**Process:** The Lab Technician accesses the dashboard to view the queue of pending tests via `LabOrderController.getLabOrderQueue()`.
-**Action:** `LabOrderService` queries `LabOrderRepository` to retrieve orders that have a status of `PENDING`, sorted by creation time (oldest first).
+
+**Process:** The Lab Technician accesses the dashboard to view the queue of pending tests via `LabOrderController.getLabOrderQueue(userDetails)`.
+**Action:** `LabOrderService.getLabQueue(labTechnicianId)` queries `LabOrderRepository.findByLabTechnicianIdOrderByPriorityAndCreatedAt(labTechnicianId)`. This returns orders **assigned to this specific technician**, sorted first by urgency (EMERGENCY > WARNING > PRIMARY), then by `createdAt ASC` within the same priority.
 **Result:** The controller returns `200 OK` with an `ApiResponse<List<LabOrderResponse>>` populating the technician's queue.
 
 ## UC-36: Process Lab Result
-**Process (Start - UC-36a):** The Lab Technician selects an order via `LabOrderController.startLabOrder()`. The order transitions from `PENDING` to `IN_PROGRESS`.
-**Process (Draft - UC-36b):** The Lab Technician enters partial test findings and saves via `LabOrderController.saveDraft()`. The result remains in `IN_PROGRESS`.
-**Process (Submit - UC-36c):** The Lab Technician finalizes findings via `LabOrderController.submitResult()`.
-**Validation:** Ensures all mandatory test metrics for the specific service type are filled out correctly.
-**Action:** `LabOrderService` updates the `LabResult` entity and changes the `LabOrder` status to `SUBMITTED`. A notification is sent to the doctor.
+
+**Process (Start - UC-36a):** The Lab Technician selects an order via `LabOrderController.startLabOrder()`. `LabOrderService.startLabOrder()` validates status is `PENDING`, assigns the technician (`labTechnicianRepository.getReferenceById`), saves the `LabOrder` with status `IN_PROGRESS`. **No LabResult is created at this step.**
+**Process (Draft - UC-36b):** The Lab Technician enters partial test findings and saves via `LabOrderController.saveDraft()`. Service validates `IN_PROGRESS` status, then calls `labResultRepository.findTopByLabOrderIdOrderByIdDesc()` â€” creates a new `LabResult` if not found, otherwise updates existing. Fields updated: `vaL`, `vaR`, `sphL/R`, `cylL/R`, `axisL/R`, `iopL/R`, `imageUrls`. **LabOrder status stays IN_PROGRESS.**
+**Process (Submit - UC-36c):** The Lab Technician finalizes findings via `LabOrderController.submitResult()`. Same logic as saveDraft but additionally sets `labOrder.status = SUBMITTED` and `labOrder.completedAt = now()`. A notification is sent to the doctor.
 **Result:** The controller returns `200 OK` with an `ApiResponse<LabOrderResponse>`.
-**Continuation flow:** Once submitted, the lab result becomes available for the Doctor to review (UC-37).
+**Continuation flow:** Once SUBMITTED, the lab result is available for the Doctor to review (UC-37).
 
 ## UC-37: Review Submitted Lab Results
+
 **Process:** The Doctor reviews the technician's submitted lab results.
-**Action (Approve):** If the results are satisfactory, the Doctor calls `LabOrderController.approveLabResult()`. `LabOrderService` updates the `LabResult` to `APPROVED` status via `findTopByLabOrderIdOrderByIdDesc`.
-**Action (Retest):** If the results are anomalous or unclear, the Doctor calls `LabOrderController.requestRetest()`. The status is reverted to `PENDING` and a new test is requested.
+**View:** `LabOrderController.getLabResults(labOrderId, userDetails)` â†’ checks role (Doctor can see SUBMITTED/IN_PROGRESS/APPROVED, Patient only sees APPROVED) â†’ `labResultRepository.findTopByLabOrderIdOrderByIdDesc(labOrderId)`.
+**Action (Approve):** `LabOrderController.approveLabResult(labOrderId, userDetails)` â†’ `LabOrderService.approveLabResult(labOrderId, doctorId)`. Validates `labOrder.status == SUBMITTED`. Sets `labResult.reviewedAt = now()`, saves LabResult. Then auto-fills `MedicalRecord` measurement fields (vaL, vaR, bcvaL, bcvaR, sphL/R, cylL/R, axisL/R, iopL/R, labImageUrl) from LabResult. Finally sets `labOrder.status = APPROVED`.
+**Action (Retest):** `LabOrderController.requestRetest(labOrderId, request, userDetails)` â†’ validates `status == SUBMITTED` â†’ sets `previousOrder.status = REJECTED`, saves rejection reason and timestamp â†’ **creates a brand-new LabOrder** (PENDING) inheriting medicalRecord, doctor, clinicService from the rejected one.
 **Result:** The controller returns `200 OK` with an `ApiResponse<LabOrderResponse>`.
 
 ## UC-38: Fabricate Eyeglasses

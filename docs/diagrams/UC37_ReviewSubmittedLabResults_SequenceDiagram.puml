@@ -1,4 +1,4 @@
-﻿@startuml UC37_ReviewSubmittedLabResults_SequenceDiagram
+@startuml UC37_ReviewSubmittedLabResults_SequenceDiagram
 <style>
 document {
   ParticipantPadding 10
@@ -29,36 +29,30 @@ skinparam LifeLineBorderColor #336699
 title UC-37: Review Submitted Lab Results\n(Simplified Sequence Diagram)
 
 actor       "Doctor"                                            as Doctor
-participant "<<WebSocket>>\nWebSocketBroker"                    as WS
-participant "<<Service>>\nNotificationService"                  as NS
-participant "<<Controller>>\nLabOrderController"           as LC
-participant "<<Service>>\nLabOrderService"               as LS
-participant "<<ServiceImpl>>\nLabOrderServiceImpl"       as LSImpl
-participant "<<Repository>>\nLabOrderRepository"                as LORepo
-participant "<<Repository>>\nLabResultRepository"               as LRRepo
-participant "<<Repository>>\nMedicalRecordRepository"           as MRRepo
-participant "<<Log>>\nAuditLog"                                 as Audit
+participant ":NotificationService"                              as NS
+participant ":LabOrderController"                               as LC
+participant ":LabOrderService"                                  as LS
+participant ":LabOrderServiceImpl"                              as LSImpl
+participant ":LabOrderRepository"                               as LORepo
+participant ":LabResultRepository"                              as LRRepo
+participant ":MedicalRecordRepository"                          as MRRepo
 
 note over Doctor
-  PRE: lab_result exists (status = COMPLETED).
-  Doctor is treating physician.
+  PRE: LabOrder.status = SUBMITTED.
+  Doctor is the treating physician for this order.
 end note
 
-== Step 1 â€” Real-time Notification ==
-note over WS
-  Triggered when Lab Technician submits results (UC-34).
+== Step 1 - Real-time Notification ==
+note over NS
+  Triggered when Lab Technician submits result (UC-36c).
 end note
 
-NS -> WS : push notification to Doctor
-activate WS
-WS --> Doctor : [WebSocket] "Lab results ready"
-deactivate WS
+NS --> Doctor : Notification: "Lab results ready for review"
 
-== Step 2 & 3 â€” Doctor Opens Result ==
-Doctor -> LC : GET /api/v1/lab-orders/{labOrderId}/results
+== Step 2 & 3 - Doctor Views Result ==
+Doctor -> LC : getLabResults(labOrderId, userDetails)
 activate LC
-
-LC -> LC : resolve currentUserId, currentUserRole
+LC -> LC : resolve currentUserId, currentUserRole from userDetails
 LC -> LS : getLabResults(labOrderId, currentUserId, currentUserRole)
 activate LS
 LS -> LSImpl : getLabResults(labOrderId, currentUserId, currentUserRole)
@@ -69,12 +63,18 @@ activate LORepo
 LORepo --> LSImpl : LabOrder
 deactivate LORepo
 
+opt [labOrder.status not in {SUBMITTED, IN_PROGRESS, APPROVED}]
+  LSImpl --> LS : IllegalStateException("LabOrder is not ready yet")
+  LS --> LC : IllegalStateException
+  LC --> Doctor : HTTP 400 Bad Request
+end
+
 LSImpl -> LRRepo : findTopByLabOrderIdOrderByIdDesc(labOrderId)
 activate LRRepo
 LRRepo --> LSImpl : LabResult
 deactivate LRRepo
 
-LSImpl --> LS : LabResultResponse (Full Clinical View)
+LSImpl --> LS : LabResultResponse
 deactivate LSImpl
 LS --> LC : LabResultResponse
 deactivate LS
@@ -82,10 +82,10 @@ deactivate LS
 LC --> Doctor : HTTP 200 OK\nApiResponse<LabResultResponse>
 deactivate LC
 
-== Step 4, 5, 6 & 7 â€” Doctor Approves Result ==
-Doctor -> LC : PUT /api/v1/lab-orders/{labOrderId}/approve
+== Step 4, 5, 6 & 7 - Doctor Approves Result ==
+Doctor -> LC : approveLabResult(labOrderId, userDetails)
 activate LC
-LC -> LC : resolve doctorId from JWT
+LC -> LC : resolveDoctorId(userDetails)
 
 LC -> LS : approveLabResult(labOrderId, doctorId)
 activate LS
@@ -94,45 +94,44 @@ activate LSImpl
 
 LSImpl -> LORepo : findById(labOrderId)
 activate LORepo
-LORepo --> LSImpl : LabOrder
+LORepo --> LSImpl : LabOrder (status = SUBMITTED)
 deactivate LORepo
+
+opt [labOrder.status != SUBMITTED]
+  LSImpl --> LS : IllegalStateException("Can only approve a SUBMITTED LabOrder")
+  LS --> LC : IllegalStateException
+  LC --> Doctor : HTTP 400 Bad Request
+end
 
 LSImpl -> LRRepo : findTopByLabOrderIdOrderByIdDesc(labOrderId)
 activate LRRepo
 LRRepo --> LSImpl : LabResult
 deactivate LRRepo
 
-LSImpl -> LRRepo : save(labResult) // status->APPROVED
+LSImpl -> LRRepo : save(labResult)
 activate LRRepo
-LRRepo --> LSImpl : updatedResult
+note right of LRRepo
+  labResult.reviewedAt = now()
+end note
+LRRepo --> LSImpl : LabResult
 deactivate LRRepo
 
-LSImpl --> LS : LabOrderResponse
-deactivate LSImpl
-LS --> LC : LabOrderResponse
-deactivate LS
+LSImpl -> MRRepo : save(record)
+activate MRRepo
+note right of MRRepo
+  Auto-fills MedicalRecord with LabResult values:
+  vaL, vaR, bcvaL, bcvaR, sphL/R, cylL/R,
+  axisL/R, iopL/R, labImageUrl.
+end note
+MRRepo --> LSImpl : MedicalRecord
+deactivate MRRepo
 
-LC -> Audit : logAccess("APPROVE_LAB_RESULT")
-activate Audit
-Audit --> LC : ok
-deactivate Audit
-
-LC --> Doctor : HTTP 200 OK\nApiResponse<LabOrderResponse>
-deactivate LC
-
-== ALT - Doctor Requests Retest ==
-Doctor -> LC : PUT /api/v1/lab-orders/{labOrderId}/retest\n{ notes }
-activate LC
-LC -> LC : resolve doctorId from JWT
-
-LC -> LS : requestRetest(labOrderId, doctorId, request)
-activate LS
-LS -> LSImpl : requestRetest(labOrderId, doctorId, request)
-activate LSImpl
-
-LSImpl -> LORepo : save(updatedOrder) // status->PENDING, testTypes...)
+LSImpl -> LORepo : save(labOrder)
 activate LORepo
-LORepo --> LSImpl : updatedOrder
+note right of LORepo
+  labOrder.status = APPROVED
+end note
+LORepo --> LSImpl : LabOrder
 deactivate LORepo
 
 LSImpl --> LS : LabOrderResponse
@@ -142,5 +141,59 @@ deactivate LS
 
 LC --> Doctor : HTTP 200 OK\nApiResponse<LabOrderResponse>
 deactivate LC
+
+== ALT - Doctor Requests Retest ==
+Doctor -> LC : requestRetest(labOrderId, request, userDetails)
+activate LC
+LC -> LC : resolveDoctorId(userDetails)
+
+LC -> LS : requestRetest(labOrderId, doctorId, request)
+activate LS
+LS -> LSImpl : requestRetest(labOrderId, doctorId, request)
+activate LSImpl
+
+LSImpl -> LORepo : findById(labOrderId)
+activate LORepo
+LORepo --> LSImpl : LabOrder (status = SUBMITTED)
+deactivate LORepo
+
+opt [previousOrder.status != SUBMITTED]
+  LSImpl --> LS : IllegalStateException("Can request a retest for a SUBMITTED Order only")
+  LS --> LC : IllegalStateException
+  LC --> Doctor : HTTP 400 Bad Request
+end
+
+LSImpl -> LORepo : save(previousOrder)
+activate LORepo
+note right of LORepo
+  previousOrder.status = REJECTED
+  previousOrder.rejectionReason = request.rejectionReason
+  previousOrder.rejectedAt = now()
+end note
+LORepo --> LSImpl : rejectedOrder
+deactivate LORepo
+
+LSImpl -> LORepo : save(newOrder)
+activate LORepo
+note right of LORepo
+  Creates a NEW LabOrder inheriting
+  medicalRecord, doctor, clinicService from old order.
+  newOrder.status = PENDING
+end note
+LORepo --> LSImpl : newLabOrder
+deactivate LORepo
+
+LSImpl --> LS : LabOrderResponse
+deactivate LSImpl
+LS --> LC : LabOrderResponse
+deactivate LS
+
+LC --> Doctor : HTTP 200 OK\nApiResponse<LabOrderResponse>
+deactivate LC
+
+note over Doctor
+  POST (Retest): Old order = REJECTED.
+  A new LabOrder (PENDING) is created for the technician to redo.
+end note
 
 @enduml

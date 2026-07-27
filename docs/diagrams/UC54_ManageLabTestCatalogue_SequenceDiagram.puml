@@ -1,4 +1,4 @@
-@startuml UC54_ManageLabTestCatalogue_SequenceDiagram
+﻿@startuml UC54_ManageLabTestCatalogue_SequenceDiagram
 <style>
 document {
   ParticipantPadding 10
@@ -29,11 +29,11 @@ skinparam LifeLineBorderColor #336699
 title UC-54: Manage Lab Test Catalogue\n(Simplified Sequence Diagram)
 
 actor       "Clinic Manager"                             as Actor
-participant "<<Controller>>\nClinicServiceController"    as CSC
-participant "<<Service>>\nClinicServiceService"          as CSS
-participant "<<ServiceImpl>>\nClinicServiceServiceImpl"  as CSSImpl
-participant "<<Repository>>\nClinicServiceRepository"    as CSRepo
-participant "<<Log>>\nAuditLog"                          as Audit
+participant ":ClinicServiceController"    as CSC
+participant ":ClinicServiceService"          as CSS
+participant ":ClinicServiceServiceImpl"  as CSSImpl
+participant ":ClinicServiceRepository"    as CSRepo
+participant ":AuditLog"                          as Audit
 
 note over Actor
   PRE: Clinic Manager is authenticated.

@@ -36,7 +36,8 @@ participant ":LabOrderRepository"               as LORepo
 participant ":LabResultRepository"              as LRRepo
 
 note over LabTech
-  PRE: Order and Result are IN_PROGRESS.
+  PRE: LabOrder.status = IN_PROGRESS.
+  Technician is the assigned owner of this order.
 end note
 
 == Step 1 & 2: Technician Saves Draft ==
@@ -53,22 +54,29 @@ activate LORepo
 LORepo --> LSImpl : LabOrder
 deactivate LORepo
 
-LSImpl -> LRRepo : findByLabOrderId(id)
-activate LRRepo
-LRRepo --> LSImpl : LabResult
-deactivate LRRepo
-
-opt [order.status != IN_PROGRESS and != REJECTED]
-  LSImpl --> LS : IllegalStateException
+opt [labOrder.status != IN_PROGRESS]
+  LSImpl --> LS : IllegalStateException("Can only save draft for an IN_PROGRESS LabOrder")
   LS --> LC : IllegalStateException
   LC --> LabTech : HTTP 400 Bad Request
 end
 
-LSImpl -> LRRepo : save(result)
+LSImpl -> LRRepo : findTopByLabOrderIdOrderByIdDesc(id)
+activate LRRepo
+LRRepo --> LSImpl : Optional<LabResult>
+deactivate LRRepo
+
+note right of LSImpl
+  If LabResult not found, a new one is created.
+  If found, the existing one is updated.
+  LabOrder.status remains IN_PROGRESS.
+end note
+
+LSImpl -> LRRepo : save(labResult)
 activate LRRepo
 note right of LRRepo
-  Updates measuredValues and attachedImages.
-  Retains IN_PROGRESS status.
+  Updates measurement fields (vaL, vaR, sphL, etc.)
+  attachedImages, notes.
+  Does NOT change LabOrder status.
 end note
 LRRepo --> LSImpl : LabResult
 deactivate LRRepo
@@ -83,6 +91,7 @@ deactivate LC
 
 note over LabTech
   Technician can continue editing later.
+  When ready, proceeds to submitResult (UC-36c).
 end note
 
 @enduml

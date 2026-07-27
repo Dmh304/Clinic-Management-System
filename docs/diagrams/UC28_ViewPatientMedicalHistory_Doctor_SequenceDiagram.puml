@@ -29,10 +29,10 @@ skinparam LifeLineBorderColor #336699
 title UC-28: View Patient Medical History (Doctor Flow)\n(Simplified Sequence Diagram)
 
 actor       "Doctor"                as Actor
-participant "<<Controller>>\nEMRController"         as EMRC
-participant "<<Service>>\nEMRService"               as EMRS
-participant "<<ServiceImpl>>\nEMRServiceImpl"        as EMRSImpl
-participant "<<Repository>>\nMedicalRecordRepository" as Repo
+participant ":EMRController"         as EMRC
+participant ":EMRService"               as EMRS
+participant ":EMRServiceImpl"        as EMRSImpl
+participant ":MedicalRecordRepository" as Repo
 participant "<<Log>>\nAuditLog"                       as Audit
 
 note over Actor
