@@ -1,3 +1,15 @@
+/**
+ * @author  ThangNB - HE201024
+ * @created 2026-07-19
+ * @updated 2026-07-20
+ *
+ * Shell for every Clinic Manager screen: sidebar navigation, notification
+ * bell and logout. Renders the active route through `<Outlet />`.
+ *
+ * Covers the Manager's navigation surface across UC-49 to UC-56.
+ * Validate: this layout only hides links; role enforcement lives in
+ * ProtectedRoute on the client and in SecurityConfig on the server.
+ */
 import { useDispatch, useSelector } from 'react-redux'
 import { NavLink, Outlet } from 'react-router-dom'
 import { FiGrid, FiDollarSign, FiBarChart2, FiActivity, FiStar, FiCreditCard, FiCalendar, FiBox, FiUsers, FiTag, FiUserPlus, FiRefreshCw, FiEye, FiLogOut, FiFileText } from 'react-icons/fi'
@@ -27,6 +39,7 @@ export default function ManagerLayout() {
   const dispatch = useDispatch()
   const { user } = useSelector((s) => s.auth)
 
+  /** Clears the session and returns to the login screen (UC-06 Log Out). */
   const handleLogout = () => {
     dispatch(logout())
     window.location.href = '/'

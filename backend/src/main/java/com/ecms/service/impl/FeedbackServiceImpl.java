@@ -32,13 +32,18 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * UC-48: Triển khai gửi đánh giá của bệnh nhân.
+ * @author  ThangNB - HE201024
+ * @created 2026-07-19
+ * @updated 2026-07-20
  *
- * Quy tắc:
- *  - Chỉ đánh giá được lịch hẹn của chính mình (PRE-3).
- *  - Lịch hẹn phải ở trạng thái COMPLETED (PRE-2).
- *  - Mỗi lịch hẹn chỉ 1 feedback (BR-21).
- *  - Tạo với status = PENDING và gửi thông báo cho Quản lý (POST-2).
+ * Patient feedback logic (UC-48 Submit Feedback).
+ *
+ * Rules enforced here:
+ *  - a patient may only rate their own appointment (UC-48 PRE-3)
+ *  - the appointment must be COMPLETED (UC-48 PRE-2)
+ *  - BR-21 — one feedback per appointment
+ *  - feedback is stored PENDING and the Clinic Manager is notified
+ *    (UC-48 POST-1 / POST-2)
  */
 @Service
 @RequiredArgsConstructor
@@ -54,6 +59,21 @@ public class FeedbackServiceImpl implements FeedbackService {
 
     @Override
     @Transactional
+    /**
+     * Stores a patient's feedback for a completed visit
+     * (UC-48 normal flow steps 4-5).
+     *
+     * @param patientId the authenticated patient, resolved by the controller
+     * @param request   rating, optional comment, per-participant scores
+     * @return the stored feedback (status PENDING)
+     * @throws ResourceNotFoundException if the appointment does not exist
+     * @throws IllegalStateException     if the visit is not the patient's own,
+     *         is not COMPLETED, or has already been rated
+     *
+     * Validate: UC-48 PRE-3 (ownership), PRE-2 (COMPLETED) and BR-21 (one
+     * feedback per appointment), checked in that order before anything is
+     * written.
+     */
     public FeedbackResponse submitFeedback(Long patientId, FeedbackRequest request) {
         boolean hasAppointment = request.getAppointmentId() != null;
         boolean hasCareSession = request.getCareSessionId() != null;
@@ -73,18 +93,19 @@ public class FeedbackServiceImpl implements FeedbackService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Lịch hẹn không tồn tại: " + request.getAppointmentId()));
 
-        // PRE-3: chỉ được đánh giá lịch hẹn của chính mình
+        // UC-48 PRE-3: a patient may only rate their own visit.
         if (appointment.getPatient() == null
                 || !appointment.getPatient().getId().equals(patientId)) {
             throw new IllegalStateException("Bạn chỉ có thể đánh giá lịch hẹn của chính mình");
         }
 
-        // PRE-2: lịch hẹn phải đã hoàn thành
+        // UC-48 PRE-2: there is nothing to rate until the visit is COMPLETED.
         if (appointment.getStatus() != AppointmentStatus.COMPLETED) {
             throw new IllegalStateException("Chỉ có thể đánh giá sau khi buổi khám hoàn thành");
         }
 
-        // BR-21: mỗi lịch hẹn chỉ 1 feedback
+        // BR-21 / UC-48 PRE-3: one feedback per appointment — blocks a second
+        // submission for the same visit.
         if (feedbackRepository.existsByAppointment_Id(appointment.getId())) {
             throw new IllegalStateException("Lịch hẹn này đã được đánh giá");
         }
@@ -104,7 +125,8 @@ public class FeedbackServiceImpl implements FeedbackService {
         attachParticipantRatings(feedback, request);
         Feedback saved = feedbackRepository.save(feedback);
 
-        // POST-2: thông báo cho Quản lý phòng khám để duyệt. Lỗi thông báo không chặn luồng chính.
+        // UC-48 POST-2: notify the Clinic Manager for review. Best-effort — a
+        // notification failure must not discard feedback already persisted.
         try {
             String doctorPart = doctor != null ? " (BS. " + doctor.getFullName() + ")" : "";
             notificationService.createForManagers(
@@ -175,6 +197,12 @@ public class FeedbackServiceImpl implements FeedbackService {
 
     @Override
     @Transactional(readOnly = true)
+    /**
+     * Lists the feedback a patient has submitted.
+     *
+     * @param patientId the authenticated patient
+     * @return their own feedback, scoped by patientId
+     */
     public List<FeedbackResponse> getMyFeedbacks(Long patientId) {
         return feedbackRepository.findByPatient_IdOrderByCreatedAtDesc(patientId)
                 .stream().map(this::toResponse).collect(Collectors.toList());
@@ -182,6 +210,23 @@ public class FeedbackServiceImpl implements FeedbackService {
 
     @Override
     @Transactional(readOnly = true)
+    /**
+     * Describes a visit and everyone who took part, so the feedback form can
+     * offer a rating per person.
+     *
+     * Participants are derived rather than stored: the examining doctor, the
+     * receptionist who checked the patient in, and the lab technicians behind
+     * the visit's lab orders.
+     *
+     * @param patientId     the authenticated patient
+     * @param appointmentId the visit being rated
+     * @return visit summary plus participant list
+     * @throws ResourceNotFoundException if the appointment does not exist
+     * @throws IllegalStateException     if it is not this patient's visit
+     *
+     * Validate: ownership is checked before anything is disclosed, otherwise a
+     * patient could enumerate other people's visits and treating staff.
+     */
     public Map<String, Object> getVisitParticipants(Long patientId, Long appointmentId) {
         Appointment appt = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -200,19 +245,19 @@ public class FeedbackServiceImpl implements FeedbackService {
 
         List<Map<String, Object>> participants = new ArrayList<>();
 
-        // Bác sĩ khám
+        // The examining doctor
         Doctor d = appt.getDoctor();
         if (d != null) {
             participants.add(person("DOCTOR", "Bác sĩ", d.getFullName(), d.getSpecialization()));
             m.put("doctorName", d.getFullName());
             m.put("doctorSpecialty", d.getSpecialization());
         }
-        // Lễ tân đã tiếp đón (người check-in)
+        // The receptionist who checked the patient in (UC-16 check_in_by)
         if (appt.getCheckInBy() != null) {
             userRepository.findById(appt.getCheckInBy()).ifPresent(u ->
                     participants.add(person("RECEPTIONIST", "Lễ tân", u.getFullName(), null)));
         }
-        // KTV xét nghiệm (từ các lab order trong bệnh án của buổi khám)
+        // Lab technicians, reached through the lab orders on the visit's EMR
         Set<String> labNames = new LinkedHashSet<>();
         medicalRecordRepository.findByAppointmentId(appointmentId).ifPresent(mr -> {
             for (LabOrder lo : labOrderRepository.findByMedicalRecordIdOrderByCreatedAt(mr.getId())) {
@@ -229,6 +274,15 @@ public class FeedbackServiceImpl implements FeedbackService {
         return m;
     }
 
+    /**
+     * Builds one participant entry for the feedback form.
+     *
+     * @param role      machine role, DOCTOR | RECEPTIONIST | LAB_TECHNICIAN
+     * @param roleLabel human-readable role shown to the patient
+     * @param name      participant's name
+     * @param detail    supporting text, e.g. specialty or test performed
+     * @return participant fields keyed by name
+     */
     private Map<String, Object> person(String role, String roleLabel, String name, String detail) {
         Map<String, Object> p = new LinkedHashMap<>();
         p.put("role", role);
@@ -238,6 +292,16 @@ public class FeedbackServiceImpl implements FeedbackService {
         return p;
     }
 
+    /**
+     * Maps a {@link Feedback} entity to its DTO.
+     *
+     * Validate: when {@code isAnonymous} is set the patient name is omitted
+     * from the DTO entirely, so an anonymous rating cannot be traced back
+     * through the API even by the Clinic Manager's report (UC-53).
+     *
+     * @param f the feedback entity
+     * @return the response DTO
+     */
     private FeedbackResponse toResponse(Feedback f) {
         boolean anon = Boolean.TRUE.equals(f.getIsAnonymous());
         return FeedbackResponse.builder()

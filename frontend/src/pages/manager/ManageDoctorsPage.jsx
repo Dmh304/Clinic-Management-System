@@ -3,6 +3,7 @@ import { Table, Tag, Button, Tooltip, Empty } from 'antd'
 import { EditOutlined, StarFilled, StarOutlined, UploadOutlined } from '@ant-design/icons'
 import { doctorService } from '../../services/doctorService'
 import AvatarCropModal from '../../components/AvatarCropModal'
+import { pageTitle } from './managerTypography'
 
 const INITIAL_FORM = {
   fullName: '', academicTitle: '', specialization: '', department: '',
@@ -161,7 +162,7 @@ export default function ManageDoctorsPage() {
     <div style={{ minHeight: '100vh', background: '#f8fafc', padding: '32px 16px' }}>
       <div style={{ maxWidth: 1180, margin: '0 auto' }}>
         <div style={{ marginBottom: 24 }}>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#1e293b', margin: 0 }}>Quản lý bác sĩ</h1>
+          <h1 style={pageTitle}>Quản lý bác sĩ</h1>
           <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: 14 }}>
             Cập nhật hồ sơ bác sĩ và chọn bác sĩ hiển thị ở khối "Bác sĩ - Chuyên gia" trên trang chủ
           </p>

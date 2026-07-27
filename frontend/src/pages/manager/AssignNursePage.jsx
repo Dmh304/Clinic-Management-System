@@ -10,6 +10,7 @@ import {
   SettingOutlined, InfoCircleOutlined, CheckCircleFilled,
 } from '@ant-design/icons'
 import { careSessionService } from '../../services/careSessionService'
+import { pageTitle } from './managerTypography'
 
 const CAPACITY_EXCEEDED_PREFIX = 'CAPACITY_EXCEEDED: '
 const OVERLAP_PREFIX = 'OVERLAP_CONFLICT: '
@@ -233,7 +234,7 @@ export default function AssignNursePage() {
       <div style={{ maxWidth: 1280, margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16, marginBottom: 24 }}>
           <div>
-            <h1 style={{ fontSize: 24, fontWeight: 700, color: '#1e293b', margin: 0 }}>Phân công Điều dưỡng</h1>
+            <h1 style={pageTitle}>Phân công Điều dưỡng</h1>
             <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: 14, textTransform: 'capitalize' }}>📅 {dateTitle}</p>
           </div>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>

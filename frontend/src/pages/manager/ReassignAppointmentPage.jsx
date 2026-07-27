@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axiosClient from '../../api/axiosClient'
+import { pageTitle } from './managerTypography'
 
 const STATUS_ACTIVE = ['PENDING', 'CONFIRMED', 'WAITING']
 
@@ -85,7 +86,7 @@ export default function ReassignAppointmentPage() {
     <div style={{ minHeight: '100vh', background: '#f8fafc', padding: '32px 16px' }}>
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
         <div style={{ marginBottom: 20 }}>
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: '#1e293b', margin: 0 }}>Chuyển lịch hẹn</h1>
+          <h1 style={pageTitle}>Chuyển lịch hẹn</h1>
           <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: 14 }}>Đổi bác sĩ hoặc thời gian cho các lịch hẹn đang hoạt động</p>
         </div>
 

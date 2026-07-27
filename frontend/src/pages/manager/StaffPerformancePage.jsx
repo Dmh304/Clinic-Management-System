@@ -1,7 +1,22 @@
-// UC-52: Dashboard hiệu suất nhân viên (bác sĩ) — biểu đồ so sánh + bảng chi tiết KPI.
+/**
+ * @author      ThangNB - HE201024
+ * @contributor Đồng Mạnh Hùng - HE200743
+ * @created     2026-07-19
+ * @updated     2026-07-20
+ *
+ * Staff performance dashboard for the Clinic Manager
+ * (UC-52 Monitor Staff Performance Dashboard): comparison charts plus a
+ * per-doctor KPI table — patients seen, average consultation time,
+ * prescription volume and on-time rate.
+ *
+ * The two time-based KPIs are approximations: the schema stores no explicit
+ * consultation start/end, so average duration is derived from when the doctor
+ * locked the EMR and the on-time rate from check-in versus scheduled time.
+ */
 import { useEffect, useMemo, useState } from 'react'
 import { FiClock } from 'react-icons/fi'
 import { reportService } from '../../services/reportService'
+import { pageTitle } from './managerTypography'
 
 const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 const shortName = (name) => (name || '').split(' ').filter(Boolean).slice(-1)[0] || name
@@ -18,6 +33,11 @@ const RANGES = {
   month: { label: 'Tháng này', range: () => { const n = new Date(); return [new Date(n.getFullYear(), n.getMonth(), 1), n] } },
   year: { label: 'Năm nay', range: () => { const n = new Date(); return [new Date(n.getFullYear(), 0, 1), n] } },
 }
+/**
+ * Colour band for the on-time rate: green ≥ 95%, amber ≥ 85%, red below.
+ * @param {number} p on-time percentage
+ * @returns {string} hex colour
+ */
 const onTimeColor = (p) => (p >= 95 ? '#10b981' : p >= 85 ? '#e67e22' : '#ef4444')
 
 function GroupedBars({ rows }) {
@@ -54,6 +74,10 @@ function LineChart({ rows }) {
   )
 }
 
+/**
+ * Renders the staff performance dashboard.
+ * @returns {JSX.Element} the KPI screen
+ */
 export default function StaffPerformancePage() {
   const [rangeKey, setRangeKey] = useState('month')
   const [staff, setStaff] = useState('ALL')
@@ -63,6 +87,7 @@ export default function StaffPerformancePage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  /** Loads per-doctor KPIs for the selected period (UC-52 steps 3-4). */
   const load = async () => {
     setLoading(true); setError('')
     try {
@@ -97,7 +122,7 @@ export default function StaffPerformancePage() {
       {/* Header */}
       <div style={{ padding: '24px 32px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: '#0f172a' }}>Hiệu suất nhân viên</div>
+          <h1 style={pageTitle}>Hiệu suất nhân viên</h1>
           <div style={{ color: '#64748b', marginTop: 2 }}>Theo dõi KPI và năng suất của đội ngũ bác sĩ</div>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
@@ -181,6 +206,14 @@ export default function StaffPerformancePage() {
                               <div style={{ width: 100, height: 6, background: '#f1f5f9', borderRadius: 999 }}>
                                 <div style={{ width: `${ot}%`, height: '100%', background: otc, borderRadius: 999 }} />
                               </div>
+                              {/* Ca thiếu check-in bị tính là trễ — nói rõ để không quy kết
+                                  nhầm cho bác sĩ khi thực ra là lỗi quy trình tiếp đón. */}
+                              {r.appointmentsWithoutCheckIn > 0 && (
+                                <span style={{ color: '#b45309', fontSize: 11 }}
+                                  title="Ca đã hoàn thành nhưng không có mốc check-in nên không chứng minh được đúng giờ">
+                                  {r.appointmentsWithoutCheckIn} ca thiếu check-in
+                                </span>
+                              )}
                             </div>
                           )}
                         </td>

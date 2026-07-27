@@ -1,0 +1,296 @@
+@startuml UC24_DeliverInvoice_SequenceDiagram
+<style>
+document {
+  ParticipantPadding 10
+  BoxPadding 10
+}
+</style>
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 250
+
+skinparam participant {
+    BackgroundColor #DDEEFF
+    BorderColor     #336699
+    FontStyle       bold
+}
+skinparam actor {
+    BackgroundColor #FFFACD
+    BorderColor     #CC9900
+}
+skinparam note {
+    BackgroundColor #FFFFF0
+    BorderColor     #AAAAAA
+}
+skinparam ArrowColor #336699
+skinparam LifeLineBorderColor #336699
+
+title UC-24: Deliver Invoice\n(Detailed Sequence Diagram — consistent with UC24_DeliverInvoice_ClassDiagram)
+
+actor "Receptionist" as Recep
+actor "Patient"      as Pat
+participant "<<Controller>>\nInvoiceController"          as IC
+participant "<<Service>>\nInvoiceService"                as IS
+participant "<<ServiceImpl>>\nInvoiceServiceImpl"        as ISImpl
+participant "<<Component>>\nInvoiceMailDispatcher"       as Disp
+participant "<<utility>>\nInvoiceEmailTemplate"          as Tpl
+participant "<<Service>>\nInvoicePdfService"             as Pdf
+participant "<<Spring>>\nJavaMailSender"                 as Mailer
+participant "<<Repository>>\nInvoiceRepository"          as IRepo
+participant "<<Repository>>\nUserRepository"             as URepo
+participant "<<Repository>>\nPatientRepository"          as PRepo
+
+note over Recep, Pat
+  PRE-1 (SRS): the invoice exists with status = PAID.
+  AS-IS: the code does NOT require PAID — an unsettled invoice
+  receives a payment reminder instead of a receipt.
+end note
+
+== NF — Receptionist clicks "Send Email" (fast, synchronous half) ==
+Recep -> IC : sendEmail(id: Long)
+activate IC
+
+IC -> IS : markEmailSending(id: Long)
+activate IS
+IS -> ISImpl : markEmailSending(id: Long)
+activate ISImpl
+
+ISImpl -> IRepo : findById(id: Long)
+activate IRepo
+IRepo --> ISImpl : Optional<Invoice>
+deactivate IRepo
+
+break [invoice not found]
+    ISImpl --> IS : ResourceNotFoundException("Invoice not found")
+end
+
+break [patient == null OR patient.email is blank]
+    note right of ISImpl
+      No recipient -> reject before flagging SENDING,
+      so the invoice never gets stuck in SENDING.
+    end note
+    ISImpl --> IS : IllegalStateException("Patient has no email address")
+end
+
+ISImpl -> ISImpl : invoice.setEmailStatus("SENDING")
+activate ISImpl
+deactivate ISImpl
+ISImpl -> IRepo : save(invoice: Invoice)
+activate IRepo
+IRepo --> ISImpl : Invoice
+deactivate IRepo
+
+ISImpl --> IS : void
+deactivate ISImpl
+IS --> IC : void
+deactivate IS
+
+IC ->> Disp : dispatch(invoiceId: Long)
+note right of IC
+  ASYNCHRONOUS message (@Async "mailExecutor"):
+  the controller does NOT wait for SMTP.
+  Gmail SMTP can take several seconds; sending it on the
+  request thread would hold the HTTP response open and
+  pin a HikariCP connection for that whole time.
+end note
+
+IC --> Recep : ResponseEntity<ApiResponse<Void>>
+deactivate IC
+
+== POST-1 — Background worker on the "mailExecutor" pool ==
+activate Disp
+Disp -> IS : getInvoiceById(invoiceId: Long)
+activate IS
+IS -> ISImpl : getInvoiceById(invoiceId: Long)
+activate ISImpl
+ISImpl -> IRepo : findById(id: Long)
+activate IRepo
+IRepo --> ISImpl : Optional<Invoice>
+deactivate IRepo
+ISImpl -> ISImpl : toResponseWithItems(invoice: Invoice)
+activate ISImpl
+deactivate ISImpl
+ISImpl --> IS : InvoiceResponse
+deactivate ISImpl
+IS --> Disp : InvoiceResponse inv
+deactivate IS
+
+note right of Disp
+  Short read transaction only; the SMTP call below runs
+  OUTSIDE any DB transaction, on the detached DTO.
+end note
+
+Disp -> Mailer : createMimeMessage()
+activate Mailer
+Mailer --> Disp : MimeMessage
+deactivate Mailer
+
+alt [inv.paymentStatus == "PAID"]
+    Disp -> Tpl : buildPaidInvoice(inv: InvoiceResponse)
+    activate Tpl
+    Tpl --> Disp : String htmlBody
+    deactivate Tpl
+
+    Disp -> Disp : attachPdf(helper: MimeMessageHelper, inv: InvoiceResponse)
+    activate Disp
+    Disp -> IS : generateInvoicePdf(inv: InvoiceResponse)
+    activate IS
+    IS -> ISImpl : generateInvoicePdf(inv: InvoiceResponse)
+    activate ISImpl
+    ISImpl -> Pdf : generate(inv: InvoiceResponse)
+    activate Pdf
+    note right of Pdf
+      Renders an A4 PDF with OpenPDF and an embedded
+      Unicode font. Amounts are printed verbatim from the
+      stored record — never recomputed (BR-11 at billing time).
+    end note
+    Pdf --> ISImpl : byte[]
+    deactivate Pdf
+    ISImpl --> IS : byte[]
+    deactivate ISImpl
+    IS --> Disp : byte[] pdf
+    deactivate IS
+    deactivate Disp
+
+    note right of Disp
+      Rendered from the DTO already in hand, so the attached
+      PDF can never disagree with the figures in the email body.
+    end note
+else [inv.paymentStatus != "PAID"]
+    Disp -> Disp : bankDisplayName()
+    activate Disp
+    deactivate Disp
+    Disp -> Tpl : buildPaymentReminder(inv, bankName, bankAccount, accountName)
+    activate Tpl
+    Tpl --> Disp : String htmlBody
+    deactivate Tpl
+    note right of Disp
+      Payment reminder: amount due + transfer instructions,
+      NO attachment — under BR-10 the invoice is not issued yet,
+      so there is no document to deliver.
+    end note
+end
+
+alt [SMTP delivery succeeds]
+    Disp -> Mailer : send(mime: MimeMessage)
+    activate Mailer
+    Mailer -->> Pat : e-invoice email (PDF attached when PAID)
+    Mailer --> Disp : void
+    deactivate Mailer
+
+    Disp -> IS : markEmailStatus(invoiceId: Long, "SENT")
+    activate IS
+    IS -> ISImpl : markEmailStatus(invoiceId: Long, status: String)
+    activate ISImpl
+    ISImpl -> IRepo : save(invoice with emailStatus = SENT, emailSentAt = now)
+    activate IRepo
+    IRepo --> ISImpl : Invoice
+    deactivate IRepo
+    ISImpl --> IS : void
+    deactivate ISImpl
+    IS --> Disp : void
+    deactivate IS
+else [E1 — SMTP failure / exception]
+    note right of Disp
+      E1: the exception is logged and NEVER rethrown —
+      a mail failure must not undo a payment that was
+      genuinely collected. The invoice keeps its PAID state;
+      only the delivery state turns FAILED, which is what
+      exposes the "resend" action for the Receptionist.
+    end note
+    Disp -> IS : markEmailStatus(invoiceId: Long, "FAILED")
+    activate IS
+    IS -> ISImpl : markEmailStatus(invoiceId: Long, status: String)
+    activate ISImpl
+    ISImpl -> IRepo : save(invoice with emailStatus = FAILED)
+    activate IRepo
+    IRepo --> ISImpl : Invoice
+    deactivate IRepo
+    ISImpl --> IS : void
+    deactivate ISImpl
+    IS --> Disp : void
+    deactivate IS
+end
+deactivate Disp
+
+== ALT-1 — Print invoice (Receptionist, on patient request) ==
+Recep -> IC : downloadPdf(id: Long)
+activate IC
+IC -> IS : getInvoiceById(id: Long)
+activate IS
+IS --> IC : InvoiceResponse inv
+deactivate IS
+
+IC -> IS : generateInvoicePdf(inv: InvoiceResponse)
+activate IS
+IS -> ISImpl : generateInvoicePdf(inv: InvoiceResponse)
+activate ISImpl
+ISImpl -> Pdf : generate(inv: InvoiceResponse)
+activate Pdf
+Pdf --> ISImpl : byte[]
+deactivate Pdf
+ISImpl --> IS : byte[]
+deactivate ISImpl
+IS --> IC : byte[] pdf
+deactivate IS
+
+note right of IC
+  Streamed back as application/pdf with
+  Content-Disposition: inline; filename="hoa-don-{code}.pdf"
+  -> the browser renders a print-ready preview,
+  nothing is written to the filesystem.
+end note
+
+IC --> Recep : ResponseEntity<byte[]>
+deactivate IC
+
+== ALT-2 — Patient downloads from the Patient Portal ==
+Pat -> IC : getMyInvoices(userDetails: UserDetails)
+activate IC
+
+IC -> URepo : findByEmail(email: String)
+activate URepo
+URepo --> IC : Optional<User>
+deactivate URepo
+
+IC -> PRepo : findByUserId(userId: Long)
+activate PRepo
+PRepo --> IC : Optional<Patient>
+deactivate PRepo
+
+note right of IC
+  BR-08: the patient id is resolved from the JWT principal,
+  never from a request parameter, so a patient cannot read
+  another patient's billing record by tampering with the URL.
+end note
+
+IC -> IS : getMyInvoices(patientId: Long)
+activate IS
+IS -> ISImpl : getMyInvoices(patientId: Long)
+activate ISImpl
+ISImpl -> IRepo : findByPatientIdWithDetails(patientId: Long)
+activate IRepo
+IRepo --> ISImpl : List<Invoice>
+deactivate IRepo
+ISImpl --> IS : List<InvoiceResponse>
+deactivate ISImpl
+IS --> IC : List<InvoiceResponse>
+deactivate IS
+IC --> Pat : ResponseEntity<ApiResponse<List<InvoiceResponse>>>
+deactivate IC
+
+Pat -> IC : downloadPdf(id: Long)
+activate IC
+ref over IC, Pdf : PDF rendering — identical to ALT-1
+IC --> Pat : ResponseEntity<byte[]>
+deactivate IC
+
+note over Recep, Pat
+  POST-1: the PDF invoice is generated and either printed or emailed.
+  POST-2 — NOT IMPLEMENTED: the print/download action is not written
+  to the Audit Log in the current code; only emailStatus / emailSentAt
+  are persisted on the Invoice.
+end note
+
+@enduml

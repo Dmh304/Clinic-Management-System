@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { FiFileText, FiCheckCircle, FiEdit3, FiEye, FiTrash2, FiPlus } from 'react-icons/fi'
 import blogService from '../../services/blogService'
+import { pageTitle } from './managerTypography'
 
 const PAGE_SIZE = 10
 
@@ -202,7 +203,7 @@ export default function ManageBlogPage() {
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: '#0f172a', margin: 0 }}>Quản lý bài viết nhãn khoa</h1>
+          <h1 style={pageTitle}>Quản lý bài viết nhãn khoa</h1>
           <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: 14 }}>Cập nhật tin tức và kiến thức chăm sóc mắt cho cộng đồng.</p>
         </div>
         <button onClick={openCreate} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#2563eb', color: '#fff', border: 'none', padding: '11px 20px', borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>

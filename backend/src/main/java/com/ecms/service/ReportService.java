@@ -8,33 +8,106 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * UC-49/50/51/52/53: Báo cáo & phân tích cho Quản lý phòng khám.
- * Kết quả trả về dưới dạng Map/List<Map> để frontend hiển thị bảng + biểu đồ linh hoạt.
+ * @author      ThangNB - HE201024
+ * @contributor Đồng Mạnh Hùng - HE200743
+ * @created     2026-07-19
+ * @updated     2026-07-19
+ *
+ * Reporting and analytics contract for the Clinic Manager
+ * (UC-49, UC-50, UC-51, UC-52, UC-53).
+ *
+ * Results are returned as {@code Map} / {@code List<Map>} rather than fixed
+ * DTOs so the frontend can render tables and charts off the same payload
+ * without a new type per widget.
+ *
+ * Every method is read-only and enforces no business rule; access is gated by
+ * role in SecurityConfig.
  */
 public interface ReportService {
 
-    /** UC-49: Dashboard vận hành thời gian thực (số liệu trong ngày). */
+    /**
+     * UC-49: live operational figures for today — appointment progress, queue
+     * length per doctor, pending prescriptions, outstanding invoices and lab
+     * orders in progress.
+     *
+     * @return dashboard widgets keyed by metric name
+     */
     Map<String, Object> operationalDashboard();
 
-    /** UC-50: Báo cáo doanh thu theo kỳ, tách theo dịch vụ / bác sĩ / phương thức thanh toán. */
+    /**
+     * UC-50: revenue over a period, broken down by service category, doctor
+     * and payment method.
+     *
+     * Counts PAID invoices by {@code paidAt}, so revenue lands on the day the
+     * money arrived rather than the day the invoice was raised.
+     *
+     * @param from period start, inclusive
+     * @param to   period end, inclusive
+     * @return totals plus the per-dimension breakdowns
+     */
     Map<String, Object> revenueReport(LocalDate from, LocalDate to);
 
-    /** UC-51: Thống kê bệnh nhân theo kỳ (lượt khám, mới/cũ, chẩn đoán, trạng thái lịch). */
+    /**
+     * UC-51: patient volume over a period — visits, new vs returning patients,
+     * top diagnoses and appointment status distribution.
+     *
+     * @param from period start, inclusive
+     * @param to   period end, inclusive
+     * @return statistics keyed by metric name
+     */
     Map<String, Object> patientStatistics(LocalDate from, LocalDate to);
 
-    /** UC-52: KPI hiệu suất nhân viên (bác sĩ) theo kỳ. */
+    /**
+     * UC-52: per-doctor KPIs over a period — patients seen, average
+     * consultation duration and prescription volume.
+     *
+     * @param from period start, inclusive
+     * @param to   period end, inclusive
+     * @return one row per staff member
+     */
     List<Map<String, Object>> staffPerformance(LocalDate from, LocalDate to);
 
-    /** UC-53: Báo cáo tổng hợp đánh giá của bệnh nhân theo kỳ. */
+    /**
+     * UC-53: aggregated patient feedback over a period — average rating per
+     * doctor, response counts and common themes.
+     *
+     * @param from period start, inclusive
+     * @param to   period end, inclusive
+     * @return feedback analytics keyed by metric name
+     */
     Map<String, Object> feedbackReport(LocalDate from, LocalDate to);
 
-    // ── Xuất Excel (CSV UTF-8, mở trực tiếp bằng Excel) ──────────────────────
-    /** UC-50: Xuất báo cáo doanh thu. */
-    void exportRevenueCsv(LocalDate from, LocalDate to, HttpServletResponse response) throws IOException;
+    // ── Exports ───────────────────────────────────────────────────────────────
+    // Emitted as UTF-8 CSV, which Excel opens directly. Note this is a
+    // deviation from UC-50 step 6, which specifies a real .xlsx file.
 
-    /** UC-51: Xuất thống kê bệnh nhân. */
-    void exportPatientStatisticsCsv(LocalDate from, LocalDate to, HttpServletResponse response) throws IOException;
+    /**
+     * UC-50 step 5-6: exports the revenue report.
+     *
+     * @param from     period start, inclusive
+     * @param to       period end, inclusive
+     * @param response servlet response the CSV is streamed to
+     * @throws IOException if the response stream fails
+     */
+    void exportRevenueXlsx(LocalDate from, LocalDate to, HttpServletResponse response) throws IOException;
 
-    /** UC-53: Xuất báo cáo đánh giá. */
-    void exportFeedbackCsv(LocalDate from, LocalDate to, HttpServletResponse response) throws IOException;
+    /**
+     * UC-51 step 4: exports the patient statistics.
+     *
+     * @param from     period start, inclusive
+     * @param to       period end, inclusive
+     * @param response servlet response the CSV is streamed to
+     * @throws IOException if the response stream fails
+     */
+    void exportPatientStatisticsXlsx(LocalDate from, LocalDate to, HttpServletResponse response) throws IOException;
+
+    /**
+     * UC-53 step 5: exports the detailed feedback list.
+     *
+     * @param from     period start, inclusive
+     * @param to       period end, inclusive
+     * @param response servlet response the CSV is streamed to
+     * @throws IOException if the response stream fails
+     */
+    void exportFeedbackXlsx(LocalDate from, LocalDate to, HttpServletResponse response) throws IOException;
 }

@@ -90,4 +90,24 @@ public interface LabOrderRepository extends JpaRepository<LabOrder, Long> {
             "lo.createdAt ASC")
     List<LabOrder> findByLabTechnicianIdOrderByPriorityAndCreatedAt(@Param("labTechnicianId") Long labTechnicianId);
 
+    /**
+     * UC-54: số xét nghiệm một kỹ thuật viên đã trả kết quả trong kỳ lương — đầu vào
+     * tính thưởng hiệu suất cho KTV.
+     *
+     * Mốc thời gian là completedAt (lúc trả kết quả) chứ không phải createdAt, vì công
+     * của KTV thuộc về kỳ họ làm xong, không phải kỳ bác sĩ chỉ định.
+     * Chỉ tính SUBMITTED/APPROVED: phiếu bị bác sĩ REJECTED phải làm lại nên không
+     * được trả thưởng hai lần cho cùng một xét nghiệm.
+     */
+    @Query("""
+            SELECT COUNT(lo) FROM LabOrder lo
+            WHERE lo.labTechnician.id = :labTechnicianId
+              AND lo.completedAt >= :start
+              AND lo.completedAt <= :end
+              AND lo.status IN (com.ecms.entity.LabOrderStatus.SUBMITTED,
+                                com.ecms.entity.LabOrderStatus.APPROVED)
+            """)
+    long countCompletedByTechnicianBetween(@Param("labTechnicianId") Long labTechnicianId,
+            @Param("start") java.time.LocalDateTime start, @Param("end") java.time.LocalDateTime end);
+
 }

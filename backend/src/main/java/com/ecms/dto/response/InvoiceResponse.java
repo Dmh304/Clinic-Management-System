@@ -1,9 +1,3 @@
-// ThangNBHE201024
-// DTO trả về thông tin hóa đơn cho client.
-// Gồm 2 lớp lồng nhau:
-//   - InvoiceResponse: thông tin tổng quan hóa đơn (bệnh nhân, bác sĩ, tổng tiền, trạng thái)
-//   - InvoiceItemResponse: từng dòng chi tiết khoản phí bên trong hóa đơn
-// patientEmail được thêm để hỗ trợ tính năng gửi email hóa đơn điện tử.
 package com.ecms.dto.response;
 
 import lombok.*;
@@ -12,6 +6,20 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * @author      ThangNB - HE201024
+ * @contributor Đồng Mạnh Hùng - HE200743
+ * @created     2026-07-11
+ * @updated     2026-07-11
+ *
+ * Invoice projection returned to every client of the billing module:
+ * the Receptionist invoice screen (UC-23), the invoice delivery actions
+ * (UC-24) and the patient portal "My Invoices" list (UC-24 ALT-2).
+ *
+ * {@code patientEmail} is included so the e-invoice email action can run
+ * without a second lookup, and {@code emailStatus} lets the UI show delivery
+ * progress and offer a resend (UC-24 E1 — retry on delivery failure).
+ */
 @Data
 @Builder
 @NoArgsConstructor
@@ -19,14 +27,15 @@ import java.util.List;
 public class InvoiceResponse {
 
     private Long id;
-    // Mã hóa đơn dạng INV-yyyyMMdd-XXXX
+    /** Human-readable invoice number, format INV-yyyyMMdd-XXXX. */
     private String invoiceCode;
 
-    // Thông tin lịch hẹn liên quan (null nếu hóa đơn tạo từ subscriptionId)
+    /** Visit this invoice bills (null when the invoice is for a subscription). */
     private Long appointmentId;
-    // UC-21: gói/buổi dịch vụ chăm sóc liên quan (null nếu hóa đơn tạo từ appointmentId)
+    /** UC-21: subscription / care package this invoice bills (null when appointment-based). */
     private Long subscriptionId;
-    // Thông tin bệnh nhân — dùng để hiển thị và gửi email
+
+    // ── Patient snapshot: shown on screen and used by the e-invoice mailer ──
     private String patientName;
     private String patientPhone;
     private String patientEmail;
@@ -36,10 +45,11 @@ public class InvoiceResponse {
     private LocalDateTime appointmentTime;
     private String timeSlot;
 
-    // Danh sách chi tiết khoản phí; rỗng khi gọi getAllInvoices(), đầy đủ khi gọi getById()
+    /** Charge lines. Empty on list endpoints (getAllInvoices), fully
+     *  populated on the detail endpoint (getInvoiceById). */
     private List<InvoiceItemResponse> items;
 
-    // Phân nhóm phí theo loại (phục vụ thống kê và hiển thị trên hóa đơn)
+    // ── Charge totals, grouped per BR-11 (Total = exam + lab + medicine − discount) ──
     private BigDecimal serviceFee;
     private BigDecimal labFee;
     private BigDecimal medicineFee;
@@ -47,13 +57,14 @@ public class InvoiceResponse {
     private BigDecimal discountAmount;
     private BigDecimal totalAmount;
 
-    // Thông tin thanh toán
+    // ── Payment state ──
     private String paymentMethod;   // CASH | VIET_QR
     private String paymentReference;
     private String status;          // DRAFT | ISSUED | CANCELLED
+    /** Settlement state. Reaches PAID only on full payment (BR-10). */
     private String paymentStatus;   // UNPAID | PAID | PAYMENT_FAILED
 
-    // Tình trạng gửi email hóa đơn — để UI hiển thị và cho phép gửi lại
+    // ── E-invoice email delivery state, drives the resend button in the UI ──
     private String emailStatus;     // NOT_SENT | SENDING | SENT | FAILED
     private LocalDateTime emailSentAt;
 
@@ -63,7 +74,7 @@ public class InvoiceResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    // Chi tiết từng khoản phí trong hóa đơn
+    /** One charge line of the invoice, mirroring the invoice_details table. */
     @Data
     @Builder
     @NoArgsConstructor
@@ -75,6 +86,7 @@ public class InvoiceResponse {
         private String description;
         private Integer quantity;
         private BigDecimal unitPrice;
+        /** Line total = quantity × unitPrice. */
         private BigDecimal subtotal;
     }
 }

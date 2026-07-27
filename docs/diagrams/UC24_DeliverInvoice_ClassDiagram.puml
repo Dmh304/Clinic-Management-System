@@ -1,0 +1,272 @@
+@startuml UC24_DeliverInvoice_ClassDiagram
+
+' ============================================================================
+' UC-24: Deliver Invoice  (Actors: Receptionist, Patient)
+' Perspective: Implementation (Spring Boot) — derived from the real backend/ code
+'   POST /api/v1/invoices/{id}/send-email  -> markEmailSending() + dispatch() (@Async)
+'   GET  /api/v1/invoices/{id}/pdf         -> generateInvoicePdf()  (ALT-1 print, ALT-2 download)
+'   GET  /api/v1/invoices/my               -> getMyInvoices()       (Patient Portal)
+' Every operation here matches 1:1 a message in the UC-24 Sequence Diagram.
+' ============================================================================
+
+skinparam classAttributeIconSize 0
+skinparam monochrome false
+skinparam backgroundColor white
+skinparam roundcorner 5
+skinparam class {
+    BackgroundColor #f9f9f9
+    ArrowColor #336699
+    BorderColor #336699
+}
+
+' ─────────────────── Presentation layer ───────────────────
+class InvoiceController {
+    - invoiceService: InvoiceService
+    - invoiceMailDispatcher: InvoiceMailDispatcher
+    + sendEmail(id: Long): ResponseEntity<ApiResponse<Void>>
+    + downloadPdf(id: Long): ResponseEntity<byte[]>
+    + getInvoiceById(id: Long): ResponseEntity<ApiResponse<InvoiceResponse>>
+    + getMyInvoices(userDetails: UserDetails): ResponseEntity<ApiResponse<List<InvoiceResponse>>>
+}
+
+' ─────────────────── Service layer ───────────────────
+interface InvoiceService {
+    + getInvoiceById(id: Long): InvoiceResponse
+    + getMyInvoices(patientId: Long): List<InvoiceResponse>
+    + markEmailSending(id: Long): void
+    + markEmailStatus(id: Long, status: String): void
+    + generateInvoicePdf(id: Long): byte[]
+    + generateInvoicePdf(inv: InvoiceResponse): byte[]
+}
+
+class InvoiceServiceImpl {
+    + getInvoiceById(id: Long): InvoiceResponse
+    + getMyInvoices(patientId: Long): List<InvoiceResponse>
+    + markEmailSending(id: Long): void
+    + markEmailStatus(id: Long, status: String): void
+    + generateInvoicePdf(id: Long): byte[]
+    + generateInvoicePdf(inv: InvoiceResponse): byte[]
+    - toResponseWithItems(i: Invoice): InvoiceResponse
+    - toResponse(i: Invoice): InvoiceResponse
+}
+
+class InvoiceMailDispatcher <<Component>> {
+    - mailSender: JavaMailSender
+    - invoiceService: InvoiceService
+    - fromAddress: String
+    - bankId: String
+    - bankAccount: String
+    - bankAccountName: String
+    - {static} NAPAS_BANKS: Map<String, String>
+    + dispatch(invoiceId: Long): void
+    - attachPdf(helper: MimeMessageHelper, inv: InvoiceResponse): void
+    - bankDisplayName(): String
+}
+
+class InvoiceEmailTemplate <<utility>> {
+    ~ {static} buildPaidInvoice(inv: InvoiceResponse): String
+    ~ {static} buildPaymentReminder(inv: InvoiceResponse, bankName: String, bankAccount: String, accountName: String): String
+    - {static} shell(accent: String, title: String, subtitle: String): String
+    - {static} itemsTable(inv: InvoiceResponse, vnd: NumberFormat): String
+    - {static} totals(inv: InvoiceResponse, vnd: NumberFormat, accent: String, label: String): String
+    - InvoiceEmailTemplate()
+}
+
+class InvoicePdfService <<Service>> {
+    - {static} DATE_FMT: DateTimeFormatter
+    - {static} VND_FMT: NumberFormat
+    + generate(inv: InvoiceResponse): byte[]
+    - loadFont(): BaseFont
+    - fmtVnd(v: BigDecimal): String
+    - isPos(v: BigDecimal): boolean
+    - safe(s: String): String
+}
+
+interface JavaMailSender <<Spring>> {
+    + createMimeMessage(): MimeMessage
+    + send(mimeMessage: MimeMessage): void
+}
+
+' ─────────────────── Repository layer ───────────────────
+interface InvoiceRepository {
+    + findById(id: Long): Optional<Invoice>
+    + save(invoice: Invoice): Invoice
+    + findByPatientIdWithDetails(patientId: Long): List<Invoice>
+}
+
+interface PatientRepository {
+    + findByUserId(userId: Long): Optional<Patient>
+}
+
+' ─────────────────── DTO ───────────────────
+class InvoiceResponse <<DTO>> {
+    - id: Long
+    - invoiceCode: String
+    - appointmentId: Long
+    - patientName: String
+    - patientEmail: String
+    - patientCode: String
+    - doctorName: String
+    - serviceName: String
+    - items: List<InvoiceItemResponse>
+    - serviceFee: BigDecimal
+    - labFee: BigDecimal
+    - medicineFee: BigDecimal
+    - subTotal: BigDecimal
+    - discountAmount: BigDecimal
+    - totalAmount: BigDecimal
+    - paymentMethod: String
+    - paymentReference: String
+    - status: String
+    - paymentStatus: String
+    - emailStatus: String
+    - emailSentAt: LocalDateTime
+    - paidAt: LocalDateTime
+}
+
+class InvoiceItemResponse <<DTO>> {
+    - id: Long
+    - itemType: String
+    - refId: Long
+    - description: String
+    - quantity: Integer
+    - unitPrice: BigDecimal
+    - subtotal: BigDecimal
+}
+
+class ApiResponse<T> <<DTO>> {
+    - success: boolean
+    - message: String
+    - data: T
+    + {static} success(data: T): ApiResponse<T>
+}
+
+' ─────────────────── Entity (domain) ───────────────────
+class Invoice <<Entity>> {
+    - id: Long
+    - invoiceCode: String
+    - serviceFee: BigDecimal
+    - labFee: BigDecimal
+    - medicineFee: BigDecimal
+    - subTotal: BigDecimal
+    - discountAmount: BigDecimal
+    - totalAmount: BigDecimal
+    - paymentMethod: String
+    - paymentReference: String
+    - status: String
+    - paymentStatus: String
+    - pdfUrl: String
+    - emailStatus: String
+    - emailSentAt: LocalDateTime
+    - issuedBy: Long
+    - paidAt: LocalDateTime
+    - createdAt: LocalDateTime
+    - updatedAt: LocalDateTime
+}
+
+class InvoiceItem <<Entity>> {
+    - id: Long
+    - itemType: String
+    - refId: Long
+    - description: String
+    - quantity: Integer
+    - unitPrice: BigDecimal
+    - subTotal: BigDecimal
+    - status: String
+}
+
+class Patient <<Entity>> {
+    - id: Long
+    - patientCode: String
+    - fullName: String
+    - email: String
+    - phone: String
+    + getEmail(): String
+}
+
+class Appointment <<Entity>> {
+    - id: Long
+    - appointmentTime: LocalDateTime
+    - timeSlot: String
+    - status: AppointmentStatus
+}
+
+class ResourceNotFoundException <<Exception>> {
+    + ResourceNotFoundException(message: String)
+}
+
+' ─────────────────── Dependency (dashed line) ───────────────────
+InvoiceController ..> InvoiceService : <<use>>
+InvoiceController ..> InvoiceMailDispatcher : <<use>>
+InvoiceController ..> PatientRepository : <<use>>
+InvoiceController ..> ApiResponse : creates
+
+InvoiceService <|.. InvoiceServiceImpl : implements
+
+InvoiceServiceImpl ..> InvoiceRepository : <<use>>
+InvoiceServiceImpl ..> InvoicePdfService : <<use>>
+InvoiceServiceImpl ..> InvoiceResponse : creates
+InvoiceServiceImpl ..> ResourceNotFoundException : throws
+
+InvoiceMailDispatcher ..> InvoiceService : <<use>>
+InvoiceMailDispatcher ..> InvoiceEmailTemplate : <<use>>
+InvoiceMailDispatcher ..> JavaMailSender : <<use>>
+InvoiceMailDispatcher ..> InvoiceResponse : reads
+
+InvoiceEmailTemplate ..> InvoiceResponse : reads
+InvoicePdfService ..> InvoiceResponse : reads
+
+InvoiceRepository ..> Invoice : manages
+PatientRepository ..> Patient : manages
+
+' ─────────────────── Composition / Association (solid line) ───────────────────
+Invoice "1" *-- "1..*" InvoiceItem : contains >
+Patient "1" -- "0..*" Invoice : is billed >
+Appointment "1" -- "0..1" Invoice : produces >
+InvoiceResponse +-- InvoiceItemResponse
+
+' ─────────────────── Note ───────────────────
+note right of InvoiceMailDispatcher
+  Email delivery is ASYNCHRONOUS (@Async "mailExecutor"):
+  the controller returns as soon as emailStatus = SENDING,
+  then SMTP runs in the background, OUTSIDE any DB transaction.
+  The document is chosen from paymentStatus:
+   - PAID  -> receipt, WITH the invoice PDF attached (POST-1)
+   - other -> payment reminder, no attachment
+  E1: on failure -> emailStatus = FAILED (invoice unchanged),
+  so the Receptionist can resend or print instead.
+end note
+
+note bottom of Invoice
+  emailStatus is a String; allowed values:
+  {NOT_SENT, SENDING, SENT, FAILED}
+  status: {DRAFT, ISSUED, CANCELLED}
+  paymentStatus: {UNPAID, PAID, PAYMENT_FAILED}
+  (not yet extracted into enums in the current code)
+end note
+
+note bottom of InvoiceItem
+  Composition (filled diamond): @OneToMany with
+  cascade = ALL + orphanRemoval = true —
+  a charge line cannot exist outside its invoice.
+  BR-09 (No Hard Delete) applies to Invoice:
+  cancelling sets status = CANCELLED, never a physical delete.
+end note
+
+note right of InvoicePdfService
+  The PDF is rendered with OpenPDF, returned as byte[]
+  and streamed straight to the client — never written to disk.
+  Printed amounts are taken verbatim from the stored record,
+  never recomputed, so they match what BR-11 produced at billing time.
+end note
+
+note left of InvoiceController
+  Deviation from SRS UC-24, needs a decision:
+  PRE-1 requires the invoice to be PAID and the Normal Flow
+  states the system sends the email AUTOMATICALLY once payment
+  is confirmed. In the current code the email is sent MANUALLY
+  on a user click and does NOT require PAID — an unsettled
+  invoice receives a payment reminder instead of a receipt.
+end note
+
+@enduml

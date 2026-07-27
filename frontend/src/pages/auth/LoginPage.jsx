@@ -431,6 +431,10 @@ export default function LoginPage() {
                             background: '#fef2f2', border: '1px solid #fecaca',
                             borderRadius: 8, padding: '10px 14px', marginTop: 12,
                             fontSize: 13, color: '#dc2626', lineHeight: 1.5,
+                            // Thông báo lỗi từ backend có thể là một chuỗi dài không khoảng trắng
+                            // (ví dụ câu SQL trong lỗi JDBC). Không có hai dòng này thì nó nong
+                            // rộng cả form và đẩy trang tràn ngang.
+                            maxWidth: '100%', overflowWrap: 'anywhere',
                           }}>
                             {errorMsg}
                           </div>

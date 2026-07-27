@@ -17,8 +17,16 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * UC-54: Duyệt bảng lương (chỉ MANAGER/ADMIN — cấu hình ở SecurityConfig).
+ * @author  ThangNB - HE201024
+ * @created 2026-07-19
+ * @updated 2026-07-19
+ *
+ * Payroll approval API (UC-54 Approve Payroll).
  * Base URL: /api/v1/payroll
+ *
+ * Validate: BR-17 (Payroll Authority) — the whole controller is restricted to
+ * MANAGER / ADMIN in SecurityConfig, which is where the "only a Clinic Manager
+ * may approve payroll" rule is enforced.
  */
 @RestController
 @RequestMapping("/api/v1/payroll")
@@ -28,7 +36,17 @@ public class PayrollController {
     private final PayrollService payrollService;
     private final UserRepository userRepository;
 
-    // Sinh/soạn lại bảng lương nháp cho một kỳ (mặc định tháng hiện tại)
+    /**
+     * Generates or regenerates the DRAFT payroll for a period
+     * (UC-54 normal flow steps 1-2).
+     *
+     * @param year  pay period year; defaults to the current year
+     * @param month pay period month 1-12; defaults to the current month
+     * @return the draft period with its lines
+     *
+     * Validate: BR-09 — regeneration is refused for an APPROVED period, whose
+     * lines are locked.
+     */
     @PostMapping("/generate")
     public ResponseEntity<ApiResponse<Map<String, Object>>> generate(
             @RequestParam(required = false) Integer year,
@@ -39,26 +57,56 @@ public class PayrollController {
         return ResponseEntity.ok(ApiResponse.success(payrollService.generateDraft(y, m)));
     }
 
-    // Danh sách kỳ lương
+    /**
+     * Lists pay periods, newest first.
+     *
+     * @return period summaries with their status
+     */
     @GetMapping("/periods")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> periods() {
         return ResponseEntity.ok(ApiResponse.success(payrollService.listPeriods()));
     }
 
-    // Chi tiết kỳ lương kèm dòng lương
+    /**
+     * Loads one pay period together with every payroll line, for the review
+     * table (UC-54 normal flow step 3).
+     *
+     * @param id pay period primary key
+     */
     @GetMapping("/periods/{id}")
     public ResponseEntity<ApiResponse<Map<String, Object>>> period(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success(payrollService.getPeriod(id)));
     }
 
-    // Điều chỉnh một dòng lương
+    /**
+     * Adjusts one payroll line (UC-54 normal flow step 3).
+     *
+     * @param id      payroll line primary key
+     * @param request overridden amounts plus the justification note
+     * @return the updated line
+     *
+     * Validate: BR-09 — the service rejects the edit when the period is
+     * already APPROVED, since its lines are locked (UC-54 POST-2).
+     */
     @PatchMapping("/items/{id}")
     public ResponseEntity<ApiResponse<Map<String, Object>>> updateItem(
             @PathVariable Long id, @RequestBody PayrollItemUpdateRequest request) {
         return ResponseEntity.ok(ApiResponse.success(payrollService.updateItem(id, request)));
     }
 
-    // Duyệt bảng lương của một kỳ
+    /**
+     * Approves a pay period (UC-54 normal flow steps 4-7).
+     *
+     * @param userDetails authenticated principal; resolved to the approving
+     *                    manager so the Audit Log entry is attributable
+     * @param id          pay period primary key
+     * @return the approved period
+     * @throws ResourceNotFoundException if the principal has no user record
+     *
+     * Validate: BR-17 — the approver is taken from the JWT principal rather
+     * than the request body, so the recorded approver cannot be spoofed;
+     * BR-09 — approval locks every line irreversibly.
+     */
     @PostMapping("/periods/{id}/approve")
     public ResponseEntity<ApiResponse<Map<String, Object>>> approve(
             @AuthenticationPrincipal UserDetails userDetails, @PathVariable Long id) {

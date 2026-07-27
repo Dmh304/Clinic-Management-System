@@ -17,9 +17,24 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * UC-49/50/51/52/53: Báo cáo & phân tích cho Quản lý phòng khám.
- * Base URL: /api/v1/reports (chỉ MANAGER/ADMIN — cấu hình ở SecurityConfig).
- * Tham số from/to định dạng ISO yyyy-MM-dd; mặc định = đầu tháng → hôm nay.
+ * @author      ThangNB - HE201024
+ * @contributor Đồng Mạnh Hùng - HE200743
+ * @created     2026-07-19
+ * @updated     2026-07-19
+ *
+ * Reporting and analytics API for the Clinic Manager.
+ * Base URL: /api/v1/reports — restricted to MANAGER / ADMIN in SecurityConfig.
+ *
+ * Covers UC-49 (real-time operational dashboard), UC-50 (revenue report),
+ * UC-51 (patient statistics), UC-52 (staff performance) and UC-53 (feedback
+ * report), plus the CSV exports those use cases offer.
+ *
+ * {@code from} / {@code to} are ISO yyyy-MM-dd and default to
+ * "first of this month → today".
+ *
+ * Validate: no business rule is enforced here — every endpoint is read-only.
+ * Access control is the only gate, and it lives in SecurityConfig
+ * (UC-49..53 all require the Clinic Manager role).
  */
 @RestController
 @RequestMapping("/api/v1/reports")
@@ -77,7 +92,7 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             HttpServletResponse response) throws IOException {
         LocalDate[] range = defaultRange(from, to);
-        reportService.exportRevenueCsv(range[0], range[1], response);
+        reportService.exportRevenueXlsx(range[0], range[1], response);
     }
 
     @GetMapping("/patient-statistics/export")
@@ -86,7 +101,7 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             HttpServletResponse response) throws IOException {
         LocalDate[] range = defaultRange(from, to);
-        reportService.exportPatientStatisticsCsv(range[0], range[1], response);
+        reportService.exportPatientStatisticsXlsx(range[0], range[1], response);
     }
 
     @GetMapping("/feedback/export")
@@ -95,7 +110,7 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             HttpServletResponse response) throws IOException {
         LocalDate[] range = defaultRange(from, to);
-        reportService.exportFeedbackCsv(range[0], range[1], response);
+        reportService.exportFeedbackXlsx(range[0], range[1], response);
     }
 
     // Mặc định: từ đầu tháng hiện tại tới hôm nay

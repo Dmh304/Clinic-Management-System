@@ -13,13 +13,26 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 
-// ThangNBHE201024
-// Service tạo file PDF hóa đơn khám bệnh bằng thư viện OpenPDF.
-// Xuất byte[] để controller trả về HTTP response với Content-Type: application/pdf.
+/**
+ * @author      ThangNB - HE201024
+ * @contributor Đồng Mạnh Hùng - HE200743
+ * @created     2026-07-11
+ * @updated     2026-07-17
+ *
+ * Renders a printable invoice PDF with OpenPDF (UC-24 Deliver Invoice —
+ * ALT-1 Receptionist print, ALT-2 patient download; Non-UI function
+ * "Invoice PDF Generator").
+ *
+ * Returns raw {@code byte[]} so the controller can stream it straight back as
+ * {@code application/pdf} without touching the filesystem.
+ *
+ * A Unicode-capable font is loaded explicitly because the default PDF base
+ * fonts cannot render Vietnamese diacritics.
+ */
 @Service
 public class InvoicePdfService {
 
-    // ── Bảng màu ──────────────────────────────────────────────────────────────────
+    // ── Palette ───────────────────────────────────────────────────────────────────
     private static final Color C_PRIMARY    = new Color(67,  56,  202); // indigo-700
     private static final Color C_PRIMARY_LT = new Color(238, 242, 255); // indigo-50
     private static final Color C_SUCCESS    = new Color(5,   150, 105); // emerald-600
@@ -37,6 +50,15 @@ public class InvoicePdfService {
     private static final NumberFormat VND_FMT =
             NumberFormat.getNumberInstance(new Locale("vi", "VN"));
 
+    /**
+     * Renders one invoice as an A4 PDF document.
+     *
+     * @param inv invoice with its charge lines populated; the totals shown are
+     *            the stored ones, never recomputed here, so the printed
+     *            document always matches what BR-11 produced at billing time
+     * @return the PDF as a byte array
+     * @throws RuntimeException if PDF generation fails
+     */
     public byte[] generate(InvoiceResponse inv) {
         try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Document doc = new Document(PageSize.A4, 36f, 36f, 36f, 36f);
@@ -271,7 +293,7 @@ public class InvoicePdfService {
 
     // ── Helpers ───────────────────────────────────────────────────────────────────
 
-    // Tiêu đề section trong bảng thông tin (nền nhạt, viền dưới màu primary)
+    /** Section heading inside the info table: tinted background, primary bottom rule. */
     private void infoSecHdr(PdfPTable t, String text, Font f,
                              Color bg, Color borderC, int span) {
         PdfPCell c = new PdfPCell(new Phrase(text, f));
@@ -283,14 +305,14 @@ public class InvoicePdfService {
         t.addCell(c);
     }
 
-    // Ô trống ngăn cách hai section trong bảng info
+    /** Blank spacer cell separating the two info columns. */
     private void spacerCell(PdfPTable t) {
         PdfPCell c = new PdfPCell();
         c.setBorder(Rectangle.NO_BORDER);
         t.addCell(c);
     }
 
-    // Thêm một hàng gồm 5 ô (label1-value1-spacer-label2-value2) vào bảng 5 cột
+    /** Appends one 5-cell row (label1, value1, spacer, label2, value2) to the info table. */
     private void infoRow4(PdfPTable t,
                            String l1, String v1, Font fl1, Font fv1,
                            String l2, String v2, Font fl2, Font fv2) {
@@ -301,7 +323,7 @@ public class InvoicePdfService {
         t.addCell(valueCell(v2, fv2));
     }
 
-    // Ô nhãn với nền slate-100
+    /** Label cell on a light grey background. */
     private PdfPCell labelCell(String text, Font f) {
         PdfPCell c = new PdfPCell(new Phrase(text, f));
         c.setBackgroundColor(C_LABEL_BG);
@@ -311,7 +333,7 @@ public class InvoicePdfService {
         return c;
     }
 
-    // Ô giá trị không viền
+    /** Borderless value cell. */
     private PdfPCell valueCell(String text, Font f) {
         PdfPCell c = new PdfPCell(new Phrase(text, f));
         c.setBorder(Rectangle.NO_BORDER);
@@ -320,7 +342,7 @@ public class InvoicePdfService {
         return c;
     }
 
-    // Ô dữ liệu trong bảng items (viền mỏng, nền xen kẽ trắng/slate-50)
+    /** Data cell of the charge-line table: hairline border, alternating row tint. */
     private void td(PdfPTable t, String text, int align, Font f, Color bg) {
         PdfPCell c = new PdfPCell(new Phrase(text, f));
         c.setHorizontalAlignment(align);
@@ -332,7 +354,7 @@ public class InvoicePdfService {
         t.addCell(c);
     }
 
-    // Hàng phí trong bảng tổng (căn phải, không viền)
+    /** Right-aligned, borderless row of the totals block (BR-11 breakdown). */
     private void feeRow(PdfPTable t, String label, String value, Font fl, Font fv) {
         PdfPCell lc = new PdfPCell(new Phrase(label, fl));
         lc.setHorizontalAlignment(Element.ALIGN_RIGHT);
@@ -347,20 +369,25 @@ public class InvoicePdfService {
         t.addCell(vc);
     }
 
-    // Tải font Arial; fallback về Helvetica nếu không tìm thấy
     /**
-     * ThangNBHE201024 — nạp font có đủ glyph tiếng Việt để hóa đơn in ra CÓ DẤU.
+     * Loads a font that actually carries Vietnamese glyphs, so the printed
+     * invoice keeps its diacritics.
      *
-     * Phải dùng IDENTITY_H (Unicode) + nhúng font vào file PDF, nếu không các ký tự
-     * như "ế", "ộ", "đ" sẽ thành ô vuông hoặc dấu hỏi trên máy không cài sẵn font.
+     * IDENTITY_H (Unicode) plus font embedding is mandatory: without both,
+     * characters such as "ế", "ộ" or "đ" degrade to boxes or question marks on
+     * any machine that does not have the font installed locally.
      *
-     * Thứ tự ưu tiên:
-     *  1. Roboto nhúng trong resources — chạy đúng trên MỌI hệ điều hành, kể cả server
-     *     Linux khi deploy. Đây là lý do phải đóng gói font vào repo thay vì trông chờ
-     *     font hệ thống (license OFL, xem fonts/LICENSE-Roboto-OFL.txt).
-     *  2. Arial của Windows — chỉ để dự phòng khi ai đó lỡ xóa file font khỏi resources.
-     *  3. Helvetica — KHÔNG có glyph tiếng Việt. Đến được nhánh này là hóa đơn sẽ hỏng
-     *     chữ, nên ghi log ERROR để phát hiện ngay thay vì âm thầm in ra hóa đơn lỗi.
+     * Fallback order:
+     *  1. Roboto bundled in resources — works on every OS including the Linux
+     *     deployment target, which is why the font is committed to the repo
+     *     rather than relying on a system font (OFL, see fonts/LICENSE-Roboto-OFL.txt).
+     *  2. Windows Arial — only covers the case where the bundled font was deleted.
+     *  3. Helvetica — has NO Vietnamese glyphs. Reaching this branch means the
+     *     invoice will print mangled text, so it warns loudly instead of
+     *     silently emitting a broken document.
+     *
+     * @return an embedded Unicode base font, or the Helvetica last resort
+     * @throws Exception if even the fallback font cannot be created
      */
     private BaseFont loadFont() throws Exception {
         try (var stream = getClass().getResourceAsStream("/fonts/Roboto.ttf")) {
@@ -380,15 +407,35 @@ public class InvoicePdfService {
                 BaseFont.NOT_EMBEDDED);
     }
 
+    /**
+     * Formats an amount as Vietnamese currency, e.g. "1.250.000 đ".
+     *
+     * @param v amount; null renders as "0 đ" so the PDF never prints "null"
+     * @return the formatted amount
+     */
     private String fmtVnd(BigDecimal v) {
         if (v == null) return "0 đ";
         return VND_FMT.format(v.longValue()) + " đ";
     }
 
+    /**
+     * Whether an amount is strictly positive — decides whether the optional
+     * discount row is rendered at all (BR-11: a zero discount is not printed).
+     *
+     * @param v amount, may be null
+     * @return true when v is non-null and greater than zero
+     */
     private boolean isPos(BigDecimal v) {
         return v != null && v.compareTo(BigDecimal.ZERO) > 0;
     }
 
+    /**
+     * Null-safe text for the PDF: an absent optional field prints as a dash
+     * rather than the literal "null".
+     *
+     * @param s value that may be null
+     * @return {@code s}, or "-"
+     */
     private String safe(String s) {
         return s != null ? s : "-";
     }

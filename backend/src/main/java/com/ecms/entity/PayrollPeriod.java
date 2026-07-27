@@ -8,8 +8,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * UC-54: Kỳ lương (theo tháng). Trạng thái: DRAFT (đang soạn) | APPROVED (đã duyệt, khóa).
- * Bảng tự tạo bởi Hibernate (ddl-auto=update).
+ * @author  ThangNB - HE201024
+ * @created 2026-07-19
+ * @updated 2026-07-19
+ *
+ * One monthly pay period (UC-54 Approve Payroll).
+ * Status: DRAFT (being prepared) | APPROVED (signed off and locked).
+ * Table created by Hibernate under ddl-auto=update.
+ *
+ * Business rules: BR-17 (only the Clinic Manager may approve), BR-09
+ * (an approved period's lines are locked, never deleted).
  */
 @Entity
 @Table(name = "payroll_periods")
@@ -30,10 +38,15 @@ public class PayrollPeriod {
     @Column(name = "period_month", nullable = false)
     private Integer month;
 
-    // DRAFT | APPROVED
+    /** DRAFT | APPROVED.
+     *  Validate: BR-09 / UC-54 POST-2 — leaving DRAFT is one-way; once
+     *  APPROVED the period and its lines can no longer be edited. */
     @Column(name = "status", nullable = false, length = 20)
     private String status;
 
+    /** Manager who approved the period.
+     *  Validate: BR-17 — recorded so the approval is attributable in the
+     *  Audit Log (UC-54 POST-4). */
     @Column(name = "approved_by")
     private Long approvedBy;
 
@@ -47,6 +60,13 @@ public class PayrollPeriod {
     @OneToMany(mappedBy = "period", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<PayrollItem> items = new ArrayList<>();
 
+    /**
+     * Fills defaults before INSERT.
+     *
+     * Validate: BR-17 — a new period always starts DRAFT, never APPROVED, so
+     * payroll can only be approved through the explicit approve action by a
+     * Clinic Manager.
+     */
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) createdAt = LocalDateTime.now();

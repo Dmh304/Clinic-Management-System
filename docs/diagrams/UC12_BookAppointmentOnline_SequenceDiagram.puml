@@ -1,0 +1,254 @@
+@startuml UC12_BookAppointmentOnline_SequenceDiagram
+<style>
+document {
+  ParticipantPadding 10
+  BoxPadding 10
+}
+</style>
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 250
+
+skinparam participant {
+    BackgroundColor #DDEEFF
+    BorderColor     #336699
+    FontStyle       bold
+}
+skinparam actor {
+    BackgroundColor #FFFACD
+    BorderColor     #CC9900
+}
+skinparam note {
+    BackgroundColor #FFFFF0
+    BorderColor     #AAAAAA
+}
+skinparam ArrowColor #336699
+skinparam LifeLineBorderColor #336699
+
+title UC-12: Book Appointment Online\n(Detailed Sequence Diagram — consistent with UC12_BookAppointmentOnline_ClassDiagram)
+
+actor "Patient" as Actor
+participant "<<Controller>>\nAppointmentController"     as AC
+participant "<<Service>>\nAppointmentService"           as AS
+participant "<<ServiceImpl>>\nAppointmentServiceImpl"   as ASImpl
+participant "<<Repository>>\nPatientRepository"         as PRepo
+participant "<<Repository>>\nUserRepository"            as URepo
+participant "<<Repository>>\nDoctorRepository"          as DRepo
+participant "<<Repository>>\nClinicServiceRepository"   as CRepo
+participant "<<Repository>>\nAppointmentRepository"     as ARepo
+participant "<<Service>>\nEmailService"                 as Mail
+participant "<<Service>>\nNotificationService"          as Notif
+
+note over Actor
+  PRE-1: Patient is logged in (valid JWT).
+  PRE-2: Patient has an email address.
+end note
+
+== NF 2-5 — Select a doctor & view available slots ==
+Actor -> AC : getAvailableSlots(doctorId: Long, date: LocalDate)
+activate AC
+AC -> AS : getAvailableSlots(doctorId: Long, date: LocalDate)
+activate AS
+AS -> ASImpl : getAvailableSlots(doctorId: Long, date: LocalDate)
+activate ASImpl
+
+ASImpl -> DRepo : existsById(doctorId: Long)
+activate DRepo
+DRepo --> ASImpl : boolean
+deactivate DRepo
+
+alt [date.dayOfWeek == SUNDAY]
+    note right of ASImpl
+      The clinic is closed on Sunday
+      -> return an empty list (E1).
+    end note
+    ASImpl --> AS : List.of()
+else [working day]
+    ASImpl -> ARepo : findBookedTimesByDoctorAndDate(doctorId: Long, start: LocalDateTime, end: LocalDateTime)
+    activate ARepo
+    ARepo --> ASImpl : List<LocalDateTime>
+    deactivate ARepo
+
+    ASImpl -> ASImpl : addSlots(out, MORNING_SLOTS, "MORNING", date, bookedTimes, cutoff)
+    activate ASImpl
+    deactivate ASImpl
+    ASImpl -> ASImpl : addSlots(out, AFTERNOON_SLOTS, "AFTERNOON", date, bookedTimes, cutoff)
+    activate ASImpl
+    deactivate ASImpl
+
+    note right of ASImpl
+      cutoff = now + BOOKING_LEAD_TIME_MINUTES (120') — BR-04.
+      A slot is available when it is not already booked
+      AND it is not earlier than the cutoff.
+    end note
+    ASImpl --> AS : List<SlotAvailabilityResponse>
+end
+deactivate ASImpl
+AS --> AC : List<SlotAvailabilityResponse>
+deactivate AS
+AC --> Actor : ResponseEntity<ApiResponse<List<SlotAvailabilityResponse>>>
+deactivate AC
+
+== NF 7-11 — Fill in the form & confirm the booking ==
+Actor -> AC : bookOnlineAppointment(request: BookAppointmentRequest, userDetails: UserDetails)
+activate AC
+AC -> AS : bookOnlineAppointment(request: BookAppointmentRequest, patientEmail: String)
+activate AS
+AS -> ASImpl : bookOnlineAppointment(request: BookAppointmentRequest, patientEmail: String)
+activate ASImpl
+
+ASImpl -> PRepo : findByUser_Email(email: String)
+activate PRepo
+PRepo --> ASImpl : Optional<Patient>
+deactivate PRepo
+
+break [selfPatient does not exist]
+    ASImpl --> AS : ResourceNotFoundException("Patient profile not found")
+end
+
+ASImpl -> URepo : findByEmail(email: String)
+activate URepo
+URepo --> ASImpl : Optional<User>
+deactivate URepo
+
+ASImpl -> DRepo : findById(request.doctorId: Long)
+activate DRepo
+DRepo --> ASImpl : Optional<Doctor>
+deactivate DRepo
+
+break [doctor does not exist]
+    ASImpl --> AS : ResourceNotFoundException("Doctor not found")
+end
+
+== Business rule validation ==
+break [appointmentTime < now + 120 minutes]
+    note right of ASImpl
+      BR-04 (Advance Booking) — E2:
+      "Appointments must be booked at least 120 minutes in advance"
+    end note
+    ASImpl --> AS : IllegalArgumentException
+end
+
+ASImpl -> ARepo : existsByDoctor_IdAndAppointmentTimeAndStatusNot(doctorId: Long, time: LocalDateTime, status: CANCELLED)
+activate ARepo
+ARepo --> ASImpl : boolean slotTaken
+deactivate ARepo
+
+break [slotTaken == true]
+    note right of ASImpl
+      Blocks double-booking the same time slot
+      for one doctor (any status except CANCELLED).
+    end note
+    ASImpl --> AS : IllegalStateException("This slot has just been taken")
+end
+
+ASImpl -> ASImpl : validateDoctorCapacity(doctorId: Long, date: LocalDate)
+activate ASImpl
+ASImpl -> ARepo : countByDoctorIdAndAppointmentDateAndStatusIn(doctorId, start, end, [CONFIRMED, WAITING, IN_PROGRESS])
+activate ARepo
+ARepo --> ASImpl : long count
+deactivate ARepo
+break [count >= 30]
+    note right of ASImpl
+      BR-03 (Max 30 Appointments/Doctor/Day)
+    end note
+    ASImpl --> AS : IllegalStateException("Doctor already has 30 appointments today")
+end
+deactivate ASImpl
+
+opt [request.serviceId != null]
+    ASImpl -> CRepo : findById(serviceId: Long)
+    activate CRepo
+    CRepo --> ASImpl : Optional<ClinicService>
+    deactivate CRepo
+end
+
+== Resolve the patient being examined (UC-12 ALT — booking for a family member) ==
+ASImpl -> ASImpl : resolveBookingPatient(request: BookAppointmentRequest, selfPatient: Patient)
+activate ASImpl
+alt [request.bookingForOther == true]
+    break [patientName / patientPhone / patientDob missing]
+        ASImpl --> AS : IllegalArgumentException("Full name, phone number and date of birth are required")
+    end
+    create participant "relative:Patient" as RPAT
+    ASImpl -> RPAT : <<create>> Patient.builder().patientCode(nextPatientCode())...build()
+    ASImpl -> PRepo : save(relative: Patient)
+    activate PRepo
+    PRepo --> ASImpl : Patient
+    deactivate PRepo
+else [booking for self]
+    note right of ASImpl
+      Only fills in the fields that are still empty
+      (gender / dateOfBirth / address / phone);
+      existing data is NEVER overwritten.
+    end note
+    opt [at least one empty field was filled in]
+        ASImpl -> PRepo : save(selfPatient: Patient)
+        activate PRepo
+        PRepo --> ASImpl : Patient
+        deactivate PRepo
+    end
+end
+ASImpl --> ASImpl : targetPatient : Patient
+deactivate ASImpl
+
+== POST-1 — Create the PENDING appointment ==
+create participant "appointment:Appointment" as APT
+ASImpl -> APT : <<create>> Appointment.builder().status(PENDING).type("ONLINE").reminderSent(false)...build()
+
+ASImpl -> ARepo : save(appointment: Appointment)
+activate ARepo
+note right of ARepo
+  @PrePersist applies the defaults:
+  status = PENDING, reminderSent = false, createdAt = now.
+  bookedBy = id of the booking account
+  (differs from patient when booking for someone else).
+end note
+ARepo --> ASImpl : saved : Appointment
+deactivate ARepo
+
+== POST-2 & POST-3 — Notifications (never roll back the booking) ==
+group try/catch [an SMTP failure must not undo the saved appointment]
+    ASImpl -> Mail : sendAppointmentConfirmation(toEmail, patientName, doctorName, appointmentTime)
+    activate Mail
+    Mail --> ASImpl : void
+    deactivate Mail
+end
+
+group try/catch [a notification failure must not undo the saved appointment]
+    ASImpl -> Notif : createForReceptionists(message: String, relatedAppointmentId: Long)
+    activate Notif
+    Notif --> ASImpl : void
+    deactivate Notif
+end
+
+note right of ASImpl
+  AS-IS NOTE: both calls above are SYNCHRONOUS messages —
+  EmailServiceImpl is NOT annotated @Async, so the HTTP request
+  is blocked while SMTP runs. This differs from
+  InvoiceMailDispatcher (UC-24), which runs @Async("mailExecutor").
+  -> If it is changed to @Async, the arrows must become ->> (async).
+end note
+
+ASImpl -> ASImpl : toResponse(saved: Appointment)
+activate ASImpl
+deactivate ASImpl
+
+ASImpl --> AS : AppointmentResponse
+deactivate ASImpl
+AS --> AC : AppointmentResponse
+deactivate AS
+AC --> Actor : ResponseEntity<ApiResponse<AppointmentResponse>>
+deactivate AC
+
+note over Actor
+  POST-1: the appointments table holds a record with status = PENDING
+  and the selected doctor assigned.
+  POST-2: the Patient receives a confirmation email.
+  POST-3: the Receptionist receives an in-app notification about the
+  new PENDING appointment awaiting approval.
+  NF 11: the FE redirects the Patient to the "My Appointments" screen.
+end note
+
+@enduml

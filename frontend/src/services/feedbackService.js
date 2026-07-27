@@ -1,13 +1,39 @@
-// UC-48: Bệnh nhân gửi và xem đánh giá sau buổi khám.
+/**
+ * @author  ThangNB - HE201024
+ * @created 2026-07-19
+ * @updated 2026-07-20
+ *
+ * API client for patient feedback (UC-48 Submit Feedback).
+ * Every endpoint is scoped to the signed-in patient server-side, so no
+ * patient id is ever sent from here.
+ */
 import axiosClient from '../api/axiosClient'
 
 export const feedbackService = {
-  // Gửi đánh giá: { appointmentId, rating, content, isAnonymous } HOẶC
-  // { careSessionId, rating, content, isAnonymous } cho buổi dịch vụ điều dưỡng
+  /**
+   * Submits feedback for a completed visit. Provide exactly one of
+   * appointmentId (doctor visit) or careSessionId (nurse-run service session).
+   * @param {{appointmentId?:number, careSessionId?:number, rating:number, content?:string, isAnonymous?:boolean}} data
+   * @returns {Promise} the stored feedback (status PENDING)
+   *
+   * Validate: rating is required and must be 1..5, checked in the form and
+   * again by the backend (UC-48 E1). BR-21 (one feedback per visit) is
+   * enforced server-side and surfaces here as an error response.
+   */
   submit: (data) => axiosClient.post('/v1/feedbacks', data),
-  // Danh sách đánh giá đã gửi của bệnh nhân
+
+  /**
+   * Lists the signed-in patient's own submitted feedback.
+   * @returns {Promise} that patient's feedback only
+   */
   getMy: () => axiosClient.get('/v1/feedbacks/my'),
-  // Người tham gia buổi khám (bác sĩ, lễ tân, KTV) để hiển thị khi đánh giá
+
+  /**
+   * Loads the staff who took part in a visit (doctor, receptionist, lab
+   * technician) so the form can offer a rating per person.
+   * @param {number} appointmentId the visit being rated
+   * @returns {Promise} visit summary plus participant list
+   */
   getParticipants: (appointmentId) =>
     axiosClient.get(`/v1/feedbacks/appointment/${appointmentId}/participants`),
 }

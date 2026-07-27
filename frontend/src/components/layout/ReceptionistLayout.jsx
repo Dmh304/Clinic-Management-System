@@ -77,6 +77,8 @@ const NAV_ITEMS = [
       </svg>
     ),
   },
+  // "Đối soát & Hoàn tiền" nay là một tab trong "Hóa đơn & Thu phí". Route
+  // /receptionist/reconciliation vẫn giữ để link cũ không gãy.
   {
     label: 'Quản lý Đơn Kính',
     to: '/receptionist/eyeglass-orders',
