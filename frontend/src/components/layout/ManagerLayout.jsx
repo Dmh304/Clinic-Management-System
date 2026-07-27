@@ -1,8 +1,9 @@
 import { useDispatch, useSelector } from 'react-redux'
-import { NavLink, Outlet } from 'react-router-dom'
-import { FiGrid, FiDollarSign, FiBarChart2, FiActivity, FiStar, FiCreditCard, FiCalendar, FiBox, FiUsers, FiTag, FiUserPlus, FiRefreshCw, FiEye, FiLogOut, FiFileText } from 'react-icons/fi'
+import { NavLink, Outlet, Link } from 'react-router-dom'
+import { FiGrid, FiDollarSign, FiBarChart2, FiActivity, FiStar, FiCreditCard, FiCalendar, FiBox, FiUsers, FiTag, FiUserPlus, FiRefreshCw, FiEye, FiLogOut, FiFileText, FiHome } from 'react-icons/fi'
 import { logout } from '../../store/slices/authSlice'
 import NotificationBell from './NotificationBell'
+import Header from './Header'
 
 const ACCENT = '#7c3aed'
 const SIDEBAR_BG = '#1c1b1f'
@@ -73,6 +74,18 @@ export default function ManagerLayout() {
 
         {/* Bottom */}
         <div style={{ padding: '16px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+          <Link
+            to="/"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '7px 6px', borderRadius: 8, marginBottom: 6,
+              fontSize: 12, color: 'rgba(255,255,255,0.6)', textDecoration: 'none',
+            }}
+          >
+            <FiHome size={14} />
+            Về trang chủ
+          </Link>
+
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 6px', marginBottom: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0, background: 'rgba(167,139,250,0.3)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>
@@ -93,7 +106,9 @@ export default function ManagerLayout() {
       </aside>
 
       {/* ── Main content ── */}
-      <main style={{ flex: 1, overflow: 'auto' }}>
+      {/* scrollbarGutter: 'stable' để header (canh giữa theo main) không bị lệch vài px giữa các trang có/không có thanh cuộn dọc */}
+      <main style={{ flex: 1, overflow: 'auto', scrollbarGutter: 'stable' }}>
+        <Header />
         <Outlet />
       </main>
     </div>

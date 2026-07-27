@@ -33,10 +33,11 @@ import {
   Descriptions, Popconfirm, Row, Col, Statistic, Spin, Tooltip, AutoComplete,
 } from 'antd'
 import {
-  PlusOutlined, DeleteOutlined, ReloadOutlined,
-  CheckCircleOutlined, SearchOutlined, FileTextOutlined,
-  DollarOutlined, PrinterOutlined, MailOutlined, QrcodeOutlined,
-} from '@ant-design/icons'
+  FiPlus as PlusOutlined, FiTrash2 as DeleteOutlined, FiRefreshCw as ReloadOutlined,
+  FiCheckCircle as CheckCircleOutlined, FiSearch as SearchOutlined, FiFileText as FileTextOutlined,
+  FiDollarSign as DollarOutlined, FiPrinter as PrinterOutlined, FiMail as MailOutlined,
+} from 'react-icons/fi'
+import { BsQrCode as QrcodeOutlined } from 'react-icons/bs'
 import {
   fetchAllInvoices, createInvoice, issueInvoice, cancelInvoice,
 } from '../../store/slices/invoiceSlice'
@@ -907,8 +908,8 @@ export default function InvoicePage() {
 
   return (
     <div style={{ padding: 24 }}>
-      <Title level={4} style={{ marginBottom: 4 }}>Thu phí & Hóa đơn</Title>
-      <Text type="secondary" style={{ display: 'block', marginBottom: 20 }}>
+      <Title level={4} style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Thu phí & Hóa đơn</Title>
+      <Text style={{ display: 'block', marginTop: 4, marginBottom: 20, fontSize: 13, color: '#64748b' }}>
         Quản lý thu phí khám bệnh và phát hành hóa đơn điện tử
       </Text>
 

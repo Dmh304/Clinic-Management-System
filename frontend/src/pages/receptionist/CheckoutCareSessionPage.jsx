@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { FiCheckCircle, FiCheck } from 'react-icons/fi'
 import { careSessionService } from '../../services/careSessionService'
 
 export default function CheckoutCareSessionPage() {
@@ -81,12 +82,12 @@ export default function CheckoutCareSessionPage() {
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#6b7280' }}>Đang tải...</div>
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f8fafc', padding: '32px 16px' }}>
+    <div style={{ padding: 24 }}>
       <div style={{ maxWidth: 1280, margin: '0 auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 12, marginBottom: 20 }}>
           <div>
-            <h1 style={{ fontSize: 24, fontWeight: 700, color: '#1e293b', margin: 0 }}>Check-out dịch vụ</h1>
-            <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: 14 }}>Xác nhận check-out các phiên chăm sóc đã hoàn thành</p>
+            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Check-out dịch vụ</h2>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Xác nhận check-out các phiên chăm sóc đã hoàn thành</p>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <input type="text" placeholder="Tìm bệnh nhân..." value={search} onChange={e => setSearch(e.target.value)}
@@ -111,7 +112,7 @@ export default function CheckoutCareSessionPage() {
 
             {filtered.length === 0 ? (
               <div style={{ padding: 48, textAlign: 'center' }}>
-                <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
+                <FiCheckCircle size={40} color="#16a34a" style={{ marginBottom: 12 }} />
                 <p style={{ color: '#64748b', margin: 0 }}>Không có phiên nào chờ check-out</p>
               </div>
             ) : (
@@ -221,8 +222,9 @@ export default function CheckoutCareSessionPage() {
           position: 'fixed', bottom: 24, right: 24, background: '#16a34a', color: '#fff',
           padding: '12px 20px', borderRadius: 10, fontSize: 14, fontWeight: 600,
           boxShadow: '0 8px 20px rgba(0,0,0,0.15)',
+          display: 'flex', alignItems: 'center', gap: 8,
         }}>
-          ✓ {toast}
+          <FiCheck /> {toast}
         </div>
       )}
     </div>

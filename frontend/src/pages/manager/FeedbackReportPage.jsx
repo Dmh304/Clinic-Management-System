@@ -62,13 +62,13 @@ export default function FeedbackReportPage() {
   const btn = (bg, color, border) => ({ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 18px', borderRadius: 8, border: border || 'none', background: bg, color, cursor: 'pointer', fontWeight: 600, fontSize: 14 })
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f8f9ff', color: C.ink }}>
+    <div style={{ background: '#f8f9ff', color: C.ink }}>
       <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 24 }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 16 }}>
           <div>
-            <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em' }}>Báo cáo đánh giá</div>
-            <div style={{ marginTop: 4, color: C.muted }}>Mức độ hài lòng của bệnh nhân theo kỳ & theo bác sĩ</div>
+            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Báo cáo đánh giá</h2>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Mức độ hài lòng của bệnh nhân theo kỳ & theo bác sĩ</p>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
             <label style={{ fontSize: 12, color: C.muted }}>Từ ngày<br /><input type="date" value={from} onChange={(e) => setFrom(e.target.value)} style={{ padding: '8px 10px', borderRadius: 8, border: `1px solid ${C.border}` }} /></label>

@@ -95,13 +95,13 @@ export default function PayrollPage() {
   const btn = (bg, color, border) => ({ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 18px', borderRadius: 8, border: border || 'none', background: bg, color, cursor: 'pointer', fontWeight: 600, fontSize: 14 })
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f8f9ff', color: C.ink }}>
+    <div style={{ background: '#f8f9ff', color: C.ink }}>
       <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 24 }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 16 }}>
           <div>
-            <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em' }}>Phê duyệt bảng lương</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4, color: C.muted }}>
+            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Phê duyệt bảng lương</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4, fontSize: 13, color: C.muted }}>
               <span>Kỳ lương tháng {period ? `${String(period.month).padStart(2, '0')}/${period.year}` : `${String(month).padStart(2, '0')}/${year}`}</span>
               {period && <>
                 <span style={{ width: 5, height: 5, borderRadius: 999, background: '#cbd5e1' }} />

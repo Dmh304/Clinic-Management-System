@@ -238,9 +238,9 @@ export default function ReceptionistOrderPage() {
     });
 
     return (
-        <div style={{ padding: '24px' }}>
+        <div style={{ padding: 24 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-                <Title level={2} style={{ margin: 0 }}>Quản lý Đơn Đặt Kính</Title>
+                <Title level={2} style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Quản lý Đơn Đặt Kính</Title>
                 <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
                     Tạo Đơn Mới (Bệnh nhân tại quầy)
                 </Button>

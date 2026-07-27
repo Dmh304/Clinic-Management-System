@@ -75,7 +75,7 @@ export default function ManagerDashboard() {
   const pending = data?.pendingPrescriptionList || []
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f5f6ff' }}>
+    <div style={{ background: '#f5f6ff' }}>
       {/* Top bar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 28px', background: '#fff', borderBottom: '1px solid #eef0f6' }}>
         <div style={{ flex: 1, maxWidth: 420, display: 'flex', alignItems: 'center', gap: 8, background: '#f1f5f9', borderRadius: 999, padding: '9px 16px' }}>
@@ -92,8 +92,8 @@ export default function ManagerDashboard() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
           <div>
             <div style={{ color: '#4f46e5', fontSize: 12, letterSpacing: 2, fontWeight: 600 }}>PHÒNG ĐIỀU HÀNH · TRỰC TIẾP</div>
-            <div style={{ fontSize: 34, fontWeight: 800, fontFamily: 'Georgia, serif', color: '#0f172a', marginTop: 6 }}>Tổng quan vận hành</div>
-            <div style={{ color: '#64748b', marginTop: 4 }}>Nhịp hoạt động tại phòng khám trong hôm nay.</div>
+            <h2 style={{ margin: '6px 0 0', fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Tổng quan vận hành</h2>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Nhịp hoạt động tại phòng khám trong hôm nay.</p>
           </div>
           <button onClick={load} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 999, padding: '8px 16px', cursor: 'pointer', color: '#475569' }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }} />

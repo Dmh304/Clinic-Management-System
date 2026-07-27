@@ -194,7 +194,7 @@ export default function ManageBlogPage() {
   const pageItems = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE)
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f5f6ff', padding: '28px 32px' }}>
+    <div style={{ padding: 24 }}>
       {/* Breadcrumb + header */}
       <div style={{ fontSize: 13, color: '#94a3b8', marginBottom: 8 }}>
         CMS <span style={{ margin: '0 6px' }}>›</span>
@@ -202,8 +202,8 @@ export default function ManageBlogPage() {
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: '#0f172a', margin: 0 }}>Quản lý bài viết nhãn khoa</h1>
-          <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: 14 }}>Cập nhật tin tức và kiến thức chăm sóc mắt cho cộng đồng.</p>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Quản lý bài viết nhãn khoa</h2>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Cập nhật tin tức và kiến thức chăm sóc mắt cho cộng đồng.</p>
         </div>
         <button onClick={openCreate} style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#2563eb', color: '#fff', border: 'none', padding: '11px 20px', borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
           <FiPlus size={17} /> Thêm bài viết mới

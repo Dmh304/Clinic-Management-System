@@ -91,12 +91,12 @@ export default function PatientStatisticsPage() {
   )
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f8f9ff', color: C.ink }}>
+    <div style={{ background: '#f8f9ff', color: C.ink }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16, padding: '20px 32px' }}>
         <div>
-          <div style={{ fontSize: 32, fontWeight: 800, letterSpacing: '-0.02em' }}>Thống kê bệnh nhân</div>
-          <div style={{ color: C.muted, fontSize: 14 }}>Phân tích dữ liệu bệnh nhân thực tế theo thời gian</div>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Thống kê bệnh nhân</h2>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>Phân tích dữ liệu bệnh nhân thực tế theo thời gian</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#eff4ff', border: `1px solid ${C.border}`, borderRadius: 12, padding: '8px 16px' }}>
