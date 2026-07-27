@@ -4,6 +4,7 @@ import com.ecms.entity.Appointment;
 import com.ecms.entity.AppointmentStatus;
 import com.ecms.entity.Doctor;
 import com.ecms.entity.Feedback;
+import com.ecms.entity.FeedbackParticipantRating;
 import com.ecms.entity.Invoice;
 import com.ecms.entity.LabOrderStatus;
 import com.ecms.entity.MedicalRecord;
@@ -12,7 +13,9 @@ import com.ecms.entity.Patient;
 import com.ecms.entity.Prescription;
 import com.ecms.entity.PrescriptionStatus;
 import com.ecms.repository.AppointmentRepository;
+import com.ecms.repository.CareSessionRepository;
 import com.ecms.repository.DoctorRepository;
+import com.ecms.repository.FeedbackParticipantRatingRepository;
 import com.ecms.repository.FeedbackRepository;
 import com.ecms.repository.InvoiceRepository;
 import com.ecms.repository.LabOrderRepository;
@@ -70,6 +73,8 @@ public class ReportServiceImpl implements ReportService {
     private final PrescriptionRepository prescriptionRepository;
     private final LabOrderRepository labOrderRepository;
     private final FeedbackRepository feedbackRepository;
+    private final FeedbackParticipantRatingRepository participantRatingRepository;
+    private final CareSessionRepository careSessionRepository;
     private final DoctorRepository doctorRepository;
 
     // ─────────────────────────────── UC-49 ───────────────────────────────
@@ -451,7 +456,15 @@ public class ReportServiceImpl implements ReportService {
 
     /**
      * Aggregated patient feedback for a period (UC-53 normal flow step 4):
-     * average rating per doctor, total responses and response rate.
+     * average rating per doctor and per nurse, per-participant ratings broken
+     * down by role and by person, total responses and response rate.
+     *
+     * Two different things are averaged here and they are deliberately kept
+     * apart. {@code byDoctor} / {@code byNurse} average the visit's overall
+     * star rating, attributed to whoever led the visit. {@code byRole} /
+     * {@code byStaff} average the per-participant stars the patient gave to
+     * each individual (UC-48) — the only place a receptionist or lab technician
+     * is ever scored. Merging them would count one submission twice.
      *
      * @param from period start, inclusive
      * @param to   period end, inclusive
@@ -468,42 +481,114 @@ public class ReportServiceImpl implements ReportService {
         long totalResponses = feedbacks.size();
         long sumRating = 0;
         Map<String, long[]> perDoctorAgg = new LinkedHashMap<>(); // name -> [sum, count]
+        Map<String, long[]> perNurseAgg = new LinkedHashMap<>();
         for (Feedback f : feedbacks) {
             int r = f.getRating() != null ? f.getRating() : 0;
             sumRating += r;
-            String doctorName = f.getDoctor() != null ? f.getDoctor().getFullName() : "—";
-            long[] agg = perDoctorAgg.computeIfAbsent(doctorName, k -> new long[2]);
-            agg[0] += r;
-            agg[1] += 1;
+            // A care-session feedback has no doctor and an appointment feedback has
+            // no nurse, so each submission lands in exactly one of the two tables.
+            // Feedback with neither (legacy rows) is still counted in the totals.
+            if (f.getDoctor() != null) {
+                accumulate(perDoctorAgg, f.getDoctor().getFullName(), r);
+            } else if (f.getNurse() != null) {
+                accumulate(perNurseAgg, f.getNurse().getFullName(), r);
+            }
         }
 
         double averageRating = totalResponses > 0 ? (double) sumRating / totalResponses : 0.0;
 
         List<Map<String, Object>> perDoctor = new ArrayList<>();
         for (Map.Entry<String, long[]> e : perDoctorAgg.entrySet()) {
-            long[] agg = e.getValue();
-            Map<String, Object> row = new LinkedHashMap<>();
-            row.put("doctorName", e.getKey());
-            row.put("responses", agg[1]);
-            row.put("averageRating", agg[1] > 0 ? (double) agg[0] / agg[1] : 0.0);
-            perDoctor.add(row);
+            perDoctor.add(ratingRow("doctorName", e.getKey(), e.getValue()));
+        }
+        List<Map<String, Object>> perNurse = new ArrayList<>();
+        for (Map.Entry<String, long[]> e : perNurseAgg.entrySet()) {
+            perNurse.add(ratingRow("nurseName", e.getKey(), e.getValue()));
         }
 
-        // Response rate = feedback count / completed appointments in the period.
-        // BR-21 caps feedback at one per appointment, which is what keeps this
-        // ratio bounded at 100% and meaningful as a percentage.
-        long completed = appointmentRepository.countByDateAndStatus(start, end, AppointmentStatus.COMPLETED);
-        double responseRate = completed > 0 ? (double) totalResponses / completed : 0.0;
+        // Per-participant stars (UC-48): the ratings patients gave to each person
+        // who took part — doctor, nurse, receptionist, lab technician. Without
+        // this pass the scores are written to the database and never read back.
+        Map<String, long[]> perRoleAgg = new LinkedHashMap<>();
+        Map<String, long[]> perStaffAgg = new LinkedHashMap<>(); // "ROLE|name" -> [sum, count]
+        for (FeedbackParticipantRating pr : participantRatingRepository
+                .findByFeedbackCreatedAtBetween(start, end)) {
+            int r = pr.getRating() != null ? pr.getRating() : 0;
+            String role = pr.getParticipantRole() != null ? pr.getParticipantRole() : "OTHER";
+            String name = pr.getParticipantName() != null ? pr.getParticipantName() : "—";
+            accumulate(perRoleAgg, role, r);
+            accumulate(perStaffAgg, role + "|" + name, r);
+        }
+
+        List<Map<String, Object>> byRole = new ArrayList<>();
+        for (Map.Entry<String, long[]> e : perRoleAgg.entrySet()) {
+            byRole.add(ratingRow("role", e.getKey(), e.getValue()));
+        }
+        List<Map<String, Object>> byStaff = new ArrayList<>();
+        for (Map.Entry<String, long[]> e : perStaffAgg.entrySet()) {
+            String[] parts = e.getKey().split("\\|", 2);
+            Map<String, Object> row = ratingRow("staffName", parts.length > 1 ? parts[1] : "—", e.getValue());
+            row.put("role", parts[0]);
+            byStaff.add(row);
+        }
+        // Weakest scores first: the Manager is looking for who needs support, and
+        // an unsorted list buries that behind whoever happened to be rated first.
+        byStaff.sort((a, b) -> Double.compare(
+                (Double) a.get("averageRating"), (Double) b.get("averageRating")));
+
+        // Response rate = feedback count / visits that could be rated in the period.
+        // Care sessions are in the denominator too, otherwise nurse feedback would
+        // be counted on top of an appointments-only base and push the rate past 100%.
+        // BR-21 caps feedback at one per visit, which keeps the ratio bounded.
+        long completedAppointments = appointmentRepository.countByDateAndStatus(
+                start, end, AppointmentStatus.COMPLETED);
+        long completedCareSessions = careSessionRepository.countCompletedBetween(start, end);
+        long rateable = completedAppointments + completedCareSessions;
+        double responseRate = rateable > 0 ? (double) totalResponses / rateable : 0.0;
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("from", from);
         result.put("to", to);
         result.put("totalResponses", totalResponses);
         result.put("averageRating", averageRating);
-        result.put("completedAppointments", completed);
+        result.put("completedAppointments", completedAppointments);
+        result.put("completedCareSessions", completedCareSessions);
+        result.put("rateableVisits", rateable);
         result.put("responseRate", responseRate);
         result.put("byDoctor", perDoctor);
+        result.put("byNurse", perNurse);
+        result.put("byRole", byRole);
+        result.put("byStaff", byStaff);
         return result;
+    }
+
+    /**
+     * Adds one rating into a {@code key -> [sum, count]} accumulator.
+     *
+     * @param agg    the accumulator, mutated in place
+     * @param key    grouping key
+     * @param rating star rating to add
+     */
+    private static void accumulate(Map<String, long[]> agg, String key, int rating) {
+        long[] a = agg.computeIfAbsent(key, k -> new long[2]);
+        a[0] += rating;
+        a[1] += 1;
+    }
+
+    /**
+     * Builds one aggregated rating row.
+     *
+     * @param nameKey field name the group label is published under
+     * @param name    the group label
+     * @param agg     {@code [sum, count]} for the group
+     * @return row with the label, the response count and the average
+     */
+    private static Map<String, Object> ratingRow(String nameKey, String name, long[] agg) {
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put(nameKey, name);
+        row.put("responses", agg[1]);
+        row.put("averageRating", agg[1] > 0 ? (double) agg[0] / agg[1] : 0.0);
+        return row;
     }
 
     /**
@@ -612,6 +697,24 @@ public class ReportServiceImpl implements ReportService {
         rows.add(new String[] { "Bac si", "So phan hoi", "Diem TB" });
         for (Map<String, Object> row : (List<Map<String, Object>>) r.get("byDoctor")) {
             rows.add(new String[] { String.valueOf(row.get("doctorName")),
+                    String.valueOf(row.get("responses")), String.valueOf(row.get("averageRating")) });
+        }
+        rows.add(new String[] {});
+        rows.add(new String[] { "Dieu duong", "So phan hoi", "Diem TB" });
+        for (Map<String, Object> row : (List<Map<String, Object>>) r.get("byNurse")) {
+            rows.add(new String[] { String.valueOf(row.get("nurseName")),
+                    String.valueOf(row.get("responses")), String.valueOf(row.get("averageRating")) });
+        }
+        rows.add(new String[] {});
+        rows.add(new String[] { "Theo vai tro", "So luot cham", "Diem TB" });
+        for (Map<String, Object> row : (List<Map<String, Object>>) r.get("byRole")) {
+            rows.add(new String[] { String.valueOf(row.get("role")),
+                    String.valueOf(row.get("responses")), String.valueOf(row.get("averageRating")) });
+        }
+        rows.add(new String[] {});
+        rows.add(new String[] { "Nhan su", "Vai tro", "So luot cham", "Diem TB" });
+        for (Map<String, Object> row : (List<Map<String, Object>>) r.get("byStaff")) {
+            rows.add(new String[] { String.valueOf(row.get("staffName")), String.valueOf(row.get("role")),
                     String.valueOf(row.get("responses")), String.valueOf(row.get("averageRating")) });
         }
         writeCsv(response, "feedback-report.csv", rows);

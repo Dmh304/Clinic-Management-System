@@ -23,6 +23,10 @@ const initials = (name) => (name || '').replace(/^(BS|ĐD|KTV)\.?\s*/i, '').spli
 
 const card = { background: '#fff', border: `1px solid ${C.border}`, borderRadius: 12, boxShadow: '0 2px 4px rgba(0,0,0,0.03)' }
 
+/** Fallback role label per staffType, used only when the line carries no role
+ *  text of its own (specialty for doctors, position for staff). */
+const STAFF_TYPE_LABEL = { DOCTOR: 'Bác sĩ', LAB_TECHNICIAN: 'Kỹ thuật viên xét nghiệm', STAFF: 'Nhân viên' }
+
 /**
  * Derives the review badge for one payroll line.
  *
@@ -236,7 +240,7 @@ export default function PayrollPage() {
                     <tr style={{ background: '#fafbff', textAlign: 'left' }}>
                       <th style={th}>Nhân viên</th>
                       <th style={{ ...th, textAlign: 'right' }}>Lương cơ bản</th>
-                      <th style={{ ...th, textAlign: 'center' }}>Hoạt động</th>
+                      <th style={{ ...th, textAlign: 'center' }} title="Bác sĩ: ca khám hoàn thành · Điều dưỡng: buổi chăm sóc đã thực hiện · KTV: xét nghiệm đã trả kết quả">Hoạt động</th>
                       <th style={{ ...th, textAlign: 'right' }}>Phụ cấp/Hiệu suất</th>
                       <th style={{ ...th, textAlign: 'right' }}>Khấu trừ</th>
                       <th style={{ ...th, textAlign: 'right', color: C.ink }}>Tổng lương</th>
@@ -255,7 +259,7 @@ export default function PayrollPage() {
                               <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#f3e8ff', color: C.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>{initials(it.staffName) || 'NV'}</div>
                               <div>
                                 <div style={{ fontWeight: 600 }}>{it.staffName}</div>
-                                <div style={{ fontSize: 12, color: C.muted }}>{it.role || (it.staffType === 'DOCTOR' ? 'Bác sĩ' : 'Nhân viên')}</div>
+                                <div style={{ fontSize: 12, color: C.muted }}>{it.role || STAFF_TYPE_LABEL[it.staffType] || 'Nhân viên'}</div>
                               </div>
                             </div>
                           </td>
@@ -286,7 +290,7 @@ export default function PayrollPage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderTop: `1px solid ${C.border}`, background: '#fafbff', flexWrap: 'wrap', gap: 12 }}>
                 <span style={{ fontWeight: 600, color: C.muted }}>Tổng cộng ({items.length} NV)</span>
                 <div style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
-                  <div style={{ textAlign: 'right' }}><div style={{ fontSize: 11, color: C.muted }}>Tổng phụ cấp</div><div style={{ color: C.success, fontWeight: 700 }}>+{vnd(totalBonus)}</div></div>
+                  <div style={{ textAlign: 'right' }}><div style={{ fontSize: 11, color: C.muted }}>Tổng thưởng hiệu suất</div><div style={{ color: C.success, fontWeight: 700 }}>+{vnd(totalBonus)}</div></div>
                   <div style={{ textAlign: 'right' }}><div style={{ fontSize: 11, color: C.muted }}>Tổng khấu trừ</div><div style={{ color: C.error, fontWeight: 700 }}>-{vnd(totalDeduct)}</div></div>
                   <div style={{ textAlign: 'right', paddingLeft: 16, borderLeft: `1px solid ${C.border}` }}><div style={{ fontSize: 11, color: C.muted, textTransform: 'uppercase' }}>Tổng quỹ lương</div><div style={{ color: C.primary, fontWeight: 800, fontSize: 18 }}>{vnd(period.totalNetPay)} đ</div></div>
                 </div>

@@ -13,8 +13,9 @@ import java.math.BigDecimal;
  * One staff member's pay line within a period (UC-54 Approve Payroll).
  *
  * Identity is stored generically as {@code staffType} + {@code staffRefId}
- * rather than a hard foreign key, so doctors (doctors table) and other staff
- * (staffs table) can share one payroll table.
+ * rather than a hard foreign key, so doctors (doctors table), lab technicians
+ * (lab_technicians table) and other staff (staffs table) can share one payroll
+ * table.
  *
  * Business rules: BR-09 / BR-17 — when the period is APPROVED every line is
  * flagged {@code locked} and becomes read-only.
@@ -36,7 +37,8 @@ public class PayrollItem {
     @JoinColumn(name = "payroll_period_id", nullable = false)
     private PayrollPeriod period;
 
-    /** DOCTOR | STAFF — selects which table {@code staffRefId} points into. */
+    /** DOCTOR | STAFF | LAB_TECHNICIAN — selects which table {@code staffRefId}
+     *  points into. */
     @Column(name = "staff_type", nullable = false, length = 20)
     private String staffType;
 

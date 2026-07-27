@@ -3,12 +3,16 @@ package com.ecms.service.impl;
 import com.ecms.dto.request.PayrollItemUpdateRequest;
 import com.ecms.entity.AppointmentStatus;
 import com.ecms.entity.Doctor;
+import com.ecms.entity.LabTechnician;
 import com.ecms.entity.PayrollItem;
 import com.ecms.entity.PayrollPeriod;
 import com.ecms.entity.Staff;
 import com.ecms.exception.ResourceNotFoundException;
 import com.ecms.repository.AppointmentRepository;
+import com.ecms.repository.CareSessionRepository;
 import com.ecms.repository.DoctorRepository;
+import com.ecms.repository.LabOrderRepository;
+import com.ecms.repository.LabTechnicianRepository;
 import com.ecms.repository.PayrollItemRepository;
 import com.ecms.repository.PayrollPeriodRepository;
 import com.ecms.repository.StaffRepository;
@@ -38,8 +42,12 @@ import java.util.Map;
  * Calculation model:
  *  - base salary comes from a per-role configured default; the Manager can
  *    override any line by hand (UC-54 normal flow step 3)
- *  - a doctor's performance bonus = COMPLETED appointments in the period ×
- *    {@code payroll.doctor.rate-per-visit}
+ *  - performance bonus = activity completed in the period × the role's rate:
+ *      · doctor         — COMPLETED appointments × {@code payroll.doctor.rate-per-visit}
+ *      · nurse          — care sessions delivered × {@code payroll.nurse.rate-per-session}
+ *      · lab technician — results returned    × {@code payroll.lab.rate-per-test}
+ *    other staff have no activity trail in the system, so their line is seeded
+ *    with the role default only
  *  - net pay = base salary + bonus − deduction
  *  - approving a period locks every line (BR-09 / BR-17) and writes to the
  *    Audit Log (UC-54 POST-4)
@@ -56,17 +64,32 @@ public class PayrollServiceImpl implements PayrollService {
     private final PayrollItemRepository itemRepository;
     private final DoctorRepository doctorRepository;
     private final StaffRepository staffRepository;
+    private final LabTechnicianRepository labTechnicianRepository;
     private final AppointmentRepository appointmentRepository;
+    private final CareSessionRepository careSessionRepository;
+    private final LabOrderRepository labOrderRepository;
     private final AuditLogService auditLogService;
 
     @Value("${payroll.doctor.rate-per-visit:50000}")
     private BigDecimal doctorRatePerVisit;
+    @Value("${payroll.nurse.rate-per-session:30000}")
+    private BigDecimal nurseRatePerSession;
+    @Value("${payroll.lab.rate-per-test:20000}")
+    private BigDecimal labRatePerTest;
 
     // Per-role default base salary; the Manager may still override each line.
     @Value("${payroll.base-salary.doctor:15000000}")
     private BigDecimal baseSalaryDoctor;
     @Value("${payroll.base-salary.staff:8000000}")
     private BigDecimal baseSalaryStaff;
+    @Value("${payroll.base-salary.lab-technician:9000000}")
+    private BigDecimal baseSalaryLabTechnician;
+
+    /** Role name on the linked user account that marks a {@link Staff} row as a
+     *  nurse. Nurses share the staffs table with receptionists and pharmacists,
+     *  and the position column is free text ("Điều dưỡng viên" in the seed data),
+     *  so the account role is the only reliable discriminator. */
+    private static final String ROLE_NURSE = "NURSE";
 
     /**
      * Generates or regenerates the DRAFT payroll for a month
@@ -138,11 +161,24 @@ public class PayrollServiceImpl implements PayrollService {
                     .build());
         }
 
-        // Non-doctor staff: no activity-linked bonus is derivable, so the line
-        // is seeded with the role default and left for manual adjustment.
+        // Non-doctor staff. Nurses have an activity trail of their own — the care
+        // sessions they delivered — so they are paid on the same performance model
+        // as doctors. For the remaining roles (reception, pharmacy, management) the
+        // system records nothing countable, so the line is seeded with the role
+        // default and left for manual adjustment.
+        BigDecimal nurseRate = nz(nurseRatePerSession);
         for (Staff s : staffRepository.findAll()) {
             if (!isActive(s.getStatus())) continue;
             BigDecimal baseStaff = nz(baseSalaryStaff);
+
+            long sessions = 0;
+            if (isNurse(s)) {
+                // CareSession.nurse points at the user account, not the staff row.
+                sessions = careSessionRepository.countCompletedByNurseBetween(
+                        s.getUser().getId(), start, end);
+            }
+            BigDecimal nurseBonus = nurseRate.multiply(BigDecimal.valueOf(sessions));
+
             items.add(PayrollItem.builder()
                     .period(period)
                     .staffType("STAFF")
@@ -150,10 +186,34 @@ public class PayrollServiceImpl implements PayrollService {
                     .staffName(s.getFullName())
                     .role(s.getPosition() != null ? s.getPosition() : s.getDepartment())
                     .baseSalary(baseStaff)
-                    .activityCount(0)
-                    .performanceBonus(BigDecimal.ZERO)
+                    .activityCount((int) sessions)
+                    .performanceBonus(nurseBonus)
                     .deduction(BigDecimal.ZERO)
-                    .netPay(baseStaff)
+                    .netPay(baseStaff.add(nurseBonus))
+                    .locked(false)
+                    .build());
+        }
+
+        // Lab technicians live in their own table rather than staffs, so they need
+        // a pass of their own — without it they would be left off payroll entirely.
+        // Bonus is driven by the results they returned inside the period.
+        BigDecimal labRate = nz(labRatePerTest);
+        for (LabTechnician t : labTechnicianRepository.findAll()) {
+            if (!isActive(t.getStatus())) continue;
+            long tests = labOrderRepository.countCompletedByTechnicianBetween(t.getId(), start, end);
+            BigDecimal baseLab = nz(baseSalaryLabTechnician);
+            BigDecimal labBonus = labRate.multiply(BigDecimal.valueOf(tests));
+            items.add(PayrollItem.builder()
+                    .period(period)
+                    .staffType("LAB_TECHNICIAN")
+                    .staffRefId(t.getId())
+                    .staffName(t.getFullName())
+                    .role(t.getSpecialization() != null ? t.getSpecialization() : "Kỹ thuật viên xét nghiệm")
+                    .baseSalary(baseLab)
+                    .activityCount((int) tests)
+                    .performanceBonus(labBonus)
+                    .deduction(BigDecimal.ZERO)
+                    .netPay(baseLab.add(labBonus))
                     .locked(false)
                     .build());
         }
@@ -303,6 +363,23 @@ public class PayrollServiceImpl implements PayrollService {
      */
     private boolean isActive(String status) {
         return status == null || "ACTIVE".equalsIgnoreCase(status);
+    }
+
+    /**
+     * Whether a staff row belongs to a nurse, and therefore earns the care-session
+     * performance bonus.
+     *
+     * Decided from the linked account's role, not from {@code position}: that
+     * column is free text and holds Vietnamese job titles in the seed data, so
+     * matching it would silently pay nurses nothing.
+     *
+     * @param s the staff row, whose user account may be null on legacy data
+     * @return true when the staff member is a nurse
+     */
+    private boolean isNurse(Staff s) {
+        return s.getUser() != null
+                && s.getUser().getRole() != null
+                && ROLE_NURSE.equalsIgnoreCase(s.getUser().getRole().getName());
     }
 
     /**
