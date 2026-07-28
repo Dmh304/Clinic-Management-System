@@ -12,11 +12,21 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * UC-13: API thông báo (kiểu Facebook) cho người dùng đã đăng nhập.
+ * @author      ThangNB - HE201024
+ * @contributor Lê Thị Bích Ngân - HE204710
+ * @created     2026-07-11
+ * @updated     2026-07-11
  *
- * Thông báo của 1 người gồm: thông báo nhắm riêng họ (target_user_id) + thông báo
- * broadcast theo vai trò (target_role). Cả user id lẫn vai trò đều được suy ra từ
- * tài khoản đang đăng nhập, không tin tham số client (tránh đọc thông báo người khác).
+ * In-app notification API for authenticated users
+ * (UC-10 Receive System Notification).
+ * Base URL: /api/v1/notifications
+ *
+ * A user's feed is the union of notifications addressed to them personally
+ * ({@code target_user_id}) and role broadcasts ({@code target_role}).
+ *
+ * Validate: both the user id and the role are derived from the authenticated
+ * token, never from a client parameter — otherwise a caller could pass someone
+ * else's id and read their notifications.
  */
 @RestController
 @RequestMapping("/api/v1/notifications")
@@ -26,7 +36,13 @@ public class NotificationController {
     private final NotificationService notificationService;
     private final UserRepository userRepository;
 
-    /** Danh sách thông báo của người dùng (mới nhất trước). */
+    /**
+     * Returns the caller's notification feed, newest first
+     * (UC-10 normal flow step 6).
+     *
+     * @param authentication the authenticated principal
+     * @return personal notifications plus role broadcasts
+     */
     @GetMapping
     public ResponseEntity<ApiResponse<List<NotificationResponse>>> getNotifications(
             Authentication authentication) {
@@ -34,7 +50,12 @@ public class NotificationController {
                 notificationService.getForRecipient(resolveUserId(authentication), resolveRole(authentication))));
     }
 
-    /** Số lượng thông báo chưa đọc của người dùng. */
+    /**
+     * Unread count driving the notification bell badge (UC-10 POST-2).
+     *
+     * @param authentication the authenticated principal
+     * @return number of unread notifications for this user
+     */
     @GetMapping("/unread-count")
     public ResponseEntity<ApiResponse<Long>> getUnreadCount(Authentication authentication) {
         return ResponseEntity.ok(ApiResponse.success(
@@ -42,20 +63,38 @@ public class NotificationController {
                         resolveRole(authentication))));
     }
 
-    /** Đánh dấu 1 thông báo là đã đọc. */
+    /**
+     * Marks one notification read (UC-10 normal flow step 8).
+     *
+     * @param id notification primary key
+     * @return the updated notification
+     */
     @PatchMapping("/{id}/read")
     public ResponseEntity<ApiResponse<NotificationResponse>> markAsRead(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success(notificationService.markAsRead(id)));
     }
 
-    /** Đánh dấu đã đọc toàn bộ thông báo của người dùng. */
+    /**
+     * Marks every notification of the caller read and resets the badge to 0
+     * (UC-10 ALT-1 "Mark all as read").
+     *
+     * @param authentication the authenticated principal
+     */
     @PatchMapping("/mark-all-read")
     public ResponseEntity<ApiResponse<Void>> markAllAsRead(Authentication authentication) {
         notificationService.markAllAsReadForRecipient(resolveUserId(authentication), resolveRole(authentication));
         return ResponseEntity.ok(ApiResponse.success("Đã đánh dấu tất cả là đã đọc", null));
     }
 
-    // id user hiện tại (theo email trong token)
+    /**
+     * Resolves the current user id from the email carried in the token.
+     *
+     * @param authentication the authenticated principal, may be null
+     * @return the caller's user id, or null when unauthenticated
+     *
+     * Validate: taking the identity from the token rather than the request is
+     * what stops a caller reading another user's notifications.
+     */
     private Long resolveUserId(Authentication authentication) {
         if (authentication == null) {
             return null;
@@ -63,7 +102,13 @@ public class NotificationController {
         return userRepository.findByEmail(authentication.getName()).map(user -> user.getId()).orElse(null);
     }
 
-    // Suy ra tên vai trò từ authority đầu tiên (bỏ tiền tố "ROLE_")
+    /**
+     * Derives the role name from the first granted authority, stripping the
+     * Spring Security "ROLE_" prefix so it matches {@code target_role} values.
+     *
+     * @param authentication the authenticated principal, may be null
+     * @return the role name, or an empty string when unauthenticated
+     */
     private String resolveRole(Authentication authentication) {
         if (authentication == null || authentication.getAuthorities().isEmpty()) {
             return "";

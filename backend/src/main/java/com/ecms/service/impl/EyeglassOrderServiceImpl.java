@@ -14,6 +14,7 @@ import com.ecms.service.NotificationService;
 import com.ecms.util.ClinicHoursUtil;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.core.Authentication;
@@ -25,6 +26,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class EyeglassOrderServiceImpl implements EyeglassOrderService {
@@ -116,10 +118,28 @@ public class EyeglassOrderServiceImpl implements EyeglassOrderService {
             notificationService.createForLabTechnicians(message, appointmentId);
         }
 
-        // Sinh InvoiceItem cho đơn kính
-        Invoice invoice = invoiceRepository
-                .findByAppointmentId(prescription.getMedicalRecord().getAppointment().getId()).orElse(null);
-        if (invoice != null) {
+        // Sinh InvoiceItem cho đơn kính khi buổi khám ĐÃ có hóa đơn còn mở. Trường hợp
+        // ngược lại (thường gặp hơn: kê đơn kính xong mới ra quầy) do
+        // InvoiceServiceImpl.getSuggestedItems tự đổ dòng kính vào lúc tạo hóa đơn.
+        //
+        // appointmentId đã tính null-safe ở trên — EMR không gắn lịch hẹn thì trước đây
+        // dòng này ném NullPointerException và làm hỏng luôn việc tạo đơn kính.
+        Invoice invoice = appointmentId != null
+                ? invoiceRepository.findByAppointmentId(appointmentId).orElse(null)
+                : null;
+
+        // Không đụng vào hóa đơn đã phát hành hoặc đã thu tiền (BR-09): cộng thêm tiền
+        // vào đó sẽ làm tổng hóa đơn khác số bệnh nhân đã trả và sai lệch doanh thu.
+        // Lễ tân thu khoản kính bằng hóa đơn riêng.
+        boolean invoiceOpen = invoice != null
+                && "DRAFT".equals(invoice.getStatus())
+                && !"PAID".equals(invoice.getPaymentStatus());
+        if (!invoiceOpen && invoice != null) {
+            log.warn("Đơn kính {} không được cộng vào hóa đơn {} (status={}, paymentStatus={}) — cần thu riêng",
+                    order.getId(), invoice.getInvoiceCode(), invoice.getStatus(), invoice.getPaymentStatus());
+        }
+
+        if (invoiceOpen) {
             InvoiceItem item = InvoiceItem.builder()
                     .invoice(invoice)
                     .itemType("GLASSES")

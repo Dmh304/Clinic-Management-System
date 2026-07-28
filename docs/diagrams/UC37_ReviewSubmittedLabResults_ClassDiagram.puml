@@ -1,0 +1,116 @@
+@startuml UC37_ReviewSubmittedLabResults_ClassDiagram
+
+skinparam classAttributeIconSize 0
+skinparam monochrome false
+skinparam backgroundColor white
+skinparam roundcorner 5
+skinparam class {
+    BackgroundColor #f9f9f9
+    ArrowColor #336699
+    BorderColor #336699
+}
+
+class LabOrderController {
+    + getLabResults(labOrderId: Long, userDetails: UserDetails): ResponseEntity<ApiResponse<LabResultResponse>>
+    + approveLabResult(labOrderId: Long, userDetails: UserDetails): ResponseEntity<ApiResponse<LabOrderResponse>>
+    + requestRetest(labOrderId: Long, request: LabOrderRequest, userDetails: UserDetails): ResponseEntity<ApiResponse<LabOrderResponse>>
+    - resolveDoctorId(userDetails: UserDetails): Long
+}
+
+interface LabOrderService {
+    + getLabResults(labOrderId: Long, currentUserId: Long, currentUserRole: String): LabResultResponse
+    + approveLabResult(labOrderId: Long, doctorId: Long): LabOrderResponse
+    + requestRetest(labOrderId: Long, doctorId: Long, request: LabOrderRequest): LabOrderResponse
+}
+
+class LabOrderServiceImpl {
+    + getLabResults(labOrderId: Long, currentUserId: Long, currentUserRole: String): LabResultResponse
+    + approveLabResult(labOrderId: Long, doctorId: Long): LabOrderResponse
+    + requestRetest(labOrderId: Long, doctorId: Long, request: LabOrderRequest): LabOrderResponse
+}
+
+class LabOrderRepository {
+    + findById(id: Long): Optional<LabOrder>
+    + save(order: LabOrder): LabOrder
+}
+
+class LabResultRepository {
+    + findTopByLabOrderIdOrderByIdDesc(labOrderId: Long): Optional<LabResult>
+    + save(result: LabResult): LabResult
+}
+
+class MedicalRecordRepository {
+    + save(record: MedicalRecord): MedicalRecord
+}
+
+class LabOrder {
+    - orderId: Long
+    - status: LabOrderStatus
+    - rejectionReason: String
+    - rejectedAt: LocalDateTime
+    + setStatus(status: LabOrderStatus): void
+}
+
+class LabResult {
+    - resultId: Long
+    - labOrderId: Long
+    - reviewedAt: LocalDateTime
+    - vaL: String
+    - vaR: String
+    - imageUrls: String
+    + setReviewedAt(time: LocalDateTime): void
+}
+
+class MedicalRecord {
+    - recordId: Long
+    - vaL: String
+    - vaR: String
+    - labImageUrl: String
+}
+
+enum LabOrderStatus {
+    PENDING
+    IN_PROGRESS
+    SUBMITTED
+    APPROVED
+    REJECTED
+}
+
+class LabOrderRequest {
+    - rejectionReason: String
+}
+
+class LabResultResponse {
+    - resultId: Long
+    - labOrderId: Long
+    - vaL: String
+    - vaR: String
+}
+
+class LabOrderResponse {
+    - orderId: Long
+    - status: String
+}
+
+class ApiResponse<T> {
+    - status: int
+    - message: String
+    - data: T
+}
+
+LabOrderController ..> LabOrderService : uses
+LabOrderController ..> ApiResponse : creates
+LabOrderService <|.. LabOrderServiceImpl : implements
+LabOrderServiceImpl ..> LabOrderRepository : uses
+LabOrderServiceImpl ..> LabResultRepository : uses
+LabOrderServiceImpl ..> MedicalRecordRepository : uses
+LabOrderServiceImpl ..> LabOrderRequest : consumes
+LabOrderServiceImpl ..> LabOrderResponse : creates
+LabOrderServiceImpl ..> LabResultResponse : creates
+
+LabOrderRepository ..> LabOrder : manages
+LabResultRepository ..> LabResult : manages
+MedicalRecordRepository ..> MedicalRecord : manages
+LabOrder "1" -- "1" LabOrderStatus : uses >
+
+@enduml

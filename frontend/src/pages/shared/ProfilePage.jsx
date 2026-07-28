@@ -15,6 +15,14 @@ const GENDER_OPTIONS = [
   { value: 'OTHER', label: 'Khác' },
 ]
 
+const BLOOD_TYPE_OPTIONS = [
+  { value: 'UNKNOWN', label: 'Chưa rõ' },
+  { value: 'A', label: 'A' },
+  { value: 'B', label: 'B' },
+  { value: 'AB', label: 'AB' },
+  { value: 'O', label: 'O' },
+]
+
 // Component hiển thị một trường thông tin có nhãn, dùng trong form hồ sơ
 function Field({ label, children }) {
   return (
@@ -37,9 +45,14 @@ const inputStyle = (readOnly) => ({
   cursor: readOnly ? 'default' : 'text',
 })
 
+// Style cho ô textarea (địa chỉ, dị ứng, kết luận khám) - giống inputStyle nhưng cho phép nhiều dòng
+const textareaStyle = () => ({
+  ...inputStyle(false), minHeight: 90, resize: 'vertical', fontFamily: 'inherit',
+})
+
 // Hiển thị giá trị dạng văn bản (dùng khi không ở chế độ chỉnh sửa) thay vì ô input
 // để thông tin luôn hiện rõ ràng, dễ đọc thay vì trông như ô trống
-function ReadOnlyValue({ value, placeholder }) {
+function ReadOnlyValue({ value, placeholder, multiline }) {
   const hasValue = value !== null && value !== undefined && value !== ''
   return (
     <div style={{
@@ -47,7 +60,8 @@ function ReadOnlyValue({ value, placeholder }) {
       border: '1px solid #e2e8f0', backgroundColor: '#f8fafc',
       fontSize: 14, fontWeight: hasValue ? 500 : 400,
       color: hasValue ? '#1e293b' : '#94a3b8',
-      minHeight: 38, display: 'flex', alignItems: 'center',
+      minHeight: multiline ? 90 : 38, display: 'flex', alignItems: multiline ? 'flex-start' : 'center',
+      whiteSpace: multiline ? 'pre-wrap' : 'normal',
     }}>
       {hasValue ? value : (placeholder || 'Chưa cập nhật')}
     </div>
@@ -70,7 +84,8 @@ export default function ProfilePage() {
   // Tải thông tin hồ sơ từ server khi component được mount lần đầu
   useEffect(() => {
     userService.getProfile()
-      .then(data => {
+      .then(res => {
+        const data = res.data
         setProfile(data)
         setForm({
           fullName: data.fullName || '',
@@ -78,6 +93,11 @@ export default function ProfilePage() {
           dateOfBirth: data.dateOfBirth || '',
           gender: data.gender || '',
           address: data.address || '',
+          cccd: data.cccd || '',
+          bloodType: data.bloodType || 'UNKNOWN',
+          allergyNotes: data.allergyNotes || '',
+          emergencyContactName: data.emergencyContactName || '',
+          emergencyContactPhone: data.emergencyContactPhone || '',
         })
       })
       .catch(err => setError(err?.message || 'Không thể tải thông tin hồ sơ'))
@@ -97,13 +117,19 @@ export default function ProfilePage() {
     setSaving(true)
     setError('')
     try {
-      const updated = await userService.updateProfile({
+      const res = await userService.updateProfile({
         fullName: form.fullName || undefined,
         phone: form.phone || undefined,
         dateOfBirth: form.dateOfBirth || undefined,
         gender: form.gender || undefined,
         address: form.address || undefined,
+        cccd: form.cccd || undefined,
+        bloodType: form.bloodType || undefined,
+        allergyNotes: form.allergyNotes || undefined,
+        emergencyContactName: form.emergencyContactName || undefined,
+        emergencyContactPhone: form.emergencyContactPhone || undefined,
       })
+      const updated = res.data
       setProfile(updated)
       // Đồng bộ lại tên/SĐT trong Redux + localStorage để Header và các nơi khác
       // hiển thị đúng dữ liệu mới mà không cần đăng nhập lại
@@ -125,6 +151,11 @@ export default function ProfilePage() {
       dateOfBirth: profile?.dateOfBirth || '',
       gender: profile?.gender || '',
       address: profile?.address || '',
+      cccd: profile?.cccd || '',
+      bloodType: profile?.bloodType || 'UNKNOWN',
+      allergyNotes: profile?.allergyNotes || '',
+      emergencyContactName: profile?.emergencyContactName || '',
+      emergencyContactPhone: profile?.emergencyContactPhone || '',
     })
     setEditing(false)
     setError('')
@@ -281,21 +312,104 @@ export default function ProfilePage() {
                       )}
                     </Field>
                   )}
+
+                  {isPatient && (
+                    <Field label="CCCD">
+                      {editing ? (
+                        <input
+                          name="cccd" value={form.cccd} onChange={handleChange}
+                          placeholder="Chưa cập nhật" maxLength={12}
+                          style={inputStyle(false)}
+                          onFocus={e => { e.target.style.borderColor = '#1d4ed8' }}
+                          onBlur={e => { e.target.style.borderColor = '#e2e8f0' }}
+                        />
+                      ) : (
+                        <ReadOnlyValue value={profile?.cccd} />
+                      )}
+                    </Field>
+                  )}
+
+                  {isPatient && (
+                    <Field label="Nhóm máu">
+                      {editing ? (
+                        <select name="bloodType" value={form.bloodType} onChange={handleChange}
+                          style={{ ...inputStyle(false), cursor: 'pointer' }}>
+                          {BLOOD_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
+                      ) : (
+                        <ReadOnlyValue value={BLOOD_TYPE_OPTIONS.find(o => o.value === profile?.bloodType)?.label} />
+                      )}
+                    </Field>
+                  )}
+
+                  {isPatient && (
+                    <Field label="Người liên hệ khẩn cấp">
+                      {editing ? (
+                        <input
+                          name="emergencyContactName" value={form.emergencyContactName} onChange={handleChange}
+                          placeholder="Chưa cập nhật"
+                          style={inputStyle(false)}
+                          onFocus={e => { e.target.style.borderColor = '#1d4ed8' }}
+                          onBlur={e => { e.target.style.borderColor = '#e2e8f0' }}
+                        />
+                      ) : (
+                        <ReadOnlyValue value={profile?.emergencyContactName} />
+                      )}
+                    </Field>
+                  )}
+
+                  {isPatient && (
+                    <Field label="SĐT người liên hệ khẩn cấp">
+                      {editing ? (
+                        <input
+                          name="emergencyContactPhone" value={form.emergencyContactPhone} onChange={handleChange}
+                          placeholder="Chưa cập nhật"
+                          style={inputStyle(false)}
+                          onFocus={e => { e.target.style.borderColor = '#1d4ed8' }}
+                          onBlur={e => { e.target.style.borderColor = '#e2e8f0' }}
+                        />
+                      ) : (
+                        <ReadOnlyValue value={profile?.emergencyContactPhone} />
+                      )}
+                    </Field>
+                  )}
                 </div>
 
                 {isPatient && (
                   <Field label="Địa chỉ">
                     {editing ? (
-                      <input
+                      <textarea
                         name="address" value={form.address} onChange={handleChange}
                         placeholder="Chưa cập nhật"
-                        style={inputStyle(false)}
+                        style={textareaStyle()}
                         onFocus={e => { e.target.style.borderColor = '#1d4ed8' }}
                         onBlur={e => { e.target.style.borderColor = '#e2e8f0' }}
                       />
                     ) : (
-                      <ReadOnlyValue value={profile?.address} />
+                      <ReadOnlyValue value={profile?.address} multiline />
                     )}
+                  </Field>
+                )}
+
+                {isPatient && (
+                  <Field label="Dị ứng">
+                    {editing ? (
+                      <textarea
+                        name="allergyNotes" value={form.allergyNotes} onChange={handleChange}
+                        placeholder="Chưa cập nhật"
+                        style={textareaStyle()}
+                        onFocus={e => { e.target.style.borderColor = '#1d4ed8' }}
+                        onBlur={e => { e.target.style.borderColor = '#e2e8f0' }}
+                      />
+                    ) : (
+                      <ReadOnlyValue value={profile?.allergyNotes} multiline />
+                    )}
+                  </Field>
+                )}
+
+                {isPatient && (
+                  <Field label="Kết luận lần khám gần nhất">
+                    <ReadOnlyValue value={profile?.latestExamConclusion} placeholder="Chưa có lần khám nào" multiline />
                   </Field>
                 )}
 

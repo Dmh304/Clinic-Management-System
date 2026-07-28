@@ -1,4 +1,17 @@
-// UC-50: Báo cáo doanh thu — tổng quan, xu hướng theo tháng, breakdown, chi tiết hóa đơn.
+/**
+ * @author      ThangNB - HE201024
+ * @contributor Đồng Mạnh Hùng - HE200743
+ * @created     2026-07-19
+ * @updated     2026-07-20
+ *
+ * Revenue report for the Clinic Manager (UC-50 Generate Revenue Report):
+ * headline totals, monthly trend, breakdown by service category / doctor /
+ * payment method, and the paid-invoice detail list.
+ *
+ * Figures come only from PAID invoices, so what is shown is money actually
+ * collected under BR-10 rather than amounts merely billed.
+ * Export produces UTF-8 CSV, a deviation from the .xlsx named in UC-50 step 6.
+ */
 import { useEffect, useState } from 'react'
 import { FiEye, FiDownload, FiRefreshCw } from 'react-icons/fi'
 import { reportService, downloadBlob } from '../../services/reportService'
@@ -108,8 +121,15 @@ const RANGES = [
   { key: 'year', label: 'Năm' }, { key: 'custom', label: 'Tùy chỉnh' },
 ]
 
+/**
+ * Renders the revenue report and its export action.
+ * @returns {JSX.Element} the report screen
+ */
 export default function RevenueReportPage() {
   const today = new Date()
+  // Không cho vượt hôm nay kể cả khi gõ tay — thuộc tính max chỉ chặn bộ chọn lịch.
+  // Bỏ qua giá trị gõ dở (năm 0002…) để không phá đầu ngày còn lại.
+  const capDate = (v) => (v && v >= '2000-01-01' && v > iso(new Date()) ? iso(new Date()) : v)
   const [range, setRange] = useState('month')
   const [from, setFrom] = useState(iso(new Date(today.getFullYear(), today.getMonth(), 1)))
   const [to, setTo] = useState(iso(today))
@@ -117,6 +137,11 @@ export default function RevenueReportPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  /**
+   * Applies a preset period (UC-50 normal flow step 2).
+   * @param {'day'|'week'|'month'|'year'|'custom'} key preset; 'custom' leaves
+   *   the dates alone so the manual pickers stay in control
+   */
   const applyRange = (key) => {
     setRange(key)
     const now = new Date()
@@ -126,6 +151,7 @@ export default function RevenueReportPage() {
     else if (key === 'year') { setFrom(iso(new Date(now.getFullYear(), 0, 1))); setTo(iso(now)) }
   }
 
+  /** Loads the revenue figures for the selected period (UC-50 step 3). */
   const load = async () => {
     setLoading(true); setError('')
     try {
@@ -143,17 +169,17 @@ export default function RevenueReportPage() {
   const topDoc = data?.topDoctor || {}
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f5f6ff' }}>
+    <div>
       {/* Breadcrumb + title */}
       <div style={{ background: '#fff', borderBottom: '1px solid #eef0f6', padding: '14px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <div style={{ fontSize: 12, color: '#94a3b8' }}>Reports › <span style={{ color: '#4f46e5' }}>Revenue Report</span></div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#0f172a' }}>Báo cáo Doanh thu</div>
+          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: '#0f172a' }}>Báo cáo Doanh thu</h1>
         </div>
         <div style={{ color: '#94a3b8', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}><FiEye /> Eyes Clinic Management System</div>
       </div>
 
-      <div style={{ padding: '24px 28px' }}>
+      <div style={{ padding: 24 }}>
         {/* Filter */}
         <div style={{ ...card, padding: '18px 22px', display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 16, marginBottom: 20 }}>
           <div>
@@ -169,12 +195,12 @@ export default function RevenueReportPage() {
             </div>
           </div>
           <label style={{ fontSize: 12, color: '#64748b' }}>Từ ngày<br />
-            <input type="date" value={from} onChange={(e) => { setRange('custom'); setFrom(e.target.value) }} style={{ padding: 8, borderRadius: 8, border: '1px solid #e2e8f0', marginTop: 4 }} /></label>
+            <input type="date" value={from} max={to || iso(today)} onChange={(e) => { const v = capDate(e.target.value); setRange('custom'); setFrom(v); if (v && to && v > to) setTo(v) }} style={{ padding: 8, borderRadius: 8, border: '1px solid #e2e8f0', marginTop: 4 }} /></label>
           <label style={{ fontSize: 12, color: '#64748b' }}>Đến ngày<br />
-            <input type="date" value={to} onChange={(e) => { setRange('custom'); setTo(e.target.value) }} style={{ padding: 8, borderRadius: 8, border: '1px solid #e2e8f0', marginTop: 4 }} /></label>
+            <input type="date" value={to} min={from} max={iso(today)} onChange={(e) => { const v = capDate(e.target.value); setRange('custom'); setTo(v); if (v && from && v < from) setFrom(v) }} style={{ padding: 8, borderRadius: 8, border: '1px solid #e2e8f0', marginTop: 4 }} /></label>
           <div style={{ flex: 1 }} />
           <button onClick={load} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', borderRadius: 8, border: '1px solid #c7d2fe', background: '#eef2ff', color: '#4f46e5', cursor: 'pointer', fontWeight: 600 }}><FiRefreshCw /> {loading ? 'Đang tải…' : 'Tải lại'}</button>
-          <button onClick={async () => { const blob = await reportService.exportRevenue(from, to); downloadBlob(blob, 'bao-cao-doanh-thu.csv') }}
+          <button onClick={async () => { const blob = await reportService.exportRevenue(from, to); downloadBlob(blob, 'bao-cao-doanh-thu.xlsx') }}
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', borderRadius: 8, border: 'none', background: '#10b981', color: '#fff', cursor: 'pointer', fontWeight: 600 }}><FiDownload /> Xuất Excel</button>
         </div>
 

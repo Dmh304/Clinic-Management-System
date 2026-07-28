@@ -1,15 +1,10 @@
 package com.ecms.util;
 
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
-/**
- * Utility kiểm tra giờ hành chính của phòng khám (07:30–17:00, trừ Chủ nhật).
- * Dùng để khóa các thao tác lâm sàng (bắt đầu khám, cập nhật HSBA, bắt đầu
- * đo...)
- * ngoài giờ làm việc — áp dụng cho Doctor và Lab Technician.
- */
 public final class ClinicHoursUtil {
 
     public static final LocalTime OPEN_TIME = LocalTime.of(7, 30);
@@ -30,14 +25,28 @@ public final class ClinicHoursUtil {
         return isWithinClinicHours(LocalDateTime.now());
     }
 
-    /**
-     * Ném lỗi rõ ràng nếu đang ngoài giờ hành chính — dùng ở đầu các thao tác lâm
-     * sàng.
-     */
+    /** Ném lỗi nếu đang ngoài giờ hành chính. */
     public static void requireWithinClinicHours() {
         if (!isWithinClinicHours()) {
             throw new IllegalStateException(
                     "Thao tác này chỉ được thực hiện trong giờ làm việc của phòng khám (07:30–17:00, trừ Chủ nhật).");
         }
+    }
+
+    /** Ném lỗi nếu ngày truyền vào không phải hôm nay. */
+    public static void requireIsToday(LocalDate date) {
+        if (date == null || !date.isEqual(LocalDate.now())) {
+            throw new IllegalStateException(
+                    "Chỉ có thể thao tác với lịch hẹn của ngày hôm nay.");
+        }
+    }
+
+    /**
+     * Kiểm tra gộp: lịch hẹn phải đúng ngày hôm nay VÀ đang trong giờ hành chính.
+     * Dùng cho các thao tác lâm sàng (bắt đầu khám, cập nhật HSBA, bắt đầu đo...).
+     */
+    public static void requireOperableToday(LocalDate appointmentDate) {
+        requireIsToday(appointmentDate);
+        requireWithinClinicHours();
     }
 }

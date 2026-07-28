@@ -4,8 +4,9 @@
 // Màn hình quản lý Cấp phát thuốc dành cho Dược sĩ.
 // Cho phép xem danh sách đơn thuốc chờ phát, xem chi tiết và xác nhận phát thuốc.
 import React, { useState, useEffect } from 'react';
-import { Table, Button, message, Modal, Tag, Spin, Space, Popconfirm, InputNumber, Tabs, Typography, Row, Col, Card, Statistic, Input, Select } from 'antd';
+import { Table, Button, message, Modal, Tag, Spin, Space, Popconfirm, InputNumber, Tabs, Typography, Row, Col, Card, Statistic, Input, Select, DatePicker } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import { prescriptionService } from '../../services/prescriptionService';
 import { useSelector } from 'react-redux';
 
@@ -27,6 +28,8 @@ export default function DispensingPage() {
 
     const [searchText, setSearchText] = useState('');
     const [statusFilter, setStatusFilter] = useState('ALL');
+    const [dateFilter, setDateFilter] = useState(null);
+    const [sortOrder, setSortOrder] = useState('DESC');
 
     useEffect(() => {
         fetchPendingPrescriptions();
@@ -195,13 +198,23 @@ export default function DispensingPage() {
         { title: 'Cách dùng', render: (_, record) => [record.dosage, record.frequency, record.instructions].filter(v => v && v !== '-').join('. ') },
     ];
 
-    // Chức năng: Lọc danh sách đơn thuốc theo từ khóa tìm kiếm (Mã, Tên BN, SĐT) và trạng thái
+    // Chức năng: Lọc danh sách đơn thuốc theo từ khóa tìm kiếm (Mã, Tên BN, SĐT), trạng thái, ngày tháng và sắp xếp
     const filteredPrescriptions = prescriptions.filter(p => {
         const matchSearch = p.patientName?.toLowerCase().includes(searchText.toLowerCase()) ||
             p.id?.toString().includes(searchText) ||
             p.patientPhone?.includes(searchText);
         const matchStatus = statusFilter === 'ALL' || p.status === statusFilter;
-        return matchSearch && matchStatus;
+        let matchDate = true;
+        if (dateFilter) {
+            const recordDate = new Date(p.createdAt).setHours(0, 0, 0, 0);
+            const filterDate = dateFilter.toDate().setHours(0, 0, 0, 0);
+            matchDate = recordDate === filterDate;
+        }
+        return matchSearch && matchStatus && matchDate;
+    }).sort((a, b) => {
+        const dateA = new Date(a.createdAt).getTime();
+        const dateB = new Date(b.createdAt).getTime();
+        return sortOrder === 'DESC' ? dateB - dateA : dateA - dateB;
     });
 
     return (
@@ -247,6 +260,18 @@ export default function DispensingPage() {
                         {Object.entries(PRESCRIPTION_STATUS_MAP).map(([key, { label }]) => (
                             <Select.Option key={key} value={key}>{label}</Select.Option>
                         ))}
+                    </Select>
+                    <DatePicker 
+                        placeholder="Chọn ngày kê" 
+                        format="DD/MM/YYYY" 
+                        value={dateFilter} 
+                        onChange={setDateFilter} 
+                        style={{ width: 150 }} 
+                        allowClear
+                    />
+                    <Select value={sortOrder} onChange={setSortOrder} style={{ width: 150 }}>
+                        <Select.Option value="DESC">Mới nhất trước</Select.Option>
+                        <Select.Option value="ASC">Cũ nhất trước</Select.Option>
                     </Select>
                 </div>
             </Card>

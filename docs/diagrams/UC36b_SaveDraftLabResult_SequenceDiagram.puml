@@ -1,0 +1,97 @@
+@startuml UC36b_SaveDraftLabResult_SequenceDiagram
+<style>
+document {
+  ParticipantPadding 10
+  BoxPadding 10
+}
+</style>
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 250
+
+skinparam participant {
+    BackgroundColor #DDEEFF
+    BorderColor     #336699
+    FontStyle       bold
+}
+skinparam actor {
+    BackgroundColor #FFFACD
+    BorderColor     #CC9900
+}
+skinparam note {
+    BackgroundColor #FFFFF0
+    BorderColor     #AAAAAA
+}
+skinparam ArrowColor #336699
+skinparam LifeLineBorderColor #336699
+
+title UC-36b: Save Draft Lab Result\n(Simplified Sequence Diagram)
+
+actor       "LabTechnician"                                     as LabTech
+participant ":LabOrderController"           as LC
+participant ":LabOrderService"               as LS
+participant ":LabOrderServiceImpl"       as LSImpl
+participant ":LabOrderRepository"               as LORepo
+participant ":LabResultRepository"              as LRRepo
+
+note over LabTech
+  PRE: LabOrder.status = IN_PROGRESS.
+  Technician is the assigned owner of this order.
+end note
+
+== Step 1 & 2: Technician Saves Draft ==
+LabTech -> LC : saveDraft(id, request, userDetails)
+activate LC
+LC -> LC : resolveLabTechnicianId(userDetails)
+LC -> LS : saveDraft(id, request, labTechnicianId)
+activate LS
+LS -> LSImpl : saveDraft(id, request, labTechnicianId)
+activate LSImpl
+
+LSImpl -> LORepo : findById(id)
+activate LORepo
+LORepo --> LSImpl : LabOrder
+deactivate LORepo
+
+opt [labOrder.status != IN_PROGRESS]
+  LSImpl --> LS : IllegalStateException("Can only save draft for an IN_PROGRESS LabOrder")
+  LS --> LC : IllegalStateException
+  LC --> LabTech : HTTP 400 Bad Request
+end
+
+LSImpl -> LRRepo : findTopByLabOrderIdOrderByIdDesc(id)
+activate LRRepo
+LRRepo --> LSImpl : Optional<LabResult>
+deactivate LRRepo
+
+note right of LSImpl
+  If LabResult not found, a new one is created.
+  If found, the existing one is updated.
+  LabOrder.status remains IN_PROGRESS.
+end note
+
+LSImpl -> LRRepo : save(labResult)
+activate LRRepo
+note right of LRRepo
+  Updates measurement fields (vaL, vaR, sphL, etc.)
+  attachedImages, notes.
+  Does NOT change LabOrder status.
+end note
+LRRepo --> LSImpl : LabResult
+deactivate LRRepo
+
+LSImpl --> LS : LabOrderResponse
+deactivate LSImpl
+LS --> LC : LabOrderResponse
+deactivate LS
+
+LC --> LabTech : HTTP 200 OK\nApiResponse<LabOrderResponse>
+deactivate LC
+
+note over LabTech
+  Technician can continue editing later.
+  When ready, proceeds to submitResult (UC-36c).
+end note
+
+@enduml

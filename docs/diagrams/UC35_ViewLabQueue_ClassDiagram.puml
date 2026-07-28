@@ -1,0 +1,77 @@
+@startuml UC35_ViewLabQueue_ClassDiagram
+
+skinparam classAttributeIconSize 0
+skinparam monochrome false
+skinparam backgroundColor white
+skinparam roundcorner 5
+skinparam class {
+    BackgroundColor #f9f9f9
+    ArrowColor #336699
+    BorderColor #336699
+}
+
+class LabOrderController {
+    + getLabOrderQueue(userDetails: UserDetails): ResponseEntity<ApiResponse<List<LabOrderResponse>>>
+    - resolveLabTechnicianId(userDetails: UserDetails): Long
+}
+
+interface LabOrderService {
+    + getLabQueue(labTechnicianId: Long): List<LabOrderResponse>
+}
+
+class LabOrderServiceImpl {
+    + getLabQueue(labTechnicianId: Long): List<LabOrderResponse>
+}
+
+class LabOrderRepository {
+    + findByLabTechnicianIdOrderByPriorityAndCreatedAt(labTechnicianId: Long): List<LabOrder>
+}
+
+class LabOrder {
+    - orderId: Long
+    - status: LabOrderStatus
+    - priority: LabPriority
+    - createdAt: LocalDateTime
+    + getOrderId(): Long
+    + getStatus(): LabOrderStatus
+    + getPriority(): LabPriority
+}
+
+enum LabOrderStatus {
+    PENDING
+    IN_PROGRESS
+    SUBMITTED
+    APPROVED
+    REJECTED
+}
+
+enum LabPriority {
+    PRIMARY
+    WARNING
+    EMERGENCY
+}
+
+class LabOrderResponse {
+    - orderId: Long
+    - status: String
+    - priority: String
+    - createdAt: LocalDateTime
+}
+
+class ApiResponse<T> {
+    - status: int
+    - message: String
+    - data: T
+}
+
+LabOrderController ..> LabOrderService : uses
+LabOrderController ..> ApiResponse : creates
+LabOrderService <|.. LabOrderServiceImpl : implements
+LabOrderServiceImpl ..> LabOrderRepository : uses
+LabOrderServiceImpl ..> LabOrderResponse : creates
+
+LabOrderRepository ..> LabOrder : manages
+LabOrder "1" -- "1" LabOrderStatus : uses >
+LabOrder "1" -- "1" LabPriority : uses >
+
+@enduml

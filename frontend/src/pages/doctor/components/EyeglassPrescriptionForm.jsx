@@ -8,25 +8,31 @@ import { Form, Input, Button, InputNumber, Select, message, Spin, Tag, Descripti
 import { eyeglassPrescriptionService } from '../../../services/eyeglassPrescriptionService';
 import axiosClient from '../../../api/axiosClient';
 
-const EyeFields = ({ prefix, label, isReadOnly }) => (
+const EyeFields = ({ prefix, label, isReadOnly, lockRefraction }) => (
     <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
         <div style={{ fontWeight: 600, fontSize: 13, color: '#475569', marginBottom: 10 }}>{label}</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12 }}>
             <Form.Item label="SPH" name={`${prefix}Sph`} style={{ marginBottom: 0 }}>
-                <InputNumber style={{ width: '100%' }} placeholder="0.00" step={0.25} disabled={isReadOnly} />
+                <InputNumber style={{ width: '100%' }} placeholder="0.00" step={0.25} disabled={isReadOnly || lockRefraction} />
             </Form.Item>
             <Form.Item label="CYL" name={`${prefix}Cyl`} style={{ marginBottom: 0 }}>
-                <InputNumber style={{ width: '100%' }} placeholder="0.00" step={0.25} disabled={isReadOnly} />
+                <InputNumber style={{ width: '100%' }} placeholder="0.00" step={0.25} disabled={isReadOnly || lockRefraction} />
             </Form.Item>
             <Form.Item label="AXIS (°)" name={`${prefix}Axis`} style={{ marginBottom: 0 }}>
-                <InputNumber style={{ width: '100%' }} placeholder="0" min={0} max={180} disabled={isReadOnly} />
+                <InputNumber style={{ width: '100%' }} placeholder="0" min={0} max={180} disabled={isReadOnly || lockRefraction} />
             </Form.Item>
+            {/* ADD luôn cho phép nhập tay — không đo được từ khúc xạ kế, do bác sĩ quyết định */}
             <Form.Item label="ADD" name={`${prefix}Add`} style={{ marginBottom: 0 }}>
                 <InputNumber style={{ width: '100%' }} placeholder="0.00" step={0.25} disabled={isReadOnly} />
             </Form.Item>
         </div>
+        {lockRefraction && !isReadOnly && (
+            <div style={{ fontSize: 12, color: '#0d9488', marginTop: 6 }}>
+                SPH/CYL/AXIS được lấy tự động từ kết quả đo khúc xạ đã duyệt.
+            </div>
+        )}
     </div>
-);
+)
 
 export default function EyeglassPrescriptionForm({ emr, isReadOnly, onPrescriptionSaved, onAutoSaveEMR }) {
     const [form] = Form.useForm();
@@ -35,6 +41,23 @@ export default function EyeglassPrescriptionForm({ emr, isReadOnly, onPrescripti
     const [lensTypes, setLensTypes] = useState([]);
     const [editPrescriptionId, setEditPrescriptionId] = useState(null);
     const activeEmrIdRef = React.useRef(emr?.id);
+
+    // Đã có kết quả khúc xạ từ Lab (được bác sĩ duyệt) hay chưa —
+    // nếu có, SPH/CYL/AXIS sẽ tự điền và khóa; PD và ADD vẫn luôn nhập tay
+    const hasLabRefraction = !!emr && (
+        emr.sphL != null || emr.sphR != null ||
+        emr.axisL != null || emr.axisR != null
+    )
+
+    useEffect(() => {
+        if (hasLabRefraction) {
+            form.setFieldsValue({
+                odSph: emr.sphR, odCyl: emr.cylR, odAxis: emr.axisR,
+                osSph: emr.sphL, osCyl: emr.cylL, osAxis: emr.axisL,
+            })
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [emr?.sphL, emr?.sphR, emr?.cylL, emr?.cylR, emr?.axisL, emr?.axisR])
 
     // Chức năng: Lấy danh sách các loại tròng kính từ hệ thống để bác sĩ chọn
     useEffect(() => {
@@ -129,6 +152,13 @@ export default function EyeglassPrescriptionForm({ emr, isReadOnly, onPrescripti
     const hasPendingPrescription = existingPrescriptions.some(p => p.status === 'ISSUED');
     const isFormDisabled = isReadOnly || (hasPendingPrescription && !editPrescriptionId);
 
+    // Watch the selected lens type to dynamically disable ADD fields
+    const selectedLensTypeId = Form.useWatch('lensTypeId', form);
+    const isSingleVision = React.useMemo(() => {
+        const lt = lensTypes.find(l => l.id === selectedLensTypeId);
+        return lt ? lt.name.toLowerCase().includes('đơn tròng') : false;
+    }, [selectedLensTypeId, lensTypes]);
+
     const handleDeletePrescription = async (id) => {
         try {
             await eyeglassPrescriptionService.delete(id);
@@ -143,15 +173,28 @@ export default function EyeglassPrescriptionForm({ emr, isReadOnly, onPrescripti
     return (
         <div style={{ paddingTop: 12 }}>
             <Form component={false} form={form} layout="vertical" onFinish={handleSave} disabled={isFormDisabled}>
-                <EyeFields prefix="od" label="Mắt phải (OD)" isReadOnly={isFormDisabled} />
-                <EyeFields prefix="os" label="Mắt trái (OS)" isReadOnly={isFormDisabled} />
-                
+                <EyeFields prefix="od" label="Mắt phải (OD)" isReadOnly={isFormDisabled} lockRefraction={hasLabRefraction} />
+                <EyeFields prefix="os" label="Mắt trái (OS)" isReadOnly={isFormDisabled} lockRefraction={hasLabRefraction} />
+
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
                     <Form.Item label="Khoảng cách đồng tử (PD)" name="pd" rules={[{ required: true, message: 'Nhập PD' }]}>
                         <InputNumber style={{ width: '100%' }} placeholder="mm" />
                     </Form.Item>
                     <Form.Item label="Loại tròng kính" name="lensTypeId" rules={[{ required: true, message: 'Chọn loại tròng' }]}>
-                        <Select placeholder="Chọn loại tròng">
+                        <Select 
+                            placeholder="Chọn loại tròng"
+                            onChange={(value) => {
+                                const selected = lensTypes.find(lt => lt.id === value);
+                                if (selected && selected.name.toLowerCase().includes('đơn tròng')) {
+                                    // Tự động xóa độ ADD nếu lỡ nhập trước đó
+                                    form.setFieldsValue({
+                                        odAdd: null,
+                                        osAdd: null
+                                    });
+                                    message.info('Đã xóa độ ADD vì Kính Đơn tròng không có thông số này.');
+                                }
+                            }}
+                        >
                             {lensTypes.map(lt => (
                                 <Select.Option key={lt.id} value={lt.id}>{lt.name}</Select.Option>
                             ))}
@@ -208,7 +251,7 @@ export default function EyeglassPrescriptionForm({ emr, isReadOnly, onPrescripti
                                     </div>
                                 )}
                             </div>
-                            
+
                             <Descriptions bordered size="small" column={2}>
                                 <Descriptions.Item label="Mắt phải (OD)">
                                     SPH: <b>{p.odSph}</b>, CYL: <b>{p.odCyl}</b>, AXIS: <b>{p.odAxis}°</b>, ADD: <b>{p.odAdd}</b>

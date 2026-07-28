@@ -130,6 +130,13 @@ public class SecurityConfig {
                                                 // Tra cứu trạng thái thanh toán vẫn yêu cầu đăng nhập như mọi API khác
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/payments/invoice/*/status")
                                                 .hasAnyRole("ADMIN", "RECEPTIONIST", "MANAGER", "PATIENT")
+                                                // Đối soát giao dịch + xác nhận hoàn tiền: chỉ nhân viên thu ngân
+                                                // và quản lý. KHÔNG để rơi xuống anyRequest().authenticated(),
+                                                // vì khi đó bệnh nhân cũng xem được toàn bộ giao dịch của người khác
+                                                // và tự xác nhận đã hoàn tiền.
+                                                .requestMatchers("/api/v1/payments/reconciliation",
+                                                                "/api/v1/payments/transactions/**")
+                                                .hasAnyRole("ADMIN", "RECEPTIONIST", "MANAGER")
 
                                                 // ══════════════════════════════════════════════════════════════════
                                                 // ── Doctors: GET list public ───────────────────────────────────────
@@ -446,6 +453,13 @@ public class SecurityConfig {
                                                 .hasRole("PATIENT")
                                                 .requestMatchers("/api/v1/reports/**")
                                                 .hasAnyRole("MANAGER", "ADMIN")
+                                                // BR-17 (Payroll Authority): CHỈ Clinic Manager được
+                                                // duyệt bảng lương. Rule này phải đứng TRƯỚC rule
+                                                // /payroll/** bên dưới, nếu không ADMIN vẫn lọt qua —
+                                                // Spring Security lấy matcher khớp đầu tiên.
+                                                .requestMatchers(HttpMethod.POST, "/api/v1/payroll/periods/*/approve")
+                                                .hasRole("MANAGER")
+                                                // Xem/soạn nháp thì ADMIN vẫn được (không cam kết chi tiền).
                                                 .requestMatchers("/api/v1/payroll/**")
                                                 .hasAnyRole("MANAGER", "ADMIN")
                                                 .requestMatchers("/api/v1/admin/**")

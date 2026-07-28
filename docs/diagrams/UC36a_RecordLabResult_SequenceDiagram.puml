@@ -1,0 +1,96 @@
+@startuml UC36a_RecordLabResult_SequenceDiagram
+<style>
+document {
+  ParticipantPadding 10
+  BoxPadding 10
+}
+</style>
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 250
+
+skinparam participant {
+    BackgroundColor #DDEEFF
+    BorderColor     #336699
+    FontStyle       bold
+}
+skinparam actor {
+    BackgroundColor #FFFACD
+    BorderColor     #CC9900
+}
+skinparam note {
+    BackgroundColor #FFFFF0
+    BorderColor     #AAAAAA
+}
+skinparam ArrowColor #336699
+skinparam LifeLineBorderColor #336699
+
+title UC-36a: Start Lab Test\n(Simplified Sequence Diagram)
+
+actor       "LabTechnician"                                     as LabTech
+participant ":LabOrderController"           as LC
+participant ":LabOrderService"               as LS
+participant ":LabOrderServiceImpl"       as LSImpl
+participant ":LabOrderRepository"               as LORepo
+participant ":LabTechnicianRepository"          as LTRepo
+
+note over LabTech
+  PRE: LabOrder is in PENDING status.
+  Lab Technician is assigned to this order (or self-assigns).
+end note
+
+== Step 1 & 2: Start Lab Test ==
+LabTech -> LC : startLabOrder(id, userDetails)
+activate LC
+LC -> LC : resolveLabTechnicianId(userDetails)
+LC -> LS : startLabOrder(id, labTechnicianId)
+activate LS
+LS -> LSImpl : startLabOrder(id, labTechnicianId)
+activate LSImpl
+
+LSImpl -> LORepo : findById(id)
+activate LORepo
+LORepo --> LSImpl : LabOrder
+deactivate LORepo
+
+opt [order.status != PENDING]
+  LSImpl --> LS : IllegalStateException
+  LS --> LC : IllegalStateException
+  LC --> LabTech : HTTP 400 Bad Request
+end
+
+opt [labOrder.labTechnician == null]
+  LSImpl -> LTRepo : getReferenceById(labTechnicianId)
+  activate LTRepo
+  LTRepo --> LSImpl : LabTechnician
+  deactivate LTRepo
+  note right of LSImpl
+    Assign technician to this order.
+  end note
+end
+
+LSImpl -> LORepo : save(labOrder)
+activate LORepo
+note right of LORepo
+  labOrder.status = IN_PROGRESS
+  (No LabResult is created at this step.
+  LabResult is created/updated in saveDraft.)
+end note
+LORepo --> LSImpl : LabOrder
+deactivate LORepo
+
+LSImpl --> LS : LabOrderResponse
+deactivate LSImpl
+LS --> LC : LabOrderResponse
+deactivate LS
+
+LC --> LabTech : HTTP 200 OK\nApiResponse<LabOrderResponse>
+deactivate LC
+
+note over LabTech
+  UI allows data entry for the result.
+  Technician proceeds to saveDraft (UC-36b).
+end note
+
+@enduml

@@ -68,6 +68,8 @@ public class EMRServiceImpl implements EMRService {
                                                 () -> new ResourceNotFoundException("Lịch hẹn không tồn tại: "
                                                                 + request.getAppointmentId()));
 
+                ClinicHoursUtil.requireOperableToday(appointment.getAppointmentDate());
+
                 // Kiểm tra tính hợp lệ của Bác sĩ phụ trách
                 Doctor doctor = doctorRepository.findById(request.getDoctorId())
                                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -153,7 +155,10 @@ public class EMRServiceImpl implements EMRService {
                         // xem lại bệnh án đã COMPLETED/CANCELLED vẫn cho phép mọi lúc.
                         if (record.getStatus() != MedicalRecordStatus.COMPLETED
                                         && record.getStatus() != MedicalRecordStatus.CANCELLED) {
-                                ClinicHoursUtil.requireWithinClinicHours();
+                                Appointment appt = record.getAppointment();
+                                if (appt != null) {
+                                        ClinicHoursUtil.requireOperableToday(appt.getAppointmentDate());
+                                }
                         }
 
                         /*
@@ -178,10 +183,11 @@ public class EMRServiceImpl implements EMRService {
 
                 // Nếu chưa có, tiến hành lấy thông tin Lịch hẹn và Bác sĩ để tự động tạo bản
                 // ghi nháp (IN_PROGRESS)
-                ClinicHoursUtil.requireWithinClinicHours();
                 Appointment appointment = appointmentRepository.findById(appointmentId)
                                 .orElseThrow(() -> new ResourceNotFoundException(
                                                 "Lịch hẹn không tồn tại: " + appointmentId));
+
+                ClinicHoursUtil.requireOperableToday(appointment.getAppointmentDate());
 
                 Doctor doctor = doctorRepository.findById(doctorId)
                                 .orElseThrow(() -> new ResourceNotFoundException("Bác sĩ không tồn tại: " + doctorId));

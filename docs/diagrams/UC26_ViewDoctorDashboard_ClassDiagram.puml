@@ -1,0 +1,86 @@
+@startuml UC26_ViewDoctorDashboard_ClassDiagram
+
+skinparam classAttributeIconSize 0
+skinparam monochrome false
+skinparam backgroundColor white
+skinparam roundcorner 5
+skinparam class {
+    BackgroundColor #f9f9f9
+    ArrowColor #336699
+    BorderColor #336699
+}
+
+class AppointmentController {
+    + getDashboard(date: LocalDate, userDetails: UserDetails): ResponseEntity<ApiResponse<AppointmentDashboardResponse>>
+    + getDoctorQueue(date: LocalDate, userDetails: UserDetails): ResponseEntity<ApiResponse<List<AppointmentResponse>>>
+    + searchAppointments(keyword: String): ResponseEntity<ApiResponse<List<AppointmentResponse>>>
+    - resolveDoctorId(userDetails: UserDetails): Long
+}
+
+interface AppointmentService {
+    + getDashboard(date: LocalDate, doctorId: Long): AppointmentDashboardResponse
+    + getDoctorQueue(date: LocalDate, doctorId: Long): List<AppointmentResponse>
+    + searchAppointments(keyword: String): List<AppointmentResponse>
+}
+
+class AppointmentServiceImpl {
+    + getDashboard(date: LocalDate, doctorId: Long): AppointmentDashboardResponse
+    + getDoctorQueue(date: LocalDate, doctorId: Long): List<AppointmentResponse>
+    + searchAppointments(keyword: String): List<AppointmentResponse>
+}
+
+class AppointmentRepository {
+    + countByDateAndDoctorId(start: LocalDateTime, end: LocalDateTime, doctorId: Long): Long
+    + countByDateAndStatusAndDoctorId(start: LocalDateTime, end: LocalDateTime, status: AppointmentStatus, doctorId: Long): Long
+    + findByAppointmentDateAndDoctorIdOrderByAppointmentTimeAsc(start: LocalDateTime, end: LocalDateTime, doctorId: Long): List<Appointment>
+    + searchAppointments(keyword: String): List<Appointment>
+}
+
+class Appointment {
+    - id: Long
+    - appointmentDate: LocalDate
+    - status: AppointmentStatus
+}
+
+enum AppointmentStatus {
+    PENDING
+    CONFIRMED
+    WAITING
+    IN_PROGRESS
+    COMPLETED
+    CANCELLED
+}
+
+class AppointmentDashboardResponse {
+    - total: Long
+    - pending: Long
+    - confirmed: Long
+    - waiting: Long
+    - inProgress: Long
+    - completed: Long
+    - cancelled: Long
+}
+
+class AppointmentResponse {
+    - id: Long
+    - patientName: String
+    - status: String
+}
+
+class ApiResponse<T> {
+    - status: int
+    - message: String
+    - data: T
+}
+
+AppointmentController ..> AppointmentService : uses
+AppointmentController ..> ApiResponse : creates
+AppointmentService <|.. AppointmentServiceImpl : implements
+AppointmentServiceImpl ..> AppointmentRepository : uses
+AppointmentServiceImpl ..> AppointmentDashboardResponse : creates
+AppointmentServiceImpl ..> AppointmentResponse : creates
+
+AppointmentRepository ..> Appointment : manages
+Appointment "1" -- "1" AppointmentStatus : uses >
+
+@enduml

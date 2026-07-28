@@ -44,6 +44,12 @@ public class LabOrderResponse {
     /* Tên loại dịch vụ/danh mục xét nghiệm cần thực hiện */
     private String serviceName;
 
+    /*
+     * Thời gian khám của lịch hẹn liên quan — dùng để frontend kiểm tra
+     * "chỉ thao tác trong ngày hôm nay"
+     */
+    private LocalDateTime appointmentTime;
+
     /* Ghi chú hoặc chỉ dẫn đặc biệt từ bác sĩ chỉ định */
     private String notes;
 
