@@ -1,0 +1,115 @@
+@startuml UC36c_SubmitLabResult_SequenceDiagram
+<style>
+document {
+  ParticipantPadding 10
+  BoxPadding 10
+}
+</style>
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 250
+
+skinparam participant {
+    BackgroundColor #DDEEFF
+    BorderColor     #336699
+    FontStyle       bold
+}
+skinparam actor {
+    BackgroundColor #FFFACD
+    BorderColor     #CC9900
+}
+skinparam note {
+    BackgroundColor #FFFFF0
+    BorderColor     #AAAAAA
+}
+skinparam ArrowColor #336699
+skinparam LifeLineBorderColor #336699
+
+title UC-36c: Submit Lab Result\n(Simplified Sequence Diagram)
+
+actor       "LabTechnician"                                     as LabTech
+participant ":LabOrderController"           as LC
+participant ":LabOrderService"               as LS
+participant ":LabOrderServiceImpl"       as LSImpl
+participant ":LabOrderRepository"               as LORepo
+participant ":LabResultRepository"              as LRRepo
+participant ":NotificationService"              as Notif
+
+note over LabTech
+  PRE: LabOrder.status = IN_PROGRESS.
+  Technician has completed all measurements.
+end note
+
+== Step 1 & 2: Technician Submits Final Result ==
+LabTech -> LC : submitResult(id, request, userDetails)
+activate LC
+LC -> LC : resolveLabTechnicianId(userDetails)
+LC -> LS : submitLabResult(id, request, labTechnicianId)
+activate LS
+LS -> LSImpl : submitLabResult(id, request, labTechnicianId)
+activate LSImpl
+
+LSImpl -> LORepo : findById(id)
+activate LORepo
+LORepo --> LSImpl : LabOrder
+deactivate LORepo
+
+opt [labOrder.status != IN_PROGRESS]
+  LSImpl --> LS : IllegalStateException("Can only submit results for an IN_PROGRESS LabOrder")
+  LS --> LC : IllegalStateException
+  LC --> LabTech : HTTP 400 Bad Request
+end
+
+LSImpl -> LRRepo : findTopByLabOrderIdOrderByIdDesc(id)
+activate LRRepo
+LRRepo --> LSImpl : Optional<LabResult>
+deactivate LRRepo
+
+note right of LSImpl
+  If LabResult not found, create new LabResult.
+  If found, update the existing one.
+end note
+
+LSImpl -> LRRepo : save(labResult)
+activate LRRepo
+note right of LRRepo
+  Sets all measurement fields:
+  vaL, vaR, sphL, cylL, axisL, iopL,
+  sphR, cylR, axisR, iopR, imageUrls, doctorNotes.
+end note
+LRRepo --> LSImpl : LabResult
+deactivate LRRepo
+
+LSImpl -> LORepo : save(labOrder)
+activate LORepo
+note right of LORepo
+  labOrder.status = SUBMITTED
+  labOrder.completedAt = now()
+end note
+LORepo --> LSImpl : LabOrder
+deactivate LORepo
+
+LSImpl -> Notif : sendNotification(...)
+activate Notif
+note right of Notif
+  Notify Doctor that
+  results are ready for review.
+end note
+Notif --> LSImpl : void
+deactivate Notif
+
+LSImpl --> LS : LabOrderResponse
+deactivate LSImpl
+LS --> LC : LabOrderResponse
+deactivate LS
+
+LC --> LabTech : HTTP 200 OK\nApiResponse<LabOrderResponse>
+deactivate LC
+
+note over LabTech
+  POST: LabOrder.status = SUBMITTED.
+  Waiting for Doctor to review (UC-37).
+end note
+
+@enduml

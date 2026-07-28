@@ -1,4 +1,4 @@
-@startuml UC26_ViewPatientMedicalHistory_ClassDiagram
+@startuml UC27_ManageEMR_ClassDiagram
 
 skinparam classAttributeIconSize 0
 skinparam monochrome false
@@ -11,78 +11,93 @@ skinparam class {
 }
 
 class EMRController {
-    + getPatientHistory(patientId: Long): ResponseEntity<ApiResponse<List<EMRResponse>>>
-    + getByAppointment(appointmentId: Long): ResponseEntity<ApiResponse<EMRResponse>>
+    + getByAppointment(appointmentId: Long, userDetails: UserDetails): ResponseEntity<ApiResponse<EMRResponse>>
+    + saveEMR(request: EMRRequest): ResponseEntity<ApiResponse<EMRResponse>>
+    + getEMRById(id: Long, userDetails: UserDetails): ResponseEntity<ApiResponse<EMRResponse>>
+    - resolveDoctorId(userDetails: UserDetails): Long
 }
 
 class AppointmentController {
-    + getMyAppointments(userDetails: UserDetails): ResponseEntity<ApiResponse<List<AppointmentResponse>>>
+    + abandonExam(appointmentId: Long): ResponseEntity<ApiResponse<AppointmentResponse>>
 }
 
 interface EMRService {
-    + getPatientHistory(patientId: Long): List<EMRResponse>
     + getOrCreateByAppointmentId(appointmentId: Long, doctorId: Long): EMRResponse
+    + saveEMR(request: EMRRequest): EMRResponse
+    + getById(id: Long): EMRResponse
 }
 
 interface AppointmentService {
-    + getMyAppointments(userId: Long): List<AppointmentResponse>
+    + abandonExam(appointmentId: Long): AppointmentResponse
 }
 
 class EMRServiceImpl {
-    + getPatientHistory(patientId: Long): List<EMRResponse>
     + getOrCreateByAppointmentId(appointmentId: Long, doctorId: Long): EMRResponse
+    + saveEMR(request: EMRRequest): EMRResponse
+    + getById(id: Long): EMRResponse
 }
 
 class AppointmentServiceImpl {
-    + getMyAppointments(userId: Long): List<AppointmentResponse>
+    + abandonExam(appointmentId: Long): AppointmentResponse
 }
 
 class MedicalRecordRepository {
-    + findByPatientIdOrderByCreatedAtDesc(patientId: Long): List<MedicalRecord>
-    + findByAppointmentId(appointmentId: Long): MedicalRecord
+    + findById(id: Long): Optional<MedicalRecord>
+    + findByAppointmentId(appointmentId: Long): Optional<MedicalRecord>
+    + save(record: MedicalRecord): MedicalRecord
 }
 
 class AppointmentRepository {
-    + findByUserId(userId: Long): List<Appointment>
-}
-
-class AuditLog {
-    + logAction(action: String, details: String): void
+    + findById(id: Long): Optional<Appointment>
+    + save(appointment: Appointment): Appointment
 }
 
 class MedicalRecord {
     - recordId: Long
+    - appointmentId: Long
     - status: MedicalRecordStatus
     - diagnosis: String
-    - createdAt: LocalDateTime
+    + getRecordId(): Long
+    + setStatus(status: MedicalRecordStatus): void
 }
 
 class Appointment {
     - appointmentId: Long
-    - scheduledTime: LocalDateTime
+    - status: AppointmentStatus
+    + getAppointmentId(): Long
+    + setStatus(status: AppointmentStatus): void
 }
 
 enum MedicalRecordStatus {
     DRAFT
+    IN_PROGRESS
     COMPLETED
     CANCELLED
 }
 
-class Patient {
-    - patientId: Long
-    - fullName: String
+enum AppointmentStatus {
+    PENDING
+    CONFIRMED
+    WAITING
+    IN_PROGRESS
+    COMPLETED
+    CANCELLED
+}
+
+class EMRRequest {
+    - appointmentId: Long
+    - status: String
+    - diagnosis: String
 }
 
 class EMRResponse {
     - recordId: Long
-    - date: LocalDate
-    - diagnosis: String
     - status: String
+    - diagnosis: String
 }
 
 class AppointmentResponse {
     - appointmentId: Long
-    - scheduledTime: LocalDateTime
     - status: String
 }
 
@@ -101,7 +116,8 @@ EMRService <|.. EMRServiceImpl : implements
 AppointmentService <|.. AppointmentServiceImpl : implements
 
 EMRServiceImpl ..> MedicalRecordRepository : uses
-EMRServiceImpl ..> AuditLog : uses
+EMRServiceImpl ..> AppointmentRepository : uses
+EMRServiceImpl ..> EMRRequest : consumes
 EMRServiceImpl ..> EMRResponse : creates
 
 AppointmentServiceImpl ..> AppointmentRepository : uses
@@ -111,7 +127,7 @@ MedicalRecordRepository ..> MedicalRecord : manages
 AppointmentRepository ..> Appointment : manages
 
 MedicalRecord "1" -- "1" MedicalRecordStatus : uses >
-MedicalRecord "0..*" -- "1" Patient : belongs to >
-Appointment "0..*" -- "1" Patient : belongs to >
+Appointment "1" -- "1" AppointmentStatus : uses >
+MedicalRecord "1" -- "1" Appointment : linked to >
 
 @enduml

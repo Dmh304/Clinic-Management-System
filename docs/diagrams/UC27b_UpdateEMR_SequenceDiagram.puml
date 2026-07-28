@@ -1,4 +1,4 @@
-@startuml UC25b_UpdateEMR_SequenceDiagram
+﻿@startuml UC27b_UpdateEMR_SequenceDiagram
 <style>
 document {
   ParticipantPadding 10
@@ -26,13 +26,13 @@ skinparam note {
 skinparam ArrowColor #336699
 skinparam LifeLineBorderColor #336699
 
-title UC-25b: Update EMR Draft\n(Simplified Sequence Diagram)
+title UC-27b: Update EMR Draft\n(Simplified Sequence Diagram)
 
 actor       "Doctor"                                    as Doctor
-participant "<<Controller>>\nEMRController"             as EMRC
-participant "<<Service>>\nEMRService"                   as EMRS
-participant "<<ServiceImpl>>\nEMRServiceImpl"           as EMRSImpl
-participant "<<Repository>>\nMedicalRecordRepository"   as MRRepo
+participant ":EMRController"             as EMRC
+participant ":EMRService"                   as EMRS
+participant ":EMRServiceImpl"           as EMRSImpl
+participant ":MedicalRecordRepository"   as MRRepo
 
 note over Doctor
   PRE: MedicalRecord exists and is in DRAFT or IN_PROGRESS status.

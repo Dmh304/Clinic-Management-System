@@ -1,4 +1,4 @@
-@startuml UC45_ViewDiagnosticResults_SequenceDiagram
+﻿@startuml UC46_ViewDiagnosticResults_SequenceDiagram
 <style>
 document {
   ParticipantPadding 10
@@ -26,14 +26,14 @@ skinparam note {
 skinparam ArrowColor #336699
 skinparam LifeLineBorderColor #336699
 
-title UC-45: View Diagnostic Results (Patient Flow)\n(Simplified Sequence Diagram)
+title UC-46: View Diagnostic Results (Patient Flow)\n(Simplified Sequence Diagram)
 
 actor       "Patient"                               as Actor
-participant "<<Controller>>\nLabOrderController"    as LOC
-participant "<<Service>>\nLabOrderService"          as LOS
-participant "<<ServiceImpl>>\nLabOrderServiceImpl"   as LOSImpl
-participant "<<Repository>>\nLabOrderRepository"    as LORepo
-participant "<<Repository>>\nLabResultRepository"   as LRRepo
+participant ":LabOrderController"    as LOC
+participant ":LabOrderService"          as LOS
+participant ":LabOrderServiceImpl"   as LOSImpl
+participant ":LabOrderRepository"    as LORepo
+participant ":LabResultRepository"   as LRRepo
 
 note over Actor
   PRE: Patient is authenticated.
@@ -41,17 +41,17 @@ note over Actor
 end note
 
 == Step 1: Patient Views Diagnostic History ==
-Actor -> LOC : getPatientLabOrders(userDetails: UserDetails)
+Actor -> LOC : getLabOrdersForPatient(userDetails: UserDetails)
 activate LOC
 
 LOC -> LOC : resolvePatientId(userDetails)
 
-LOC -> LOS : getPatientLabOrders(patientId: Long)
+LOC -> LOS : getLabOrdersForPatient(patientId: Long)
 activate LOS
-LOS -> LOSImpl : getPatientLabOrders(patientId: Long)
+LOS -> LOSImpl : getLabOrdersForPatient(patientId: Long)
 activate LOSImpl
 
-LOSImpl -> LORepo : findByPatientIdOrderByCreatedAtDesc(patientId: Long)
+LOSImpl -> LORepo : findByMedicalRecord_PatientIdOrderByCreatedAt(patientId: Long)
 activate LORepo
 LORepo --> LOSImpl : List<LabOrder>
 deactivate LORepo

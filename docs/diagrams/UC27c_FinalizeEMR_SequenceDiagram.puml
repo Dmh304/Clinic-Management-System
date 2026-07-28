@@ -1,4 +1,4 @@
-@startuml UC25d_CancelClinicalSession_SequenceDiagram
+﻿@startuml UC27c_FinalizeEMR_SequenceDiagram
 <style>
 document {
   ParticipantPadding 10
@@ -26,49 +26,55 @@ skinparam note {
 skinparam ArrowColor #336699
 skinparam LifeLineBorderColor #336699
 
-title UC-25d: Cancel Clinical Session\n(Simplified Sequence Diagram)
+title UC-27c: Finalize EMR\n(Simplified Sequence Diagram)
 
 actor       "Doctor"                                    as Doctor
-participant "<<Controller>>\nEMRController"                 as EMRC
-participant "<<Service>>\nEMRService"                       as EMRS
-participant "<<ServiceImpl>>\nEMRServiceImpl"               as EMRSImpl
-participant "<<Repository>>\nMedicalRecordRepository"       as MRRepo
-participant "<<Repository>>\nAppointmentRepository"         as ARepo
+participant ":EMRController"             as EMRC
+participant ":EMRService"                   as EMRS
+participant ":EMRServiceImpl"           as EMRSImpl
+participant ":MedicalRecordRepository"   as MRRepo
+participant ":AppointmentRepository"     as ARepo
 
 note over Doctor
   PRE: MedicalRecord is IN_PROGRESS or DRAFT.
-  Doctor decides to cancel the current examination session.
+  All required fields are completed.
 end note
 
-== Step 1: Doctor Cancels Session via EMR ==
-Doctor -> EMRC : cancelEMR(medicalRecordId: Long)
+== Step 1 & 2: Doctor Finalizes EMR ==
+note over Doctor
+  Doctor finishes entering all necessary clinical info.
+end note
+
+Doctor -> EMRC : saveEMR(request: EMRRequest)
 activate EMRC
-EMRC -> EMRS : cancelEMR(medicalRecordId: Long)
+EMRC -> EMRS : saveEMR(request: EMRRequest)
 activate EMRS
-EMRS -> EMRSImpl : cancelEMR(medicalRecordId: Long)
+EMRS -> EMRSImpl : saveEMR(request: EMRRequest)
 activate EMRSImpl
+
+== Step 3: System Validates Data ==
+note right of EMRSImpl
+  BR-10: Verifies ICD-10 codes, 
+  required observations, and prescriptions.
+  Checks request.status == COMPLETED
+end note
 
 EMRSImpl -> MRRepo : findById(id: Long)
 activate MRRepo
 MRRepo --> EMRSImpl : MedicalRecord
 deactivate MRRepo
 
-note right of EMRSImpl
-  BR-09 Updated: Session is fully cancelled.
-  MedicalRecord status is updated to CANCELLED.
-  Appointment is updated to CANCELLED.
-  Patient is removed from the queue entirely.
-end note
-
+== Step 4: System Updates Status ==
 EMRSImpl -> MRRepo : save(record: MedicalRecord)
 activate MRRepo
 note right of MRRepo
-  status = CANCELLED
+  Status changes to COMPLETED.
+  Record becomes read-only.
 end note
 MRRepo --> EMRSImpl : MedicalRecord
 deactivate MRRepo
 
-EMRSImpl -> ARepo : findById(appointmentId: Long)
+EMRSImpl -> ARepo : findById(id: Long)
 activate ARepo
 ARepo --> EMRSImpl : Appointment
 deactivate ARepo
@@ -76,7 +82,8 @@ deactivate ARepo
 EMRSImpl -> ARepo : save(appointment: Appointment)
 activate ARepo
 note right of ARepo
-  status = CANCELLED
+  Appointment status 
+  changes to COMPLETED.
 end note
 ARepo --> EMRSImpl : Appointment
 deactivate ARepo

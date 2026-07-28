@@ -1,4 +1,4 @@
-@startuml UC33_ViewLabQueue_ClassDiagram
+@startuml UC35_ViewLabQueue_ClassDiagram
 
 skinparam classAttributeIconSize 0
 skinparam monochrome false
@@ -11,7 +11,8 @@ skinparam class {
 }
 
 class LabOrderController {
-    + getPendingLabOrders(userDetails: UserDetails): ResponseEntity<ApiResponse<List<LabOrderResponse>>>
+    + getLabOrderQueue(userDetails: UserDetails): ResponseEntity<ApiResponse<List<LabOrderResponse>>>
+    - resolveLabTechnicianId(userDetails: UserDetails): Long
 }
 
 interface LabOrderService {
@@ -23,40 +24,38 @@ class LabOrderServiceImpl {
 }
 
 class LabOrderRepository {
-    + findByStatusOrderByOrderTimeAsc(status: LabOrderStatus): List<LabOrder>
+    + findByLabTechnicianIdOrderByPriorityAndCreatedAt(labTechnicianId: Long): List<LabOrder>
 }
 
 class LabOrder {
     - orderId: Long
     - status: LabOrderStatus
-    - orderTime: LocalDateTime
-    - testTypes: List<String>
+    - priority: LabPriority
+    - createdAt: LocalDateTime
     + getOrderId(): Long
     + getStatus(): LabOrderStatus
-    + getOrderTime(): LocalDateTime
+    + getPriority(): LabPriority
 }
 
 enum LabOrderStatus {
     PENDING
     IN_PROGRESS
-    COMPLETED
-    CANCELLED
+    SUBMITTED
+    APPROVED
+    REJECTED
 }
 
-class Patient {
-    - patientId: Long
-    - fullName: String
-}
-
-class Doctor {
-    - doctorId: Long
-    - fullName: String
+enum LabPriority {
+    PRIMARY
+    WARNING
+    EMERGENCY
 }
 
 class LabOrderResponse {
     - orderId: Long
     - status: String
-    - orderTime: LocalDateTime
+    - priority: String
+    - createdAt: LocalDateTime
 }
 
 class ApiResponse<T> {
@@ -73,8 +72,6 @@ LabOrderServiceImpl ..> LabOrderResponse : creates
 
 LabOrderRepository ..> LabOrder : manages
 LabOrder "1" -- "1" LabOrderStatus : uses >
-
-LabOrder "0..*" o-- "1" Patient : associated with >
-LabOrder "0..*" o-- "1" Doctor : ordered by >
+LabOrder "1" -- "1" LabPriority : uses >
 
 @enduml

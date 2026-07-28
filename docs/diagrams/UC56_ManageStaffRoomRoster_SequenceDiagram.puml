@@ -1,4 +1,4 @@
-@startuml UC56_ManageStaffRoomRoster_SequenceDiagram
+﻿@startuml UC56_ManageStaffRoomRoster_SequenceDiagram
 <style>
 document {
   ParticipantPadding 10
@@ -29,11 +29,11 @@ skinparam LifeLineBorderColor #336699
 title UC-56: Manage Staff Room Roster\n(Simplified Sequence Diagram)
 
 actor       "Clinic Manager"                                     as Actor
-participant "<<Controller>>\nStaffRoomAssignmentController"      as C
-participant "<<Service>>\nStaffRoomAssignmentService"            as S
-participant "<<ServiceImpl>>\nStaffRoomAssignmentServiceImpl"    as SImpl
-participant "<<Repository>>\nStaffRoomAssignmentRepository"      as Repo
-participant "<<Log>>\nAuditLog"                                  as Audit
+participant ":StaffRoomAssignmentController"      as C
+participant ":StaffRoomAssignmentService"            as S
+participant ":StaffRoomAssignmentServiceImpl"    as SImpl
+participant ":StaffRoomAssignmentRepository"      as Repo
+participant ":AuditLog"                                  as Audit
 
 note over Actor
   PRE: Clinic Manager is authenticated.

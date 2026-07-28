@@ -1,0 +1,102 @@
+@startuml UC27d_CancelClinicalSession_SequenceDiagram
+<style>
+document {
+  ParticipantPadding 10
+  BoxPadding 10
+}
+</style>
+
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam maxMessageSize 250
+
+skinparam participant {
+    BackgroundColor #DDEEFF
+    BorderColor     #336699
+    FontStyle       bold
+}
+skinparam actor {
+    BackgroundColor #FFFACD
+    BorderColor     #CC9900
+}
+skinparam note {
+    BackgroundColor #FFFFF0
+    BorderColor     #AAAAAA
+}
+skinparam ArrowColor #336699
+skinparam LifeLineBorderColor #336699
+
+title UC-27d: Cancel Clinical Session\n(Simplified Sequence Diagram)
+
+actor       "Doctor"                                            as Doctor
+participant ":AppointmentController"                            as AC
+participant ":AppointmentService"                               as AS
+participant ":AppointmentServiceImpl"                           as ASImpl
+participant ":AppointmentRepository"                            as ARepo
+participant ":MedicalRecordRepository"                          as MRRepo
+
+note over Doctor
+  PRE: Appointment status is IN_PROGRESS.
+  Doctor decides to cancel the current examination session.
+end note
+
+== Step 1: Doctor Cancels Session via UI ==
+Doctor -> AC : abandonExam(appointmentId)
+activate AC
+
+AC -> AS : abandonExam(appointmentId)
+activate AS
+AS -> ASImpl : abandonExam(appointmentId)
+activate ASImpl
+
+ASImpl -> ARepo : findById(appointmentId)
+activate ARepo
+ARepo --> ASImpl : Appointment (status = IN_PROGRESS)
+deactivate ARepo
+
+opt [appointment.status != IN_PROGRESS]
+    ASImpl --> AS : IllegalStateException
+    AS --> AC : IllegalStateException
+    AC --> Doctor : HTTP 400 Bad Request
+end
+
+ASImpl -> ARepo : save(appointment)
+activate ARepo
+note right of ARepo
+  appointment.status = CANCELLED
+  appointment.cancelReason = "Bác sĩ dừng khám giữa chừng"
+end note
+ARepo --> ASImpl : Appointment
+deactivate ARepo
+
+ASImpl -> MRRepo : findByAppointmentId(appointmentId)
+activate MRRepo
+MRRepo --> ASImpl : Optional<MedicalRecord>
+deactivate MRRepo
+
+opt [MedicalRecord exists AND status != COMPLETED]
+    ASImpl -> MRRepo : save(record)
+    activate MRRepo
+    note right of MRRepo
+      record.status = DRAFT
+      (reverts IN_PROGRESS back to DRAFT,
+      does NOT set to CANCELLED per code logic)
+    end note
+    MRRepo --> ASImpl : MedicalRecord
+    deactivate MRRepo
+end
+
+ASImpl --> AS : AppointmentResponse
+deactivate ASImpl
+AS --> AC : AppointmentResponse
+deactivate AS
+
+AC --> Doctor : HTTP 200 OK\nApiResponse<AppointmentResponse>
+deactivate AC
+
+note over Doctor
+  POST: Patient is removed from the active queue.
+  The MedicalRecord is reverted to DRAFT (not deleted - BR-09).
+end note
+
+@enduml

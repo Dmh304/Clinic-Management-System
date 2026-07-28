@@ -1,4 +1,4 @@
-@startuml UC55_ManageRoomCatalogue_SequenceDiagram
+﻿@startuml UC55_ManageRoomCatalogue_SequenceDiagram
 <style>
 document {
   ParticipantPadding 10
@@ -29,10 +29,10 @@ skinparam LifeLineBorderColor #336699
 title UC-55: Manage Room Catalogue & Service Mapping\n(Simplified Sequence Diagram)
 
 actor       "Clinic Manager"                         as Actor
-participant "<<Controller>>\nRoomController"         as C
-participant "<<Service>>\nRoomService"               as S
-participant "<<ServiceImpl>>\nRoomServiceImpl"       as SImpl
-participant "<<Repository>>\nRoomRepository"         as Repo
+participant ":RoomController"         as C
+participant ":RoomService"               as S
+participant ":RoomServiceImpl"       as SImpl
+participant ":RoomRepository"         as Repo
 
 note over Actor
   PRE: Clinic Manager is authenticated.

@@ -1,4 +1,4 @@
-@startuml UC38_FabricateEyeglasses_SequenceDiagram
+﻿@startuml UC38_FabricateEyeglasses_SequenceDiagram
 <style>
 document {
   ParticipantPadding 10
@@ -29,10 +29,10 @@ skinparam LifeLineBorderColor #336699
 title UC-38: Fabricate Eyeglasses\n(Simplified Sequence Diagram)
 
 actor       "Optician / Lab Tech"                    as Actor
-participant "<<Controller>>\nEyeglassOrderController" as C
-participant "<<Service>>\nEyeglassOrderService"       as S
-participant "<<ServiceImpl>>\nEyeglassOrderServiceImpl" as SImpl
-participant "<<Repository>>\nEyeglassOrderRepository" as Repo
+participant ":EyeglassOrderController" as C
+participant ":EyeglassOrderService"       as S
+participant ":EyeglassOrderServiceImpl" as SImpl
+participant ":EyeglassOrderRepository" as Repo
 
 note over Actor
   PRE: Actor is authenticated.

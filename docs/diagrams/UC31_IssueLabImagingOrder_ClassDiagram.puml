@@ -1,4 +1,4 @@
-@startuml UC29_IssueLabImagingOrder_ClassDiagram
+﻿@startuml UC31_IssueLabImagingOrder_ClassDiagram
 
 skinparam classAttributeIconSize 0
 skinparam monochrome false

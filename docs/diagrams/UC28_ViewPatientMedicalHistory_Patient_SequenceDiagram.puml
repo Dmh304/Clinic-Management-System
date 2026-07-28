@@ -1,4 +1,4 @@
-@startuml UC26_ViewPatientMedicalHistory_Patient_SequenceDiagram
+﻿@startuml UC28_ViewPatientMedicalHistory_Patient_SequenceDiagram
 <style>
 document {
   ParticipantPadding 10
@@ -26,17 +26,17 @@ skinparam note {
 skinparam ArrowColor #336699
 skinparam LifeLineBorderColor #336699
 
-title UC-26: View Patient Medical History (Patient Flow)\n(Simplified Sequence Diagram)
+title UC-28: View Patient Medical History (Patient Flow)\n(Simplified Sequence Diagram)
 
 actor       "Patient"                               as Actor
-participant "<<Controller>>\nAppointmentController" as AC
-participant "<<Service>>\nAppointmentService"       as AS
-participant "<<ServiceImpl>>\nAppointmentServiceImpl" as ASImpl
-participant "<<Repository>>\nAppointmentRepository" as ARepo
-participant "<<Controller>>\nEMRController"         as EMRC
-participant "<<Service>>\nEMRService"               as EMRS
-participant "<<ServiceImpl>>\nEMRServiceImpl"        as EMRSImpl
-participant "<<Repository>>\nMedicalRecordRepository" as MRRepo
+participant ":AppointmentController" as AC
+participant ":AppointmentService"       as AS
+participant ":AppointmentServiceImpl" as ASImpl
+participant ":AppointmentRepository" as ARepo
+participant ":EMRController"         as EMRC
+participant ":EMRService"               as EMRS
+participant ":EMRServiceImpl"        as EMRSImpl
+participant ":MedicalRecordRepository" as MRRepo
 
 note over Actor
   PRE: Patient is authenticated.
