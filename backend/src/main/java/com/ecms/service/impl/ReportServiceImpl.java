@@ -2,6 +2,7 @@ package com.ecms.service.impl;
 
 import com.ecms.entity.Appointment;
 import com.ecms.entity.AppointmentStatus;
+import com.ecms.entity.ClinicService;
 import com.ecms.entity.Doctor;
 import com.ecms.entity.Feedback;
 import com.ecms.entity.FeedbackParticipantRating;
