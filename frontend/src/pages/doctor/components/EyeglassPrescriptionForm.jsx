@@ -3,12 +3,12 @@
  * Created: 2026-06-22
  * Last Update: 2026-07-22
  */
-import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, InputNumber, Select, message, Spin, Tag, Descriptions, Popconfirm } from 'antd';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Form, Input, Button, InputNumber, Select, message, Tag, Descriptions, Popconfirm } from 'antd';
 import { eyeglassPrescriptionService } from '../../../services/eyeglassPrescriptionService';
 import axiosClient from '../../../api/axiosClient';
 
-const EyeFields = ({ prefix, label, isReadOnly, lockRefraction }) => (
+const EyeFields = ({ prefix, label, isReadOnly, lockRefraction, lockAdd }) => (
     <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: '14px 16px', marginBottom: 12 }}>
         <div style={{ fontWeight: 600, fontSize: 13, color: '#475569', marginBottom: 10 }}>{label}</div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12 }}>
@@ -21,14 +21,20 @@ const EyeFields = ({ prefix, label, isReadOnly, lockRefraction }) => (
             <Form.Item label="AXIS (°)" name={`${prefix}Axis`} style={{ marginBottom: 0 }}>
                 <InputNumber style={{ width: '100%' }} placeholder="0" min={0} max={180} disabled={isReadOnly || lockRefraction} />
             </Form.Item>
-            {/* ADD luôn cho phép nhập tay — không đo được từ khúc xạ kế, do bác sĩ quyết định */}
+            {/* ADD nhập tay — không đo được từ khúc xạ kế, do bác sĩ quyết định;
+                riêng kính đơn tròng thì không có thông số này nên bị khóa */}
             <Form.Item label="ADD" name={`${prefix}Add`} style={{ marginBottom: 0 }}>
-                <InputNumber style={{ width: '100%' }} placeholder="0.00" step={0.25} disabled={isReadOnly} />
+                <InputNumber style={{ width: '100%' }} placeholder="0.00" step={0.25} disabled={isReadOnly || lockAdd} />
             </Form.Item>
         </div>
         {lockRefraction && !isReadOnly && (
             <div style={{ fontSize: 12, color: '#0d9488', marginTop: 6 }}>
                 SPH/CYL/AXIS được lấy tự động từ kết quả đo khúc xạ đã duyệt.
+            </div>
+        )}
+        {lockAdd && !isReadOnly && (
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: 6 }}>
+                Kính đơn tròng không có độ ADD.
             </div>
         )}
     </div>
@@ -41,6 +47,8 @@ export default function EyeglassPrescriptionForm({ emr, isReadOnly, onPrescripti
     const [lensTypes, setLensTypes] = useState([]);
     const [editPrescriptionId, setEditPrescriptionId] = useState(null);
     const activeEmrIdRef = React.useRef(emr?.id);
+    const emrId = emr?.id;
+    const emrPatientId = emr?.patientId;
 
     // Đã có kết quả khúc xạ từ Lab (được bác sĩ duyệt) hay chưa —
     // nếu có, SPH/CYL/AXIS sẽ tự điền và khóa; PD và ADD vẫn luôn nhập tay
@@ -73,26 +81,26 @@ export default function EyeglassPrescriptionForm({ emr, isReadOnly, onPrescripti
         fetchLensTypes();
     }, []);
 
-    useEffect(() => {
-        activeEmrIdRef.current = emr?.id;
-        if (emr?.patientId) {
-            fetchExistingPrescriptions();
-        }
-    }, [emr?.patientId, emr?.id]);
-
     // Chức năng: Tải danh sách đơn kính đã được lưu cho bệnh án này (để hiển thị)
-    const fetchExistingPrescriptions = async () => {
+    const fetchExistingPrescriptions = useCallback(async () => {
         try {
-            const targetEmrId = activeEmrIdRef.current || emr?.id;
+            const targetEmrId = activeEmrIdRef.current || emrId;
             if (!targetEmrId) return;
             // Tương tác API: Lấy đơn kính theo bệnh nhân
-            const res = await eyeglassPrescriptionService.getByPatient(emr.patientId);
+            const res = await eyeglassPrescriptionService.getByPatient(emrPatientId);
             const currentPrescriptions = (res.data || []).filter(p => p.medicalRecordId === targetEmrId);
             setExistingPrescriptions(currentPrescriptions);
         } catch (error) {
             console.error('Lỗi khi tải danh sách đơn kính đã lưu', error);
         }
-    };
+    }, [emrId, emrPatientId]);
+
+    useEffect(() => {
+        activeEmrIdRef.current = emrId;
+        if (emrPatientId) {
+            fetchExistingPrescriptions();
+        }
+    }, [emrPatientId, emrId, fetchExistingPrescriptions]);
 
     // Chức năng: Xử lý lưu thông tin đo mắt và tròng kính thành một đơn kính mới
     const handleSave = async (values) => {
@@ -173,8 +181,8 @@ export default function EyeglassPrescriptionForm({ emr, isReadOnly, onPrescripti
     return (
         <div style={{ paddingTop: 12 }}>
             <Form component={false} form={form} layout="vertical" onFinish={handleSave} disabled={isFormDisabled}>
-                <EyeFields prefix="od" label="Mắt phải (OD)" isReadOnly={isFormDisabled} lockRefraction={hasLabRefraction} />
-                <EyeFields prefix="os" label="Mắt trái (OS)" isReadOnly={isFormDisabled} lockRefraction={hasLabRefraction} />
+                <EyeFields prefix="od" label="Mắt phải (OD)" isReadOnly={isFormDisabled} lockRefraction={hasLabRefraction} lockAdd={isSingleVision} />
+                <EyeFields prefix="os" label="Mắt trái (OS)" isReadOnly={isFormDisabled} lockRefraction={hasLabRefraction} lockAdd={isSingleVision} />
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
                     <Form.Item label="Khoảng cách đồng tử (PD)" name="pd" rules={[{ required: true, message: 'Nhập PD' }]}>
